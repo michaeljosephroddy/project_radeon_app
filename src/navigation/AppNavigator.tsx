@@ -40,7 +40,7 @@ export function AppNavigator() {
         const titles: Record<Tab, React.ReactNode> = {
             feed: (
                 <Text style={styles.wordmark}>
-                    project<Text style={styles.wordmarkAccent}>_radeon</Text>
+                    Sober<Text style={styles.wordmarkAccent}>Space</Text>
                 </Text>
             ),
             people: <Text style={styles.pageTitle}>People</Text>,
@@ -174,16 +174,16 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         borderTopWidth: 0.5,
         borderTopColor: Colors.light.border,
-        paddingTop: 12,
+        paddingTop: 16,        // ← was 12
     },
-    tabItem: { flex: 1, alignItems: 'center', gap: 4 },
+    tabItem: { flex: 1, alignItems: 'center', gap: 6 },   // ← gap was 4
     tabIndicator: {
-        width: 18,
-        height: 2,
+        width: 24,             // ← was 18
+        height: 3,             // ← was 2
         borderRadius: 2,
         backgroundColor: 'transparent',
     },
     tabIndicatorActive: { backgroundColor: Colors.primary },
-    tabLabel: { fontSize: Typography.sizes.xs, color: Colors.light.textTertiary },
+    tabLabel: { fontSize: Typography.sizes.sm, color: Colors.light.textTertiary },  // ← was xs
     tabLabelActive: { color: Colors.primary },
 });

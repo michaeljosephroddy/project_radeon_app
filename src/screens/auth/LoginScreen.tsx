@@ -1,138 +1,138 @@
 import React, { useState } from 'react';
 import {
-  View, Text, TextInput, TouchableOpacity,
-  StyleSheet, KeyboardAvoidingView, Platform,
-  ScrollView, ActivityIndicator, Alert,
+    View, Text, TextInput, TouchableOpacity,
+    StyleSheet, KeyboardAvoidingView, Platform,
+    ScrollView, ActivityIndicator, Alert,
 } from 'react-native';
 import { useAuth } from '../../hooks/useAuth';
 import { Colors, Typography, Spacing, Radii } from '../../utils/theme';
 
 interface Props {
-  onGoToRegister: () => void;
+    onGoToRegister: () => void;
 }
 
 export function LoginScreen({ onGoToRegister }: Props) {
-  const { login } = useAuth();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false);
+    const { login } = useAuth();
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
+    const [loading, setLoading] = useState(false);
 
-  const handleLogin = async () => {
-    if (!email || !password) {
-      Alert.alert('Missing fields', 'Please enter your email and password.');
-      return;
-    }
-    setLoading(true);
-    try {
-      await login(email.trim().toLowerCase(), password);
-    } catch (e: any) {
-      Alert.alert('Login failed', e.message || 'Invalid credentials.');
-    } finally {
-      setLoading(false);
-    }
-  };
+    const handleLogin = async () => {
+        if (!email || !password) {
+            Alert.alert('Missing fields', 'Please enter your email and password.');
+            return;
+        }
+        setLoading(true);
+        try {
+            await login(email.trim().toLowerCase(), password);
+        } catch (e: any) {
+            Alert.alert('Login failed', e.message || 'Invalid credentials.');
+        } finally {
+            setLoading(false);
+        }
+    };
 
-  return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
-      <ScrollView contentContainerStyle={styles.inner} keyboardShouldPersistTaps="handled">
-        <View style={styles.header}>
-          <Text style={styles.wordmark}>
-            project<Text style={styles.wordmarkAccent}>_radeon</Text>
-          </Text>
-          <Text style={styles.tagline}>A social life worth staying sober for.</Text>
-        </View>
+    return (
+        <KeyboardAvoidingView
+            style={styles.container}
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
+            <ScrollView contentContainerStyle={styles.inner} keyboardShouldPersistTaps="handled">
+                <View style={styles.header}>
+                    <Text style={styles.wordmark}>
+                        Sober<Text style={styles.wordmarkAccent}>Space</Text>
+                    </Text>
+                    <Text style={styles.tagline}>A social life worth staying sober for.</Text>
+                </View>
 
-        <View style={styles.form}>
-          <Text style={styles.label}>Email</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="you@example.com"
-            placeholderTextColor={Colors.light.textTertiary}
-            autoCapitalize="none"
-            keyboardType="email-address"
-            value={email}
-            onChangeText={setEmail}
-          />
+                <View style={styles.form}>
+                    <Text style={styles.label}>Email</Text>
+                    <TextInput
+                        style={styles.input}
+                        placeholder="you@example.com"
+                        placeholderTextColor={Colors.light.textTertiary}
+                        autoCapitalize="none"
+                        keyboardType="email-address"
+                        value={email}
+                        onChangeText={setEmail}
+                    />
 
-          <Text style={styles.label}>Password</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="••••••••"
-            placeholderTextColor={Colors.light.textTertiary}
-            secureTextEntry
-            value={password}
-            onChangeText={setPassword}
-          />
+                    <Text style={styles.label}>Password</Text>
+                    <TextInput
+                        style={styles.input}
+                        placeholder="••••••••"
+                        placeholderTextColor={Colors.light.textTertiary}
+                        secureTextEntry
+                        value={password}
+                        onChangeText={setPassword}
+                    />
 
-          <TouchableOpacity
-            style={[styles.btn, loading && styles.btnDisabled]}
-            onPress={handleLogin}
-            disabled={loading}
-          >
-            {loading
-              ? <ActivityIndicator color="#fff" />
-              : <Text style={styles.btnText}>Sign in</Text>
-            }
-          </TouchableOpacity>
+                    <TouchableOpacity
+                        style={[styles.btn, loading && styles.btnDisabled]}
+                        onPress={handleLogin}
+                        disabled={loading}
+                    >
+                        {loading
+                            ? <ActivityIndicator color="#fff" />
+                            : <Text style={styles.btnText}>Sign in</Text>
+                        }
+                    </TouchableOpacity>
 
-          <TouchableOpacity style={styles.switchLink} onPress={onGoToRegister}>
-            <Text style={styles.switchText}>
-              New here? <Text style={styles.switchAccent}>Create an account</Text>
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
-  );
+                    <TouchableOpacity style={styles.switchLink} onPress={onGoToRegister}>
+                        <Text style={styles.switchText}>
+                            New here? <Text style={styles.switchAccent}>Create an account</Text>
+                        </Text>
+                    </TouchableOpacity>
+                </View>
+            </ScrollView>
+        </KeyboardAvoidingView>
+    );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.light.background },
-  inner: { flexGrow: 1, justifyContent: 'center', padding: Spacing.xl },
-  header: { marginBottom: 40 },
-  wordmark: {
-    fontSize: 28,
-    fontWeight: '600',
-    color: Colors.light.textPrimary,
-    letterSpacing: -0.5,
-  },
-  wordmarkAccent: { color: Colors.primary },
-  tagline: {
-    fontSize: Typography.sizes.md,
-    color: Colors.light.textTertiary,
-    marginTop: Spacing.sm,
-  },
-  form: { gap: Spacing.sm },
-  label: {
-    fontSize: Typography.sizes.sm,
-    fontWeight: '500',
-    color: Colors.light.textSecondary,
-    marginBottom: 2,
-    marginTop: Spacing.sm,
-  },
-  input: {
-    backgroundColor: Colors.light.backgroundSecondary,
-    borderRadius: Radii.md,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: 13,
-    fontSize: Typography.sizes.md,
-    color: Colors.light.textPrimary,
-    borderWidth: 0.5,
-    borderColor: Colors.light.border,
-  },
-  btn: {
-    backgroundColor: Colors.primary,
-    borderRadius: Radii.md,
-    paddingVertical: 14,
-    alignItems: 'center',
-    marginTop: Spacing.md,
-  },
-  btnDisabled: { opacity: 0.6 },
-  btnText: { color: '#fff', fontWeight: '600', fontSize: Typography.sizes.md },
-  switchLink: { alignItems: 'center', marginTop: Spacing.lg },
-  switchText: { fontSize: Typography.sizes.base, color: Colors.light.textTertiary },
-  switchAccent: { color: Colors.primary, fontWeight: '500' },
+    container: { flex: 1, backgroundColor: Colors.light.background },
+    inner: { flexGrow: 1, justifyContent: 'center', padding: Spacing.xl },
+    header: { marginBottom: 40 },
+    wordmark: {
+        fontSize: 28,
+        fontWeight: '600',
+        color: Colors.light.textPrimary,
+        letterSpacing: -0.5,
+    },
+    wordmarkAccent: { color: Colors.primary },
+    tagline: {
+        fontSize: Typography.sizes.md,
+        color: Colors.light.textTertiary,
+        marginTop: Spacing.sm,
+    },
+    form: { gap: Spacing.sm },
+    label: {
+        fontSize: Typography.sizes.sm,
+        fontWeight: '500',
+        color: Colors.light.textSecondary,
+        marginBottom: 2,
+        marginTop: Spacing.sm,
+    },
+    input: {
+        backgroundColor: Colors.light.backgroundSecondary,
+        borderRadius: Radii.md,
+        paddingHorizontal: Spacing.md,
+        paddingVertical: 13,
+        fontSize: Typography.sizes.md,
+        color: Colors.light.textPrimary,
+        borderWidth: 0.5,
+        borderColor: Colors.light.border,
+    },
+    btn: {
+        backgroundColor: Colors.primary,
+        borderRadius: Radii.md,
+        paddingVertical: 14,
+        alignItems: 'center',
+        marginTop: Spacing.md,
+    },
+    btnDisabled: { opacity: 0.6 },
+    btnText: { color: '#fff', fontWeight: '600', fontSize: Typography.sizes.md },
+    switchLink: { alignItems: 'center', marginTop: Spacing.lg },
+    switchText: { fontSize: Typography.sizes.base, color: Colors.light.textTertiary },
+    switchAccent: { color: Colors.primary, fontWeight: '500' },
 });
