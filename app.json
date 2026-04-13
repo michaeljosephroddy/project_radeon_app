@@ -1,0 +1,25 @@
+{
+  "expo": {
+    "name": "Project Radeon",
+    "slug": "project-radeon",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "backgroundColor": "#7F77DD"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.projectradeon.app"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#7F77DD"
+      },
+      "package": "com.projectradeon.app"
+    },
+    "plugins": [
+      "expo-secure-store"
+    ]
+  }
+}

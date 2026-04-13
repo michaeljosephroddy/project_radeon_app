@@ -1,0 +1,51 @@
+# dependencies
+node_modules/
+
+# Expo
+.expo/
+.expo-shared/
+
+# build outputs
+dist/
+web-build/
+
+# native builds
+android/build/
+android/app/build/
+ios/build/
+
+# local env files (secrets)
+.env
+.env.*
+
+# logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# editor files
+.vscode/
+.idea/
+
+# Metro / bundler cache
+.metro-cache/
+
+# Gradle
+android/.gradle/
+
+# Android local config (VERY important)
+android/local.properties
+
+# keystore files (never commit these)
+*.keystore
+*.jks
+
+# debug files
+*.log
+
+# TypeScript
+*.tsbuildinfo
