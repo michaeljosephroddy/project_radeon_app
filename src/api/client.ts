@@ -35,7 +35,9 @@ async function request<T>(
     }
 
     const res = await fetch(`${BASE_URL}${path}`, { ...options, headers });
-    const json = await res.json();
+
+    const text = await res.text();
+    const json = text ? (() => { try { return JSON.parse(text); } catch { return {}; } })() : {};
 
     if (!res.ok) {
         throw new Error(json.error || `Request failed: ${res.status}`);
@@ -56,6 +58,7 @@ export interface User {
     sober_since?: string;
     created_at: string;
     interests: string[];
+    discovery_radius_km?: number;
 }
 
 export interface Post {
@@ -94,6 +97,7 @@ export interface Connection {
     avatar_url?: string;
     city?: string;
     status: string;
+    type?: string | null;
     connected_at: string;
 }
 
@@ -122,9 +126,12 @@ export interface Conversation {
     id: string;
     is_group: boolean;
     name?: string;
+    first_name?: string;
+    last_name?: string;
     created_at: string;
     last_message?: string;
     last_message_at?: string;
+    connection_type?: string | null;
 }
 
 export interface Message {
@@ -174,17 +181,39 @@ export async function updateMe(data: Partial<User>): Promise<User> {
     return request('/users/me', { method: 'PATCH', body: JSON.stringify(data) });
 }
 
+export async function updateLocation(lat: number, lng: number): Promise<void> {
+    await request('/users/me', { method: 'PATCH', body: JSON.stringify({ lat, lng }) });
+}
+
 export async function getUser(id: string): Promise<User> {
     return request(`/users/${id}`);
 }
 
-export async function discoverUsers(city?: string): Promise<User[]> {
-    const params = city ? `?city=${encodeURIComponent(city)}` : '';
-    return request(`/users/discover${params}`);
-}
-
 export async function setInterests(interestIds: string[]): Promise<void> {
     return request('/users/me/interests', { method: 'PUT', body: JSON.stringify({ interest_ids: interestIds }) });
+}
+
+
+export interface ScoredUser {
+    id: string;
+    first_name: string;
+    last_name: string;
+    avatar_url?: string;
+    city?: string;
+    score: number;
+}
+
+export async function getSuggestions(): Promise<ScoredUser[]> {
+    return request('/users/suggestions');
+}
+
+export async function likeUser(id: string): Promise<{ matched: boolean }> {
+    const result = await request<{ matched: boolean } | undefined>(`/users/${id}/like`, { method: 'POST' });
+    return result ?? { matched: false };
+}
+
+export async function dismissSuggestion(id: string): Promise<void> {
+    return request(`/users/${id}/dismiss`, { method: 'POST' });
 }
 
 // ── Feed & Posts ───────────────────────────────────────────────────────────

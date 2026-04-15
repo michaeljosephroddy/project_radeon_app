@@ -3,7 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet, Modal, Pressable } from 'reac
 import { GestureDetector, Gesture, GestureHandlerRootView } from 'react-native-gesture-handler';
 import Animated, {
     useSharedValue, useAnimatedStyle,
-    withTiming, withSpring, runOnJS,
+    withTiming, withSpring, runOnJS, Easing,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Avatar } from './Avatar';
@@ -19,16 +19,25 @@ interface ConnectionSheetProps {
 
 export function ConnectionSheet({ visible, connection, onClose, onMessage }: ConnectionSheetProps) {
     const insets = useSafeAreaInsets();
-    const translateY = useSharedValue(300);
+    const sheetHeight = useSharedValue(600);
+    const translateY = useSharedValue(600);
     const opacity = useSharedValue(0);
+
+    const slideOut = (onDone?: () => void) => {
+        'worklet';
+        translateY.value = withTiming(sheetHeight.value, { duration: 280, easing: Easing.in(Easing.quad) });
+        opacity.value = withTiming(0, { duration: 200 }, onDone
+            ? (finished) => { 'worklet'; if (finished) runOnJS(onDone)(); }
+            : undefined,
+        );
+    };
 
     useEffect(() => {
         if (visible) {
-            translateY.value = withTiming(0, { duration: 250 });
-            opacity.value = withTiming(1, { duration: 200 });
+            translateY.value = withTiming(0, { duration: 300, easing: Easing.out(Easing.quad) });
+            opacity.value = withTiming(1, { duration: 250 });
         } else {
-            translateY.value = withTiming(300, { duration: 200 });
-            opacity.value = withTiming(0, { duration: 200 });
+            slideOut();
         }
     }, [visible]);
 
@@ -41,8 +50,7 @@ export function ConnectionSheet({ visible, connection, onClose, onMessage }: Con
     }));
 
     const dismiss = () => {
-        translateY.value = withTiming(300, { duration: 200 });
-        opacity.value = withTiming(0, { duration: 200 }, () => runOnJS(onClose)());
+        slideOut(onClose);
     };
 
     const panGesture = Gesture.Pan()
@@ -53,8 +61,7 @@ export function ConnectionSheet({ visible, connection, onClose, onMessage }: Con
         })
         .onEnd((e) => {
             if (e.translationY > 80 || e.velocityY > 500) {
-                translateY.value = withTiming(300, { duration: 200 });
-                opacity.value = withTiming(0, { duration: 200 }, () => runOnJS(onClose)());
+                slideOut(onClose);
             } else {
                 translateY.value = withSpring(0, { damping: 20, stiffness: 300 });
             }
@@ -70,7 +77,10 @@ export function ConnectionSheet({ visible, connection, onClose, onMessage }: Con
 
             <GestureHandlerRootView style={styles.gestureRoot}>
                 <GestureDetector gesture={panGesture}>
-                    <Animated.View style={[styles.sheet, { paddingBottom: insets.bottom + 16 }, sheetStyle]}>
+                    <Animated.View
+                        style={[styles.sheet, { paddingBottom: insets.bottom + 16 }, sheetStyle]}
+                        onLayout={(e) => { sheetHeight.value = e.nativeEvent.layout.height; }}
+                    >
 
                         <View style={styles.handleArea}>
                             <View style={styles.handle} />

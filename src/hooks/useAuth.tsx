@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import * as api from '../api/client';
+import { syncLocationIfNeeded } from './useLocation';
 
 interface AuthContextType {
     user: api.User | null;
@@ -39,6 +40,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         await api.setToken(token);
         const me = await api.getMe();
         setUser(me);
+        // Fire location sync in background — does not block login completion
+        syncLocationIfNeeded().catch(() => { });
     };
 
     const register = async (data: Parameters<typeof api.register>[0]) => {
@@ -46,6 +49,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         await api.setToken(token);
         const me = await api.getMe();
         setUser(me);
+        // Fire location sync in background — does not block registration completion
+        syncLocationIfNeeded().catch(() => { });
     };
 
     const logout = async () => {

@@ -7,11 +7,11 @@ import {
 import { useAuth } from '../../hooks/useAuth';
 import { Colors, Typography, Spacing, Radii } from '../../utils/theme';
 
-interface Props {
+interface LoginScreenProps {
     onGoToRegister: () => void;
 }
 
-export function LoginScreen({ onGoToRegister }: Props) {
+export function LoginScreen({ onGoToRegister }: LoginScreenProps) {
     const { login } = useAuth();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -25,8 +25,8 @@ export function LoginScreen({ onGoToRegister }: Props) {
         setLoading(true);
         try {
             await login(email.trim().toLowerCase(), password);
-        } catch (e: any) {
-            Alert.alert('Login failed', e.message || 'Invalid credentials.');
+        } catch (e: unknown) {
+            Alert.alert('Login failed', e instanceof Error ? e.message : 'Invalid credentials.');
         } finally {
             setLoading(false);
         }

@@ -4,6 +4,7 @@ import {
     StyleSheet, RefreshControl, ActivityIndicator, TextInput,
 } from 'react-native';
 import { Avatar } from '../../components/Avatar';
+import { MatchBadge } from '../../components/MatchBadge';
 import * as api from '../../api/client';
 import { Colors, Typography, Spacing, Radii } from '../../utils/theme';
 
@@ -20,11 +21,55 @@ function timeLabel(dateStr?: string): string {
     return d.toLocaleDateString('default', { weekday: 'short' });
 }
 
-interface Props {
+interface MessagesScreenProps {
     onOpenConversation: (conv: api.Conversation) => void;
 }
 
-export function MessagesScreen({ onOpenConversation }: Props) {
+interface ConvItemProps {
+    item: api.Conversation;
+    onOpenConversation: (conv: api.Conversation) => void;
+}
+
+function ConvItem({ item, onOpenConversation }: ConvItemProps) {
+    const firstName = item.is_group ? '' : (item.first_name ?? '');
+    const lastName  = item.is_group ? '' : (item.last_name  ?? '');
+    const displayName = item.is_group
+        ? (item.name ?? 'Group')
+        : [firstName, lastName].filter(Boolean).join(' ') || 'Unknown';
+
+    return (
+        <TouchableOpacity
+            style={styles.item}
+            onPress={() => onOpenConversation(item)}
+        >
+            <View style={styles.avatarWrap}>
+                <Avatar firstName={firstName} lastName={lastName} size={40} fontSize={13} />
+                {item.is_group && (
+                    <View style={styles.groupBadge}>
+                        <Text style={styles.groupBadgeText}>G</Text>
+                    </View>
+                )}
+            </View>
+            <View style={styles.meta}>
+                <View style={styles.metaTop}>
+                    <Text style={styles.name}>{displayName}</Text>
+                    {item.connection_type === 'MATCH' && <MatchBadge />}
+                    {item.is_group && (
+                        <View style={styles.groupPill}>
+                            <Text style={styles.groupPillText}>group</Text>
+                        </View>
+                    )}
+                </View>
+                {item.last_message && (
+                    <Text style={styles.preview} numberOfLines={1}>{item.last_message}</Text>
+                )}
+            </View>
+            <Text style={styles.time}>{timeLabel(item.last_message_at)}</Text>
+        </TouchableOpacity>
+    );
+}
+
+export function MessagesScreen({ onOpenConversation }: MessagesScreenProps) {
     const [convs, setConvs] = useState<api.Conversation[]>([]);
     const [requests, setRequests] = useState<api.Conversation[]>([]);
     const [loading, setLoading] = useState(true);
@@ -69,45 +114,6 @@ export function MessagesScreen({ onOpenConversation }: Props) {
         return <View style={styles.center}><ActivityIndicator color={Colors.primary} /></View>;
     }
 
-    const ConvItem = ({ item }: { item: api.Conversation }) => {
-        const displayName = item.is_group
-            ? (item.name ?? 'Group')
-            : item.name ?? 'Direct Message';
-        const parts = displayName.split(' ');
-        const firstName = parts[0] ?? 'U';
-        const lastName = parts[1] ?? '';
-
-        return (
-            <TouchableOpacity
-                style={styles.item}
-                onPress={() => onOpenConversation(item)}
-            >
-                <View style={styles.avatarWrap}>
-                    <Avatar firstName={firstName} lastName={lastName} size={40} fontSize={13} />
-                    {item.is_group && (
-                        <View style={styles.groupBadge}>
-                            <Text style={styles.groupBadgeText}>G</Text>
-                        </View>
-                    )}
-                </View>
-                <View style={styles.meta}>
-                    <View style={styles.metaTop}>
-                        <Text style={styles.name}>{displayName}</Text>
-                        {item.is_group && (
-                            <View style={styles.groupPill}>
-                                <Text style={styles.groupPillText}>group</Text>
-                            </View>
-                        )}
-                    </View>
-                    {item.last_message && (
-                        <Text style={styles.preview} numberOfLines={1}>{item.last_message}</Text>
-                    )}
-                </View>
-                <Text style={styles.time}>{timeLabel(item.last_message_at)}</Text>
-            </TouchableOpacity>
-        );
-    };
-
     return (
         <FlatList
             data={convs}
@@ -136,18 +142,22 @@ export function MessagesScreen({ onOpenConversation }: Props) {
                                 </View>
                             </View>
                             {requests.map(req => {
-                                const displayName = req.name ?? 'Direct Message';
-                                const parts = displayName.split(' ');
+                                const reqFirst = req.first_name ?? '';
+                                const reqLast  = req.last_name  ?? '';
+                                const displayName = [reqFirst, reqLast].filter(Boolean).join(' ') || 'Unknown';
                                 return (
                                     <View key={req.id} style={styles.requestItem}>
                                         <Avatar
-                                            firstName={parts[0] ?? 'U'}
-                                            lastName={parts[1] ?? ''}
+                                            firstName={reqFirst || 'U'}
+                                            lastName={reqLast}
                                             size={40}
                                             fontSize={13}
                                         />
                                         <View style={styles.requestMeta}>
-                                            <Text style={styles.name}>{displayName}</Text>
+                                            <View style={styles.requestNameRow}>
+                                                <Text style={styles.name}>{displayName}</Text>
+                                                {req.connection_type === 'MATCH' && <MatchBadge />}
+                                            </View>
                                             {req.last_message && (
                                                 <Text style={styles.preview} numberOfLines={1}>
                                                     {req.last_message}
@@ -186,7 +196,7 @@ export function MessagesScreen({ onOpenConversation }: Props) {
                     </View>
                 ) : null
             }
-            renderItem={({ item }) => <ConvItem item={item} />}
+            renderItem={({ item }) => <ConvItem item={item} onOpenConversation={onOpenConversation} />}
         />
     );
 }
@@ -244,6 +254,7 @@ const styles = StyleSheet.create({
         borderBottomColor: Colors.light.border,
     },
     requestMeta: { flex: 1, minWidth: 0 },
+    requestNameRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
     acceptBtn: {
         backgroundColor: Colors.primary,
         borderRadius: Radii.sm,

@@ -3,6 +3,7 @@ import {
     View, Text, FlatList, TouchableOpacity, TextInput,
     StyleSheet, RefreshControl, ActivityIndicator, Alert,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { Avatar } from '../../components/Avatar';
 import * as api from '../../api/client';
 import { useAuth } from '../../hooks/useAuth';
@@ -18,7 +19,12 @@ function timeAgo(dateStr: string): string {
     return `${Math.floor(hrs / 24)}d`;
 }
 
-function PostCard({ post, currentUserId }: { post: api.Post; currentUserId: string }) {
+interface PostCardProps {
+    post: api.Post;
+    currentUserId: string;
+}
+
+function PostCard({ post, currentUserId }: PostCardProps) {
     const [liked, setLiked] = useState(false);
     const [likeCount, setLikeCount] = useState(0);
 
@@ -34,8 +40,8 @@ function PostCard({ post, currentUserId }: { post: api.Post; currentUserId: stri
         try {
             await api.sendConnectionRequest(post.user_id);
             Alert.alert('Request sent', `Connection request sent to ${post.first_name}.`);
-        } catch (e: any) {
-            Alert.alert('', e.message);
+        } catch (e: unknown) {
+            Alert.alert('', e instanceof Error ? e.message : 'Something went wrong.');
         }
     };
 
@@ -43,7 +49,7 @@ function PostCard({ post, currentUserId }: { post: api.Post; currentUserId: stri
         <View style={styles.postCard}>
             <View style={styles.postHead}>
                 <Avatar firstName={post.first_name} lastName={post.last_name} size={36} />
-                <View style={{ flex: 1 }}>
+                <View style={styles.postHeadBody}>
                     <Text style={styles.postName}>{post.first_name} {post.last_name}</Text>
                     <Text style={styles.postMeta}>{timeAgo(post.created_at)}</Text>
                 </View>
@@ -56,13 +62,17 @@ function PostCard({ post, currentUserId }: { post: api.Post; currentUserId: stri
             <Text style={styles.postBody}>{post.body}</Text>
             <View style={styles.postFoot}>
                 <TouchableOpacity style={styles.postAction} onPress={handleReact}>
-                    <Text style={[styles.postActionIcon, liked && styles.liked]}>♥</Text>
+                    <Ionicons
+                        name={liked ? 'heart' : 'heart-outline'}
+                        size={16}
+                        color={liked ? '#D85A30' : Colors.light.textTertiary}
+                    />
                     <Text style={[styles.postActionText, liked && styles.liked]}>
                         {likeCount > 0 ? likeCount : 'Like'}
                     </Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.postAction}>
-                    <Text style={styles.postActionIcon}>○</Text>
+                    <Ionicons name="chatbubble-outline" size={15} color={Colors.light.textTertiary} />
                     <Text style={styles.postActionText}>Comment</Text>
                 </TouchableOpacity>
             </View>
@@ -102,8 +112,8 @@ export function FeedScreen() {
             setDraft('');
             setComposing(false);
             await load();
-        } catch (e: any) {
-            Alert.alert('Error', e.message);
+        } catch (e: unknown) {
+            Alert.alert('Error', e instanceof Error ? e.message : 'Something went wrong.');
         } finally {
             setPosting(false);
         }
@@ -183,7 +193,7 @@ const styles = StyleSheet.create({
         color: Colors.light.textPrimary,
         maxHeight: 100,
     },
-    composePlaceholder: { flex: 1, fontSize: Typography.sizes.base, color: Colors.light.textTertiary },
+    composePlaceholder: { flex: 1, fontSize: Typography.sizes.base, color: Colors.light.textTertiary, textAlignVertical: 'center' },
     postBtn: {
         backgroundColor: Colors.primary,
         borderRadius: Radii.sm,
@@ -200,6 +210,7 @@ const styles = StyleSheet.create({
         marginBottom: Spacing.sm,
         overflow: 'hidden',
     },
+    postHeadBody: { flex: 1 },
     postHead: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -226,7 +237,6 @@ const styles = StyleSheet.create({
         borderTopColor: Colors.light.border,
     },
     postAction: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-    postActionIcon: { fontSize: 14, color: Colors.light.textTertiary },
     postActionText: { fontSize: Typography.sizes.sm, color: Colors.light.textTertiary },
     liked: { color: '#D85A30' },
     connectPill: {

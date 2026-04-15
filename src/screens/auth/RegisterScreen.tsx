@@ -7,11 +7,11 @@ import {
 import { useAuth } from '../../hooks/useAuth';
 import { Colors, Typography, Spacing, Radii } from '../../utils/theme';
 
-interface Props {
+interface RegisterScreenProps {
   onGoToLogin: () => void;
 }
 
-export function RegisterScreen({ onGoToLogin }: Props) {
+export function RegisterScreen({ onGoToLogin }: RegisterScreenProps) {
   const { register } = useAuth();
   const [form, setForm] = useState({
     first_name: '',
@@ -39,8 +39,8 @@ export function RegisterScreen({ onGoToLogin }: Props) {
         sober_since: form.sober_since || undefined,
         city: form.city || undefined,
       });
-    } catch (e: any) {
-      Alert.alert('Registration failed', e.message || 'Something went wrong.');
+    } catch (e: unknown) {
+      Alert.alert('Registration failed', e instanceof Error ? e.message : 'Something went wrong.');
     } finally {
       setLoading(false);
     }

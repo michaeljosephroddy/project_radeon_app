@@ -15,7 +15,12 @@ function formatEventDate(dateStr: string) {
   };
 }
 
-function EventCard({ event, onToggleRSVP }: { event: api.Event; onToggleRSVP: (id: string) => void }) {
+interface EventCardProps {
+  event: api.Event;
+  onToggleRSVP: (id: string) => void;
+}
+
+function EventCard({ event, onToggleRSVP }: EventCardProps) {
   const { day, month, time } = formatEventDate(event.starts_at);
 
   return (
@@ -24,7 +29,7 @@ function EventCard({ event, onToggleRSVP }: { event: api.Event; onToggleRSVP: (i
         <Text style={styles.dateDay}>{day}</Text>
         <Text style={styles.dateMon}>{month}</Text>
       </View>
-      <View style={{ flex: 1 }}>
+      <View style={styles.cardBody}>
         <Text style={styles.title} numberOfLines={1}>{event.title}</Text>
         <Text style={styles.sub}>
           {event.city} · {time}
@@ -72,8 +77,8 @@ export function EventsScreen() {
           : e
         )
       );
-    } catch (e: any) {
-      Alert.alert('Error', e.message);
+    } catch (e: unknown) {
+      Alert.alert('Error', e instanceof Error ? e.message : 'Something went wrong.');
     }
   };
 
@@ -104,6 +109,7 @@ const styles = StyleSheet.create({
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   list: { padding: Spacing.md, paddingBottom: 32 },
 
+  cardBody: { flex: 1 },
   card: {
     backgroundColor: Colors.light.backgroundSecondary,
     borderRadius: Radii.md,

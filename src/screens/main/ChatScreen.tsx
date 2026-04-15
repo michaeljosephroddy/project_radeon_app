@@ -1,9 +1,10 @@
 import React, { useEffect, useState, useRef } from 'react';
 import {
     View, Text, FlatList, TouchableOpacity, TextInput,
-    StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator,
+    StyleSheet, KeyboardAvoidingView, ActivityIndicator,
 } from 'react-native';
 import { Avatar } from '../../components/Avatar';
+import { MatchBadge } from '../../components/MatchBadge';
 import * as api from '../../api/client';
 import { useAuth } from '../../hooks/useAuth';
 import { Colors, Typography, Spacing, Radii } from '../../utils/theme';
@@ -48,13 +49,13 @@ export function ChatScreen({ conversation, onBack }: Props) {
 
     const displayName = conversation.is_group
         ? (conversation.name ?? 'Group')
-        : conversation.name ?? 'Direct Message';
+        : [conversation.first_name, conversation.last_name].filter(Boolean).join(' ') || conversation.name || 'Unknown';
 
     return (
         <KeyboardAvoidingView
             style={styles.container}
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}  // ← add 'height' for Android
-            keyboardVerticalOffset={90}
+            behavior="padding"
+            keyboardVerticalOffset={0}
         >
             {/* Header */}
             <View style={styles.header}>
@@ -62,6 +63,7 @@ export function ChatScreen({ conversation, onBack }: Props) {
                     <Text style={styles.backIcon}>←</Text>
                 </TouchableOpacity>
                 <Text style={styles.headerName} numberOfLines={1}>{displayName}</Text>
+                {conversation.connection_type === 'MATCH' && <MatchBadge />}
             </View>
 
             {loading ? (

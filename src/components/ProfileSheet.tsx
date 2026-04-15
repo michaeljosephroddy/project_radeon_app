@@ -3,9 +3,10 @@ import { View, Text, TouchableOpacity, StyleSheet, Modal, Pressable } from 'reac
 import { GestureDetector, Gesture } from 'react-native-gesture-handler';
 import Animated, {
     useSharedValue, useAnimatedStyle,
-    withSpring, withTiming, runOnJS,
+    withSpring, withTiming, runOnJS, Easing,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { Avatar } from './Avatar';
 import { Colors, Typography, Spacing } from '../utils/theme';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -14,28 +15,38 @@ interface ProfileSheetProps {
     visible: boolean;
     onClose: () => void;
     onLogout: () => void;
+    onOpenProfile: () => void;
+    onOpenSettings: () => void;
     user: { first_name: string; last_name: string; email?: string } | null;
 }
 
-const MENU_ITEMS = [
-    { icon: '👤', label: 'Edit profile', onPress: () => { } },
-    { icon: '🔔', label: 'Notifications', onPress: () => { } },
-    { icon: '🔒', label: 'Privacy', onPress: () => { } },
-    { icon: '⚙️', label: 'Settings', onPress: () => { } },
-];
-
-export function ProfileSheet({ visible, onClose, onLogout, user }: ProfileSheetProps) {
+export function ProfileSheet({ visible, onClose, onLogout, onOpenProfile, onOpenSettings, user }: ProfileSheetProps) {
+    const MENU_ITEMS: { icon: keyof typeof Ionicons.glyphMap; label: string; onPress: () => void }[] = [
+        { icon: 'person-outline',        label: 'View profile',  onPress: onOpenProfile },
+        { icon: 'notifications-outline', label: 'Notifications', onPress: () => { } },
+        { icon: 'lock-closed-outline',   label: 'Privacy',       onPress: () => { } },
+        { icon: 'settings-outline',      label: 'Settings',      onPress: onOpenSettings },
+    ];
     const insets = useSafeAreaInsets();
-    const translateY = useSharedValue(300);
+    const sheetHeight = useSharedValue(600);
+    const translateY = useSharedValue(600);
     const opacity = useSharedValue(0);
+
+    const slideOut = (onDone?: () => void) => {
+        'worklet';
+        translateY.value = withTiming(sheetHeight.value, { duration: 280, easing: Easing.in(Easing.quad) });
+        opacity.value = withTiming(0, { duration: 200 }, onDone
+            ? (finished) => { 'worklet'; if (finished) runOnJS(onDone)(); }
+            : undefined,
+        );
+    };
 
     useEffect(() => {
         if (visible) {
-            translateY.value = withTiming(0, { duration: 250 });
-            opacity.value = withTiming(1, { duration: 200 });
+            translateY.value = withTiming(0, { duration: 300, easing: Easing.out(Easing.quad) });
+            opacity.value = withTiming(1, { duration: 250 });
         } else {
-            translateY.value = withTiming(300, { duration: 200 });
-            opacity.value = withTiming(0, { duration: 200 });
+            slideOut();
         }
     }, [visible]);
 
@@ -48,8 +59,7 @@ export function ProfileSheet({ visible, onClose, onLogout, user }: ProfileSheetP
     }));
 
     const dismiss = () => {
-        translateY.value = withTiming(300, { duration: 200 });
-        opacity.value = withTiming(0, { duration: 200 }, () => runOnJS(onClose)());
+        slideOut(onClose);
     };
 
     const panGesture = Gesture.Pan()
@@ -62,21 +72,16 @@ export function ProfileSheet({ visible, onClose, onLogout, user }: ProfileSheetP
         })
         .onEnd((e) => {
             if (e.translationY > 80 || e.velocityY > 500) {
-                translateY.value = withTiming(300, { duration: 200 });
-                opacity.value = withTiming(0, { duration: 200 }, () => runOnJS(onClose)());
+                slideOut(onClose);
             } else {
                 translateY.value = withSpring(0, { damping: 20, stiffness: 300 });
             }
         });
 
     const handleLogout = () => {
-        translateY.value = withTiming(300, { duration: 200 });
-        opacity.value = withTiming(0, { duration: 200 }, (finished) => {
-            'worklet';
-            if (finished) {
-                runOnJS(onClose)();
-                runOnJS(onLogout)();
-            }
+        slideOut(() => {
+            onClose();
+            onLogout();
         });
     };
     if (!user) return null;
@@ -91,7 +96,10 @@ export function ProfileSheet({ visible, onClose, onLogout, user }: ProfileSheetP
             {/* Sheet */}
             <GestureHandlerRootView>
                 <GestureDetector gesture={panGesture}>
-                    <Animated.View style={[styles.sheet, { paddingBottom: insets.bottom + 16 }, sheetStyle]}>
+                    <Animated.View
+                        style={[styles.sheet, { paddingBottom: insets.bottom + 16 }, sheetStyle]}
+                        onLayout={(e) => { sheetHeight.value = e.nativeEvent.layout.height; }}
+                    >
 
                         {/* Handle */}
                         <View style={styles.handleArea}>
@@ -121,9 +129,9 @@ export function ProfileSheet({ visible, onClose, onLogout, user }: ProfileSheetP
                         {/* Menu items */}
                         {MENU_ITEMS.map((item) => (
                             <TouchableOpacity key={item.label} style={styles.menuRow} onPress={item.onPress}>
-                                <Text style={styles.menuIcon}>{item.icon}</Text>
+                                <Ionicons name={item.icon} size={20} color={Colors.light.textTertiary} style={styles.menuIcon} />
                                 <Text style={styles.menuLabel}>{item.label}</Text>
-                                <Text style={styles.menuChevron}>›</Text>
+                                <Ionicons name="chevron-forward" size={16} color={Colors.light.textTertiary} />
                             </TouchableOpacity>
                         ))}
 
@@ -131,7 +139,7 @@ export function ProfileSheet({ visible, onClose, onLogout, user }: ProfileSheetP
 
                         {/* Logout */}
                         <TouchableOpacity style={styles.logoutRow} onPress={handleLogout}>
-                            <Text style={styles.logoutIcon}>↩</Text>
+                            <Ionicons name="log-out-outline" size={20} color="#D85A30" style={styles.menuIcon} />
                             <Text style={styles.logoutLabel}>Log out</Text>
                         </TouchableOpacity>
 
@@ -203,30 +211,19 @@ const styles = StyleSheet.create({
         gap: 12,
     },
     menuIcon: {
-        fontSize: 16,
         width: 24,
-        textAlign: 'center',
+        alignItems: 'center',
     },
     menuLabel: {
         flex: 1,
         fontSize: Typography.sizes.sm,
         color: Colors.light.textPrimary,
     },
-    menuChevron: {
-        fontSize: 18,
-        color: Colors.light.textTertiary,
-        lineHeight: 20,
-    },
     logoutRow: {
         flexDirection: 'row',
         alignItems: 'center',
         paddingVertical: 13,
         gap: 12,
-    },
-    logoutIcon: {
-        fontSize: 16,
-        width: 24,
-        textAlign: 'center',
     },
     logoutLabel: {
         fontSize: Typography.sizes.sm,

@@ -77,6 +77,7 @@ export function getAvatarColors(name: string) {
         Colors.avatarAmber,
         Colors.avatarCoral,
     ];
+    if (!name) return palettes[0];
     const idx = (name.charCodeAt(0) + (name.charCodeAt(1) || 0)) % palettes.length;
     return palettes[idx];
 }
