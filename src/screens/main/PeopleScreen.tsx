@@ -20,10 +20,10 @@ const SWIPE_THRESHOLD = SCREEN_WIDTH * 0.35;
 interface SwipeCardProps {
     user: api.ScoredUser;
     onPass: () => void;
-    onConnect: () => void;
+    onLike: () => void;
 }
 
-function SwipeCard({ user, onPass, onConnect }: SwipeCardProps) {
+function SwipeCard({ user, onPass, onLike }: SwipeCardProps) {
     const translateX = useSharedValue(0);
     const translateY = useSharedValue(0);
 
@@ -37,7 +37,7 @@ function SwipeCard({ user, onPass, onConnect }: SwipeCardProps) {
         .onEnd(e => {
             if (e.translationX > SWIPE_THRESHOLD) {
                 translateX.value = withTiming(SCREEN_WIDTH * 1.5, { duration: 250 }, () => {
-                    runOnJS(onConnect)();
+                    runOnJS(onLike)();
                 });
             } else if (e.translationX < -SWIPE_THRESHOLD) {
                 translateX.value = withTiming(-SCREEN_WIDTH * 1.5, { duration: 250 }, () => {
@@ -69,13 +69,13 @@ function SwipeCard({ user, onPass, onConnect }: SwipeCardProps) {
         <GestureDetector gesture={pan}>
             <Animated.View style={[styles.swipeCard, cardStyle]}>
                 <Animated.View style={[styles.swipeLabel, styles.connectLabel, connectLabelStyle]}>
-                    <Text style={styles.connectLabelText}>CONNECT</Text>
+                    <Text style={styles.connectLabelText}>LIKE</Text>
                 </Animated.View>
                 <Animated.View style={[styles.swipeLabel, styles.passLabel, passLabelStyle]}>
                     <Text style={styles.passLabelText}>PASS</Text>
                 </Animated.View>
 
-                <Avatar firstName={user.first_name} lastName={user.last_name} size={80} fontSize={28} />
+                <Avatar firstName={user.first_name} lastName={user.last_name} avatarUrl={user.avatar_url} size={80} fontSize={28} />
                 <Text style={styles.swipeName}>{user.first_name} {user.last_name}</Text>
                 {user.city && <Text style={styles.swipeCity}>{user.city}</Text>}
             </Animated.View>
@@ -83,30 +83,22 @@ function SwipeCard({ user, onPass, onConnect }: SwipeCardProps) {
     );
 }
 
+
 export function PeopleScreen() {
     const [suggestions, setSuggestions] = useState<api.ScoredUser[]>([]);
     const [matches, setMatches] = useState<api.Connection[]>([]);
-    const [pending, setPending] = useState<api.Connection[]>([]);
+    const [likers, setLikers] = useState<api.Liker[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
-    const [likedId, setLikedId] = useState<string | null>(null);
-
     const load = useCallback(async () => {
         const results = await Promise.allSettled([
             api.getSuggestions(),
-            api.getPendingConnections(),
             api.getConnections(),
+            api.getMyLikes(),
         ]);
         if (results[0].status === 'fulfilled') setSuggestions(results[0].value ?? []);
-        if (results[1].status === 'fulfilled') {
-            const sorted = (results[1].value ?? []).slice().sort(
-                (a, b) => new Date(a.connected_at).getTime() - new Date(b.connected_at).getTime()
-            );
-            setPending(sorted);
-        }
-        if (results[2].status === 'fulfilled') {
-            setMatches((results[2].value ?? []).filter(c => c.type === 'MATCH'));
-        }
+        if (results[1].status === 'fulfilled') setMatches((results[1].value ?? []).filter(c => c.type === 'MATCH'));
+        if (results[2].status === 'fulfilled') setLikers(results[2].value ?? []);
     }, []);
 
     useEffect(() => {
@@ -128,45 +120,21 @@ export function PeopleScreen() {
         });
     }, [suggestions]);
 
-    const handleConnect = useCallback((userId: string) => {
+    const handleLike = useCallback(async (userId: string) => {
         const user = suggestions.find(u => u.id === userId);
         setSuggestions(prev => prev.filter(u => u.id !== userId));
-        api.sendConnectionRequest(userId).catch((e: unknown) => {
-            if (user) setSuggestions(prev => [user, ...prev]);
-            Alert.alert('', e instanceof Error ? e.message : 'Something went wrong.');
-        });
-    }, [suggestions]);
-
-    const handleLike = async (userId: string) => {
-        setLikedId(userId);
         try {
             const result = await api.likeUser(userId);
             if (result.matched) {
                 const conns = await api.getConnections();
                 setMatches((conns ?? []).filter(c => c.type === 'MATCH'));
+                setLikers(prev => prev.filter(l => l.id !== userId));
             }
         } catch (e: unknown) {
-            setLikedId(null);
+            if (user) setSuggestions(prev => [user, ...prev]);
             Alert.alert('', e instanceof Error ? e.message : 'Something went wrong.');
         }
-    };
-
-    const handleAccept = async (conn: api.Connection) => {
-        try {
-            await api.updateConnectionStatus(conn.id, 'accepted');
-            setPending(prev => prev.filter(p => p.id !== conn.id));
-            Alert.alert('Connected!', `You are now connected with ${conn.first_name}.`);
-        } catch (e: unknown) {
-            Alert.alert('Error', e instanceof Error ? e.message : 'Something went wrong.');
-        }
-    };
-
-    const handleDecline = async (conn: api.Connection) => {
-        try {
-            await api.updateConnectionStatus(conn.id, 'declined');
-            setPending(prev => prev.filter(p => p.id !== conn.id));
-        } catch { }
-    };
+    }, [suggestions]);
 
     if (loading) {
         return <View style={styles.center}><ActivityIndicator color={Colors.primary} /></View>;
@@ -179,35 +147,10 @@ export function PeopleScreen() {
             contentContainerStyle={styles.scroll}
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
         >
-            {/* Pending requests */}
-            {pending.length > 0 && (
-                <View style={styles.section}>
-                    <View style={styles.sectionLabelRow}>
-                        <Text style={styles.sectionLabel}>REQUESTS</Text>
-                        <View style={styles.requestsBadge}>
-                            <Text style={styles.requestsBadgeText}>{pending.length}</Text>
-                        </View>
-                    </View>
-                    <View style={styles.pendingItem}>
-                        <Avatar firstName={pending[0].first_name} lastName={pending[0].last_name} size={36} />
-                        <View style={styles.pendingMeta}>
-                            <Text style={styles.pendingName}>{pending[0].first_name} {pending[0].last_name}</Text>
-                            {pending[0].city && <Text style={styles.pendingSub}>{pending[0].city}</Text>}
-                        </View>
-                        <TouchableOpacity style={styles.acceptBtn} onPress={() => handleAccept(pending[0])}>
-                            <Text style={styles.acceptBtnText}>Accept</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity style={styles.declineBtn} onPress={() => handleDecline(pending[0])}>
-                            <Text style={styles.declineBtnText}>✕</Text>
-                        </TouchableOpacity>
-                    </View>
-                </View>
-            )}
 
-            {/* Matches reel */}
-            {matches.length > 0 && (
-                <View style={styles.section}>
-                    <Text style={styles.sectionLabel}>YOUR MATCHES</Text>
+            <View style={styles.section}>
+                <Text style={[styles.sectionLabel, styles.sectionLabelStandalone]}>YOUR MATCHES</Text>
+                {matches.length > 0 ? (
                     <ScrollView
                         horizontal
                         showsHorizontalScrollIndicator={false}
@@ -215,24 +158,53 @@ export function PeopleScreen() {
                     >
                         {matches.map(match => (
                             <View key={match.id} style={styles.reelItem}>
-                                <Avatar firstName={match.first_name} lastName={match.last_name} size={64} fontSize={22} />
+                                <View style={styles.avatarWrap}>
+                                    <Avatar firstName={match.first_name} lastName={match.last_name} avatarUrl={match.avatar_url} size={64} fontSize={22} />
+                                    <View style={styles.matchBadgeOverlay}>
+                                        <MatchBadge />
+                                    </View>
+                                </View>
                                 <Text style={styles.reelName} numberOfLines={1}>{match.first_name}</Text>
-                                <MatchBadge />
                             </View>
                         ))}
                     </ScrollView>
-                </View>
-            )}
+                ) : (
+                    <Text style={styles.reelEmpty}>No matches yet — keep swiping!</Text>
+                )}
+            </View>
 
-            {/* Suggestion card */}
-            <Text style={styles.sectionLabel}>SUGGESTED FOR YOU</Text>
+            <View style={styles.section}>
+                <View style={styles.sectionLabelRow}>
+                    <Text style={styles.sectionLabel}>PEOPLE WHO LIKED YOU</Text>
+                    {likers.length > 0 && (
+                        <Text style={styles.sectionCount}>{likers.length}</Text>
+                    )}
+                </View>
+                {likers.length > 0 ? (
+                    <ScrollView
+                        horizontal
+                        showsHorizontalScrollIndicator={false}
+                        contentContainerStyle={styles.reel}
+                    >
+                        {likers.map(liker => (
+                            <View key={liker.id} style={styles.reelItem}>
+                                <Avatar firstName={liker.first_name} lastName={liker.last_name} avatarUrl={liker.avatar_url_blurred} size={64} fontSize={22} />
+                            </View>
+                        ))}
+                    </ScrollView>
+                ) : (
+                    <Text style={styles.reelEmpty}>No one yet — put yourself out there!</Text>
+                )}
+            </View>
+
+            <Text style={[styles.sectionLabel, styles.sectionLabelStandalone]}>SUGGESTED FOR YOU</Text>
             {current ? (
                 <View style={styles.cardArea}>
                     <SwipeCard
                         key={current.id}
                         user={current}
                         onPass={() => handlePass(current.id)}
-                        onConnect={() => handleConnect(current.id)}
+                        onLike={() => handleLike(current.id)}
                     />
                     <View style={styles.actions}>
                         <TouchableOpacity
@@ -242,17 +214,10 @@ export function PeopleScreen() {
                             <Text style={styles.passBtnText}>✕</Text>
                         </TouchableOpacity>
                         <TouchableOpacity
-                            style={[styles.likeBtn, likedId === current.id && styles.likeBtnActive]}
+                            style={styles.likeBtn}
                             onPress={() => handleLike(current.id)}
-                            disabled={likedId === current.id}
                         >
-                            <Text style={[styles.likeBtnText, likedId === current.id && styles.likeBtnTextActive]}>♥</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                            style={styles.connectBtn}
-                            onPress={() => handleConnect(current.id)}
-                        >
-                            <Text style={styles.connectBtnText}>Connect</Text>
+                            <Text style={styles.likeBtnText}>♥</Text>
                         </TouchableOpacity>
                     </View>
                 </View>
@@ -277,55 +242,28 @@ const styles = StyleSheet.create({
         gap: Spacing.xs,
         marginBottom: Spacing.sm,
     },
-    requestsBadge: {
-        backgroundColor: '#E53935',
-        borderRadius: Radii.full,
-        minWidth: 18,
-        height: 18,
-        alignItems: 'center',
-        justifyContent: 'center',
-        paddingHorizontal: 5,
-    },
-    requestsBadgeText: {
+    sectionCount: {
         fontSize: Typography.sizes.xs,
         fontWeight: '700',
-        color: '#fff',
+        color: Colors.light.background,
+        backgroundColor: '#E53935',
+        minWidth: 18,
+        height: 18,
+        borderRadius: 9,
+        paddingHorizontal: 5,
+        textAlign: 'center',
+        lineHeight: 18,
+        overflow: 'hidden',
     },
     sectionLabel: {
         fontSize: Typography.sizes.xs,
         fontWeight: '500',
         color: Colors.light.textTertiary,
         letterSpacing: 0.07 * 10,
+    },
+    sectionLabelStandalone: {
         marginBottom: Spacing.sm,
     },
-
-    pendingMeta: { flex: 1 },
-    pendingItem: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: Spacing.sm,
-        paddingVertical: Spacing.sm,
-        borderBottomWidth: 0.5,
-        borderBottomColor: Colors.light.border,
-    },
-    pendingName: { fontSize: Typography.sizes.md, fontWeight: '500', color: Colors.light.textPrimary },
-    pendingSub: { fontSize: Typography.sizes.xs, color: Colors.light.textTertiary, marginTop: 1 },
-    acceptBtn: {
-        backgroundColor: Colors.primary,
-        borderRadius: Radii.sm,
-        paddingHorizontal: Spacing.md,
-        paddingVertical: 6,
-    },
-    acceptBtnText: { fontSize: Typography.sizes.sm, color: '#fff', fontWeight: '500' },
-    declineBtn: {
-        width: 30,
-        height: 30,
-        borderRadius: 15,
-        backgroundColor: Colors.light.backgroundSecondary,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    declineBtnText: { fontSize: Typography.sizes.sm, color: Colors.light.textTertiary },
 
     cardArea: { alignItems: 'center' },
 
@@ -400,19 +338,16 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: Colors.light.border,
     },
-    likeBtnActive: { backgroundColor: '#FCE4EC', borderColor: '#F48FB1' },
     likeBtnText: { fontSize: Typography.sizes.xl, color: Colors.light.textTertiary },
-    likeBtnTextActive: { color: '#C2185B' },
-    connectBtn: {
-        paddingHorizontal: Spacing.xl,
-        paddingVertical: Spacing.md,
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: Colors.primary,
-        borderRadius: Radii.full,
-    },
-    connectBtnText: { fontSize: Typography.sizes.md, fontWeight: '600', color: '#fff' },
 
+
+    reelEmpty: {
+        fontSize: Typography.sizes.sm,
+        color: Colors.light.textTertiary,
+        paddingVertical: Spacing.md,
+    },
+    avatarWrap: { position: 'relative' },
+    matchBadgeOverlay: { position: 'absolute', top: 0, right: -8 },
     reel: { paddingBottom: Spacing.xs, gap: Spacing.lg },
     reelItem: { alignItems: 'center', width: 72, gap: Spacing.xs },
     reelName: {

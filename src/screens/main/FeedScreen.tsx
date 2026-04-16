@@ -48,7 +48,7 @@ function PostCard({ post, currentUserId }: PostCardProps) {
     return (
         <View style={styles.postCard}>
             <View style={styles.postHead}>
-                <Avatar firstName={post.first_name} lastName={post.last_name} size={36} />
+                <Avatar firstName={post.first_name} lastName={post.last_name} avatarUrl={post.avatar_url} size={36} />
                 <View style={styles.postHeadBody}>
                     <Text style={styles.postName}>{post.first_name} {post.last_name}</Text>
                     <Text style={styles.postMeta}>{timeAgo(post.created_at)}</Text>
@@ -131,7 +131,7 @@ export function FeedScreen() {
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
                 ListHeaderComponent={
                     <View style={styles.composeBar}>
-                        {user && <Avatar firstName={user.first_name} lastName={user.last_name} size={28} />}
+                        {user && <Avatar firstName={user.first_name} lastName={user.last_name} avatarUrl={user.avatar_url} size={28} />}
                         {composing ? (
                             <TextInput
                                 style={styles.composeInput}

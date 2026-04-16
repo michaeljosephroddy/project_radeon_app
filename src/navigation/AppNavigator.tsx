@@ -67,7 +67,7 @@ export function AppNavigator() {
                             onPress={() => setProfileSheetVisible(true)}   // ← was handleLogout
                             style={styles.iconBtn}
                         >
-                            <Avatar firstName={user.first_name} lastName={user.last_name} size={28} fontSize={10} />
+                            <Avatar firstName={user.first_name} lastName={user.last_name} avatarUrl={user.avatar_url} size={28} fontSize={10} />
                         </TouchableOpacity>
                     )}
                 </View>
@@ -93,22 +93,30 @@ export function AppNavigator() {
             );
         }
 
-        switch (activeTab) {
-            case 'feed': return <FeedScreen />;
-            case 'people': return <PeopleScreen />;
-            case 'network': return (
-                <NetworkScreen
-                    onOpenChat={(conversation) => {
-                        setActiveTab('messages');
-                        setOpenConversation(conversation);
-                    }}
-                />
-            );
-            case 'events': return <EventsScreen />;
-            case 'messages': return (
-                <MessagesScreen onOpenConversation={setOpenConversation} />
-            );
-        }
+        return (
+            <>
+                <View style={activeTab === 'feed' ? styles.tabVisible : styles.tabHidden}>
+                    <FeedScreen />
+                </View>
+                <View style={activeTab === 'people' ? styles.tabVisible : styles.tabHidden}>
+                    <PeopleScreen />
+                </View>
+                <View style={activeTab === 'network' ? styles.tabVisible : styles.tabHidden}>
+                    <NetworkScreen
+                        onOpenChat={(conversation) => {
+                            setActiveTab('messages');
+                            setOpenConversation(conversation);
+                        }}
+                    />
+                </View>
+                <View style={activeTab === 'events' ? styles.tabVisible : styles.tabHidden}>
+                    <EventsScreen />
+                </View>
+                <View style={activeTab === 'messages' ? styles.tabVisible : styles.tabHidden}>
+                    <MessagesScreen onOpenConversation={setOpenConversation} />
+                </View>
+            </>
+        );
     };
 
     const inChat = activeTab === 'messages' && openConversation;
@@ -162,6 +170,8 @@ export function AppNavigator() {
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: Colors.light.background },
     content: { flex: 1 },
+    tabVisible: { flex: 1, display: 'flex' },
+    tabHidden: { flex: 1, display: 'none' },
 
     topBar: {
         flexDirection: 'row',

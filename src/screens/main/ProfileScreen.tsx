@@ -4,6 +4,7 @@ import {
     StyleSheet, ScrollView, ActivityIndicator, Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import * as ImagePicker from 'expo-image-picker';
 import { Avatar } from '../../components/Avatar';
 import * as api from '../../api/client';
 import { useAuth } from '../../hooks/useAuth';
@@ -26,8 +27,10 @@ export function ProfileScreen({ onBack }: Props) {
     const [selectedIds, setSelectedIds]           = useState<string[]>([]);
     const [interestsLoading, setInterestsLoading] = useState(true);
 
-    const [saving, setSaving] = useState(false);
-    const [dirty, setDirty]   = useState(false);
+    const [saving, setSaving]               = useState(false);
+    const [dirty, setDirty]                 = useState(false);
+    const [uploadingAvatar, setUploadingAvatar] = useState(false);
+    const [localAvatarUrl, setLocalAvatarUrl]   = useState(user?.avatar_url);
 
     useEffect(() => {
         api.getInterests()
@@ -54,6 +57,31 @@ export function ProfileScreen({ onBack }: Props) {
         setDirty(true);
     };
 
+    const handlePickAvatar = async () => {
+        const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (!permission.granted) {
+            Alert.alert('Permission required', 'Allow access to your photo library to upload an avatar.');
+            return;
+        }
+        const result = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            allowsEditing: true,
+            aspect: [1, 1],
+            quality: 0.8,
+        });
+        if (result.canceled) return;
+        setUploadingAvatar(true);
+        try {
+            const { avatar_url } = await api.uploadAvatar(result.assets[0].uri);
+            setLocalAvatarUrl(`${avatar_url}?t=${Date.now()}`);
+            refreshUser().catch(() => {});
+        } catch (e: unknown) {
+            Alert.alert('Upload failed', e instanceof Error ? e.message : 'Something went wrong.');
+        } finally {
+            setUploadingAvatar(false);
+        }
+    };
+
     const handleSave = async () => {
         setSaving(true);
         try {
@@ -69,8 +97,8 @@ export function ProfileScreen({ onBack }: Props) {
             ]);
             await refreshUser();
             setDirty(false);
-        } catch (e: any) {
-            Alert.alert('Error', e.message);
+        } catch (e: unknown) {
+            Alert.alert('Error', e instanceof Error ? e.message : 'Something went wrong.');
         } finally {
             setSaving(false);
         }
@@ -105,12 +133,21 @@ export function ProfileScreen({ onBack }: Props) {
             <ScrollView style={styles.scroll} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
                 {/* Avatar */}
                 <View style={styles.avatarSection}>
-                    <Avatar
-                        firstName={firstName || user.first_name}
-                        lastName={lastName || user.last_name}
-                        size={72}
-                        fontSize={26}
-                    />
+                    <TouchableOpacity onPress={handlePickAvatar} disabled={uploadingAvatar} style={styles.avatarWrap}>
+                        <Avatar
+                            firstName={firstName || user.first_name}
+                            lastName={lastName || user.last_name}
+                            avatarUrl={localAvatarUrl}
+                            size={80}
+                            fontSize={28}
+                        />
+                        <View style={styles.avatarEditBadge}>
+                            {uploadingAvatar
+                                ? <ActivityIndicator size="small" color="#fff" />
+                                : <Text style={styles.avatarEditIcon}>✎</Text>
+                            }
+                        </View>
+                    </TouchableOpacity>
                     <Text style={styles.avatarName}>{firstName} {lastName}</Text>
                     {city ? <Text style={styles.avatarSub}>{city}{country ? `, ${country}` : ''}</Text> : null}
                 </View>
@@ -249,6 +286,26 @@ const styles = StyleSheet.create({
         paddingVertical: Spacing.md,
         marginBottom: Spacing.sm,
         gap: 4,
+    },
+    avatarWrap: {
+        position: 'relative',
+    },
+    avatarEditBadge: {
+        position: 'absolute',
+        bottom: 0,
+        right: 0,
+        width: 24,
+        height: 24,
+        borderRadius: 12,
+        backgroundColor: Colors.primary,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderWidth: 2,
+        borderColor: Colors.light.background,
+    },
+    avatarEditIcon: {
+        fontSize: 12,
+        color: '#fff',
     },
     avatarName: {
         fontSize: Typography.sizes.lg,

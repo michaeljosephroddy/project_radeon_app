@@ -80,7 +80,7 @@ export function ChatScreen({ conversation, onBack }: Props) {
                         return (
                             <View style={[styles.bubble, isMe ? styles.bubbleMe : styles.bubbleThem]}>
                                 {!isMe && (
-                                    <Avatar firstName={item.first_name} lastName={item.last_name} size={26} fontSize={10} />
+                                    <Avatar firstName={item.first_name} lastName={item.last_name} avatarUrl={item.avatar_url} size={26} fontSize={10} />
                                 )}
                                 <View style={[styles.bubbleInner, isMe ? styles.bubbleInnerMe : styles.bubbleInnerThem]}>
                                     {!isMe && (

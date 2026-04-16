@@ -111,6 +111,7 @@ export function ProfileSheet({ visible, onClose, onLogout, onOpenProfile, onOpen
                             <Avatar
                                 firstName={user.first_name}
                                 lastName={user.last_name}
+                                avatarUrl={user.avatar_url}
                                 size={52}
                                 fontSize={18}
                             />

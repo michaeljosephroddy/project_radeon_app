@@ -53,6 +53,7 @@ export interface User {
     first_name: string;
     last_name: string;
     avatar_url?: string;
+    avatar_url_blurred?: string;
     city?: string;
     country?: string;
     sober_since?: string;
@@ -128,6 +129,7 @@ export interface Conversation {
     name?: string;
     first_name?: string;
     last_name?: string;
+    avatar_url?: string;
     created_at: string;
     last_message?: string;
     last_message_at?: string;
@@ -181,6 +183,21 @@ export async function updateMe(data: Partial<User>): Promise<User> {
     return request('/users/me', { method: 'PATCH', body: JSON.stringify(data) });
 }
 
+export async function uploadAvatar(uri: string): Promise<{ avatar_url: string; avatar_url_blurred: string }> {
+    const token = await getToken();
+    const form = new FormData();
+    form.append('avatar', { uri, name: 'avatar.jpg', type: 'image/jpeg' } as unknown as Blob);
+    const res = await fetch(`${BASE_URL}/users/me/avatar`, {
+        method: 'POST',
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        body: form,
+    });
+    const text = await res.text();
+    const json = text ? (() => { try { return JSON.parse(text); } catch { return {}; } })() : {};
+    if (!res.ok) throw new Error(json.error || `Request failed: ${res.status}`);
+    return json.data;
+}
+
 export async function updateLocation(lat: number, lng: number): Promise<void> {
     await request('/users/me', { method: 'PATCH', body: JSON.stringify({ lat, lng }) });
 }
@@ -203,8 +220,22 @@ export interface ScoredUser {
     score: number;
 }
 
+export interface Liker {
+    id: string;
+    first_name: string;
+    last_name: string;
+    avatar_url?: string;
+    avatar_url_blurred?: string;
+    city?: string;
+    liked_at: string;
+}
+
 export async function getSuggestions(): Promise<ScoredUser[]> {
     return request('/users/suggestions');
+}
+
+export async function getMyLikes(): Promise<Liker[]> {
+    return request('/users/me/likes');
 }
 
 export async function likeUser(id: string): Promise<{ matched: boolean }> {

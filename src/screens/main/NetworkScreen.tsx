@@ -116,6 +116,7 @@ export function NetworkScreen({ onOpenChat }: NetworkScreenProps) {
                                 <Avatar
                                     firstName={conn.first_name}
                                     lastName={conn.last_name}
+                                    avatarUrl={conn.avatar_url}
                                     size={64}
                                     fontSize={22}
                                 />

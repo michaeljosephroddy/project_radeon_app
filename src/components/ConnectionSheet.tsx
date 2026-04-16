@@ -91,6 +91,7 @@ export function ConnectionSheet({ visible, connection, onClose, onMessage }: Con
                             <Avatar
                                 firstName={connection.first_name}
                                 lastName={connection.last_name}
+                                avatarUrl={connection.avatar_url}
                                 size={64}
                                 fontSize={22}
                             />

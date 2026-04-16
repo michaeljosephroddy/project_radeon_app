@@ -1,25 +1,24 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
-import { Typography, Radii, Spacing } from '../utils/theme';
+import { View, StyleSheet } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 
 export function MatchBadge() {
     return (
         <View style={styles.badge}>
-            <Text style={styles.text}>Match</Text>
+            <Ionicons name="heart" size={10} color="#fff" />
         </View>
     );
 }
 
 const styles = StyleSheet.create({
     badge: {
-        backgroundColor: '#FCE4EC',
-        borderRadius: Radii.full,
-        paddingHorizontal: Spacing.xs + 2,
-        paddingVertical: 2,
-    },
-    text: {
-        fontSize: Typography.sizes.xs,
-        fontWeight: '600',
-        color: '#C2185B',
+        width: 20,
+        height: 20,
+        borderRadius: 10,
+        backgroundColor: '#E53935',
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderWidth: 1.5,
+        borderColor: '#fff',
     },
 });

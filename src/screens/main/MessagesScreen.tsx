@@ -32,7 +32,7 @@ interface ConvItemProps {
 
 function ConvItem({ item, onOpenConversation }: ConvItemProps) {
     const firstName = item.is_group ? '' : (item.first_name ?? '');
-    const lastName  = item.is_group ? '' : (item.last_name  ?? '');
+    const lastName = item.is_group ? '' : (item.last_name ?? '');
     const displayName = item.is_group
         ? (item.name ?? 'Group')
         : [firstName, lastName].filter(Boolean).join(' ') || 'Unknown';
@@ -43,7 +43,7 @@ function ConvItem({ item, onOpenConversation }: ConvItemProps) {
             onPress={() => onOpenConversation(item)}
         >
             <View style={styles.avatarWrap}>
-                <Avatar firstName={firstName} lastName={lastName} size={40} fontSize={13} />
+                <Avatar firstName={firstName} lastName={lastName} avatarUrl={item.is_group ? undefined : item.avatar_url} size={40} fontSize={13} />
                 {item.is_group && (
                     <View style={styles.groupBadge}>
                         <Text style={styles.groupBadgeText}>G</Text>
@@ -71,18 +71,15 @@ function ConvItem({ item, onOpenConversation }: ConvItemProps) {
 
 export function MessagesScreen({ onOpenConversation }: MessagesScreenProps) {
     const [convs, setConvs] = useState<api.Conversation[]>([]);
-    const [requests, setRequests] = useState<api.Conversation[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
 
     const load = useCallback(async () => {
         try {
-            const [data, reqs] = await Promise.all([
+            const [data] = await Promise.all([
                 api.getConversations(),
-                api.getMessageRequests(),
             ]);
             setConvs(data ?? []);
-            setRequests(reqs ?? []);
         } catch { }
     }, []);
 
@@ -92,22 +89,6 @@ export function MessagesScreen({ onOpenConversation }: MessagesScreenProps) {
         setRefreshing(true);
         await load();
         setRefreshing(false);
-    };
-
-    const handleAccept = async (conv: api.Conversation) => {
-        try {
-            await api.updateConversationStatus(conv.id, 'active');
-            setRequests(prev => prev.filter(r => r.id !== conv.id));
-            setConvs(prev => [conv, ...prev]);
-            onOpenConversation(conv);
-        } catch { }
-    };
-
-    const handleDecline = async (conv: api.Conversation) => {
-        try {
-            await api.updateConversationStatus(conv.id, 'declined');
-            setRequests(prev => prev.filter(r => r.id !== conv.id));
-        } catch { }
     };
 
     if (loading) {
@@ -133,55 +114,6 @@ export function MessagesScreen({ onOpenConversation }: MessagesScreenProps) {
                     </View>
 
                     {/* Message requests */}
-                    {requests.length > 0 && (
-                        <View style={styles.requestsSection}>
-                            <View style={styles.requestsHeader}>
-                                <Text style={styles.sectionLabel}>MESSAGE REQUESTS</Text>
-                                <View style={styles.requestsBadge}>
-                                    <Text style={styles.requestsBadgeText}>{requests.length}</Text>
-                                </View>
-                            </View>
-                            {requests.map(req => {
-                                const reqFirst = req.first_name ?? '';
-                                const reqLast  = req.last_name  ?? '';
-                                const displayName = [reqFirst, reqLast].filter(Boolean).join(' ') || 'Unknown';
-                                return (
-                                    <View key={req.id} style={styles.requestItem}>
-                                        <Avatar
-                                            firstName={reqFirst || 'U'}
-                                            lastName={reqLast}
-                                            size={40}
-                                            fontSize={13}
-                                        />
-                                        <View style={styles.requestMeta}>
-                                            <View style={styles.requestNameRow}>
-                                                <Text style={styles.name}>{displayName}</Text>
-                                                {req.connection_type === 'MATCH' && <MatchBadge />}
-                                            </View>
-                                            {req.last_message && (
-                                                <Text style={styles.preview} numberOfLines={1}>
-                                                    {req.last_message}
-                                                </Text>
-                                            )}
-                                        </View>
-                                        <TouchableOpacity
-                                            style={styles.acceptBtn}
-                                            onPress={() => handleAccept(req)}
-                                        >
-                                            <Text style={styles.acceptBtnText}>Accept</Text>
-                                        </TouchableOpacity>
-                                        <TouchableOpacity
-                                            style={styles.declineBtn}
-                                            onPress={() => handleDecline(req)}
-                                        >
-                                            <Text style={styles.declineBtnText}>✕</Text>
-                                        </TouchableOpacity>
-                                    </View>
-                                );
-                            })}
-                            <View style={styles.divider} />
-                        </View>
-                    )}
 
                     {convs.length > 0 && (
                         <Text style={styles.sectionLabel}>MESSAGES</Text>
@@ -189,7 +121,7 @@ export function MessagesScreen({ onOpenConversation }: MessagesScreenProps) {
                 </>
             }
             ListEmptyComponent={
-                requests.length === 0 ? (
+                convs.length === 0 ? (
                     <View style={styles.empty}>
                         <Text style={styles.emptyText}>No messages yet.</Text>
                         <Text style={styles.emptySubtext}>Connect with people to start chatting.</Text>
@@ -231,46 +163,6 @@ const styles = StyleSheet.create({
         color: Colors.light.textTertiary,
         letterSpacing: 0.7,
     },
-    requestsBadge: {
-        backgroundColor: Colors.primary,
-        borderRadius: Radii.full,
-        minWidth: 18,
-        height: 18,
-        alignItems: 'center',
-        justifyContent: 'center',
-        paddingHorizontal: 5,
-    },
-    requestsBadgeText: {
-        fontSize: 10,
-        fontWeight: '600',
-        color: '#fff',
-    },
-    requestItem: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: Spacing.sm,
-        paddingVertical: Spacing.sm,
-        borderBottomWidth: 0.5,
-        borderBottomColor: Colors.light.border,
-    },
-    requestMeta: { flex: 1, minWidth: 0 },
-    requestNameRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
-    acceptBtn: {
-        backgroundColor: Colors.primary,
-        borderRadius: Radii.sm,
-        paddingHorizontal: Spacing.md,
-        paddingVertical: 6,
-    },
-    acceptBtnText: { fontSize: Typography.sizes.sm, color: '#fff', fontWeight: '500' },
-    declineBtn: {
-        width: 30,
-        height: 30,
-        borderRadius: 15,
-        backgroundColor: Colors.light.backgroundSecondary,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    declineBtnText: { fontSize: Typography.sizes.sm, color: Colors.light.textTertiary },
     divider: {
         height: 0.5,
         backgroundColor: Colors.light.border,

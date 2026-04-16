@@ -127,3 +127,8 @@ src/
 - Remove dead code, commented-out blocks, and unused imports before considering a task done.
 - Don't add comments that restate what the code does. Only comment on non-obvious *why*, not *what*.
 - Keep functions small and single-purpose. If a function needs a comment to explain what it does, it should probably be split or renamed.
+
+### Workflow
+- Always plan before writing code
+- Present a plan and wait for approval before implementing
+- Break tasks into steps and confirm each one
