@@ -13,11 +13,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { Avatar } from '../../components/Avatar';
 import * as api from '../../api/client';
 import { Colors, Typography, Spacing, Radii } from '../../utils/theme';
+import { formatUsername } from '../../utils/identity';
 
 interface DiscoverScreenProps {
     followingIds: Set<string>;
     onFollowChange: (userId: string, following: boolean) => void;
-    onOpenUserProfile: (profile: { userId: string; firstName: string; lastName: string; avatarUrl?: string }) => void;
+    onOpenUserProfile: (profile: { userId: string; username: string; avatarUrl?: string }) => void;
     refreshFollowingIds: () => Promise<void>;
 }
 
@@ -132,7 +133,7 @@ export function DiscoverScreen({
                         <Text style={styles.heroEyebrow}>DISCOVER</Text>
                         <Text style={styles.heroTitle}>Find people in the community.</Text>
                         <Text style={styles.heroText}>
-                            Search by name now. Smarter suggestions can plug in later without changing the screen structure.
+                            Search by username now. Smarter suggestions can plug in later without changing the screen structure.
                         </Text>
                     </View>
 
@@ -141,10 +142,10 @@ export function DiscoverScreen({
                         <TextInput
                             value={query}
                             onChangeText={setQuery}
-                            placeholder="Search by name"
+                            placeholder="Search by username"
                             placeholderTextColor={Colors.light.textTertiary}
                             style={styles.searchInput}
-                            autoCapitalize="words"
+                            autoCapitalize="none"
                             autoCorrect={false}
                         />
                     </View>
@@ -163,7 +164,7 @@ export function DiscoverScreen({
                 <View style={styles.empty}>
                     <Text style={styles.emptyTitle}>No people found.</Text>
                     <Text style={styles.emptyText}>
-                        Try a different name search. Suggestions can become smarter once ranking logic is added.
+                        Try a different username search. Suggestions can become smarter once ranking logic is added.
                     </Text>
                 </View>
             }
@@ -179,22 +180,20 @@ export function DiscoverScreen({
                                 style={styles.cardPress}
                                 onPress={() => onOpenUserProfile({
                                     userId: item.id,
-                                    firstName: item.first_name,
-                                    lastName: item.last_name,
+                                    username: item.username,
                                     avatarUrl: item.avatar_url,
                                 })}
                             >
                                 <View style={styles.avatarStage}>
                                     <Avatar
-                                        firstName={item.first_name}
-                                        lastName={item.last_name}
+                                        username={item.username}
                                         avatarUrl={item.avatar_url}
                                         size={92}
                                         fontSize={28}
                                     />
                                 </View>
                                 <Text style={styles.cardName} numberOfLines={1}>
-                                    {item.first_name} {item.last_name}
+                                    {formatUsername(item.username)}
                                 </Text>
                                 <Text style={styles.cardMeta} numberOfLines={1}>
                                     {item.city ? `${item.city}${item.country ? `, ${item.country}` : ''}` : 'Community member'}

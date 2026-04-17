@@ -18,8 +18,7 @@ import type { Conversation } from '../api/client';
 
 interface OpenUserProfile {
     userId: string;
-    firstName: string;
-    lastName: string;
+    username: string;
     avatarUrl?: string;
 }
 
@@ -135,8 +134,7 @@ const followingRequestIdRef = useRef(0);
                     <View style={StyleSheet.absoluteFill}>
                         <UserProfileScreen
                             userId={openUserProfile!.userId}
-                            firstName={openUserProfile!.firstName}
-                            lastName={openUserProfile!.lastName}
+                            username={openUserProfile!.username}
                             avatarUrl={openUserProfile!.avatarUrl}
                             followingIds={followingIds}
                             onBack={() => setOpenUserProfile(null)}

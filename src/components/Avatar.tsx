@@ -3,16 +3,15 @@ import { View, Text, Image, StyleSheet } from 'react-native';
 import { getAvatarColors, getInitials } from '../utils/theme';
 
 interface AvatarProps {
-  firstName: string;
-  lastName: string;
+  username: string;
   avatarUrl?: string;
   size?: number;
   fontSize?: number;
 }
 
-export function Avatar({ firstName, lastName, avatarUrl, size = 36, fontSize = 13 }: AvatarProps) {
-  const colors = getAvatarColors(firstName);
-  const initials = getInitials(firstName, lastName);
+export function Avatar({ username, avatarUrl, size = 36, fontSize = 13 }: AvatarProps) {
+  const colors = getAvatarColors(username);
+  const initials = getInitials(username);
   const radius = size / 2;
 
   if (avatarUrl) {

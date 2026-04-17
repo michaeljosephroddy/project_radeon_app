@@ -10,6 +10,7 @@ import { SettingsScreen } from './SettingsScreen';
 import * as api from '../../api/client';
 import { useAuth } from '../../hooks/useAuth';
 import { Colors, Typography, Spacing, Radii } from '../../utils/theme';
+import { formatUsername } from '../../utils/identity';
 
 type SubView = 'profile' | 'following' | 'followers' | 'settings';
 
@@ -17,15 +18,14 @@ interface ProfileTabScreenProps {
     isActive: boolean;
     onFollowChange: (userId: string, following: boolean) => void;
     refreshFollowingIds: () => Promise<void>;
-    onOpenUserProfile: (profile: { userId: string; firstName: string; lastName: string; avatarUrl?: string }) => void;
+    onOpenUserProfile: (profile: { userId: string; username: string; avatarUrl?: string }) => void;
 }
 
 export function ProfileTabScreen({ isActive, onFollowChange, refreshFollowingIds, onOpenUserProfile }: ProfileTabScreenProps) {
     const { user, refreshUser, logout } = useAuth();
     const [subView, setSubView] = useState<SubView>('profile');
 
-    const [firstName, setFirstName]   = useState(user?.first_name ?? '');
-    const [lastName, setLastName]     = useState(user?.last_name ?? '');
+    const [username, setUsername]     = useState(user?.username ?? '');
     const [city, setCity]             = useState(user?.city ?? '');
     const [country, setCountry]       = useState(user?.country ?? '');
     const [soberSince, setSoberSince] = useState(user?.sober_since ?? '');
@@ -38,22 +38,29 @@ export function ProfileTabScreen({ isActive, onFollowChange, refreshFollowingIds
     const [followers, setFollowers] = useState<api.FollowUser[]>([]);
     const [unfollowing, setUnfollowing] = useState<Set<string>>(new Set());
 
-    const loadFollows = useCallback(async () => {
+    const loadFollowing = useCallback(async () => {
         try {
-            const [following, followers] = await Promise.all([
-                api.getFollowing(),
-                api.getFollowers(),
-            ]);
+            const following = await api.getFollowing();
             setFollowing(following ?? []);
+        } catch {}
+    }, []);
+
+    const loadFollowers = useCallback(async () => {
+        try {
+            const followers = await api.getFollowers();
             setFollowers(followers ?? []);
         } catch {}
     }, []);
 
+    const loadFollowSummary = useCallback(async () => {
+        await Promise.all([loadFollowing(), loadFollowers()]);
+    }, [loadFollowing, loadFollowers]);
+
     useEffect(() => {
         if (isActive) {
-            loadFollows();
+            loadFollowSummary();
         }
-    }, [isActive, loadFollows]);
+    }, [isActive, loadFollowSummary]);
 
     const mark = (setter: (v: string) => void) => (v: string) => {
         setter(v);
@@ -89,8 +96,7 @@ export function ProfileTabScreen({ isActive, onFollowChange, refreshFollowingIds
         setSaving(true);
         try {
             await api.updateMe({
-                first_name: firstName.trim(),
-                last_name: lastName.trim(),
+                username: username.trim(),
                 city: city.trim() || undefined,
                 country: country.trim() || undefined,
                 sober_since: soberSince.trim() || undefined,
@@ -110,8 +116,7 @@ export function ProfileTabScreen({ isActive, onFollowChange, refreshFollowingIds
         onFollowChange(u.user_id, false);
         try {
             await api.unfollowUser(u.user_id);
-            await loadFollows();
-            await refreshFollowingIds();
+            await loadFollowing();
         } catch (e: unknown) {
             setFollowing(prev => [u, ...prev]);
             onFollowChange(u.user_id, true);
@@ -147,11 +152,11 @@ export function ProfileTabScreen({ isActive, onFollowChange, refreshFollowingIds
                     contentContainerStyle={styles.listContent}
                     renderItem={({ item }) => (
                         <View style={styles.row}>
-                            <TouchableOpacity onPress={() => onOpenUserProfile({ userId: item.user_id, firstName: item.first_name, lastName: item.last_name, avatarUrl: item.avatar_url })}>
-                                <Avatar firstName={item.first_name} lastName={item.last_name} avatarUrl={item.avatar_url} size={48} fontSize={16} />
+                            <TouchableOpacity onPress={() => onOpenUserProfile({ userId: item.user_id, username: item.username, avatarUrl: item.avatar_url })}>
+                                <Avatar username={item.username} avatarUrl={item.avatar_url} size={48} fontSize={16} />
                             </TouchableOpacity>
-                            <TouchableOpacity style={styles.rowInfo} onPress={() => onOpenUserProfile({ userId: item.user_id, firstName: item.first_name, lastName: item.last_name, avatarUrl: item.avatar_url })}>
-                                <Text style={styles.rowName}>{item.first_name} {item.last_name}</Text>
+                            <TouchableOpacity style={styles.rowInfo} onPress={() => onOpenUserProfile({ userId: item.user_id, username: item.username, avatarUrl: item.avatar_url })}>
+                                <Text style={styles.rowName}>{formatUsername(item.username)}</Text>
                                 {item.city && <Text style={styles.rowCity}>{item.city}</Text>}
                             </TouchableOpacity>
                             <TouchableOpacity
@@ -187,11 +192,11 @@ export function ProfileTabScreen({ isActive, onFollowChange, refreshFollowingIds
                     contentContainerStyle={styles.listContent}
                     renderItem={({ item }) => (
                         <View style={styles.row}>
-                            <TouchableOpacity onPress={() => onOpenUserProfile({ userId: item.user_id, firstName: item.first_name, lastName: item.last_name, avatarUrl: item.avatar_url })}>
-                                <Avatar firstName={item.first_name} lastName={item.last_name} avatarUrl={item.avatar_url} size={48} fontSize={16} />
+                            <TouchableOpacity onPress={() => onOpenUserProfile({ userId: item.user_id, username: item.username, avatarUrl: item.avatar_url })}>
+                                <Avatar username={item.username} avatarUrl={item.avatar_url} size={48} fontSize={16} />
                             </TouchableOpacity>
-                            <TouchableOpacity style={styles.rowInfo} onPress={() => onOpenUserProfile({ userId: item.user_id, firstName: item.first_name, lastName: item.last_name, avatarUrl: item.avatar_url })}>
-                                <Text style={styles.rowName}>{item.first_name} {item.last_name}</Text>
+                            <TouchableOpacity style={styles.rowInfo} onPress={() => onOpenUserProfile({ userId: item.user_id, username: item.username, avatarUrl: item.avatar_url })}>
+                                <Text style={styles.rowName}>{formatUsername(item.username)}</Text>
                                 {item.city && <Text style={styles.rowCity}>{item.city}</Text>}
                             </TouchableOpacity>
                         </View>
@@ -218,8 +223,7 @@ export function ProfileTabScreen({ isActive, onFollowChange, refreshFollowingIds
                     <View style={styles.avatarSection}>
                         <TouchableOpacity onPress={handlePickAvatar} disabled={uploadingAvatar} style={styles.avatarWrap}>
                             <Avatar
-                                firstName={firstName || user.first_name}
-                                lastName={lastName || user.last_name}
+                                username={username || user.username}
                                 avatarUrl={localAvatarUrl}
                                 size={80}
                                 fontSize={28}
@@ -231,32 +235,27 @@ export function ProfileTabScreen({ isActive, onFollowChange, refreshFollowingIds
                                 }
                             </View>
                         </TouchableOpacity>
-                        <Text style={styles.avatarName}>{firstName} {lastName}</Text>
+                        <Text style={styles.avatarName}>{formatUsername(username || user.username)}</Text>
                         {city ? <Text style={styles.avatarSub}>{city}{country ? `, ${country}` : ''}</Text> : null}
                     </View>
 
                     <View style={styles.statsRow}>
-                        <TouchableOpacity style={styles.statItem} onPress={() => { setSubView('following'); loadFollows(); }}>
+                        <TouchableOpacity style={styles.statItem} onPress={() => setSubView('following')}>
                             <Text style={styles.statCount}>{following.length}</Text>
                             <Text style={styles.statLabel}>Following</Text>
                         </TouchableOpacity>
                         <View style={styles.statDivider} />
-                        <TouchableOpacity style={styles.statItem} onPress={() => { setSubView('followers'); loadFollows(); }}>
+                        <TouchableOpacity style={styles.statItem} onPress={() => setSubView('followers')}>
                             <Text style={styles.statCount}>{followers.length}</Text>
                             <Text style={styles.statLabel}>Followers</Text>
                         </TouchableOpacity>
                     </View>
 
-                    <Text style={styles.sectionLabel}>NAME</Text>
+                    <Text style={styles.sectionLabel}>USERNAME</Text>
                     <View style={styles.fieldGroup}>
                         <View style={styles.fieldRow}>
-                            <Text style={styles.fieldLabel}>First name</Text>
-                            <TextInput style={styles.fieldInput} value={firstName} onChangeText={mark(setFirstName)} placeholder="First name" placeholderTextColor={Colors.light.textTertiary} />
-                        </View>
-                        <View style={styles.fieldDivider} />
-                        <View style={styles.fieldRow}>
-                            <Text style={styles.fieldLabel}>Last name</Text>
-                            <TextInput style={styles.fieldInput} value={lastName} onChangeText={mark(setLastName)} placeholder="Last name" placeholderTextColor={Colors.light.textTertiary} />
+                            <Text style={styles.fieldLabel}>Username</Text>
+                            <TextInput style={styles.fieldInput} value={username} onChangeText={mark(setUsername)} placeholder="username" placeholderTextColor={Colors.light.textTertiary} autoCapitalize="none" autoCorrect={false} />
                         </View>
                     </View>
 

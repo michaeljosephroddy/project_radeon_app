@@ -7,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Avatar } from '../../components/Avatar';
 import * as api from '../../api/client';
 import { Colors, Typography, Spacing, Radii } from '../../utils/theme';
+import { formatUsername } from '../../utils/identity';
 
 function timeAgo(dateStr: string): string {
     const diff = Date.now() - new Date(dateStr).getTime();
@@ -20,8 +21,7 @@ function timeAgo(dateStr: string): string {
 
 interface UserProfileScreenProps {
     userId: string;
-    firstName: string;
-    lastName: string;
+    username: string;
     avatarUrl?: string;
     followingIds: Set<string>;
     onBack: () => void;
@@ -31,7 +31,7 @@ interface UserProfileScreenProps {
 }
 
 export function UserProfileScreen({
-    userId, firstName, lastName, avatarUrl,
+    userId, username, avatarUrl,
     followingIds, onBack, onFollowChange, refreshFollowingIds, onOpenConversation,
 }: UserProfileScreenProps) {
     const [profile, setProfile] = useState<api.User | null>(null);
@@ -89,8 +89,7 @@ export function UserProfileScreen({
             onOpenConversation({
                 id,
                 is_group: false,
-                first_name: firstName,
-                last_name: lastName,
+                username,
                 avatar_url: avatarUrl,
                 created_at: new Date().toISOString(),
             });
@@ -102,13 +101,12 @@ export function UserProfileScreen({
     const ProfileHeader = (
         <View style={styles.profileHeader}>
             <Avatar
-                firstName={firstName}
-                lastName={lastName}
+                username={username}
                 avatarUrl={avatarUrl}
                 size={80}
                 fontSize={28}
             />
-            <Text style={styles.name}>{firstName} {lastName}</Text>
+            <Text style={styles.name}>{formatUsername(username)}</Text>
 
             {loading ? (
                 <ActivityIndicator color={Colors.primary} style={{ marginTop: Spacing.sm }} />
@@ -152,7 +150,7 @@ export function UserProfileScreen({
                 <TouchableOpacity onPress={onBack} style={styles.backBtn}>
                     <Text style={styles.backIcon}>←</Text>
                 </TouchableOpacity>
-                <Text style={styles.headerTitle}>{firstName} {lastName}</Text>
+                <Text style={styles.headerTitle}>{formatUsername(username)}</Text>
                 <View style={styles.backBtn} />
             </View>
 
@@ -172,9 +170,9 @@ export function UserProfileScreen({
                 renderItem={({ item }) => (
                     <View style={styles.postCard}>
                         <View style={styles.postHead}>
-                            <Avatar firstName={item.first_name} lastName={item.last_name} avatarUrl={item.avatar_url} size={36} fontSize={13} />
+                            <Avatar username={item.username} avatarUrl={item.avatar_url} size={36} fontSize={13} />
                             <View style={styles.postHeadBody}>
-                                <Text style={styles.postName}>{item.first_name} {item.last_name}</Text>
+                                <Text style={styles.postName}>{formatUsername(item.username)}</Text>
                                 <Text style={styles.postMeta}>{timeAgo(item.created_at)}</Text>
                             </View>
                         </View>

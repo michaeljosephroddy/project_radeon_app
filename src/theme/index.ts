@@ -16,7 +16,8 @@ export function getAvatarColors(name: string) {
   return palettes[idx];
 }
 
-export function getInitials(firstName: string, lastName: string) {
-  return `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase();
+export function getInitials(label: string) {
+  const cleaned = label.replace(/^@+/, '').trim();
+  if (!cleaned) return '?';
+  return cleaned.slice(0, 2).toUpperCase();
 }
-

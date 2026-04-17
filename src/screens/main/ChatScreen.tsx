@@ -8,6 +8,7 @@ import * as api from '../../api/client';
 import { useAuth } from '../../hooks/useAuth';
 import { Colors, Typography, Spacing, Radii } from '../../utils/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { formatUsername } from '../../utils/identity';
 
 interface Props {
     conversation: api.Conversation;
@@ -41,8 +42,7 @@ export function ChatScreen({ conversation, onBack }: Props) {
                 {
                     id,
                     sender_id: user?.id ?? '',
-                    first_name: user?.first_name ?? '',
-                    last_name: user?.last_name ?? '',
+                    username: user?.username ?? 'unknown',
                     avatar_url: user?.avatar_url,
                     body,
                     sent_at: new Date().toISOString(),
@@ -58,7 +58,7 @@ export function ChatScreen({ conversation, onBack }: Props) {
 
     const displayName = conversation.is_group
         ? (conversation.name ?? 'Group')
-        : [conversation.first_name, conversation.last_name].filter(Boolean).join(' ') || conversation.name || 'Unknown';
+        : formatUsername(conversation.username);
 
     return (
         <KeyboardAvoidingView
@@ -88,11 +88,11 @@ export function ChatScreen({ conversation, onBack }: Props) {
                         return (
                             <View style={[styles.bubble, isMe ? styles.bubbleMe : styles.bubbleThem]}>
                                 {!isMe && (
-                                    <Avatar firstName={item.first_name} lastName={item.last_name} avatarUrl={item.avatar_url} size={26} fontSize={10} />
+                                    <Avatar username={item.username} avatarUrl={item.avatar_url} size={26} fontSize={10} />
                                 )}
                                 <View style={[styles.bubbleInner, isMe ? styles.bubbleInnerMe : styles.bubbleInnerThem]}>
                                     {!isMe && (
-                                        <Text style={styles.senderName}>{item.first_name}</Text>
+                                        <Text style={styles.senderName}>{formatUsername(item.username)}</Text>
                                     )}
                                     <Text style={[styles.bubbleText, isMe && styles.bubbleTextMe]}>{item.body}</Text>
                                 </View>

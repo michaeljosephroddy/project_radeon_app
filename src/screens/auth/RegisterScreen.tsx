@@ -15,8 +15,7 @@ interface RegisterScreenProps {
 export function RegisterScreen({ onGoToLogin }: RegisterScreenProps) {
   const { register } = useAuth();
   const [form, setForm] = useState({
-    first_name: '',
-    last_name: '',
+    username: '',
     email: '',
     password: '',
     city: '',
@@ -28,8 +27,8 @@ export function RegisterScreen({ onGoToLogin }: RegisterScreenProps) {
     setForm(prev => ({ ...prev, [key]: val }));
 
   const handleRegister = async () => {
-    if (!form.first_name || !form.last_name || !form.email || !form.password) {
-      Alert.alert('Missing fields', 'Please fill in your name, email and password.');
+    if (!form.username || !form.email || !form.password) {
+      Alert.alert('Missing fields', 'Please fill in your username, email and password.');
       return;
     }
     setLoading(true);
@@ -58,24 +57,16 @@ export function RegisterScreen({ onGoToLogin }: RegisterScreenProps) {
           <Text style={styles.wordmark}>
             project<Text style={styles.wordmarkAccent}>_radeon</Text>
           </Text>
-          <Text style={styles.tagline}>Use your real name — this is a real community.</Text>
+          <Text style={styles.tagline}>Choose a username you want people to see.</Text>
         </View>
 
         <View style={styles.form}>
-          <View style={styles.row}>
-            <View style={styles.half}>
-              <Text style={styles.label}>First name</Text>
-              <TextInput style={styles.input} placeholder="Michael"
-                placeholderTextColor={Colors.light.textTertiary}
-                value={form.first_name} onChangeText={set('first_name')} />
-            </View>
-            <View style={styles.half}>
-              <Text style={styles.label}>Last name</Text>
-              <TextInput style={styles.input} placeholder="Roddy"
-                placeholderTextColor={Colors.light.textTertiary}
-                value={form.last_name} onChangeText={set('last_name')} />
-            </View>
-          </View>
+          <Text style={styles.label}>Username</Text>
+          <TextInput style={styles.input} placeholder="michaelroddy"
+            placeholderTextColor={Colors.light.textTertiary}
+            autoCapitalize="none"
+            autoCorrect={false}
+            value={form.username} onChangeText={set('username')} />
 
           <Text style={styles.label}>Email</Text>
           <TextInput style={styles.input} placeholder="you@example.com"

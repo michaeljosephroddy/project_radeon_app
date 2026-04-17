@@ -50,8 +50,7 @@ async function request<T>(
 
 export interface User {
     id: string;
-    first_name: string;
-    last_name: string;
+    username: string;
     avatar_url?: string;
     city?: string;
     country?: string;
@@ -62,8 +61,7 @@ export interface User {
 export interface Post {
     id: string;
     user_id: string;
-    first_name: string;
-    last_name: string;
+    username: string;
     avatar_url?: string;
     body: string;
     created_at: string;
@@ -72,8 +70,7 @@ export interface Post {
 export interface Comment {
     id: string;
     user_id: string;
-    first_name: string;
-    last_name: string;
+    username: string;
     avatar_url?: string;
     body: string;
     created_at: string;
@@ -82,8 +79,8 @@ export interface Comment {
 export interface Reaction {
     id: string;
     user_id: string;
-    first_name: string;
-    last_name: string;
+    username: string;
+    avatar_url?: string;
     type: string;
 }
 
@@ -101,8 +98,7 @@ export interface Event {
 
 export interface Attendee {
     id: string;
-    first_name: string;
-    last_name: string;
+    username: string;
     avatar_url?: string;
     city?: string;
     rsvp_at: string;
@@ -112,8 +108,7 @@ export interface Conversation {
     id: string;
     is_group: boolean;
     name?: string;
-    first_name?: string;
-    last_name?: string;
+    username?: string;
     avatar_url?: string;
     created_at: string;
     last_message?: string;
@@ -123,8 +118,7 @@ export interface Conversation {
 export interface Message {
     id: string;
     sender_id: string;
-    first_name: string;
-    last_name: string;
+    username: string;
     avatar_url?: string;
     body: string;
     sent_at: string;
@@ -133,8 +127,7 @@ export interface Message {
 // ── Auth ───────────────────────────────────────────────────────────────────
 
 export async function register(data: {
-    first_name: string;
-    last_name: string;
+    username: string;
     email: string;
     password: string;
     city?: string;
@@ -289,8 +282,7 @@ export async function updateConversationStatus(
 export interface FollowUser {
     id: string;
     user_id: string;
-    first_name: string;
-    last_name: string;
+    username: string;
     avatar_url?: string;
     city?: string;
     created_at: string;

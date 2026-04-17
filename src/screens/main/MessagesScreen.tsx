@@ -6,6 +6,7 @@ import {
 import { Avatar } from '../../components/Avatar';
 import * as api from '../../api/client';
 import { Colors, Typography, Spacing, Radii } from '../../utils/theme';
+import { formatUsername } from '../../utils/identity';
 
 function timeLabel(dateStr?: string): string {
     if (!dateStr) return '';
@@ -32,11 +33,9 @@ interface ConvItemProps {
 }
 
 function ConvItem({ item, onOpenConversation }: ConvItemProps) {
-    const firstName = item.is_group ? '' : (item.first_name ?? '');
-    const lastName = item.is_group ? '' : (item.last_name ?? '');
     const displayName = item.is_group
         ? (item.name ?? 'Group')
-        : [firstName, lastName].filter(Boolean).join(' ') || 'Unknown';
+        : formatUsername(item.username);
 
     return (
         <TouchableOpacity
@@ -44,7 +43,7 @@ function ConvItem({ item, onOpenConversation }: ConvItemProps) {
             onPress={() => onOpenConversation(item)}
         >
             <View style={styles.avatarWrap}>
-                <Avatar firstName={firstName} lastName={lastName} avatarUrl={item.is_group ? undefined : item.avatar_url} size={40} fontSize={13} />
+                <Avatar username={item.is_group ? 'group' : (item.username ?? 'unknown')} avatarUrl={item.is_group ? undefined : item.avatar_url} size={40} fontSize={13} />
                 {item.is_group && (
                     <View style={styles.groupBadge}>
                         <Text style={styles.groupBadgeText}>G</Text>

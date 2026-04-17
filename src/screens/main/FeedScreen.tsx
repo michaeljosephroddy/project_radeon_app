@@ -8,6 +8,7 @@ import { Avatar } from '../../components/Avatar';
 import * as api from '../../api/client';
 import { useAuth } from '../../hooks/useAuth';
 import { Colors, Typography, Spacing, Radii } from '../../utils/theme';
+import { formatUsername } from '../../utils/identity';
 
 function timeAgo(dateStr: string): string {
     const diff = Date.now() - new Date(dateStr).getTime();
@@ -43,10 +44,10 @@ function PostCard({ post, currentUserId, isFollowing, onPressUser }: PostCardPro
         <View style={styles.postCard}>
             <View style={styles.postHead}>
                 <TouchableOpacity onPress={isOwn ? undefined : onPressUser} disabled={isOwn}>
-                    <Avatar firstName={post.first_name} lastName={post.last_name} avatarUrl={post.avatar_url} size={36} />
+                    <Avatar username={post.username} avatarUrl={post.avatar_url} size={36} />
                 </TouchableOpacity>
                 <View style={styles.postHeadBody}>
-                    <Text style={styles.postName}>{post.first_name} {post.last_name}</Text>
+                    <Text style={styles.postName}>{formatUsername(post.username)}</Text>
                     <Text style={styles.postMeta}>{timeAgo(post.created_at)}</Text>
                 </View>
                 {!isOwn && (
@@ -84,7 +85,7 @@ function PostCard({ post, currentUserId, isFollowing, onPressUser }: PostCardPro
 interface FeedScreenProps {
     followingIds: Set<string>;
     onFollowChange: (userId: string, following: boolean) => void;
-    onOpenUserProfile: (profile: { userId: string; firstName: string; lastName: string; avatarUrl?: string }) => void;
+    onOpenUserProfile: (profile: { userId: string; username: string; avatarUrl?: string }) => void;
     onFollowingLoaded: (ids: Set<string>) => void;
 }
 
@@ -144,7 +145,7 @@ export function FeedScreen({ followingIds, onFollowChange, onOpenUserProfile, on
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
                 ListHeaderComponent={
                     <View style={styles.composeBar}>
-                        {user && <Avatar firstName={user.first_name} lastName={user.last_name} avatarUrl={user.avatar_url} size={28} />}
+                        {user && <Avatar username={user.username} avatarUrl={user.avatar_url} size={28} />}
                         {composing ? (
                             <TextInput
                                 style={styles.composeInput}
@@ -184,8 +185,7 @@ export function FeedScreen({ followingIds, onFollowChange, onOpenUserProfile, on
                         isFollowing={followingIds.has(item.user_id)}
                         onPressUser={() => onOpenUserProfile({
                             userId: item.user_id,
-                            firstName: item.first_name,
-                            lastName: item.last_name,
+                            username: item.username,
                             avatarUrl: item.avatar_url,
                         })}
                     />
