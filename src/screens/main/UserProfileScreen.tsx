@@ -23,21 +23,24 @@ interface UserProfileScreenProps {
     firstName: string;
     lastName: string;
     avatarUrl?: string;
-    initialIsFollowing: boolean;
+    followingIds: Set<string>;
     onBack: () => void;
     onFollowChange: (userId: string, following: boolean) => void;
+    refreshFollowingIds: () => Promise<void>;
+    onOpenConversation: (conv: api.Conversation) => void;
 }
 
 export function UserProfileScreen({
     userId, firstName, lastName, avatarUrl,
-    initialIsFollowing, onBack, onFollowChange,
+    followingIds, onBack, onFollowChange, refreshFollowingIds, onOpenConversation,
 }: UserProfileScreenProps) {
     const [profile, setProfile] = useState<api.User | null>(null);
     const [posts, setPosts] = useState<api.Post[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
-    const [isFollowing, setIsFollowing] = useState(initialIsFollowing);
+    const isFollowing = followingIds.has(userId);
     const [followLoading, setFollowLoading] = useState(false);
+    const [dmLoading, setDmLoading] = useState(false);
 
     const load = useCallback(async () => {
         try {
@@ -52,18 +55,18 @@ export function UserProfileScreen({
 
     useEffect(() => {
         load().finally(() => setLoading(false));
+        refreshFollowingIds();
     }, [load]);
 
     const onRefresh = async () => {
         setRefreshing(true);
-        await load();
+        await Promise.all([load(), refreshFollowingIds()]);
         setRefreshing(false);
     };
 
     const handleFollow = async () => {
         setFollowLoading(true);
         const next = !isFollowing;
-        setIsFollowing(next);
         onFollowChange(userId, next);
         try {
             if (next) {
@@ -71,11 +74,28 @@ export function UserProfileScreen({
             } else {
                 await api.unfollowUser(userId);
             }
+            await refreshFollowingIds();
         } catch {
-            setIsFollowing(!next);
             onFollowChange(userId, !next);
         } finally {
             setFollowLoading(false);
+        }
+    };
+
+    const handleDM = async () => {
+        setDmLoading(true);
+        try {
+            const { id } = await api.createConversation([userId]);
+            onOpenConversation({
+                id,
+                is_group: false,
+                first_name: firstName,
+                last_name: lastName,
+                avatar_url: avatarUrl,
+                created_at: new Date().toISOString(),
+            });
+        } catch { } finally {
+            setDmLoading(false);
         }
     };
 
@@ -100,27 +120,27 @@ export function UserProfileScreen({
                     {profile?.sober_since && (
                         <Text style={styles.meta}>Sober since {profile.sober_since}</Text>
                     )}
-                    {(profile?.interests?.length ?? 0) > 0 && (
-                        <View style={styles.interests}>
-                            {profile!.interests.map(interest => (
-                                <View key={interest} style={styles.interestPill}>
-                                    <Text style={styles.interestPillText}>{interest}</Text>
-                                </View>
-                            ))}
-                        </View>
-                    )}
                 </>
             )}
 
-            <TouchableOpacity
-                style={[styles.followBtn, isFollowing && styles.followingBtn, followLoading && { opacity: 0.6 }]}
-                onPress={handleFollow}
-                disabled={followLoading}
-            >
-                <Text style={[styles.followBtnText, isFollowing && styles.followingBtnText]}>
-                    {isFollowing ? 'Following' : 'Follow'}
-                </Text>
-            </TouchableOpacity>
+            <View style={styles.actionRow}>
+                <TouchableOpacity
+                    style={[styles.followBtn, isFollowing && styles.followingBtn, followLoading && { opacity: 0.6 }]}
+                    onPress={handleFollow}
+                    disabled={followLoading}
+                >
+                    <Text style={[styles.followBtnText, isFollowing && styles.followingBtnText]}>
+                        {isFollowing ? 'Following' : 'Follow'}
+                    </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                    style={[styles.dmBtn, dmLoading && { opacity: 0.6 }]}
+                    onPress={handleDM}
+                    disabled={dmLoading}
+                >
+                    <Text style={styles.dmBtnText}>Message</Text>
+                </TouchableOpacity>
+            </View>
 
             <Text style={styles.postsLabel}>POSTS</Text>
         </View>
@@ -208,30 +228,17 @@ const styles = StyleSheet.create({
         fontSize: Typography.sizes.sm,
         color: Colors.light.textTertiary,
     },
-    interests: {
+    actionRow: {
         flexDirection: 'row',
-        flexWrap: 'wrap',
-        gap: Spacing.xs,
-        justifyContent: 'center',
-        marginTop: Spacing.xs,
+        gap: Spacing.sm,
+        marginTop: Spacing.sm,
     },
-    interestPill: {
-        borderRadius: Radii.full,
-        borderWidth: 1,
-        borderColor: Colors.success,
-        paddingHorizontal: 10,
-        paddingVertical: 4,
-        backgroundColor: Colors.successSubtle,
-    },
-    interestPillText: { fontSize: Typography.sizes.xs, color: Colors.success, fontWeight: '500' },
-
     followBtn: {
+        flex: 1,
         backgroundColor: Colors.primary,
         borderRadius: Radii.md,
         paddingVertical: 10,
-        paddingHorizontal: Spacing.xl,
         alignItems: 'center',
-        marginTop: Spacing.sm,
     },
     followingBtn: {
         backgroundColor: 'transparent',
@@ -240,6 +247,16 @@ const styles = StyleSheet.create({
     },
     followBtnText: { fontSize: Typography.sizes.base, fontWeight: '600', color: '#FFFFFF' },
     followingBtnText: { color: Colors.light.textSecondary },
+    dmBtn: {
+        flex: 1,
+        backgroundColor: Colors.light.backgroundSecondary,
+        borderRadius: Radii.md,
+        paddingVertical: 10,
+        alignItems: 'center',
+        borderWidth: 1.5,
+        borderColor: Colors.light.border,
+    },
+    dmBtnText: { fontSize: Typography.sizes.base, fontWeight: '600', color: Colors.light.textPrimary },
 
     postsLabel: {
         alignSelf: 'flex-start',

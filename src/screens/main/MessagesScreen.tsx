@@ -1,10 +1,9 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
     View, Text, FlatList, TouchableOpacity,
     StyleSheet, RefreshControl, ActivityIndicator, TextInput,
 } from 'react-native';
 import { Avatar } from '../../components/Avatar';
-import { MatchBadge } from '../../components/MatchBadge';
 import * as api from '../../api/client';
 import { Colors, Typography, Spacing, Radii } from '../../utils/theme';
 
@@ -22,6 +21,8 @@ function timeLabel(dateStr?: string): string {
 }
 
 interface MessagesScreenProps {
+    isActive: boolean;
+    refreshKey: number;
     onOpenConversation: (conv: api.Conversation) => void;
 }
 
@@ -53,7 +54,6 @@ function ConvItem({ item, onOpenConversation }: ConvItemProps) {
             <View style={styles.meta}>
                 <View style={styles.metaTop}>
                     <Text style={styles.name}>{displayName}</Text>
-                    {item.connection_type === 'MATCH' && <MatchBadge />}
                     {item.is_group && (
                         <View style={styles.groupPill}>
                             <Text style={styles.groupPillText}>group</Text>
@@ -69,21 +69,38 @@ function ConvItem({ item, onOpenConversation }: ConvItemProps) {
     );
 }
 
-export function MessagesScreen({ onOpenConversation }: MessagesScreenProps) {
+export function MessagesScreen({ isActive, refreshKey, onOpenConversation }: MessagesScreenProps) {
     const [convs, setConvs] = useState<api.Conversation[]>([]);
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading] = useState(isActive);
     const [refreshing, setRefreshing] = useState(false);
+    const hasLoadedRef = useRef(false);
+    const previousRefreshKeyRef = useRef(refreshKey);
 
     const load = useCallback(async () => {
         try {
-            const [data] = await Promise.all([
-                api.getConversations(),
-            ]);
+            const data = await api.getConversations();
             setConvs(data ?? []);
         } catch { }
     }, []);
 
-    useEffect(() => { load().finally(() => setLoading(false)); }, [load]);
+    useEffect(() => {
+        if (!isActive) return;
+
+        const isFirstLoad = !hasLoadedRef.current;
+        if (isFirstLoad) setLoading(true);
+
+        load().finally(() => {
+            hasLoadedRef.current = true;
+            if (isFirstLoad) setLoading(false);
+        });
+    }, [isActive, load]);
+
+    useEffect(() => {
+        const refreshKeyChanged = refreshKey !== previousRefreshKeyRef.current;
+        previousRefreshKeyRef.current = refreshKey;
+
+        if (isActive && refreshKeyChanged) load();
+    }, [isActive, refreshKey, load]);
 
     const onRefresh = async () => {
         setRefreshing(true);

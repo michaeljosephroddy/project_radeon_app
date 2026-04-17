@@ -53,13 +53,10 @@ export interface User {
     first_name: string;
     last_name: string;
     avatar_url?: string;
-    avatar_url_blurred?: string;
     city?: string;
     country?: string;
     sober_since?: string;
     created_at: string;
-    interests: string[];
-    discovery_radius_km?: number;
 }
 
 export interface Post {
@@ -88,18 +85,6 @@ export interface Reaction {
     first_name: string;
     last_name: string;
     type: string;
-}
-
-export interface Connection {
-    id: string;
-    user_id: string;
-    first_name: string;
-    last_name: string;
-    avatar_url?: string;
-    city?: string;
-    status: string;
-    type?: string | null;
-    connected_at: string;
 }
 
 export interface Event {
@@ -133,7 +118,6 @@ export interface Conversation {
     created_at: string;
     last_message?: string;
     last_message_at?: string;
-    connection_type?: string | null;
 }
 
 export interface Message {
@@ -144,11 +128,6 @@ export interface Message {
     avatar_url?: string;
     body: string;
     sent_at: string;
-}
-
-export interface Interest {
-    id: string;
-    name: string;
 }
 
 // ── Auth ───────────────────────────────────────────────────────────────────
@@ -183,7 +162,7 @@ export async function updateMe(data: Partial<User>): Promise<User> {
     return request('/users/me', { method: 'PATCH', body: JSON.stringify(data) });
 }
 
-export async function uploadAvatar(uri: string): Promise<{ avatar_url: string; avatar_url_blurred: string }> {
+export async function uploadAvatar(uri: string): Promise<{ avatar_url: string }> {
     const token = await getToken();
     const form = new FormData();
     form.append('avatar', { uri, name: 'avatar.jpg', type: 'image/jpeg' } as unknown as Blob);
@@ -198,53 +177,16 @@ export async function uploadAvatar(uri: string): Promise<{ avatar_url: string; a
     return json.data;
 }
 
-export async function updateLocation(lat: number, lng: number): Promise<void> {
-    await request('/users/me', { method: 'PATCH', body: JSON.stringify({ lat, lng }) });
-}
-
 export async function getUser(id: string): Promise<User> {
     return request(`/users/${id}`);
 }
 
-export async function setInterests(interestIds: string[]): Promise<void> {
-    return request('/users/me/interests', { method: 'PUT', body: JSON.stringify({ interest_ids: interestIds }) });
-}
-
-
-export interface ScoredUser {
-    id: string;
-    first_name: string;
-    last_name: string;
-    avatar_url?: string;
-    city?: string;
-    score: number;
-}
-
-export interface Liker {
-    id: string;
-    first_name: string;
-    last_name: string;
-    avatar_url?: string;
-    avatar_url_blurred?: string;
-    city?: string;
-    liked_at: string;
-}
-
-export async function getSuggestions(): Promise<ScoredUser[]> {
-    return request('/users/suggestions');
-}
-
-export async function getMyLikes(): Promise<Liker[]> {
-    return request('/users/me/likes');
-}
-
-export async function likeUser(id: string): Promise<{ matched: boolean }> {
-    const result = await request<{ matched: boolean } | undefined>(`/users/${id}/like`, { method: 'POST' });
-    return result ?? { matched: false };
-}
-
-export async function dismissSuggestion(id: string): Promise<void> {
-    return request(`/users/${id}/dismiss`, { method: 'POST' });
+export async function discoverUsers(params?: { query?: string; city?: string }): Promise<User[]> {
+    const search = new URLSearchParams();
+    if (params?.query?.trim()) search.set('q', params.query.trim());
+    if (params?.city?.trim()) search.set('city', params.city.trim());
+    const suffix = search.toString() ? `?${search.toString()}` : '';
+    return request(`/users/discover${suffix}`);
 }
 
 // ── Feed & Posts ───────────────────────────────────────────────────────────
@@ -279,28 +221,6 @@ export async function addComment(postId: string, body: string): Promise<{ id: st
 
 export async function getComments(postId: string): Promise<Comment[]> {
     return request(`/posts/${postId}/comments`);
-}
-
-// ── Connections ────────────────────────────────────────────────────────────
-
-export async function sendConnectionRequest(addresseeId: string): Promise<{ id: string }> {
-    return request('/connections', { method: 'POST', body: JSON.stringify({ addressee_id: addresseeId }) });
-}
-
-export async function getConnections(): Promise<Connection[]> {
-    return request('/connections');
-}
-
-export async function getPendingConnections(): Promise<Connection[]> {
-    return request('/connections/pending');
-}
-
-export async function updateConnectionStatus(id: string, status: 'accepted' | 'declined'): Promise<void> {
-    return request(`/connections/${id}`, { method: 'PATCH', body: JSON.stringify({ status }) });
-}
-
-export async function removeConnection(id: string): Promise<void> {
-    return request(`/connections/${id}`, { method: 'DELETE' });
 }
 
 // ── Events ─────────────────────────────────────────────────────────────────
@@ -390,10 +310,4 @@ export async function getFollowing(): Promise<FollowUser[]> {
 
 export async function getFollowers(): Promise<FollowUser[]> {
     return request('/users/me/followers');
-}
-
-// ── Interests ──────────────────────────────────────────────────────────────
-
-export async function getInterests(): Promise<Interest[]> {
-    return request('/interests');
 }

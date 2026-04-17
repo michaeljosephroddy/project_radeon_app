@@ -13,7 +13,14 @@ import { Colors, Typography, Spacing, Radii } from '../../utils/theme';
 
 type SubView = 'profile' | 'following' | 'followers' | 'settings';
 
-export function ProfileTabScreen() {
+interface ProfileTabScreenProps {
+    isActive: boolean;
+    onFollowChange: (userId: string, following: boolean) => void;
+    refreshFollowingIds: () => Promise<void>;
+    onOpenUserProfile: (profile: { userId: string; firstName: string; lastName: string; avatarUrl?: string }) => void;
+}
+
+export function ProfileTabScreen({ isActive, onFollowChange, refreshFollowingIds, onOpenUserProfile }: ProfileTabScreenProps) {
     const { user, refreshUser, logout } = useAuth();
     const [subView, setSubView] = useState<SubView>('profile');
 
@@ -22,9 +29,6 @@ export function ProfileTabScreen() {
     const [city, setCity]             = useState(user?.city ?? '');
     const [country, setCountry]       = useState(user?.country ?? '');
     const [soberSince, setSoberSince] = useState(user?.sober_since ?? '');
-    const [allInterests, setAllInterests] = useState<api.Interest[]>([]);
-    const [selectedIds, setSelectedIds]   = useState<string[]>([]);
-    const [interestsLoading, setInterestsLoading] = useState(true);
     const [saving, setSaving]           = useState(false);
     const [dirty, setDirty]             = useState(false);
     const [uploadingAvatar, setUploadingAvatar] = useState(false);
@@ -34,34 +38,25 @@ export function ProfileTabScreen() {
     const [followers, setFollowers] = useState<api.FollowUser[]>([]);
     const [unfollowing, setUnfollowing] = useState<Set<string>>(new Set());
 
-    useEffect(() => {
-        api.getInterests()
-            .then(interests => {
-                setAllInterests(interests ?? []);
-                const userNames = new Set(user?.interests ?? []);
-                setSelectedIds((interests ?? []).filter(i => userNames.has(i.name)).map(i => i.id));
-            })
-            .catch(() => {})
-            .finally(() => setInterestsLoading(false));
-    }, []);
-
     const loadFollows = useCallback(async () => {
         try {
-            const [f, rs] = await Promise.all([api.getFollowing(), api.getFollowers()]);
-            setFollowing(f ?? []);
-            setFollowers(rs ?? []);
+            const [following, followers] = await Promise.all([
+                api.getFollowing(),
+                api.getFollowers(),
+            ]);
+            setFollowing(following ?? []);
+            setFollowers(followers ?? []);
         } catch {}
     }, []);
 
-    useEffect(() => { loadFollows(); }, [loadFollows]);
+    useEffect(() => {
+        if (isActive) {
+            loadFollows();
+        }
+    }, [isActive, loadFollows]);
 
     const mark = (setter: (v: string) => void) => (v: string) => {
         setter(v);
-        setDirty(true);
-    };
-
-    const toggleInterest = (id: string) => {
-        setSelectedIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
         setDirty(true);
     };
 
@@ -93,16 +88,13 @@ export function ProfileTabScreen() {
     const handleSave = async () => {
         setSaving(true);
         try {
-            await Promise.all([
-                api.updateMe({
-                    first_name: firstName.trim(),
-                    last_name: lastName.trim(),
-                    city: city.trim() || undefined,
-                    country: country.trim() || undefined,
-                    sober_since: soberSince.trim() || undefined,
-                }),
-                api.setInterests(selectedIds),
-            ]);
+            await api.updateMe({
+                first_name: firstName.trim(),
+                last_name: lastName.trim(),
+                city: city.trim() || undefined,
+                country: country.trim() || undefined,
+                sober_since: soberSince.trim() || undefined,
+            });
             await refreshUser();
             setDirty(false);
         } catch (e: unknown) {
@@ -115,10 +107,14 @@ export function ProfileTabScreen() {
     const handleUnfollow = async (u: api.FollowUser) => {
         setUnfollowing(prev => new Set(prev).add(u.user_id));
         setFollowing(prev => prev.filter(f => f.user_id !== u.user_id));
+        onFollowChange(u.user_id, false);
         try {
             await api.unfollowUser(u.user_id);
+            await loadFollows();
+            await refreshFollowingIds();
         } catch (e: unknown) {
             setFollowing(prev => [u, ...prev]);
+            onFollowChange(u.user_id, true);
             Alert.alert('Error', e instanceof Error ? e.message : 'Something went wrong.');
         } finally {
             setUnfollowing(prev => { const s = new Set(prev); s.delete(u.user_id); return s; });
@@ -132,12 +128,12 @@ export function ProfileTabScreen() {
     if (!user) return null;
 
     if (subView === 'settings') {
-        return <SettingsScreen onBack={() => setSubView('profile')} />;
+        return <SettingsScreen onBack={() => setSubView('profile')} onLogout={handleLogout} />;
     }
 
     if (subView === 'following') {
         return (
-            <SafeAreaView style={styles.container} edges={['bottom']}>
+            <SafeAreaView style={styles.container}>
                 <View style={styles.subHeader}>
                     <TouchableOpacity onPress={() => setSubView('profile')} style={styles.subHeaderSide}>
                         <Text style={styles.backIcon}>←</Text>
@@ -147,15 +143,17 @@ export function ProfileTabScreen() {
                 </View>
                 <FlatList
                     data={following}
-                    keyExtractor={item => item.id}
+                    keyExtractor={item => item.user_id}
                     contentContainerStyle={styles.listContent}
                     renderItem={({ item }) => (
                         <View style={styles.row}>
-                            <Avatar firstName={item.first_name} lastName={item.last_name} avatarUrl={item.avatar_url} size={48} fontSize={16} />
-                            <View style={styles.rowInfo}>
+                            <TouchableOpacity onPress={() => onOpenUserProfile({ userId: item.user_id, firstName: item.first_name, lastName: item.last_name, avatarUrl: item.avatar_url })}>
+                                <Avatar firstName={item.first_name} lastName={item.last_name} avatarUrl={item.avatar_url} size={48} fontSize={16} />
+                            </TouchableOpacity>
+                            <TouchableOpacity style={styles.rowInfo} onPress={() => onOpenUserProfile({ userId: item.user_id, firstName: item.first_name, lastName: item.last_name, avatarUrl: item.avatar_url })}>
                                 <Text style={styles.rowName}>{item.first_name} {item.last_name}</Text>
                                 {item.city && <Text style={styles.rowCity}>{item.city}</Text>}
-                            </View>
+                            </TouchableOpacity>
                             <TouchableOpacity
                                 style={styles.unfollowBtn}
                                 onPress={() => handleUnfollow(item)}
@@ -175,7 +173,7 @@ export function ProfileTabScreen() {
 
     if (subView === 'followers') {
         return (
-            <SafeAreaView style={styles.container} edges={['bottom']}>
+            <SafeAreaView style={styles.container}>
                 <View style={styles.subHeader}>
                     <TouchableOpacity onPress={() => setSubView('profile')} style={styles.subHeaderSide}>
                         <Text style={styles.backIcon}>←</Text>
@@ -185,15 +183,17 @@ export function ProfileTabScreen() {
                 </View>
                 <FlatList
                     data={followers}
-                    keyExtractor={item => item.id}
+                    keyExtractor={item => item.user_id}
                     contentContainerStyle={styles.listContent}
                     renderItem={({ item }) => (
                         <View style={styles.row}>
-                            <Avatar firstName={item.first_name} lastName={item.last_name} avatarUrl={item.avatar_url} size={48} fontSize={16} />
-                            <View style={styles.rowInfo}>
+                            <TouchableOpacity onPress={() => onOpenUserProfile({ userId: item.user_id, firstName: item.first_name, lastName: item.last_name, avatarUrl: item.avatar_url })}>
+                                <Avatar firstName={item.first_name} lastName={item.last_name} avatarUrl={item.avatar_url} size={48} fontSize={16} />
+                            </TouchableOpacity>
+                            <TouchableOpacity style={styles.rowInfo} onPress={() => onOpenUserProfile({ userId: item.user_id, firstName: item.first_name, lastName: item.last_name, avatarUrl: item.avatar_url })}>
                                 <Text style={styles.rowName}>{item.first_name} {item.last_name}</Text>
                                 {item.city && <Text style={styles.rowCity}>{item.city}</Text>}
-                            </View>
+                            </TouchableOpacity>
                         </View>
                     )}
                     ListEmptyComponent={
@@ -205,7 +205,7 @@ export function ProfileTabScreen() {
     }
 
     return (
-        <SafeAreaView style={styles.container} edges={['bottom']}>
+        <SafeAreaView style={styles.container}>
             <View style={styles.topBar}>
                 <Text style={styles.topBarTitle}>Profile</Text>
                 <TouchableOpacity onPress={() => setSubView('settings')} style={styles.settingsBtn}>
@@ -214,113 +214,87 @@ export function ProfileTabScreen() {
             </View>
 
             <ScrollView style={styles.scroll} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-                <View style={styles.avatarSection}>
-                    <TouchableOpacity onPress={handlePickAvatar} disabled={uploadingAvatar} style={styles.avatarWrap}>
-                        <Avatar
-                            firstName={firstName || user.first_name}
-                            lastName={lastName || user.last_name}
-                            avatarUrl={localAvatarUrl}
-                            size={80}
-                            fontSize={28}
-                        />
-                        <View style={styles.avatarEditBadge}>
-                            {uploadingAvatar
-                                ? <ActivityIndicator size="small" color={Colors.textOn.primary} />
-                                : <Text style={styles.avatarEditIcon}>✎</Text>
-                            }
+                <View style={styles.mainContent}>
+                    <View style={styles.avatarSection}>
+                        <TouchableOpacity onPress={handlePickAvatar} disabled={uploadingAvatar} style={styles.avatarWrap}>
+                            <Avatar
+                                firstName={firstName || user.first_name}
+                                lastName={lastName || user.last_name}
+                                avatarUrl={localAvatarUrl}
+                                size={80}
+                                fontSize={28}
+                            />
+                            <View style={styles.avatarEditBadge}>
+                                {uploadingAvatar
+                                    ? <ActivityIndicator size="small" color={Colors.textOn.primary} />
+                                    : <Text style={styles.avatarEditIcon}>✎</Text>
+                                }
+                            </View>
+                        </TouchableOpacity>
+                        <Text style={styles.avatarName}>{firstName} {lastName}</Text>
+                        {city ? <Text style={styles.avatarSub}>{city}{country ? `, ${country}` : ''}</Text> : null}
+                    </View>
+
+                    <View style={styles.statsRow}>
+                        <TouchableOpacity style={styles.statItem} onPress={() => { setSubView('following'); loadFollows(); }}>
+                            <Text style={styles.statCount}>{following.length}</Text>
+                            <Text style={styles.statLabel}>Following</Text>
+                        </TouchableOpacity>
+                        <View style={styles.statDivider} />
+                        <TouchableOpacity style={styles.statItem} onPress={() => { setSubView('followers'); loadFollows(); }}>
+                            <Text style={styles.statCount}>{followers.length}</Text>
+                            <Text style={styles.statLabel}>Followers</Text>
+                        </TouchableOpacity>
+                    </View>
+
+                    <Text style={styles.sectionLabel}>NAME</Text>
+                    <View style={styles.fieldGroup}>
+                        <View style={styles.fieldRow}>
+                            <Text style={styles.fieldLabel}>First name</Text>
+                            <TextInput style={styles.fieldInput} value={firstName} onChangeText={mark(setFirstName)} placeholder="First name" placeholderTextColor={Colors.light.textTertiary} />
                         </View>
-                    </TouchableOpacity>
-                    <Text style={styles.avatarName}>{firstName} {lastName}</Text>
-                    {city ? <Text style={styles.avatarSub}>{city}{country ? `, ${country}` : ''}</Text> : null}
+                        <View style={styles.fieldDivider} />
+                        <View style={styles.fieldRow}>
+                            <Text style={styles.fieldLabel}>Last name</Text>
+                            <TextInput style={styles.fieldInput} value={lastName} onChangeText={mark(setLastName)} placeholder="Last name" placeholderTextColor={Colors.light.textTertiary} />
+                        </View>
+                    </View>
+
+                    <Text style={styles.sectionLabel}>LOCATION</Text>
+                    <View style={styles.fieldGroup}>
+                        <View style={styles.fieldRow}>
+                            <Text style={styles.fieldLabel}>City</Text>
+                            <TextInput style={styles.fieldInput} value={city} onChangeText={mark(setCity)} placeholder="City" placeholderTextColor={Colors.light.textTertiary} />
+                        </View>
+                        <View style={styles.fieldDivider} />
+                        <View style={styles.fieldRow}>
+                            <Text style={styles.fieldLabel}>Country</Text>
+                            <TextInput style={styles.fieldInput} value={country} onChangeText={mark(setCountry)} placeholder="Country" placeholderTextColor={Colors.light.textTertiary} />
+                        </View>
+                    </View>
+
+                    <Text style={styles.sectionLabel}>SOBRIETY</Text>
+                    <View style={styles.fieldGroup}>
+                        <View style={styles.fieldRow}>
+                            <Text style={styles.fieldLabel}>Sober since</Text>
+                            <TextInput style={styles.fieldInput} value={soberSince} onChangeText={mark(setSoberSince)} placeholder="YYYY-MM-DD" placeholderTextColor={Colors.light.textTertiary} />
+                        </View>
+                    </View>
+
+                    {dirty && (
+                        <TouchableOpacity
+                            style={[styles.saveBtn, saving && { opacity: 0.6 }]}
+                            onPress={handleSave}
+                            disabled={saving}
+                        >
+                            {saving
+                                ? <ActivityIndicator size="small" color={Colors.textOn.primary} />
+                                : <Text style={styles.saveBtnText}>Save changes</Text>
+                            }
+                        </TouchableOpacity>
+                    )}
                 </View>
 
-                <View style={styles.statsRow}>
-                    <TouchableOpacity style={styles.statItem} onPress={() => setSubView('following')}>
-                        <Text style={styles.statCount}>{following.length}</Text>
-                        <Text style={styles.statLabel}>Following</Text>
-                    </TouchableOpacity>
-                    <View style={styles.statDivider} />
-                    <TouchableOpacity style={styles.statItem} onPress={() => setSubView('followers')}>
-                        <Text style={styles.statCount}>{followers.length}</Text>
-                        <Text style={styles.statLabel}>Followers</Text>
-                    </TouchableOpacity>
-                </View>
-
-                <Text style={styles.sectionLabel}>NAME</Text>
-                <View style={styles.fieldGroup}>
-                    <View style={styles.fieldRow}>
-                        <Text style={styles.fieldLabel}>First name</Text>
-                        <TextInput style={styles.fieldInput} value={firstName} onChangeText={mark(setFirstName)} placeholder="First name" placeholderTextColor={Colors.light.textTertiary} />
-                    </View>
-                    <View style={styles.fieldDivider} />
-                    <View style={styles.fieldRow}>
-                        <Text style={styles.fieldLabel}>Last name</Text>
-                        <TextInput style={styles.fieldInput} value={lastName} onChangeText={mark(setLastName)} placeholder="Last name" placeholderTextColor={Colors.light.textTertiary} />
-                    </View>
-                </View>
-
-                <Text style={styles.sectionLabel}>LOCATION</Text>
-                <View style={styles.fieldGroup}>
-                    <View style={styles.fieldRow}>
-                        <Text style={styles.fieldLabel}>City</Text>
-                        <TextInput style={styles.fieldInput} value={city} onChangeText={mark(setCity)} placeholder="City" placeholderTextColor={Colors.light.textTertiary} />
-                    </View>
-                    <View style={styles.fieldDivider} />
-                    <View style={styles.fieldRow}>
-                        <Text style={styles.fieldLabel}>Country</Text>
-                        <TextInput style={styles.fieldInput} value={country} onChangeText={mark(setCountry)} placeholder="Country" placeholderTextColor={Colors.light.textTertiary} />
-                    </View>
-                </View>
-
-                <Text style={styles.sectionLabel}>SOBRIETY</Text>
-                <View style={styles.fieldGroup}>
-                    <View style={styles.fieldRow}>
-                        <Text style={styles.fieldLabel}>Sober since</Text>
-                        <TextInput style={styles.fieldInput} value={soberSince} onChangeText={mark(setSoberSince)} placeholder="YYYY-MM-DD" placeholderTextColor={Colors.light.textTertiary} />
-                    </View>
-                </View>
-
-                <Text style={styles.sectionLabel}>INTERESTS</Text>
-                {interestsLoading ? (
-                    <ActivityIndicator color={Colors.primary} style={{ marginTop: Spacing.sm }} />
-                ) : (
-                    <View style={styles.interestGrid}>
-                        {allInterests.map(interest => {
-                            const selected = selectedIds.includes(interest.id);
-                            return (
-                                <TouchableOpacity
-                                    key={interest.id}
-                                    style={[styles.interestPill, selected && styles.interestPillSelected]}
-                                    onPress={() => toggleInterest(interest.id)}
-                                >
-                                    <Text style={[styles.interestPillText, selected && styles.interestPillTextSelected]}>
-                                        {interest.name}
-                                    </Text>
-                                </TouchableOpacity>
-                            );
-                        })}
-                    </View>
-                )}
-
-                {dirty && (
-                    <TouchableOpacity
-                        style={[styles.saveBtn, saving && { opacity: 0.6 }]}
-                        onPress={handleSave}
-                        disabled={saving}
-                    >
-                        {saving
-                            ? <ActivityIndicator size="small" color={Colors.textOn.primary} />
-                            : <Text style={styles.saveBtnText}>Save changes</Text>
-                        }
-                    </TouchableOpacity>
-                )}
-
-                <Text style={styles.sectionLabel}>ACCOUNT</Text>
-                <View style={styles.fieldGroup}>
-                    <TouchableOpacity style={styles.fieldRow} onPress={handleLogout}>
-                        <Text style={styles.logoutText}>Log out</Text>
-                    </TouchableOpacity>
-                </View>
             </ScrollView>
         </SafeAreaView>
     );
@@ -391,7 +365,8 @@ const styles = StyleSheet.create({
     },
     unfollowBtnText: { fontSize: Typography.sizes.sm, fontWeight: '500', color: Colors.light.textSecondary },
 
-    content: { padding: Spacing.md, paddingBottom: 48 },
+    content: { flexGrow: 1, padding: Spacing.md, paddingBottom: Spacing.md },
+    mainContent: { gap: 0 },
 
     avatarSection: { alignItems: 'center', paddingVertical: Spacing.md, marginBottom: Spacing.sm, gap: 4 },
     avatarWrap: { position: 'relative' },
@@ -438,19 +413,6 @@ const styles = StyleSheet.create({
     fieldLabel: { width: 90, fontSize: Typography.sizes.sm, color: Colors.light.textTertiary },
     fieldInput: { flex: 1, fontSize: Typography.sizes.base, color: Colors.light.textPrimary, textAlign: 'right', padding: 0 },
 
-    interestGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
-    interestPill: {
-        borderRadius: Radii.full,
-        borderWidth: 1,
-        borderColor: Colors.light.border,
-        paddingHorizontal: 14,
-        paddingVertical: 7,
-        backgroundColor: Colors.light.backgroundSecondary,
-    },
-    interestPillSelected: { backgroundColor: Colors.successSubtle, borderColor: Colors.success },
-    interestPillText: { fontSize: Typography.sizes.sm, color: Colors.light.textTertiary },
-    interestPillTextSelected: { color: Colors.success, fontWeight: '500' },
-
     saveBtn: {
         backgroundColor: Colors.primary,
         borderRadius: Radii.md,
@@ -459,6 +421,4 @@ const styles = StyleSheet.create({
         marginTop: Spacing.lg,
     },
     saveBtnText: { fontSize: Typography.sizes.base, fontWeight: '600', color: Colors.textOn.primary },
-
-    logoutText: { fontSize: Typography.sizes.base, color: Colors.danger },
 });

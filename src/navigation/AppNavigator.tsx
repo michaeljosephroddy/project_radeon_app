@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import {
     View, Text, TouchableOpacity, StyleSheet,
 } from 'react-native';
@@ -6,13 +6,14 @@ import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { FeedScreen } from '../screens/main/FeedScreen';
-import { PeopleScreen } from '../screens/main/PeopleScreen';
+import { DiscoverScreen } from '../screens/main/DiscoverScreen';
 import { EventsScreen } from '../screens/main/EventsScreen';
 import { MessagesScreen } from '../screens/main/MessagesScreen';
 import { ProfileTabScreen } from '../screens/main/ProfileTabScreen';
 import { ChatScreen } from '../screens/main/ChatScreen';
 import { UserProfileScreen } from '../screens/main/UserProfileScreen';
 import { Colors, Typography, Spacing } from '../utils/theme';
+import * as api from '../api/client';
 import type { Conversation } from '../api/client';
 
 interface OpenUserProfile {
@@ -20,14 +21,13 @@ interface OpenUserProfile {
     firstName: string;
     lastName: string;
     avatarUrl?: string;
-    isFollowing: boolean;
 }
 
-type Tab = 'community' | 'people' | 'events' | 'messages' | 'profile';
+type Tab = 'community' | 'discover' | 'events' | 'messages' | 'profile';
 
 const TABS: { key: Tab; label: string; icon: keyof typeof Ionicons.glyphMap; iconActive: keyof typeof Ionicons.glyphMap }[] = [
     { key: 'community', label: 'community', icon: 'newspaper-outline', iconActive: 'newspaper' },
-    { key: 'people',    label: 'people',    icon: 'people-outline',   iconActive: 'people' },
+    { key: 'discover',  label: 'discover',  icon: 'grid-outline', iconActive: 'grid' },
     { key: 'events',    label: 'events',    icon: 'calendar-outline', iconActive: 'calendar' },
     { key: 'messages',  label: 'messages',  icon: 'chatbubble-outline', iconActive: 'chatbubble' },
     { key: 'profile',   label: 'profile',   icon: 'person-circle-outline', iconActive: 'person-circle' },
@@ -37,10 +37,12 @@ export function AppNavigator() {
     const [activeTab, setActiveTab] = useState<Tab>('community');
     const [openConversation, setOpenConversation] = useState<Conversation | null>(null);
     const [openUserProfile, setOpenUserProfile] = useState<OpenUserProfile | null>(null);
+    const [messagesRefreshKey, setMessagesRefreshKey] = useState(0);
     const [followingIds, setFollowingIds] = useState<Set<string>>(new Set());
+const followingRequestIdRef = useRef(0);
     const insets = useSafeAreaInsets();
 
-    const inChat = activeTab === 'messages' && openConversation !== null;
+    const inChat = openConversation !== null;
     const inUserProfile = openUserProfile !== null;
 
     const handleFollowChange = (userId: string, following: boolean) => {
@@ -51,8 +53,20 @@ export function AppNavigator() {
         });
     };
 
-    const handleOpenUserProfile = (profile: Omit<OpenUserProfile, 'isFollowing'>) => {
-        setOpenUserProfile({ ...profile, isFollowing: followingIds.has(profile.userId) });
+    const refreshFollowingIds = useCallback(async () => {
+        const requestId = ++followingRequestIdRef.current;
+        const following = await api.getFollowing();
+        if (requestId !== followingRequestIdRef.current) return;
+        setFollowingIds(new Set((following ?? []).map(user => user.user_id)));
+    }, []);
+
+    const handleOpenUserProfile = (profile: OpenUserProfile) => {
+        setOpenUserProfile(profile);
+    };
+
+    const handleCloseConversation = () => {
+        setOpenConversation(null);
+        setMessagesRefreshKey(current => current + 1);
     };
 
     const renderHeader = () => {
@@ -66,7 +80,7 @@ export function AppNavigator() {
                     Sober<Text style={styles.wordmarkAccent}>Space</Text>
                 </Text>
             ),
-            people:   <Text style={styles.pageTitle}>People</Text>,
+            discover: <Text style={styles.pageTitle}>Discover</Text>,
             events:   <Text style={styles.pageTitle}>Events</Text>,
             messages: <Text style={styles.pageTitle}>Messages</Text>,
             profile:  null,
@@ -81,29 +95,6 @@ export function AppNavigator() {
     };
 
     const renderContent = () => {
-        if (inChat) {
-            return (
-                <ChatScreen
-                    conversation={openConversation!}
-                    onBack={() => setOpenConversation(null)}
-                />
-            );
-        }
-
-        if (inUserProfile) {
-            return (
-                <UserProfileScreen
-                    userId={openUserProfile!.userId}
-                    firstName={openUserProfile!.firstName}
-                    lastName={openUserProfile!.lastName}
-                    avatarUrl={openUserProfile!.avatarUrl}
-                    initialIsFollowing={openUserProfile!.isFollowing}
-                    onBack={() => setOpenUserProfile(null)}
-                    onFollowChange={handleFollowChange}
-                />
-            );
-        }
-
         return (
             <>
                 <View style={activeTab === 'community' ? styles.tabVisible : styles.tabHidden}>
@@ -111,26 +102,58 @@ export function AppNavigator() {
                         followingIds={followingIds}
                         onFollowChange={handleFollowChange}
                         onOpenUserProfile={handleOpenUserProfile}
-                        onFollowingLoaded={ids => setFollowingIds(ids)}
+                        onFollowingLoaded={setFollowingIds}
                     />
                 </View>
-                <View style={activeTab === 'people' ? styles.tabVisible : styles.tabHidden}>
-                    <PeopleScreen
-                        onOpenChat={(conversation) => {
-                            setActiveTab('messages');
-                            setOpenConversation(conversation);
-                        }}
+                <View style={activeTab === 'discover' ? styles.tabVisible : styles.tabHidden}>
+                    <DiscoverScreen
+                        followingIds={followingIds}
+                        onFollowChange={handleFollowChange}
+                        onOpenUserProfile={handleOpenUserProfile}
+                        refreshFollowingIds={refreshFollowingIds}
                     />
                 </View>
                 <View style={activeTab === 'events' ? styles.tabVisible : styles.tabHidden}>
                     <EventsScreen />
                 </View>
                 <View style={activeTab === 'messages' ? styles.tabVisible : styles.tabHidden}>
-                    <MessagesScreen onOpenConversation={setOpenConversation} />
+                    <MessagesScreen
+                        isActive={activeTab === 'messages'}
+                        refreshKey={messagesRefreshKey}
+                        onOpenConversation={setOpenConversation}
+                    />
                 </View>
                 <View style={activeTab === 'profile' ? styles.tabVisible : styles.tabHidden}>
-                    <ProfileTabScreen />
+                    <ProfileTabScreen
+                        isActive={activeTab === 'profile'}
+                        onFollowChange={handleFollowChange}
+                        refreshFollowingIds={refreshFollowingIds}
+                        onOpenUserProfile={handleOpenUserProfile}
+                    />
                 </View>
+                {inUserProfile && (
+                    <View style={StyleSheet.absoluteFill}>
+                        <UserProfileScreen
+                            userId={openUserProfile!.userId}
+                            firstName={openUserProfile!.firstName}
+                            lastName={openUserProfile!.lastName}
+                            avatarUrl={openUserProfile!.avatarUrl}
+                            followingIds={followingIds}
+                            onBack={() => setOpenUserProfile(null)}
+                            onFollowChange={handleFollowChange}
+                            refreshFollowingIds={refreshFollowingIds}
+                            onOpenConversation={setOpenConversation}
+                        />
+                    </View>
+                )}
+                {inChat && (
+                    <View style={StyleSheet.absoluteFill}>
+                        <ChatScreen
+                            conversation={openConversation!}
+                            onBack={handleCloseConversation}
+                        />
+                    </View>
+                )}
             </>
         );
     };
@@ -143,7 +166,7 @@ export function AppNavigator() {
                 <View style={styles.content}>{renderContent()}</View>
 
                 {!inChat && !inUserProfile && (
-                    <View style={[styles.tabBar, { paddingBottom: insets.bottom + 10 }]}>
+                    <View style={[styles.tabBar, { paddingBottom: insets.bottom + 6 }]}>
                         {TABS.map(tab => (
                             <TouchableOpacity
                                 key={tab.key}
@@ -199,8 +222,8 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         borderTopWidth: 1,
         borderTopColor: Colors.light.borderSecondary,
-        paddingTop: 16,
-        backgroundColor: Colors.light.backgroundSecondary,
+        paddingTop: 8,
+        backgroundColor: Colors.light.background,
     },
     tabItem: { flex: 1, alignItems: 'center', gap: 4 },
     tabLabel: { fontSize: Typography.sizes.sm, color: Colors.light.textTertiary },

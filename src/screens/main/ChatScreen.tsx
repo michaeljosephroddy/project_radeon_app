@@ -4,7 +4,6 @@ import {
     StyleSheet, KeyboardAvoidingView, ActivityIndicator,
 } from 'react-native';
 import { Avatar } from '../../components/Avatar';
-import { MatchBadge } from '../../components/MatchBadge';
 import * as api from '../../api/client';
 import { useAuth } from '../../hooks/useAuth';
 import { Colors, Typography, Spacing, Radii } from '../../utils/theme';
@@ -36,9 +35,19 @@ export function ChatScreen({ conversation, onBack }: Props) {
         const body = draft.trim();
         setDraft('');
         try {
-            await api.sendMessage(conversation.id, body);
-            const updated = await api.getMessages(conversation.id);
-            setMessages(updated ?? []);
+            const { id } = await api.sendMessage(conversation.id, body);
+            setMessages(current => [
+                ...current,
+                {
+                    id,
+                    sender_id: user?.id ?? '',
+                    first_name: user?.first_name ?? '',
+                    last_name: user?.last_name ?? '',
+                    avatar_url: user?.avatar_url,
+                    body,
+                    sent_at: new Date().toISOString(),
+                },
+            ]);
             setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
         } catch {
             setDraft(body); // restore if failed
@@ -63,7 +72,6 @@ export function ChatScreen({ conversation, onBack }: Props) {
                     <Text style={styles.backIcon}>←</Text>
                 </TouchableOpacity>
                 <Text style={styles.headerName} numberOfLines={1}>{displayName}</Text>
-                {conversation.connection_type === 'MATCH' && <MatchBadge />}
             </View>
 
             {loading ? (
