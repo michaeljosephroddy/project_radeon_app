@@ -253,6 +253,10 @@ export async function getFeed(page = 1, limit = 20): Promise<Post[]> {
     return request(`/feed?page=${page}&limit=${limit}`);
 }
 
+export async function getUserPosts(userId: string): Promise<Post[]> {
+    return request(`/users/${userId}/posts`);
+}
+
 export async function createPost(body: string): Promise<{ id: string }> {
     return request('/posts', { method: 'POST', body: JSON.stringify({ body }) });
 }
@@ -358,6 +362,34 @@ export async function updateConversationStatus(
         method: 'PATCH',
         body: JSON.stringify({ status }),
     });
+}
+
+// ── Follows ────────────────────────────────────────────────────────────────
+
+export interface FollowUser {
+    id: string;
+    user_id: string;
+    first_name: string;
+    last_name: string;
+    avatar_url?: string;
+    city?: string;
+    created_at: string;
+}
+
+export async function followUser(id: string): Promise<void> {
+    return request(`/users/${id}/follow`, { method: 'POST' });
+}
+
+export async function unfollowUser(id: string): Promise<void> {
+    return request(`/users/${id}/follow`, { method: 'DELETE' });
+}
+
+export async function getFollowing(): Promise<FollowUser[]> {
+    return request('/users/me/following');
+}
+
+export async function getFollowers(): Promise<FollowUser[]> {
+    return request('/users/me/followers');
 }
 
 // ── Interests ──────────────────────────────────────────────────────────────

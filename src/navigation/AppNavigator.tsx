@@ -9,106 +9,113 @@ import { FeedScreen } from '../screens/main/FeedScreen';
 import { PeopleScreen } from '../screens/main/PeopleScreen';
 import { EventsScreen } from '../screens/main/EventsScreen';
 import { MessagesScreen } from '../screens/main/MessagesScreen';
-import { NetworkScreen } from '../screens/main/NetworkScreen';
+import { ProfileTabScreen } from '../screens/main/ProfileTabScreen';
 import { ChatScreen } from '../screens/main/ChatScreen';
-import { ProfileScreen } from '../screens/main/ProfileScreen';
-import { SettingsScreen } from '../screens/main/SettingsScreen';
-import { useAuth } from '../hooks/useAuth';
-import { Avatar } from '../components/Avatar';
+import { UserProfileScreen } from '../screens/main/UserProfileScreen';
 import { Colors, Typography, Spacing } from '../utils/theme';
 import type { Conversation } from '../api/client';
-import { ProfileSheet } from '../components/ProfileSheet'; // adjust path as needed
 
-type Tab = 'feed' | 'people' | 'network' | 'events' | 'messages';
+interface OpenUserProfile {
+    userId: string;
+    firstName: string;
+    lastName: string;
+    avatarUrl?: string;
+    isFollowing: boolean;
+}
+
+type Tab = 'community' | 'people' | 'events' | 'messages' | 'profile';
 
 const TABS: { key: Tab; label: string; icon: keyof typeof Ionicons.glyphMap; iconActive: keyof typeof Ionicons.glyphMap }[] = [
-    { key: 'feed', label: 'feed', icon: 'home-outline', iconActive: 'home' },
-    { key: 'people', label: 'people', icon: 'people-outline', iconActive: 'people' },
-    { key: 'network', label: 'network', icon: 'person-add-outline', iconActive: 'person-add' },
-    { key: 'events', label: 'events', icon: 'calendar-outline', iconActive: 'calendar' },
-    { key: 'messages', label: 'messages', icon: 'chatbubble-outline', iconActive: 'chatbubble' },
+    { key: 'community', label: 'community', icon: 'newspaper-outline', iconActive: 'newspaper' },
+    { key: 'people',    label: 'people',    icon: 'people-outline',   iconActive: 'people' },
+    { key: 'events',    label: 'events',    icon: 'calendar-outline', iconActive: 'calendar' },
+    { key: 'messages',  label: 'messages',  icon: 'chatbubble-outline', iconActive: 'chatbubble' },
+    { key: 'profile',   label: 'profile',   icon: 'person-circle-outline', iconActive: 'person-circle' },
 ];
 
 export function AppNavigator() {
-    const { user, logout } = useAuth();
-    const [activeTab, setActiveTab] = useState<Tab>('feed');
+    const [activeTab, setActiveTab] = useState<Tab>('community');
     const [openConversation, setOpenConversation] = useState<Conversation | null>(null);
-    const [profileOpen, setProfileOpen] = useState(false);
-    const [settingsOpen, setSettingsOpen] = useState(false);
+    const [openUserProfile, setOpenUserProfile] = useState<OpenUserProfile | null>(null);
+    const [followingIds, setFollowingIds] = useState<Set<string>>(new Set());
     const insets = useSafeAreaInsets();
-    const [profileSheetVisible, setProfileSheetVisible] = useState(false);
 
-    const handleLogout = async () => {
-        try { await logout(); } catch { }
+    const inChat = activeTab === 'messages' && openConversation !== null;
+    const inUserProfile = openUserProfile !== null;
+
+    const handleFollowChange = (userId: string, following: boolean) => {
+        setFollowingIds(prev => {
+            const next = new Set(prev);
+            if (following) next.add(userId); else next.delete(userId);
+            return next;
+        });
+    };
+
+    const handleOpenUserProfile = (profile: Omit<OpenUserProfile, 'isFollowing'>) => {
+        setOpenUserProfile({ ...profile, isFollowing: followingIds.has(profile.userId) });
     };
 
     const renderHeader = () => {
-        if (activeTab === 'messages' && openConversation) return null;
-        if (profileOpen) return null;
-        if (settingsOpen) return null;
+        if (inChat) return null;
+        if (inUserProfile) return null;
+        if (activeTab === 'profile') return null;
 
         const titles: Record<Tab, React.ReactNode> = {
-            feed: (
+            community: (
                 <Text style={styles.wordmark}>
                     Sober<Text style={styles.wordmarkAccent}>Space</Text>
                 </Text>
             ),
-            people: <Text style={styles.pageTitle}>People</Text>,
-            network: <Text style={styles.pageTitle}>Network</Text>,
-            events: <Text style={styles.pageTitle}>Events</Text>,
+            people:   <Text style={styles.pageTitle}>People</Text>,
+            events:   <Text style={styles.pageTitle}>Events</Text>,
             messages: <Text style={styles.pageTitle}>Messages</Text>,
+            profile:  null,
         };
 
         return (
             <View style={styles.topBar}>
                 {titles[activeTab]}
-                <View style={styles.topBarRight}>
-                    {user && (
-                        <TouchableOpacity
-                            onPress={() => setProfileSheetVisible(true)}   // ← was handleLogout
-                            style={styles.iconBtn}
-                        >
-                            <Avatar firstName={user.first_name} lastName={user.last_name} avatarUrl={user.avatar_url} size={28} fontSize={10} />
-                        </TouchableOpacity>
-                    )}
-                </View>
+                <View />
             </View>
         );
     };
 
     const renderContent = () => {
-        if (profileOpen) {
-            return <ProfileScreen onBack={() => setProfileOpen(false)} />;
-        }
-
-        if (settingsOpen) {
-            return <SettingsScreen onBack={() => setSettingsOpen(false)} />;
-        }
-
-        if (activeTab === 'messages' && openConversation) {
+        if (inChat) {
             return (
                 <ChatScreen
-                    conversation={openConversation}
+                    conversation={openConversation!}
                     onBack={() => setOpenConversation(null)}
+                />
+            );
+        }
+
+        if (inUserProfile) {
+            return (
+                <UserProfileScreen
+                    userId={openUserProfile!.userId}
+                    firstName={openUserProfile!.firstName}
+                    lastName={openUserProfile!.lastName}
+                    avatarUrl={openUserProfile!.avatarUrl}
+                    initialIsFollowing={openUserProfile!.isFollowing}
+                    onBack={() => setOpenUserProfile(null)}
+                    onFollowChange={handleFollowChange}
                 />
             );
         }
 
         return (
             <>
-                <View style={activeTab === 'feed' ? styles.tabVisible : styles.tabHidden}>
-                    <FeedScreen />
+                <View style={activeTab === 'community' ? styles.tabVisible : styles.tabHidden}>
+                    <FeedScreen
+                        followingIds={followingIds}
+                        onFollowChange={handleFollowChange}
+                        onOpenUserProfile={handleOpenUserProfile}
+                        onFollowingLoaded={ids => setFollowingIds(ids)}
+                    />
                 </View>
                 <View style={activeTab === 'people' ? styles.tabVisible : styles.tabHidden}>
                     <PeopleScreen
-                        onOpenChat={(conversation) => {
-                            setActiveTab('messages');
-                            setOpenConversation(conversation);
-                        }}
-                    />
-                </View>
-                <View style={activeTab === 'network' ? styles.tabVisible : styles.tabHidden}>
-                    <NetworkScreen
                         onOpenChat={(conversation) => {
                             setActiveTab('messages');
                             setOpenConversation(conversation);
@@ -121,12 +128,12 @@ export function AppNavigator() {
                 <View style={activeTab === 'messages' ? styles.tabVisible : styles.tabHidden}>
                     <MessagesScreen onOpenConversation={setOpenConversation} />
                 </View>
+                <View style={activeTab === 'profile' ? styles.tabVisible : styles.tabHidden}>
+                    <ProfileTabScreen />
+                </View>
             </>
         );
     };
-
-    const inChat = activeTab === 'messages' && openConversation;
-    const inOverlay = inChat || profileOpen || settingsOpen;
 
     return (
         <>
@@ -135,7 +142,7 @@ export function AppNavigator() {
                 {renderHeader()}
                 <View style={styles.content}>{renderContent()}</View>
 
-                {!inOverlay && (
+                {!inChat && !inUserProfile && (
                     <View style={[styles.tabBar, { paddingBottom: insets.bottom + 10 }]}>
                         {TABS.map(tab => (
                             <TouchableOpacity
@@ -151,10 +158,7 @@ export function AppNavigator() {
                                     size={22}
                                     color={activeTab === tab.key ? Colors.primary : Colors.light.textTertiary}
                                 />
-                                <Text style={[
-                                    styles.tabLabel,
-                                    activeTab === tab.key && styles.tabLabelActive,
-                                ]}>
+                                <Text style={[styles.tabLabel, activeTab === tab.key && styles.tabLabelActive]}>
                                     {tab.label}
                                 </Text>
                             </TouchableOpacity>
@@ -162,18 +166,10 @@ export function AppNavigator() {
                     </View>
                 )}
             </SafeAreaView>
-
-            <ProfileSheet
-                visible={profileSheetVisible}
-                onClose={() => setProfileSheetVisible(false)}
-                onLogout={handleLogout}
-                onOpenProfile={() => { setProfileSheetVisible(false); setProfileOpen(true); }}
-                onOpenSettings={() => { setProfileSheetVisible(false); setSettingsOpen(true); }}
-                user={user}
-            />
         </>
     );
 }
+
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: Colors.light.background },
     content: { flex: 1 },
@@ -197,17 +193,6 @@ const styles = StyleSheet.create({
         fontSize: Typography.sizes.lg,
         fontWeight: '500',
         color: Colors.light.textPrimary,
-    },
-    topBarRight: { flexDirection: 'row', gap: Spacing.sm },
-    iconBtn: {
-        width: 32,
-        height: 32,
-        borderRadius: 16,
-        backgroundColor: Colors.light.backgroundSecondary,
-        borderWidth: 0.5,
-        borderColor: Colors.light.border,
-        alignItems: 'center',
-        justifyContent: 'center',
     },
 
     tabBar: {

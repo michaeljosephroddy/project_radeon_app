@@ -22,11 +22,14 @@ function timeAgo(dateStr: string): string {
 interface PostCardProps {
     post: api.Post;
     currentUserId: string;
+    isFollowing: boolean;
+    onPressUser: () => void;
 }
 
-function PostCard({ post, currentUserId }: PostCardProps) {
+function PostCard({ post, currentUserId, isFollowing, onPressUser }: PostCardProps) {
     const [liked, setLiked] = useState(false);
     const [likeCount, setLikeCount] = useState(0);
+    const isOwn = post.user_id === currentUserId;
 
     const handleReact = async () => {
         try {
@@ -36,26 +39,24 @@ function PostCard({ post, currentUserId }: PostCardProps) {
         } catch { }
     };
 
-    const handleConnect = async () => {
-        try {
-            await api.sendConnectionRequest(post.user_id);
-            Alert.alert('Request sent', `Connection request sent to ${post.first_name}.`);
-        } catch (e: unknown) {
-            Alert.alert('', e instanceof Error ? e.message : 'Something went wrong.');
-        }
-    };
-
     return (
         <View style={styles.postCard}>
             <View style={styles.postHead}>
-                <Avatar firstName={post.first_name} lastName={post.last_name} avatarUrl={post.avatar_url} size={36} />
+                <TouchableOpacity onPress={isOwn ? undefined : onPressUser} disabled={isOwn}>
+                    <Avatar firstName={post.first_name} lastName={post.last_name} avatarUrl={post.avatar_url} size={36} />
+                </TouchableOpacity>
                 <View style={styles.postHeadBody}>
                     <Text style={styles.postName}>{post.first_name} {post.last_name}</Text>
                     <Text style={styles.postMeta}>{timeAgo(post.created_at)}</Text>
                 </View>
-                {post.user_id !== currentUserId && (
-                    <TouchableOpacity style={styles.connectPill} onPress={handleConnect}>
-                        <Text style={styles.connectPillText}>+ Connect</Text>
+                {!isOwn && (
+                    <TouchableOpacity
+                        style={[styles.followPill, isFollowing && styles.followingPill]}
+                        onPress={onPressUser}
+                    >
+                        <Text style={[styles.followPillText, isFollowing && styles.followingPillText]}>
+                            {isFollowing ? 'Following' : '+ Follow'}
+                        </Text>
                     </TouchableOpacity>
                 )}
             </View>
@@ -65,7 +66,7 @@ function PostCard({ post, currentUserId }: PostCardProps) {
                     <Ionicons
                         name={liked ? 'heart' : 'heart-outline'}
                         size={16}
-                        color={liked ? Colors.success : Colors.light.textTertiary}
+                        color={liked ? Colors.danger : Colors.light.textTertiary}
                     />
                     <Text style={[styles.postActionText, liked && styles.liked]}>
                         {likeCount > 0 ? likeCount : 'Like'}
@@ -80,7 +81,14 @@ function PostCard({ post, currentUserId }: PostCardProps) {
     );
 }
 
-export function FeedScreen() {
+interface FeedScreenProps {
+    followingIds: Set<string>;
+    onFollowChange: (userId: string, following: boolean) => void;
+    onOpenUserProfile: (profile: { userId: string; firstName: string; lastName: string; avatarUrl?: string }) => void;
+    onFollowingLoaded: (ids: Set<string>) => void;
+}
+
+export function FeedScreen({ followingIds, onFollowChange, onOpenUserProfile, onFollowingLoaded }: FeedScreenProps) {
     const { user } = useAuth();
     const [posts, setPosts] = useState<api.Post[]>([]);
     const [loading, setLoading] = useState(true);
@@ -91,8 +99,12 @@ export function FeedScreen() {
 
     const load = useCallback(async () => {
         try {
-            const data = await api.getFeed();
-            setPosts(data ?? []);
+            const [feedData, followingData] = await Promise.all([
+                api.getFeed(),
+                api.getFollowing(),
+            ]);
+            setPosts(feedData ?? []);
+            onFollowingLoaded(new Set((followingData ?? []).map(f => f.user_id)));
         } catch { }
     }, []);
 
@@ -128,6 +140,7 @@ export function FeedScreen() {
             <FlatList
                 data={posts}
                 keyExtractor={p => p.id}
+                keyboardShouldPersistTaps="handled"
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
                 ListHeaderComponent={
                     <View style={styles.composeBar}>
@@ -161,11 +174,21 @@ export function FeedScreen() {
                 ListEmptyComponent={
                     <View style={styles.empty}>
                         <Text style={styles.emptyText}>No posts yet.</Text>
-                        <Text style={styles.emptySubtext}>Connect with people to see their posts here.</Text>
+                        <Text style={styles.emptySubtext}>Follow people to see their posts here.</Text>
                     </View>
                 }
                 renderItem={({ item }) => (
-                    <PostCard post={item} currentUserId={user?.id ?? ''} />
+                    <PostCard
+                        post={item}
+                        currentUserId={user?.id ?? ''}
+                        isFollowing={followingIds.has(item.user_id)}
+                        onPressUser={() => onOpenUserProfile({
+                            userId: item.user_id,
+                            firstName: item.first_name,
+                            lastName: item.last_name,
+                            avatarUrl: item.avatar_url,
+                        })}
+                    />
                 )}
                 contentContainerStyle={styles.list}
             />
@@ -238,14 +261,21 @@ const styles = StyleSheet.create({
     },
     postAction: { flexDirection: 'row', alignItems: 'center', gap: 4 },
     postActionText: { fontSize: Typography.sizes.sm, color: Colors.light.textTertiary },
-    liked: { color: Colors.success },
-    connectPill: {
-        backgroundColor: Colors.successSubtle,
+    liked: { color: Colors.danger },
+
+    followPill: {
+        backgroundColor: Colors.primary,
         borderRadius: Radii.full,
-        paddingHorizontal: 10,
-        paddingVertical: 3,
+        paddingHorizontal: 12,
+        paddingVertical: 4,
     },
-    connectPillText: { fontSize: Typography.sizes.xs, color: Colors.success, fontWeight: '500' },
+    followingPill: {
+        backgroundColor: 'transparent',
+        borderWidth: 1,
+        borderColor: Colors.light.border,
+    },
+    followPillText: { fontSize: Typography.sizes.xs, color: '#FFFFFF', fontWeight: '500' },
+    followingPillText: { color: Colors.light.textTertiary },
 
     empty: { alignItems: 'center', paddingTop: 60 },
     emptyText: { fontSize: Typography.sizes.lg, fontWeight: '500', color: Colors.light.textPrimary },
