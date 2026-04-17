@@ -12,6 +12,7 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { Avatar } from '../../components/Avatar';
 import { MatchBadge } from '../../components/MatchBadge';
 import { ConnectionSheet } from '../../components/ConnectionSheet';
+import { MatchCelebrationModal } from '../../components/MatchCelebrationModal';
 import * as api from '../../api/client';
 import { Colors, Typography, Spacing, Radii } from '../../utils/theme';
 
@@ -96,6 +97,7 @@ export function PeopleScreen({ onOpenChat }: PeopleScreenProps) {
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [selectedMatch, setSelectedMatch] = useState<api.Connection | null>(null);
+    const [pendingMatch, setPendingMatch] = useState<api.ScoredUser | null>(null);
     const load = useCallback(async () => {
         const results = await Promise.allSettled([
             api.getSuggestions(),
@@ -127,7 +129,7 @@ export function PeopleScreen({ onOpenChat }: PeopleScreenProps) {
     }, [suggestions]);
 
     const handleLike = useCallback(async (userId: string) => {
-        const user = suggestions.find(u => u.id === userId);
+        const likedUser = suggestions.find(u => u.id === userId);
         setSuggestions(prev => prev.filter(u => u.id !== userId));
         try {
             const result = await api.likeUser(userId);
@@ -135,12 +137,31 @@ export function PeopleScreen({ onOpenChat }: PeopleScreenProps) {
                 const conns = await api.getConnections();
                 setMatches((conns ?? []).filter(c => c.type === 'MATCH'));
                 setLikers(prev => prev.filter(l => l.id !== userId));
+                if (likedUser) setPendingMatch(likedUser);
             }
         } catch (e: unknown) {
-            if (user) setSuggestions(prev => [user, ...prev]);
+            if (likedUser) setSuggestions(prev => [likedUser, ...prev]);
             Alert.alert('', e instanceof Error ? e.message : 'Something went wrong.');
         }
     }, [suggestions]);
+
+    const handleCelebrationMessage = async () => {
+        if (!pendingMatch) return;
+        try {
+            const result = await api.createConversation([pendingMatch.id]);
+            const conversation: api.Conversation = {
+                id: result.id,
+                is_group: false,
+                first_name: pendingMatch.first_name,
+                last_name: pendingMatch.last_name,
+                created_at: new Date().toISOString(),
+            };
+            setPendingMatch(null);
+            onOpenChat(conversation);
+        } catch (e: unknown) {
+            Alert.alert('Error', e instanceof Error ? e.message : 'Something went wrong.');
+        }
+    };
 
     const handleMessage = async (conn: api.Connection) => {
         try {
@@ -183,8 +204,8 @@ export function PeopleScreen({ onOpenChat }: PeopleScreenProps) {
                         {matches.map(match => (
                             <TouchableOpacity key={match.id} style={styles.reelItem} onPress={() => setSelectedMatch(match)}>
                                 <Avatar firstName={match.first_name} lastName={match.last_name} avatarUrl={match.avatar_url} size={64} fontSize={22} />
-                                <MatchBadge />
                                 <Text style={styles.reelName} numberOfLines={1}>{match.first_name}</Text>
+                                <MatchBadge />
                             </TouchableOpacity>
                         ))}
                     </ScrollView>
@@ -253,6 +274,12 @@ export function PeopleScreen({ onOpenChat }: PeopleScreenProps) {
             connection={selectedMatch}
             onClose={() => setSelectedMatch(null)}
             onMessage={handleMessage}
+        />
+        <MatchCelebrationModal
+            visible={pendingMatch !== null}
+            matchedUser={pendingMatch}
+            onMessage={handleCelebrationMessage}
+            onDismiss={() => setPendingMatch(null)}
         />
         </>
     );
