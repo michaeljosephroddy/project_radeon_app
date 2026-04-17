@@ -4,6 +4,7 @@ import {
   StyleSheet, KeyboardAvoidingView, Platform,
   ScrollView, ActivityIndicator, Alert,
 } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
 import { useAuth } from '../../hooks/useAuth';
 import { Colors, Typography, Spacing, Radii } from '../../utils/theme';
 
@@ -51,6 +52,7 @@ export function RegisterScreen({ onGoToLogin }: RegisterScreenProps) {
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
+      <StatusBar style="light" />
       <ScrollView contentContainerStyle={styles.inner} keyboardShouldPersistTaps="handled">
         <View style={styles.header}>
           <Text style={styles.wordmark}>
@@ -104,7 +106,7 @@ export function RegisterScreen({ onGoToLogin }: RegisterScreenProps) {
             disabled={loading}
           >
             {loading
-              ? <ActivityIndicator color="#fff" />
+              ? <ActivityIndicator color={Colors.textOn.primary} />
               : <Text style={styles.btnText}>Create account</Text>
             }
           </TouchableOpacity>
@@ -149,14 +151,14 @@ const styles = StyleSheet.create({
     borderColor: Colors.light.border,
   },
   btn: {
-    backgroundColor: Colors.primary,
+    backgroundColor: Colors.success,
     borderRadius: Radii.md,
     paddingVertical: 14,
     alignItems: 'center',
     marginTop: Spacing.lg,
   },
   btnDisabled: { opacity: 0.6 },
-  btnText: { color: '#fff', fontWeight: '600', fontSize: Typography.sizes.md },
+  btnText: { color: Colors.textOn.primary, fontWeight: '600', fontSize: Typography.sizes.md },
   switchLink: { alignItems: 'center', marginTop: Spacing.lg },
   switchText: { fontSize: Typography.sizes.base, color: Colors.light.textTertiary },
   switchAccent: { color: Colors.primary, fontWeight: '500' },

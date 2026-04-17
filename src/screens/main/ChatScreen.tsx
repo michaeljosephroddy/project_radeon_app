@@ -157,7 +157,7 @@ const styles = StyleSheet.create({
         marginBottom: 2,
     },
     bubbleText: { fontSize: Typography.sizes.base, color: Colors.light.textPrimary, lineHeight: 18 },
-    bubbleTextMe: { color: '#fff' },
+    bubbleTextMe: { color: Colors.textOn.primary },
 
     composer: {
         flexDirection: 'row',
@@ -181,10 +181,10 @@ const styles = StyleSheet.create({
         width: 36,
         height: 36,
         borderRadius: 18,
-        backgroundColor: Colors.primary,
+        backgroundColor: Colors.success,
         alignItems: 'center',
         justifyContent: 'center',
     },
     sendBtnDisabled: { backgroundColor: Colors.light.backgroundSecondary },
-    sendBtnText: { fontSize: 16, color: '#fff', fontWeight: '600' },
+    sendBtnText: { fontSize: 16, color: Colors.textOn.primary, fontWeight: '600' },
 });

@@ -65,7 +65,7 @@ function PostCard({ post, currentUserId }: PostCardProps) {
                     <Ionicons
                         name={liked ? 'heart' : 'heart-outline'}
                         size={16}
-                        color={liked ? '#D85A30' : Colors.light.textTertiary}
+                        color={liked ? Colors.success : Colors.light.textTertiary}
                     />
                     <Text style={[styles.postActionText, liked && styles.liked]}>
                         {likeCount > 0 ? likeCount : 'Like'}
@@ -195,12 +195,12 @@ const styles = StyleSheet.create({
     },
     composePlaceholder: { flex: 1, fontSize: Typography.sizes.base, color: Colors.light.textTertiary, textAlignVertical: 'center' },
     postBtn: {
-        backgroundColor: Colors.primary,
+        backgroundColor: Colors.success,
         borderRadius: Radii.sm,
         paddingHorizontal: Spacing.md,
         paddingVertical: 6,
     },
-    postBtnText: { color: '#fff', fontSize: Typography.sizes.sm, fontWeight: '600' },
+    postBtnText: { color: Colors.textOn.primary, fontSize: Typography.sizes.sm, fontWeight: '600' },
 
     postCard: {
         backgroundColor: Colors.light.background,
@@ -238,14 +238,14 @@ const styles = StyleSheet.create({
     },
     postAction: { flexDirection: 'row', alignItems: 'center', gap: 4 },
     postActionText: { fontSize: Typography.sizes.sm, color: Colors.light.textTertiary },
-    liked: { color: '#D85A30' },
+    liked: { color: Colors.success },
     connectPill: {
-        backgroundColor: Colors.primaryLight,
+        backgroundColor: Colors.successSubtle,
         borderRadius: Radii.full,
         paddingHorizontal: 10,
         paddingVertical: 3,
     },
-    connectPillText: { fontSize: Typography.sizes.xs, color: Colors.primaryDark, fontWeight: '500' },
+    connectPillText: { fontSize: Typography.sizes.xs, color: Colors.success, fontWeight: '500' },
 
     empty: { alignItems: 'center', paddingTop: 60 },
     emptyText: { fontSize: Typography.sizes.lg, fontWeight: '500', color: Colors.light.textPrimary },

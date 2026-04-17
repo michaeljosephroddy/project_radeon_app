@@ -121,7 +121,7 @@ export function ConnectionSheet({ visible, connection, onClose, onMessage }: Con
 const styles = StyleSheet.create({
     backdrop: {
         ...StyleSheet.absoluteFillObject,
-        backgroundColor: 'rgba(0,0,0,0.35)',
+        backgroundColor: 'rgba(0,0,0,0.6)',
     },
     gestureRoot: {
         position: 'absolute',
@@ -134,7 +134,7 @@ const styles = StyleSheet.create({
         borderTopLeftRadius: 20,
         borderTopRightRadius: 20,
         paddingHorizontal: Spacing.md,
-        shadowColor: '#000',
+        shadowColor: Colors.shadow,
         shadowOffset: { width: 0, height: -3 },
         shadowOpacity: 0.08,
         shadowRadius: 12,
@@ -166,7 +166,7 @@ const styles = StyleSheet.create({
         color: Colors.light.textTertiary,
     },
     messageBtn: {
-        backgroundColor: Colors.primary,
+        backgroundColor: Colors.success,
         borderRadius: Radii.md,
         paddingVertical: 14,
         alignItems: 'center',
@@ -175,6 +175,6 @@ const styles = StyleSheet.create({
     messageBtnText: {
         fontSize: Typography.sizes.base,
         fontWeight: '600',
-        color: '#fff',
+        color: Colors.textOn.primary,
     },
 });

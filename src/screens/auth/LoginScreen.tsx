@@ -4,6 +4,7 @@ import {
     StyleSheet, KeyboardAvoidingView, Platform,
     ScrollView, ActivityIndicator, Alert,
 } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
 import { useAuth } from '../../hooks/useAuth';
 import { Colors, Typography, Spacing, Radii } from '../../utils/theme';
 
@@ -37,7 +38,8 @@ export function LoginScreen({ onGoToRegister }: LoginScreenProps) {
             style={styles.container}
             behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         >
-            <ScrollView contentContainerStyle={styles.inner} keyboardShouldPersistTaps="handled">
+            <StatusBar style="light" />
+        <ScrollView contentContainerStyle={styles.inner} keyboardShouldPersistTaps="handled">
                 <View style={styles.header}>
                     <Text style={styles.wordmark}>
                         Sober<Text style={styles.wordmarkAccent}>Space</Text>
@@ -73,7 +75,7 @@ export function LoginScreen({ onGoToRegister }: LoginScreenProps) {
                         disabled={loading}
                     >
                         {loading
-                            ? <ActivityIndicator color="#fff" />
+                            ? <ActivityIndicator color={Colors.textOn.primary} />
                             : <Text style={styles.btnText}>Sign in</Text>
                         }
                     </TouchableOpacity>
@@ -124,14 +126,14 @@ const styles = StyleSheet.create({
         borderColor: Colors.light.border,
     },
     btn: {
-        backgroundColor: Colors.primary,
+        backgroundColor: Colors.success,
         borderRadius: Radii.md,
         paddingVertical: 14,
         alignItems: 'center',
         marginTop: Spacing.md,
     },
     btnDisabled: { opacity: 0.6 },
-    btnText: { color: '#fff', fontWeight: '600', fontSize: Typography.sizes.md },
+    btnText: { color: Colors.textOn.primary, fontWeight: '600', fontSize: Typography.sizes.md },
     switchLink: { alignItems: 'center', marginTop: Spacing.lg },
     switchText: { fontSize: Typography.sizes.base, color: Colors.light.textTertiary },
     switchAccent: { color: Colors.primary, fontWeight: '500' },

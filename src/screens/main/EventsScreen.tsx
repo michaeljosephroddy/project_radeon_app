@@ -128,8 +128,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     flexShrink: 0,
   },
-  dateDay: { fontSize: 14, fontWeight: '500', color: '#fff', lineHeight: 16 },
-  dateMon: { fontSize: 9, color: '#CECBF6', letterSpacing: 0.4 },
+  dateDay: { fontSize: 14, fontWeight: '500', color: Colors.textOn.primary, lineHeight: 16 },
+  dateMon: { fontSize: 9, color: 'rgba(255,255,255,0.65)', letterSpacing: 0.4 },
   title: { fontSize: Typography.sizes.base, fontWeight: '500', color: Colors.light.textPrimary },
   sub: { fontSize: Typography.sizes.xs, color: Colors.light.textTertiary, marginTop: 2 },
   rsvpPill: {
@@ -140,9 +140,9 @@ const styles = StyleSheet.create({
     borderWidth: 0.5,
     borderColor: Colors.light.border,
   },
-  rsvpPillActive: { backgroundColor: Colors.primaryLight, borderColor: Colors.primaryLight },
+  rsvpPillActive: { backgroundColor: Colors.successSubtle, borderColor: Colors.success },
   rsvpText: { fontSize: Typography.sizes.xs, fontWeight: '500', color: Colors.light.textTertiary },
-  rsvpTextActive: { color: Colors.primaryDark },
+  rsvpTextActive: { color: Colors.success },
 
   empty: { alignItems: 'center', paddingTop: 60 },
   emptyText: { fontSize: Typography.sizes.lg, fontWeight: '500', color: Colors.light.textPrimary },

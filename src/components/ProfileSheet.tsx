@@ -140,7 +140,7 @@ export function ProfileSheet({ visible, onClose, onLogout, onOpenProfile, onOpen
 
                         {/* Logout */}
                         <TouchableOpacity style={styles.logoutRow} onPress={handleLogout}>
-                            <Ionicons name="log-out-outline" size={20} color="#D85A30" style={styles.menuIcon} />
+                            <Ionicons name="log-out-outline" size={20} color={Colors.danger} style={styles.menuIcon} />
                             <Text style={styles.logoutLabel}>Log out</Text>
                         </TouchableOpacity>
 
@@ -154,7 +154,7 @@ export function ProfileSheet({ visible, onClose, onLogout, onOpenProfile, onOpen
 const styles = StyleSheet.create({
     backdrop: {
         ...StyleSheet.absoluteFillObject,
-        backgroundColor: 'rgba(0,0,0,0.35)',
+        backgroundColor: 'rgba(0,0,0,0.6)',
     },
     sheet: {
         position: 'absolute',
@@ -165,7 +165,7 @@ const styles = StyleSheet.create({
         borderTopLeftRadius: 20,
         borderTopRightRadius: 20,
         paddingHorizontal: Spacing.md,
-        shadowColor: '#000',
+        shadowColor: Colors.shadow,
         shadowOffset: { width: 0, height: -3 },
         shadowOpacity: 0.08,
         shadowRadius: 12,
@@ -228,7 +228,7 @@ const styles = StyleSheet.create({
     },
     logoutLabel: {
         fontSize: Typography.sizes.sm,
-        color: '#D85A30',
+        color: Colors.danger,
         fontWeight: '500',
     },
 });

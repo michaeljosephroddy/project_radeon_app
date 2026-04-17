@@ -11,6 +11,7 @@ import Animated, {
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { Avatar } from '../../components/Avatar';
 import { MatchBadge } from '../../components/MatchBadge';
+import { ConnectionSheet } from '../../components/ConnectionSheet';
 import * as api from '../../api/client';
 import { Colors, Typography, Spacing, Radii } from '../../utils/theme';
 
@@ -84,12 +85,17 @@ function SwipeCard({ user, onPass, onLike }: SwipeCardProps) {
 }
 
 
-export function PeopleScreen() {
+interface PeopleScreenProps {
+    onOpenChat: (conversation: api.Conversation) => void;
+}
+
+export function PeopleScreen({ onOpenChat }: PeopleScreenProps) {
     const [suggestions, setSuggestions] = useState<api.ScoredUser[]>([]);
     const [matches, setMatches] = useState<api.Connection[]>([]);
     const [likers, setLikers] = useState<api.Liker[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
+    const [selectedMatch, setSelectedMatch] = useState<api.Connection | null>(null);
     const load = useCallback(async () => {
         const results = await Promise.allSettled([
             api.getSuggestions(),
@@ -136,6 +142,23 @@ export function PeopleScreen() {
         }
     }, [suggestions]);
 
+    const handleMessage = async (conn: api.Connection) => {
+        try {
+            const result = await api.createConversation([conn.user_id]);
+            const conversation: api.Conversation = {
+                id: result.id,
+                is_group: false,
+                first_name: conn.first_name,
+                last_name: conn.last_name,
+                created_at: new Date().toISOString(),
+            };
+            setSelectedMatch(null);
+            onOpenChat(conversation);
+        } catch (e: unknown) {
+            Alert.alert('Error', e instanceof Error ? e.message : 'Something went wrong.');
+        }
+    };
+
     if (loading) {
         return <View style={styles.center}><ActivityIndicator color={Colors.primary} /></View>;
     }
@@ -143,6 +166,7 @@ export function PeopleScreen() {
     const current = suggestions[0] ?? null;
 
     return (
+        <>
         <ScrollView
             contentContainerStyle={styles.scroll}
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
@@ -157,15 +181,11 @@ export function PeopleScreen() {
                         contentContainerStyle={styles.reel}
                     >
                         {matches.map(match => (
-                            <View key={match.id} style={styles.reelItem}>
-                                <View style={styles.avatarWrap}>
-                                    <Avatar firstName={match.first_name} lastName={match.last_name} avatarUrl={match.avatar_url} size={64} fontSize={22} />
-                                    <View style={styles.matchBadgeOverlay}>
-                                        <MatchBadge />
-                                    </View>
-                                </View>
+                            <TouchableOpacity key={match.id} style={styles.reelItem} onPress={() => setSelectedMatch(match)}>
+                                <Avatar firstName={match.first_name} lastName={match.last_name} avatarUrl={match.avatar_url} size={64} fontSize={22} />
+                                <MatchBadge />
                                 <Text style={styles.reelName} numberOfLines={1}>{match.first_name}</Text>
-                            </View>
+                            </TouchableOpacity>
                         ))}
                     </ScrollView>
                 ) : (
@@ -217,7 +237,7 @@ export function PeopleScreen() {
                             style={styles.likeBtn}
                             onPress={() => handleLike(current.id)}
                         >
-                            <Text style={styles.likeBtnText}>♥</Text>
+                            <Text style={styles.likeBtnText}>✓</Text>
                         </TouchableOpacity>
                     </View>
                 </View>
@@ -228,6 +248,13 @@ export function PeopleScreen() {
                 </View>
             )}
         </ScrollView>
+        <ConnectionSheet
+            visible={selectedMatch !== null}
+            connection={selectedMatch}
+            onClose={() => setSelectedMatch(null)}
+            onMessage={handleMessage}
+        />
+        </>
     );
 }
 
@@ -245,8 +272,8 @@ const styles = StyleSheet.create({
     sectionCount: {
         fontSize: Typography.sizes.xs,
         fontWeight: '700',
-        color: Colors.light.background,
-        backgroundColor: '#E53935',
+        color: Colors.textOn.primary,
+        backgroundColor: Colors.danger,
         minWidth: 18,
         height: 18,
         borderRadius: 9,
@@ -284,18 +311,18 @@ const styles = StyleSheet.create({
         borderRadius: Radii.sm,
         borderWidth: 2,
     },
-    connectLabel: { left: Spacing.lg, borderColor: Colors.primary },
+    connectLabel: { left: Spacing.lg, borderColor: Colors.success },
     connectLabelText: {
         fontSize: Typography.sizes.md,
         fontWeight: '700',
-        color: Colors.primary,
+        color: Colors.success,
         letterSpacing: 1,
     },
-    passLabel: { right: Spacing.lg, borderColor: Colors.light.textTertiary },
+    passLabel: { right: Spacing.lg, borderColor: Colors.danger },
     passLabelText: {
         fontSize: Typography.sizes.md,
         fontWeight: '700',
-        color: Colors.light.textTertiary,
+        color: Colors.danger,
         letterSpacing: 1,
     },
     swipeName: {
@@ -323,22 +350,22 @@ const styles = StyleSheet.create({
         borderRadius: 30,
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: Colors.light.backgroundSecondary,
+        backgroundColor: Colors.dangerSubtle,
         borderWidth: 1,
-        borderColor: Colors.light.border,
+        borderColor: Colors.danger,
     },
-    passBtnText: { fontSize: Typography.sizes.lg, color: Colors.light.textTertiary },
+    passBtnText: { fontSize: Typography.sizes.lg, color: Colors.danger },
     likeBtn: {
         width: 60,
         height: 60,
         borderRadius: 30,
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: Colors.light.backgroundSecondary,
+        backgroundColor: Colors.successSubtle,
         borderWidth: 1,
-        borderColor: Colors.light.border,
+        borderColor: Colors.success,
     },
-    likeBtnText: { fontSize: Typography.sizes.xl, color: Colors.light.textTertiary },
+    likeBtnText: { fontSize: Typography.sizes.xl, color: Colors.success },
 
 
     reelEmpty: {
@@ -346,8 +373,6 @@ const styles = StyleSheet.create({
         color: Colors.light.textTertiary,
         paddingVertical: Spacing.md,
     },
-    avatarWrap: { position: 'relative' },
-    matchBadgeOverlay: { position: 'absolute', top: 0, right: -8 },
     reel: { paddingBottom: Spacing.xs, gap: Spacing.lg },
     reelItem: { alignItems: 'center', width: 72, gap: Spacing.xs },
     reelName: {

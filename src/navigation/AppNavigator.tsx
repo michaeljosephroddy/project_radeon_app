@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import {
     View, Text, TouchableOpacity, StyleSheet,
 } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { FeedScreen } from '../screens/main/FeedScreen';
@@ -21,11 +22,11 @@ import { ProfileSheet } from '../components/ProfileSheet'; // adjust path as nee
 type Tab = 'feed' | 'people' | 'network' | 'events' | 'messages';
 
 const TABS: { key: Tab; label: string; icon: keyof typeof Ionicons.glyphMap; iconActive: keyof typeof Ionicons.glyphMap }[] = [
-    { key: 'feed',     label: 'feed',     icon: 'home-outline',          iconActive: 'home' },
-    { key: 'people',   label: 'people',   icon: 'people-outline',        iconActive: 'people' },
-    { key: 'network',  label: 'network',  icon: 'person-add-outline',    iconActive: 'person-add' },
-    { key: 'events',   label: 'events',   icon: 'calendar-outline',      iconActive: 'calendar' },
-    { key: 'messages', label: 'messages', icon: 'chatbubble-outline',    iconActive: 'chatbubble' },
+    { key: 'feed', label: 'feed', icon: 'home-outline', iconActive: 'home' },
+    { key: 'people', label: 'people', icon: 'people-outline', iconActive: 'people' },
+    { key: 'network', label: 'network', icon: 'person-add-outline', iconActive: 'person-add' },
+    { key: 'events', label: 'events', icon: 'calendar-outline', iconActive: 'calendar' },
+    { key: 'messages', label: 'messages', icon: 'chatbubble-outline', iconActive: 'chatbubble' },
 ];
 
 export function AppNavigator() {
@@ -99,7 +100,12 @@ export function AppNavigator() {
                     <FeedScreen />
                 </View>
                 <View style={activeTab === 'people' ? styles.tabVisible : styles.tabHidden}>
-                    <PeopleScreen />
+                    <PeopleScreen
+                        onOpenChat={(conversation) => {
+                            setActiveTab('messages');
+                            setOpenConversation(conversation);
+                        }}
+                    />
                 </View>
                 <View style={activeTab === 'network' ? styles.tabVisible : styles.tabHidden}>
                     <NetworkScreen
@@ -124,6 +130,7 @@ export function AppNavigator() {
 
     return (
         <>
+            <StatusBar style="light" />
             <SafeAreaView style={styles.container} edges={['top']}>
                 {renderHeader()}
                 <View style={styles.content}>{renderContent()}</View>
@@ -205,9 +212,10 @@ const styles = StyleSheet.create({
 
     tabBar: {
         flexDirection: 'row',
-        borderTopWidth: 0.5,
-        borderTopColor: Colors.light.border,
-        paddingTop: 16,        // ← was 12
+        borderTopWidth: 1,
+        borderTopColor: Colors.light.borderSecondary,
+        paddingTop: 16,
+        backgroundColor: Colors.light.backgroundSecondary,
     },
     tabItem: { flex: 1, alignItems: 'center', gap: 4 },
     tabLabel: { fontSize: Typography.sizes.sm, color: Colors.light.textTertiary },

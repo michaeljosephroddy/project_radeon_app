@@ -122,7 +122,7 @@ export function ProfileScreen({ onBack }: Props) {
                             disabled={saving}
                         >
                             {saving
-                                ? <ActivityIndicator size="small" color="#fff" />
+                                ? <ActivityIndicator size="small" color={Colors.textOn.primary} />
                                 : <Text style={styles.saveBtnText}>Save</Text>
                             }
                         </TouchableOpacity>
@@ -143,7 +143,7 @@ export function ProfileScreen({ onBack }: Props) {
                         />
                         <View style={styles.avatarEditBadge}>
                             {uploadingAvatar
-                                ? <ActivityIndicator size="small" color="#fff" />
+                                ? <ActivityIndicator size="small" color={Colors.textOn.primary} />
                                 : <Text style={styles.avatarEditIcon}>✎</Text>
                             }
                         </View>
@@ -270,14 +270,14 @@ const styles = StyleSheet.create({
         color: Colors.light.textPrimary,
     },
     saveBtn: {
-        backgroundColor: Colors.primary,
+        backgroundColor: Colors.success,
         borderRadius: Radii.sm,
         paddingHorizontal: Spacing.md,
         paddingVertical: 6,
         alignItems: 'center',
         justifyContent: 'center',
     },
-    saveBtnText: { color: '#fff', fontSize: Typography.sizes.sm, fontWeight: '600' },
+    saveBtnText: { color: Colors.textOn.primary, fontSize: Typography.sizes.sm, fontWeight: '600' },
 
     content: { padding: Spacing.md, paddingBottom: 40 },
 
@@ -305,7 +305,7 @@ const styles = StyleSheet.create({
     },
     avatarEditIcon: {
         fontSize: 12,
-        color: '#fff',
+        color: Colors.light.textPrimary,
     },
     avatarName: {
         fontSize: Typography.sizes.lg,
@@ -370,7 +370,7 @@ const styles = StyleSheet.create({
         backgroundColor: Colors.light.backgroundSecondary,
     },
     interestPillSelected: {
-        backgroundColor: Colors.primaryLight,
+        backgroundColor: Colors.bg.raised,
         borderColor: Colors.primary,
     },
     interestPillText: {
@@ -378,7 +378,7 @@ const styles = StyleSheet.create({
         color: Colors.light.textTertiary,
     },
     interestPillTextSelected: {
-        color: Colors.primaryDark,
+        color: Colors.primary,
         fontWeight: '500',
     },
 });
