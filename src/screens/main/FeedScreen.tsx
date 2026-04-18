@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
     View, Text, FlatList, TouchableOpacity, TextInput,
     StyleSheet, RefreshControl, ActivityIndicator, Alert,
@@ -24,10 +24,12 @@ interface PostCardProps {
     post: api.Post;
     currentUserId: string;
     isFollowing: boolean;
+    followPending: boolean;
     onPressUser: () => void;
+    onPressFollow: () => void;
 }
 
-function PostCard({ post, currentUserId, isFollowing, onPressUser }: PostCardProps) {
+function PostCard({ post, currentUserId, isFollowing, followPending, onPressUser, onPressFollow }: PostCardProps) {
     const [liked, setLiked] = useState(false);
     const [likeCount, setLikeCount] = useState(0);
     const isOwn = post.user_id === currentUserId;
@@ -52,8 +54,13 @@ function PostCard({ post, currentUserId, isFollowing, onPressUser }: PostCardPro
                 </View>
                 {!isOwn && (
                     <TouchableOpacity
-                        style={[styles.followPill, isFollowing && styles.followingPill]}
-                        onPress={onPressUser}
+                        style={[
+                            styles.followPill,
+                            isFollowing && styles.followingPill,
+                            followPending && styles.followPillDisabled,
+                        ]}
+                        onPress={onPressFollow}
+                        disabled={isFollowing || followPending}
                     >
                         <Text style={[styles.followPillText, isFollowing && styles.followingPillText]}>
                             {isFollowing ? 'Following' : '+ Follow'}
@@ -83,37 +90,86 @@ function PostCard({ post, currentUserId, isFollowing, onPressUser }: PostCardPro
 }
 
 interface FeedScreenProps {
+    isActive: boolean;
     followingIds: Set<string>;
+    onFollowChange: (userId: string, following: boolean) => void;
     onOpenUserProfile: (profile: { userId: string; username: string; avatarUrl?: string }) => void;
-    onFollowingLoaded: (ids: Set<string>) => void;
 }
 
-export function FeedScreen({ followingIds, onOpenUserProfile, onFollowingLoaded }: FeedScreenProps) {
+export function FeedScreen({ isActive, followingIds, onFollowChange, onOpenUserProfile }: FeedScreenProps) {
     const { user } = useAuth();
     const [posts, setPosts] = useState<api.Post[]>([]);
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading] = useState(isActive);
     const [refreshing, setRefreshing] = useState(false);
     const [composing, setComposing] = useState(false);
     const [draft, setDraft] = useState('');
     const [posting, setPosting] = useState(false);
+    const [pendingFollows, setPendingFollows] = useState<Set<string>>(new Set());
+    const hasLoadedRef = useRef(false);
+    const wasActiveRef = useRef(false);
+    const loadInFlightRef = useRef<Promise<void> | null>(null);
 
     const load = useCallback(async () => {
-        try {
-            const [feedData, followingData] = await Promise.all([
-                api.getFeed(),
-                api.getFollowing(),
-            ]);
-            setPosts(feedData ?? []);
-            onFollowingLoaded(new Set((followingData ?? []).map(f => f.user_id)));
-        } catch { }
-    }, [onFollowingLoaded]);
+        if (loadInFlightRef.current) return loadInFlightRef.current;
 
-    useEffect(() => { load().finally(() => setLoading(false)); }, [load]);
+        const request = (async () => {
+            try {
+                const feedData = await api.getFeed();
+                setPosts(feedData ?? []);
+            } catch { }
+        })();
+
+        loadInFlightRef.current = request;
+
+        try {
+            await request;
+        } finally {
+            loadInFlightRef.current = null;
+        }
+    }, []);
+
+    useEffect(() => {
+        const becameActive = isActive && !wasActiveRef.current;
+        wasActiveRef.current = isActive;
+
+        if (!becameActive) return;
+
+        const isFirstLoad = !hasLoadedRef.current;
+        if (isFirstLoad) setLoading(true);
+
+        load().finally(() => {
+            hasLoadedRef.current = true;
+            if (isFirstLoad) setLoading(false);
+        });
+    }, [isActive, load]);
 
     const onRefresh = async () => {
         setRefreshing(true);
-        await load();
-        setRefreshing(false);
+        try {
+            await load();
+        } finally {
+            setRefreshing(false);
+        }
+    };
+
+    const handleFollow = async (post: api.Post) => {
+        if (followingIds.has(post.user_id)) return;
+
+        setPendingFollows(prev => new Set(prev).add(post.user_id));
+        onFollowChange(post.user_id, true);
+
+        try {
+            await api.followUser(post.user_id);
+        } catch (e: unknown) {
+            onFollowChange(post.user_id, false);
+            Alert.alert('Error', e instanceof Error ? e.message : 'Something went wrong.');
+        } finally {
+            setPendingFollows(prev => {
+                const next = new Set(prev);
+                next.delete(post.user_id);
+                return next;
+            });
+        }
     };
 
     const handlePost = async () => {
@@ -182,11 +238,13 @@ export function FeedScreen({ followingIds, onOpenUserProfile, onFollowingLoaded 
                         post={item}
                         currentUserId={user?.id ?? ''}
                         isFollowing={followingIds.has(item.user_id)}
+                        followPending={pendingFollows.has(item.user_id)}
                         onPressUser={() => onOpenUserProfile({
                             userId: item.user_id,
                             username: item.username,
                             avatarUrl: item.avatar_url,
                         })}
+                        onPressFollow={() => handleFollow(item)}
                     />
                 )}
                 contentContainerStyle={styles.list}
@@ -268,6 +326,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: 12,
         paddingVertical: 4,
     },
+    followPillDisabled: { opacity: 0.6 },
     followingPill: {
         backgroundColor: 'transparent',
         borderWidth: 1,

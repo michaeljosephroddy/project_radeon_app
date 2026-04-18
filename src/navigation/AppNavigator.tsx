@@ -103,9 +103,10 @@ export function AppNavigator() {
             <>
                 <View style={activeTab === 'community' ? styles.tabVisible : styles.tabHidden}>
                     <FeedScreen
+                        isActive={activeTab === 'community'}
                         followingIds={followingIds}
+                        onFollowChange={handleFollowChange}
                         onOpenUserProfile={handleOpenUserProfile}
-                        onFollowingLoaded={setFollowingIds}
                     />
                 </View>
                 <View style={activeTab === 'discover' ? styles.tabVisible : styles.tabHidden}>
