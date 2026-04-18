@@ -17,29 +17,22 @@ import { formatUsername } from '../../utils/identity';
 
 interface DiscoverScreenProps {
     isActive: boolean;
-    friendIds: Set<string>;
-    incomingFriendRequestIds: Set<string>;
-    outgoingFriendRequestIds: Set<string>;
-    onFriendshipChange: (userId: string, status: 'none' | 'incoming' | 'outgoing' | 'friends') => void;
     onOpenUserProfile: (profile: { userId: string; username: string; avatarUrl?: string }) => void;
-    refreshFriendshipState: () => Promise<void>;
 }
 
 // Renders the discover tab with debounced user search and friendship actions.
 export function DiscoverScreen({
     isActive,
-    friendIds = new Set<string>(),
-    incomingFriendRequestIds = new Set<string>(),
-    outgoingFriendRequestIds = new Set<string>(),
-    onFriendshipChange,
     onOpenUserProfile,
-    refreshFriendshipState,
 }: DiscoverScreenProps) {
     const [users, setUsers] = useState<api.User[]>([]);
     const [loading, setLoading] = useState(isActive);
     const [refreshing, setRefreshing] = useState(false);
+    const [loadingMore, setLoadingMore] = useState(false);
     const [query, setQuery] = useState('');
     const [debouncedQuery, setDebouncedQuery] = useState('');
+    const [page, setPage] = useState(1);
+    const [hasMore, setHasMore] = useState(false);
     const [pendingFriendActions, setPendingFriendActions] = useState<Set<string>>(new Set());
     const hasLoadedRef = useRef(false);
     const wasActiveRef = useRef(false);
@@ -53,17 +46,24 @@ export function DiscoverScreen({
         return () => clearTimeout(timer);
     }, [query]);
 
-    const load = useCallback(async (searchQuery: string) => {
+    // Search uses server-side paging so the discover grid never depends on an
+    // unbounded "all users" payload when the community grows.
+    const loadPage = useCallback(async (searchQuery: string, nextPage: number, replace = false) => {
         const requestId = ++loadRequestIdRef.current;
 
         try {
-            const discoverData = await api.discoverUsers({ query: searchQuery });
-            // Search results can return out of order; only the newest request should win.
+            const discoverData = await api.discoverUsers({ query: searchQuery, page: nextPage, limit: 20 });
             if (requestId !== loadRequestIdRef.current) return;
-            setUsers(discoverData ?? []);
+            setUsers(prev => replace ? (discoverData.items ?? []) : [...prev, ...(discoverData.items ?? [])]);
+            setPage(discoverData.page);
+            setHasMore(discoverData.has_more);
         } catch {
             if (requestId !== loadRequestIdRef.current) return;
-            setUsers([]);
+            if (replace) {
+                setUsers([]);
+                setPage(1);
+                setHasMore(false);
+            }
         }
     }, []);
 
@@ -76,11 +76,11 @@ export function DiscoverScreen({
         const isFirstLoad = !hasLoadedRef.current;
         if (isFirstLoad) setLoading(true);
 
-        load(debouncedQuery).finally(() => {
+        loadPage(debouncedQuery, 1, true).finally(() => {
             hasLoadedRef.current = true;
             if (isFirstLoad) setLoading(false);
         });
-    }, [isActive, debouncedQuery, load]);
+    }, [isActive, debouncedQuery, loadPage]);
 
     useEffect(() => {
         const queryChanged = debouncedQuery !== previousQueryRef.current;
@@ -93,25 +93,16 @@ export function DiscoverScreen({
         const isFirstLoad = !hasLoadedRef.current;
         if (isFirstLoad) setLoading(true);
 
-        load(debouncedQuery).finally(() => {
+        loadPage(debouncedQuery, 1, true).finally(() => {
             hasLoadedRef.current = true;
             if (isFirstLoad) setLoading(false);
         });
-    }, [debouncedQuery, isActive, load]);
+    }, [debouncedQuery, isActive, loadPage]);
 
-    const getFriendshipStatus = (userId: string): 'none' | 'incoming' | 'outgoing' | 'friends' => {
-        if (friendIds.has(userId)) return 'friends';
-        if (incomingFriendRequestIds.has(userId)) return 'incoming';
-        if (outgoingFriendRequestIds.has(userId)) return 'outgoing';
-        return 'none';
-    };
-
-    // Refreshes discover results and the shared friendship state.
     const onRefresh = async () => {
         setRefreshing(true);
         try {
-            await load(debouncedQuery);
-            await refreshFriendshipState();
+            await loadPage(debouncedQuery, 1, true);
         } catch {
             setUsers([]);
         } finally {
@@ -119,32 +110,43 @@ export function DiscoverScreen({
         }
     };
 
-    // Optimistically updates friendship state for a discovered user.
     const handleFriendAction = async (user: api.User) => {
-        const current = getFriendshipStatus(user.id);
+        const current = user.friendship_status;
         if (current === 'friends') return;
 
         setPendingFriendActions(prev => new Set(prev).add(user.id));
 
         try {
             if (current === 'incoming') {
-                onFriendshipChange(user.id, 'friends');
                 await api.updateFriendRequest(user.id, 'accept');
+                setUsers(prev => prev.map(item => item.id === user.id ? { ...item, friendship_status: 'friends' } : item));
             } else if (current === 'outgoing') {
-                onFriendshipChange(user.id, 'none');
                 await api.cancelFriendRequest(user.id);
+                setUsers(prev => prev.map(item => item.id === user.id ? { ...item, friendship_status: 'none' } : item));
             } else {
-                onFriendshipChange(user.id, 'outgoing');
                 await api.sendFriendRequest(user.id);
+                setUsers(prev => prev.map(item => item.id === user.id ? { ...item, friendship_status: 'outgoing' } : item));
             }
         } catch {
-            onFriendshipChange(user.id, current);
+            setUsers(prev => prev.map(item => item.id === user.id ? { ...item, friendship_status: current } : item));
         } finally {
             setPendingFriendActions(prev => {
                 const updated = new Set(prev);
                 updated.delete(user.id);
                 return updated;
             });
+        }
+    };
+
+    // Infinite scroll only asks for the next discover page for the active
+    // query, keeping paging and search state tied together.
+    const handleLoadMore = async () => {
+        if (!isActive || loadingMore || refreshing || loading || !hasMore) return;
+        setLoadingMore(true);
+        try {
+            await loadPage(debouncedQuery, page + 1);
+        } finally {
+            setLoadingMore(false);
         }
     };
 
@@ -173,6 +175,8 @@ export function DiscoverScreen({
             contentContainerStyle={styles.list}
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
             keyboardShouldPersistTaps="handled"
+            onEndReached={handleLoadMore}
+            onEndReachedThreshold={0.4}
             ListHeaderComponent={
                 <View style={styles.headerBlock}>
                     <View style={styles.heroCard}>
@@ -214,8 +218,9 @@ export function DiscoverScreen({
                     </Text>
                 </View>
             }
+            ListFooterComponent={loadingMore ? <ActivityIndicator style={styles.footerLoader} color={Colors.primary} /> : null}
             renderItem={({ item }) => {
-                const friendshipStatus = getFriendshipStatus(item.id);
+                const friendshipStatus = item.friendship_status;
                 const pending = pendingFriendActions.has(item.id);
                 const buttonLabel = friendshipStatus === 'friends'
                     ? 'Friends'
@@ -429,5 +434,8 @@ const styles = StyleSheet.create({
         textAlign: 'center',
         lineHeight: 20,
         marginTop: Spacing.sm,
+    },
+    footerLoader: {
+        paddingVertical: Spacing.md,
     },
 });

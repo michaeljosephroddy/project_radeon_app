@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useState } from 'react';
 import {
     View, Text, TouchableOpacity, StyleSheet,
 } from 'react-native';
@@ -16,7 +16,6 @@ import { UserProfileScreen } from '../screens/main/UserProfileScreen';
 import { Avatar } from '../components/Avatar';
 import { Colors, Typography, Spacing } from '../utils/theme';
 import { useAuth } from '../hooks/useAuth';
-import * as api from '../api/client';
 import type { Chat } from '../api/client';
 
 interface OpenUserProfile {
@@ -42,50 +41,11 @@ export function AppNavigator() {
     const [openUserProfile, setOpenUserProfile] = useState<OpenUserProfile | null>(null);
     const [ownProfileOpen, setOwnProfileOpen] = useState(false);
     const [chatsRefreshKey, setChatsRefreshKey] = useState(0);
-    const [friendIds, setFriendIds] = useState<Set<string>>(new Set());
-    const [incomingFriendRequestIds, setIncomingFriendRequestIds] = useState<Set<string>>(new Set());
-    const [outgoingFriendRequestIds, setOutgoingFriendRequestIds] = useState<Set<string>>(new Set());
-    const friendshipRequestIdRef = useRef(0);
     const insets = useSafeAreaInsets();
 
     const inChat = openChat !== null;
     const inUserProfile = openUserProfile !== null;
     const inOwnProfile = ownProfileOpen;
-
-    const handleFriendshipChange = (userId: string, status: 'none' | 'incoming' | 'outgoing' | 'friends') => {
-        setFriendIds(prev => {
-            const next = new Set(prev);
-            if (status === 'friends') next.add(userId); else next.delete(userId);
-            return next;
-        });
-        setIncomingFriendRequestIds(prev => {
-            const next = new Set(prev);
-            if (status === 'incoming') next.add(userId); else next.delete(userId);
-            return next;
-        });
-        setOutgoingFriendRequestIds(prev => {
-            const next = new Set(prev);
-            if (status === 'outgoing') next.add(userId); else next.delete(userId);
-            return next;
-        });
-    };
-
-    const refreshFriendshipState = useCallback(async () => {
-        const requestId = ++friendshipRequestIdRef.current;
-        const [friends, incoming, outgoing] = await Promise.all([
-            api.getFriends(),
-            api.getIncomingFriendRequests(),
-            api.getOutgoingFriendRequests(),
-        ]);
-        if (requestId !== friendshipRequestIdRef.current) return;
-        setFriendIds(new Set((friends ?? []).map(user => user.user_id)));
-        setIncomingFriendRequestIds(new Set((incoming ?? []).map(user => user.user_id)));
-        setOutgoingFriendRequestIds(new Set((outgoing ?? []).map(user => user.user_id)));
-    }, []);
-
-    useEffect(() => {
-        refreshFriendshipState().catch(() => {});
-    }, [refreshFriendshipState]);
 
     const handleOpenUserProfile = (profile: OpenUserProfile) => {
         setOpenUserProfile(profile);
@@ -156,12 +116,7 @@ export function AppNavigator() {
                 <View style={activeTab === 'discover' ? styles.tabVisible : styles.tabHidden}>
                     <DiscoverScreen
                         isActive={activeTab === 'discover'}
-                        friendIds={friendIds}
-                        incomingFriendRequestIds={incomingFriendRequestIds}
-                        outgoingFriendRequestIds={outgoingFriendRequestIds}
-                        onFriendshipChange={handleFriendshipChange}
                         onOpenUserProfile={handleOpenUserProfile}
-                        refreshFriendshipState={refreshFriendshipState}
                     />
                 </View>
                 <View style={activeTab === 'support' ? styles.tabVisible : styles.tabHidden}>
@@ -186,8 +141,6 @@ export function AppNavigator() {
                         <ProfileTabScreen
                             isActive={inOwnProfile}
                             onBack={closeOwnProfile}
-                            onFriendshipChange={handleFriendshipChange}
-                            refreshFriendshipState={refreshFriendshipState}
                             onOpenUserProfile={handleOpenUserProfile}
                         />
                     </View>
@@ -198,12 +151,7 @@ export function AppNavigator() {
                             userId={openUserProfile!.userId}
                             username={openUserProfile!.username}
                             avatarUrl={openUserProfile!.avatarUrl}
-                            friendIds={friendIds}
-                            incomingFriendRequestIds={incomingFriendRequestIds}
-                            outgoingFriendRequestIds={outgoingFriendRequestIds}
                             onBack={closeUserProfile}
-                            onFriendshipChange={handleFriendshipChange}
-                            refreshFriendshipState={refreshFriendshipState}
                             onOpenChat={setOpenChat}
                         />
                     </View>

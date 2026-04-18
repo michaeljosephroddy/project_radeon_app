@@ -21,6 +21,9 @@ export function ChatScreen({ chat, onBack }: Props) {
     const { user } = useAuth();
     const [messages, setMessages] = useState<api.Message[]>([]);
     const [loading, setLoading] = useState(true);
+    const [loadingOlder, setLoadingOlder] = useState(false);
+    const [hasMore, setHasMore] = useState(false);
+    const [nextBefore, setNextBefore] = useState<string | null>(null);
     const [draft, setDraft] = useState('');
     const [sending, setSending] = useState(false);
     const listRef = useRef<FlatList>(null);
@@ -29,8 +32,12 @@ export function ChatScreen({ chat, onBack }: Props) {
     useEffect(() => {
         // Messages are fetched when the overlay opens; the chat list remains mounted
         // underneath, so we scope this request to the selected chat id only.
-        api.getMessages(chat.id)
-            .then(data => setMessages(data ?? []))
+        api.getMessages(chat.id, { limit: 50 })
+            .then(data => {
+                setMessages(data.items ?? []);
+                setHasMore(data.has_more);
+                setNextBefore(data.next_before ?? null);
+            })
             .finally(() => setLoading(false));
     }, [chat.id]);
 
@@ -67,6 +74,21 @@ export function ChatScreen({ chat, onBack }: Props) {
         ? (chat.name ?? 'Group')
         : formatUsername(chat.username);
 
+    // Message history pages backwards from the oldest loaded item so long
+    // threads stay incremental instead of loading the full transcript at once.
+    const handleLoadOlder = async () => {
+        if (!nextBefore || loadingOlder) return;
+        setLoadingOlder(true);
+        try {
+            const page = await api.getMessages(chat.id, { before: nextBefore, limit: 50 });
+            setMessages(current => [...(page.items ?? []), ...current]);
+            setHasMore(page.has_more);
+            setNextBefore(page.next_before ?? null);
+        } finally {
+            setLoadingOlder(false);
+        }
+    };
+
     // Resolves the best avatar to show for each message bubble.
     const getMessageAvatarUrl = (message: api.Message): string | undefined => {
         // DMs can omit sender avatars in the message payload, so fall back to the
@@ -100,6 +122,17 @@ export function ChatScreen({ chat, onBack }: Props) {
                     keyExtractor={m => m.id}
                     contentContainerStyle={styles.list}
                     onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: false })}
+                    ListHeaderComponent={
+                        hasMore ? (
+                            <TouchableOpacity
+                                style={[styles.loadOlderButton, loadingOlder && styles.loadOlderButtonDisabled]}
+                                onPress={handleLoadOlder}
+                                disabled={loadingOlder}
+                            >
+                                <Text style={styles.loadOlderButtonText}>{loadingOlder ? 'Loading...' : 'Load older messages'}</Text>
+                            </TouchableOpacity>
+                        ) : null
+                    }
                     renderItem={({ item }) => {
                         const isMe = item.sender_id === user?.id;
                         const senderLabel = formatUsername(isMe ? (user?.username ?? item.username) : item.username);
@@ -229,4 +262,20 @@ const styles = StyleSheet.create({
     },
     sendBtnDisabled: { backgroundColor: Colors.light.backgroundSecondary },
     sendBtnText: { fontSize: 16, color: Colors.textOn.primary, fontWeight: '600' },
+    loadOlderButton: {
+        alignSelf: 'center',
+        backgroundColor: Colors.light.backgroundSecondary,
+        borderRadius: Radii.full,
+        borderWidth: 0.5,
+        borderColor: Colors.light.border,
+        paddingHorizontal: Spacing.md,
+        paddingVertical: 8,
+        marginBottom: Spacing.sm,
+    },
+    loadOlderButtonDisabled: { opacity: 0.6 },
+    loadOlderButtonText: {
+        fontSize: Typography.sizes.sm,
+        fontWeight: '600',
+        color: Colors.light.textSecondary,
+    },
 });

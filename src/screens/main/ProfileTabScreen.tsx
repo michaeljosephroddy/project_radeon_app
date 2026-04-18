@@ -13,19 +13,19 @@ import { Colors, Typography, Spacing, Radii } from '../../utils/theme';
 import { formatUsername } from '../../utils/identity';
 
 type SubView = 'profile' | 'friends' | 'requests' | 'settings';
+type RequestsSubView = 'incoming' | 'outgoing';
 
 interface ProfileTabScreenProps {
     isActive: boolean;
-    onFriendshipChange: (userId: string, status: 'none' | 'incoming' | 'outgoing' | 'friends') => void;
-    refreshFriendshipState: () => Promise<void>;
     onOpenUserProfile: (profile: { userId: string; username: string; avatarUrl?: string }) => void;
     onBack?: () => void;
 }
 
 // Renders the current user's profile tab plus friends, requests, and settings subviews.
-export function ProfileTabScreen({ isActive, onFriendshipChange, refreshFriendshipState, onOpenUserProfile, onBack }: ProfileTabScreenProps) {
+export function ProfileTabScreen({ isActive, onOpenUserProfile, onBack }: ProfileTabScreenProps) {
     const { user, refreshUser, logout } = useAuth();
     const [subView, setSubView] = useState<SubView>('profile');
+    const [requestsSubView, setRequestsSubView] = useState<RequestsSubView>('incoming');
 
     const [username, setUsername]     = useState(user?.username ?? '');
     const [city, setCity]             = useState(user?.city ?? '');
@@ -39,38 +39,63 @@ export function ProfileTabScreen({ isActive, onFriendshipChange, refreshFriendsh
     const [friends, setFriends] = useState<api.FriendUser[]>([]);
     const [incomingRequests, setIncomingRequests] = useState<api.FriendUser[]>([]);
     const [outgoingRequests, setOutgoingRequests] = useState<api.FriendUser[]>([]);
+    const [friendsPage, setFriendsPage] = useState(1);
+    const [incomingPage, setIncomingPage] = useState(1);
+    const [outgoingPage, setOutgoingPage] = useState(1);
+    const [friendsHasMore, setFriendsHasMore] = useState(false);
+    const [incomingHasMore, setIncomingHasMore] = useState(false);
+    const [outgoingHasMore, setOutgoingHasMore] = useState(false);
+    const [loadingMoreFriends, setLoadingMoreFriends] = useState(false);
+    const [loadingMoreIncoming, setLoadingMoreIncoming] = useState(false);
+    const [loadingMoreOutgoing, setLoadingMoreOutgoing] = useState(false);
     const [pendingActionIds, setPendingActionIds] = useState<Set<string>>(new Set());
 
-    // Loads the accepted friends for the current account.
-    const loadFriends = useCallback(async () => {
+    // Loads one page of accepted friends for the current account.
+    const loadFriends = useCallback(async (page = 1, replace = true) => {
         try {
-            const nextFriends = await api.getFriends();
-            setFriends(nextFriends ?? []);
+            const nextFriends = await api.getFriends(page, 25);
+            setFriends(current => replace ? (nextFriends.items ?? []) : [...current, ...(nextFriends.items ?? [])]);
+            setFriendsPage(nextFriends.page);
+            setFriendsHasMore(nextFriends.has_more);
         } catch {}
     }, []);
 
-    // Loads both incoming and outgoing pending friend requests.
-    const loadRequests = useCallback(async () => {
+    // Keeps incoming and outgoing request paging independent so each tab can
+    // load deeper without pulling the other list along with it.
+    const loadIncomingRequests = useCallback(async (page = 1, replace = true) => {
         try {
-            const [incoming, outgoing] = await Promise.all([
-                api.getIncomingFriendRequests(),
-                api.getOutgoingFriendRequests(),
-            ]);
-            setIncomingRequests(incoming ?? []);
-            setOutgoingRequests(outgoing ?? []);
+            const incoming = await api.getIncomingFriendRequests(page, 25);
+            setIncomingRequests(current => replace ? (incoming.items ?? []) : [...current, ...(incoming.items ?? [])]);
+            setIncomingPage(incoming.page);
+            setIncomingHasMore(incoming.has_more);
         } catch {}
     }, []);
 
-    // Reloads the friend summary that feeds the profile stats.
+    const loadOutgoingRequests = useCallback(async (page = 1, replace = true) => {
+        try {
+            const outgoing = await api.getOutgoingFriendRequests(page, 25);
+            setOutgoingRequests(current => replace ? (outgoing.items ?? []) : [...current, ...(outgoing.items ?? [])]);
+            setOutgoingPage(outgoing.page);
+            setOutgoingHasMore(outgoing.has_more);
+        } catch {}
+    }, []);
+
+    // Refreshes the first page of all relationship lists so the profile counts
+    // and detail subviews stay aligned after mutations.
     const loadFriendSummary = useCallback(async () => {
-        await Promise.all([loadFriends(), loadRequests()]);
-    }, [loadFriends, loadRequests]);
+        await Promise.all([
+            loadFriends(1, true),
+            loadIncomingRequests(1, true),
+            loadOutgoingRequests(1, true),
+        ]);
+    }, [loadFriends, loadIncomingRequests, loadOutgoingRequests]);
 
     useEffect(() => {
         if (isActive) {
+            refreshUser().catch(() => {});
             loadFriendSummary();
         }
-    }, [isActive, loadFriendSummary]);
+    }, [isActive, loadFriendSummary, refreshUser]);
 
     // Marks the profile form as dirty when a field changes.
     const mark = (setter: (v: string) => void) => (v: string) => {
@@ -131,13 +156,11 @@ export function ProfileTabScreen({ isActive, onFriendshipChange, refreshFriendsh
     const handleRemoveFriend = async (u: api.FriendUser) => {
         setPendingActionIds(prev => new Set(prev).add(u.user_id));
         setFriends(prev => prev.filter(f => f.user_id !== u.user_id));
-        onFriendshipChange(u.user_id, 'none');
         try {
             await api.removeFriend(u.user_id);
-            await loadFriends();
+            await Promise.all([loadFriends(1, true), refreshUser()]);
         } catch (e: unknown) {
             setFriends(prev => [u, ...prev]);
-            onFriendshipChange(u.user_id, 'friends');
             Alert.alert('Error', e instanceof Error ? e.message : 'Something went wrong.');
         } finally {
             setPendingActionIds(prev => { const s = new Set(prev); s.delete(u.user_id); return s; });
@@ -148,14 +171,12 @@ export function ProfileTabScreen({ isActive, onFriendshipChange, refreshFriendsh
         setPendingActionIds(prev => new Set(prev).add(u.user_id));
         setIncomingRequests(prev => prev.filter(req => req.user_id !== u.user_id));
         setFriends(prev => [u, ...prev]);
-        onFriendshipChange(u.user_id, 'friends');
         try {
             await api.updateFriendRequest(u.user_id, 'accept');
-            await Promise.all([loadFriends(), loadRequests(), refreshFriendshipState()]);
+            await Promise.all([loadFriends(1, true), loadIncomingRequests(1, true), loadOutgoingRequests(1, true), refreshUser()]);
         } catch (e: unknown) {
             setIncomingRequests(prev => [u, ...prev]);
             setFriends(prev => prev.filter(friend => friend.user_id !== u.user_id));
-            onFriendshipChange(u.user_id, 'incoming');
             Alert.alert('Error', e instanceof Error ? e.message : 'Something went wrong.');
         } finally {
             setPendingActionIds(prev => { const s = new Set(prev); s.delete(u.user_id); return s; });
@@ -165,13 +186,11 @@ export function ProfileTabScreen({ isActive, onFriendshipChange, refreshFriendsh
     const handleDeclineRequest = async (u: api.FriendUser) => {
         setPendingActionIds(prev => new Set(prev).add(u.user_id));
         setIncomingRequests(prev => prev.filter(req => req.user_id !== u.user_id));
-        onFriendshipChange(u.user_id, 'none');
         try {
             await api.updateFriendRequest(u.user_id, 'decline');
-            await Promise.all([loadRequests(), refreshFriendshipState()]);
+            await Promise.all([loadIncomingRequests(1, true), loadOutgoingRequests(1, true), refreshUser()]);
         } catch (e: unknown) {
             setIncomingRequests(prev => [u, ...prev]);
-            onFriendshipChange(u.user_id, 'incoming');
             Alert.alert('Error', e instanceof Error ? e.message : 'Something went wrong.');
         } finally {
             setPendingActionIds(prev => { const s = new Set(prev); s.delete(u.user_id); return s; });
@@ -181,13 +200,11 @@ export function ProfileTabScreen({ isActive, onFriendshipChange, refreshFriendsh
     const handleCancelRequest = async (u: api.FriendUser) => {
         setPendingActionIds(prev => new Set(prev).add(u.user_id));
         setOutgoingRequests(prev => prev.filter(req => req.user_id !== u.user_id));
-        onFriendshipChange(u.user_id, 'none');
         try {
             await api.cancelFriendRequest(u.user_id);
-            await Promise.all([loadRequests(), refreshFriendshipState()]);
+            await Promise.all([loadIncomingRequests(1, true), loadOutgoingRequests(1, true), refreshUser()]);
         } catch (e: unknown) {
             setOutgoingRequests(prev => [u, ...prev]);
-            onFriendshipChange(u.user_id, 'outgoing');
             Alert.alert('Error', e instanceof Error ? e.message : 'Something went wrong.');
         } finally {
             setPendingActionIds(prev => { const s = new Set(prev); s.delete(u.user_id); return s; });
@@ -197,6 +214,39 @@ export function ProfileTabScreen({ isActive, onFriendshipChange, refreshFriendsh
     // Signs the current user out from the profile area.
     const handleLogout = async () => {
         try { await logout(); } catch {}
+    };
+
+    // Friends and requests are paged separately because these detail views can
+    // grow much larger than the summary counts shown on the profile home.
+    const handleLoadMoreFriends = async () => {
+        if (loadingMoreFriends || !friendsHasMore) return;
+        setLoadingMoreFriends(true);
+        try {
+            await loadFriends(friendsPage + 1, false);
+        } finally {
+            setLoadingMoreFriends(false);
+        }
+    };
+
+    const handleLoadMoreRequests = async () => {
+        if (requestsSubView === 'incoming') {
+            if (loadingMoreIncoming || !incomingHasMore) return;
+            setLoadingMoreIncoming(true);
+            try {
+                await loadIncomingRequests(incomingPage + 1, false);
+            } finally {
+                setLoadingMoreIncoming(false);
+            }
+            return;
+        }
+
+        if (loadingMoreOutgoing || !outgoingHasMore) return;
+        setLoadingMoreOutgoing(true);
+        try {
+            await loadOutgoingRequests(outgoingPage + 1, false);
+        } finally {
+            setLoadingMoreOutgoing(false);
+        }
     };
 
     if (!user) return null;
@@ -218,6 +268,8 @@ export function ProfileTabScreen({ isActive, onFriendshipChange, refreshFriendsh
                 <FlatList
                     data={friends}
                     keyExtractor={item => item.user_id}
+                    onEndReached={handleLoadMoreFriends}
+                    onEndReachedThreshold={0.4}
                     contentContainerStyle={styles.listContent}
                     renderItem={({ item }) => (
                         <View style={styles.row}>
@@ -240,6 +292,7 @@ export function ProfileTabScreen({ isActive, onFriendshipChange, refreshFriendsh
                     ListEmptyComponent={
                         <Text style={styles.listEmpty}>No friends yet.</Text>
                     }
+                    ListFooterComponent={loadingMoreFriends ? <ActivityIndicator style={styles.footerLoader} color={Colors.primary} /> : null}
                 />
             </SafeAreaView>
         );
@@ -255,46 +308,57 @@ export function ProfileTabScreen({ isActive, onFriendshipChange, refreshFriendsh
                     <Text style={styles.subHeaderTitle}>Requests</Text>
                     <View style={styles.subHeaderSide} />
                 </View>
-                <ScrollView contentContainerStyle={styles.listContent}>
-                    <Text style={styles.requestSectionTitle}>Incoming</Text>
-                    {incomingRequests.length > 0 ? incomingRequests.map(item => (
-                        <View key={`incoming-${item.user_id}`} style={styles.row}>
-                            <TouchableOpacity onPress={() => onOpenUserProfile({ userId: item.user_id, username: item.username, avatarUrl: item.avatar_url })}>
-                                <Avatar username={item.username} avatarUrl={item.avatar_url} size={48} fontSize={16} />
-                            </TouchableOpacity>
-                            <TouchableOpacity style={styles.rowInfo} onPress={() => onOpenUserProfile({ userId: item.user_id, username: item.username, avatarUrl: item.avatar_url })}>
-                                <Text style={styles.rowName}>{formatUsername(item.username)}</Text>
-                                {item.city && <Text style={styles.rowCity}>{item.city}</Text>}
-                            </TouchableOpacity>
-                            <TouchableOpacity style={styles.requestActionPrimary} onPress={() => handleAcceptRequest(item)} disabled={pendingActionIds.has(item.user_id)}>
-                                <Text style={styles.requestActionPrimaryText}>Accept</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity style={styles.requestActionSecondary} onPress={() => handleDeclineRequest(item)} disabled={pendingActionIds.has(item.user_id)}>
-                                <Text style={styles.requestActionSecondaryText}>Decline</Text>
-                            </TouchableOpacity>
-                        </View>
-                    )) : (
-                        <Text style={styles.listEmpty}>No incoming requests.</Text>
-                    )}
-
-                    <Text style={styles.requestSectionTitle}>Sent</Text>
-                    {outgoingRequests.length > 0 ? outgoingRequests.map(item => (
-                        <View key={`outgoing-${item.user_id}`} style={styles.row}>
-                            <TouchableOpacity onPress={() => onOpenUserProfile({ userId: item.user_id, username: item.username, avatarUrl: item.avatar_url })}>
-                                <Avatar username={item.username} avatarUrl={item.avatar_url} size={48} fontSize={16} />
-                            </TouchableOpacity>
-                            <TouchableOpacity style={styles.rowInfo} onPress={() => onOpenUserProfile({ userId: item.user_id, username: item.username, avatarUrl: item.avatar_url })}>
-                                <Text style={styles.rowName}>{formatUsername(item.username)}</Text>
-                                {item.city && <Text style={styles.rowCity}>{item.city}</Text>}
-                            </TouchableOpacity>
-                            <TouchableOpacity style={styles.requestActionSecondary} onPress={() => handleCancelRequest(item)} disabled={pendingActionIds.has(item.user_id)}>
-                                <Text style={styles.requestActionSecondaryText}>Cancel</Text>
-                            </TouchableOpacity>
-                        </View>
-                    )) : (
-                        <Text style={styles.listEmpty}>No outgoing requests.</Text>
-                    )}
-                </ScrollView>
+                <View style={styles.requestTabs}>
+                    <TouchableOpacity
+                        style={[styles.requestTab, requestsSubView === 'incoming' && styles.requestTabActive]}
+                        onPress={() => setRequestsSubView('incoming')}
+                    >
+                        <Text style={[styles.requestTabText, requestsSubView === 'incoming' && styles.requestTabTextActive]}>Incoming</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                        style={[styles.requestTab, requestsSubView === 'outgoing' && styles.requestTabActive]}
+                        onPress={() => setRequestsSubView('outgoing')}
+                    >
+                        <Text style={[styles.requestTabText, requestsSubView === 'outgoing' && styles.requestTabTextActive]}>Sent</Text>
+                    </TouchableOpacity>
+                </View>
+                <FlatList
+                    data={requestsSubView === 'incoming' ? incomingRequests : outgoingRequests}
+                    key={requestsSubView}
+                    keyExtractor={item => `${requestsSubView}-${item.user_id}`}
+                    onEndReached={handleLoadMoreRequests}
+                    onEndReachedThreshold={0.4}
+                    contentContainerStyle={styles.listContent}
+                    renderItem={({ item }) => {
+                        return (
+                            <View style={styles.row}>
+                                <TouchableOpacity onPress={() => onOpenUserProfile({ userId: item.user_id, username: item.username, avatarUrl: item.avatar_url })}>
+                                    <Avatar username={item.username} avatarUrl={item.avatar_url} size={48} fontSize={16} />
+                                </TouchableOpacity>
+                                <TouchableOpacity style={styles.rowInfo} onPress={() => onOpenUserProfile({ userId: item.user_id, username: item.username, avatarUrl: item.avatar_url })}>
+                                    <Text style={styles.rowName}>{formatUsername(item.username)}</Text>
+                                    {item.city && <Text style={styles.rowCity}>{item.city}</Text>}
+                                </TouchableOpacity>
+                                {requestsSubView === 'incoming' ? (
+                                    <>
+                                        <TouchableOpacity style={styles.requestActionPrimary} onPress={() => handleAcceptRequest(item)} disabled={pendingActionIds.has(item.user_id)}>
+                                            <Text style={styles.requestActionPrimaryText}>Accept</Text>
+                                        </TouchableOpacity>
+                                        <TouchableOpacity style={styles.requestActionSecondary} onPress={() => handleDeclineRequest(item)} disabled={pendingActionIds.has(item.user_id)}>
+                                            <Text style={styles.requestActionSecondaryText}>Decline</Text>
+                                        </TouchableOpacity>
+                                    </>
+                                ) : (
+                                    <TouchableOpacity style={styles.requestActionSecondary} onPress={() => handleCancelRequest(item)} disabled={pendingActionIds.has(item.user_id)}>
+                                        <Text style={styles.requestActionSecondaryText}>Cancel</Text>
+                                    </TouchableOpacity>
+                                )}
+                            </View>
+                        );
+                    }}
+                    ListEmptyComponent={<Text style={styles.listEmptyInline}>{requestsSubView === 'incoming' ? 'No incoming requests.' : 'No outgoing requests.'}</Text>}
+                    ListFooterComponent={((requestsSubView === 'incoming' && loadingMoreIncoming) || (requestsSubView === 'outgoing' && loadingMoreOutgoing)) ? <ActivityIndicator style={styles.footerLoader} color={Colors.primary} /> : null}
+                />
             </SafeAreaView>
         );
     }
@@ -338,12 +402,12 @@ export function ProfileTabScreen({ isActive, onFriendshipChange, refreshFriendsh
 
                     <View style={styles.statsRow}>
                         <TouchableOpacity style={styles.statItem} onPress={() => setSubView('friends')}>
-                            <Text style={styles.statCount}>{friends.length}</Text>
+                            <Text style={styles.statCount}>{user.friend_count}</Text>
                             <Text style={styles.statLabel}>Friends</Text>
                         </TouchableOpacity>
                         <View style={styles.statDivider} />
                         <TouchableOpacity style={styles.statItem} onPress={() => setSubView('requests')}>
-                            <Text style={styles.statCount}>{incomingRequests.length + outgoingRequests.length}</Text>
+                            <Text style={styles.statCount}>{user.incoming_friend_request_count + user.outgoing_friend_request_count}</Text>
                             <Text style={styles.statLabel}>Requests</Text>
                         </TouchableOpacity>
                     </View>
@@ -442,6 +506,41 @@ const styles = StyleSheet.create({
         textAlign: 'center',
         marginTop: 60,
     },
+    listEmptyInline: {
+        fontSize: Typography.sizes.base,
+        color: Colors.light.textTertiary,
+        textAlign: 'center',
+        paddingHorizontal: Spacing.md,
+        paddingBottom: Spacing.md,
+    },
+    footerLoader: { paddingVertical: Spacing.md },
+    requestTabs: {
+        flexDirection: 'row',
+        gap: Spacing.sm,
+        paddingHorizontal: Spacing.md,
+        paddingTop: Spacing.md,
+    },
+    requestTab: {
+        flex: 1,
+        alignItems: 'center',
+        paddingVertical: 10,
+        borderRadius: Radii.full,
+        borderWidth: 1,
+        borderColor: Colors.light.border,
+        backgroundColor: Colors.light.backgroundSecondary,
+    },
+    requestTabActive: {
+        backgroundColor: Colors.primary,
+        borderColor: Colors.primary,
+    },
+    requestTabText: {
+        fontSize: Typography.sizes.sm,
+        fontWeight: '600',
+        color: Colors.light.textSecondary,
+    },
+    requestTabTextActive: {
+        color: Colors.textOn.primary,
+    },
 
     row: {
         flexDirection: 'row',
@@ -453,15 +552,6 @@ const styles = StyleSheet.create({
     rowInfo: { flex: 1, gap: 2 },
     rowName: { fontSize: Typography.sizes.base, fontWeight: '500', color: Colors.light.textPrimary },
     rowCity: { fontSize: Typography.sizes.sm, color: Colors.light.textTertiary },
-    requestSectionTitle: {
-        fontSize: Typography.sizes.xs,
-        fontWeight: '600',
-        color: Colors.light.textTertiary,
-        letterSpacing: 0.5,
-        marginTop: Spacing.md,
-        marginBottom: Spacing.sm,
-        paddingHorizontal: Spacing.md,
-    },
     unfollowBtn: {
         borderWidth: 1,
         borderColor: Colors.light.border,

@@ -76,16 +76,30 @@ export function ChatsScreen({ isActive, refreshKey, onOpenChat }: ChatsScreenPro
     const [chats, setChats] = useState<api.Chat[]>([]);
     const [loading, setLoading] = useState(isActive);
     const [refreshing, setRefreshing] = useState(false);
+    const [loadingMore, setLoadingMore] = useState(false);
     const [query, setQuery] = useState('');
+    const [debouncedQuery, setDebouncedQuery] = useState('');
+    const [page, setPage] = useState(1);
+    const [hasMore, setHasMore] = useState(false);
     const hasLoadedRef = useRef(false);
     const previousRefreshKeyRef = useRef(refreshKey);
+    const previousQueryRef = useRef('');
 
-    const load = useCallback(async () => {
+    useEffect(() => {
+        const timer = setTimeout(() => setDebouncedQuery(query.trim()), 250);
+        return () => clearTimeout(timer);
+    }, [query]);
+
+    // Chat list search and paging both happen on the backend so the client
+    // never needs to download the full inbox just to filter it locally.
+    const load = useCallback(async (nextPage: number, replace = false) => {
         try {
-            const data = await api.getChats();
-            setChats(data ?? []);
+            const data = await api.getChats({ query: debouncedQuery, page: nextPage, limit: 20 });
+            setChats(prev => replace ? (data.items ?? []) : [...prev, ...(data.items ?? [])]);
+            setPage(data.page);
+            setHasMore(data.has_more);
         } catch { }
-    }, []);
+    }, [debouncedQuery]);
 
     useEffect(() => {
         if (!isActive) return;
@@ -93,11 +107,25 @@ export function ChatsScreen({ isActive, refreshKey, onOpenChat }: ChatsScreenPro
         const isFirstLoad = !hasLoadedRef.current;
         if (isFirstLoad) setLoading(true);
 
-        load().finally(() => {
+        load(1, true).finally(() => {
             hasLoadedRef.current = true;
             if (isFirstLoad) setLoading(false);
         });
     }, [isActive, load]);
+
+    useEffect(() => {
+        const queryChanged = debouncedQuery !== previousQueryRef.current;
+        previousQueryRef.current = debouncedQuery;
+        if (!isActive || !queryChanged) return;
+
+        const isFirstLoad = !hasLoadedRef.current;
+        if (isFirstLoad) setLoading(true);
+
+        load(1, true).finally(() => {
+            hasLoadedRef.current = true;
+            if (isFirstLoad) setLoading(false);
+        });
+    }, [debouncedQuery, isActive, load]);
 
     useEffect(() => {
         const refreshKeyChanged = refreshKey !== previousRefreshKeyRef.current;
@@ -105,24 +133,27 @@ export function ChatsScreen({ isActive, refreshKey, onOpenChat }: ChatsScreenPro
 
         // The parent increments refreshKey when a conversation closes so the chat
         // list can refresh previews without remounting the whole tab.
-        if (isActive && refreshKeyChanged) load();
+        if (isActive && refreshKeyChanged) load(1, true);
     }, [isActive, refreshKey, load]);
 
     // Refreshes the chat list for pull-to-refresh.
     const onRefresh = async () => {
         setRefreshing(true);
-        await load();
+        await load(1, true);
         setRefreshing(false);
     };
 
-    const normalizedQuery = query.trim().toLowerCase();
-    const filteredChats = chats.filter(chat => {
-        if (!normalizedQuery) return true;
-        const searchTarget = chat.is_group
-            ? (chat.name ?? '')
-            : (chat.username ?? '');
-        return searchTarget.toLowerCase().includes(normalizedQuery);
-    });
+    // Continue from the current query/page pair instead of mixing pages from
+    // different search terms into the same in-memory list.
+    const onEndReached = async () => {
+        if (!isActive || loading || refreshing || loadingMore || !hasMore) return;
+        setLoadingMore(true);
+        try {
+            await load(page + 1);
+        } finally {
+            setLoadingMore(false);
+        }
+    };
 
     if (loading) {
         return <View style={styles.center}><ActivityIndicator color={Colors.primary} /></View>;
@@ -130,11 +161,13 @@ export function ChatsScreen({ isActive, refreshKey, onOpenChat }: ChatsScreenPro
 
     return (
         <FlatList
-            data={filteredChats}
+            data={chats}
             keyExtractor={chat => chat.id}
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
             contentContainerStyle={styles.list}
             keyboardShouldPersistTaps="handled"
+            onEndReached={onEndReached}
+            onEndReachedThreshold={0.4}
             ListHeaderComponent={
                 <>
                     <View style={styles.searchBar}>
@@ -150,7 +183,7 @@ export function ChatsScreen({ isActive, refreshKey, onOpenChat }: ChatsScreenPro
                         />
                     </View>
 
-                    {filteredChats.length > 0 && (
+                    {chats.length > 0 && (
                         <Text style={styles.sectionLabel}>CHATS</Text>
                     )}
                 </>
@@ -161,13 +194,9 @@ export function ChatsScreen({ isActive, refreshKey, onOpenChat }: ChatsScreenPro
                         <Text style={styles.emptyText}>No chats yet.</Text>
                         <Text style={styles.emptySubtext}>Connect with people to start chatting.</Text>
                     </View>
-                ) : normalizedQuery ? (
-                    <View style={styles.empty}>
-                        <Text style={styles.emptyText}>No matching chats.</Text>
-                        <Text style={styles.emptySubtext}>Try a different username search.</Text>
-                    </View>
                 ) : null
             }
+            ListFooterComponent={loadingMore ? <ActivityIndicator style={styles.footerLoader} color={Colors.primary} /> : null}
             renderItem={({ item }) => <ChatItem item={item} onOpenChat={onOpenChat} />}
         />
     );
@@ -240,4 +269,5 @@ const styles = StyleSheet.create({
     empty: { alignItems: 'center', paddingTop: 60 },
     emptyText: { fontSize: Typography.sizes.lg, fontWeight: '500', color: Colors.light.textPrimary },
     emptySubtext: { fontSize: Typography.sizes.base, color: Colors.light.textTertiary, marginTop: Spacing.sm, textAlign: 'center' },
+    footerLoader: { paddingVertical: Spacing.md },
 });

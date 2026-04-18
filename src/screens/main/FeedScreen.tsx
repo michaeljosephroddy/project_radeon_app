@@ -157,6 +157,9 @@ export function FeedScreen({
     const [posts, setPosts] = useState<api.Post[]>([]);
     const [loading, setLoading] = useState(isActive);
     const [refreshing, setRefreshing] = useState(false);
+    const [loadingMore, setLoadingMore] = useState(false);
+    const [page, setPage] = useState(1);
+    const [hasMore, setHasMore] = useState(false);
     const [composing, setComposing] = useState(false);
     const [draft, setDraft] = useState('');
     const [posting, setPosting] = useState(false);
@@ -170,13 +173,17 @@ export function FeedScreen({
     const loadInFlightRef = useRef<Promise<void> | null>(null);
     const loadedCommentPostIdsRef = useRef<Set<string>>(new Set());
 
-    const load = useCallback(async () => {
+    // Feed paging reuses a single in-flight request so pull-to-refresh and
+    // scroll pagination cannot stampede the same endpoint concurrently.
+    const load = useCallback(async (nextPage: number, replace = false) => {
         if (loadInFlightRef.current) return loadInFlightRef.current;
 
         const request = (async () => {
             try {
-                const feedData = await api.getFeed();
-                setPosts(feedData ?? []);
+                const feedData = await api.getFeed(nextPage, 20);
+                setPosts(current => replace ? (feedData.items ?? []) : [...current, ...(feedData.items ?? [])]);
+                setPage(feedData.page);
+                setHasMore(feedData.has_more);
             } catch { }
         })();
 
@@ -197,7 +204,7 @@ export function FeedScreen({
         const isFirstLoad = !hasLoadedRef.current;
         if (isFirstLoad) setLoading(true);
 
-        load().finally(() => {
+        load(1, true).finally(() => {
             hasLoadedRef.current = true;
             if (isFirstLoad) setLoading(false);
         });
@@ -206,7 +213,7 @@ export function FeedScreen({
     const onRefresh = async () => {
         setRefreshing(true);
         try {
-            await load();
+            await load(1, true);
         } finally {
             setRefreshing(false);
         }
@@ -219,11 +226,23 @@ export function FeedScreen({
             await api.createPost(draft.trim());
             setDraft('');
             setComposing(false);
-            await load();
+            await load(1, true);
         } catch (e: unknown) {
             Alert.alert('Error', e instanceof Error ? e.message : 'Something went wrong.');
         } finally {
             setPosting(false);
+        }
+    };
+
+    // Feed pages append in order; comment state stays separate so expanding a
+    // thread does not force a feed-wide reload.
+    const handleLoadMore = async () => {
+        if (!isActive || loading || refreshing || loadingMore || !hasMore) return;
+        setLoadingMore(true);
+        try {
+            await load(page + 1);
+        } finally {
+            setLoadingMore(false);
         }
     };
 
@@ -311,6 +330,8 @@ export function FeedScreen({
                 keyExtractor={p => p.id}
                 keyboardShouldPersistTaps="handled"
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
+                onEndReached={handleLoadMore}
+                onEndReachedThreshold={0.4}
                 ListHeaderComponent={
                     <View style={styles.composeBar}>
                         {user && <Avatar username={user.username} avatarUrl={user.avatar_url} size={28} />}
@@ -371,6 +392,7 @@ export function FeedScreen({
                         />
                     );
                 }}
+                ListFooterComponent={loadingMore ? <ActivityIndicator style={styles.footerLoader} color={Colors.primary} /> : null}
                 contentContainerStyle={styles.list}
             />
         </View>
@@ -464,4 +486,5 @@ const styles = StyleSheet.create({
     empty: { alignItems: 'center', paddingTop: 60 },
     emptyText: { fontSize: Typography.sizes.lg, fontWeight: '500', color: Colors.light.textPrimary },
     emptySubtext: { fontSize: Typography.sizes.base, color: Colors.light.textTertiary, marginTop: Spacing.sm, textAlign: 'center' },
+    footerLoader: { paddingVertical: Spacing.md },
 });

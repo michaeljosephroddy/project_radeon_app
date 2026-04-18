@@ -25,73 +25,67 @@ interface UserProfileScreenProps {
     userId: string;
     username: string;
     avatarUrl?: string;
-    friendIds: Set<string>;
-    incomingFriendRequestIds: Set<string>;
-    outgoingFriendRequestIds: Set<string>;
     onBack: () => void;
-    onFriendshipChange: (userId: string, status: 'none' | 'incoming' | 'outgoing' | 'friends') => void;
-    refreshFriendshipState: () => Promise<void>;
     onOpenChat: (chat: api.Chat) => void;
 }
 
 // Renders another user's profile plus friendship and direct-message actions.
 export function UserProfileScreen({
     userId, username, avatarUrl,
-    friendIds = new Set<string>(),
-    incomingFriendRequestIds = new Set<string>(),
-    outgoingFriendRequestIds = new Set<string>(),
-    onBack, onFriendshipChange, refreshFriendshipState, onOpenChat,
+    onBack, onOpenChat,
 }: UserProfileScreenProps) {
     const [profile, setProfile] = useState<api.User | null>(null);
     const [posts, setPosts] = useState<api.Post[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
-    const friendshipStatus = friendIds.has(userId)
-        ? 'friends'
-        : incomingFriendRequestIds.has(userId)
-            ? 'incoming'
-            : outgoingFriendRequestIds.has(userId)
-                ? 'outgoing'
-                : 'none';
+    const [loadingMorePosts, setLoadingMorePosts] = useState(false);
+    const [postsPage, setPostsPage] = useState(1);
+    const [postsHasMore, setPostsHasMore] = useState(false);
     const [friendActionLoading, setFriendActionLoading] = useState(false);
     const [dmLoading, setDmLoading] = useState(false);
+    const friendshipStatus = profile?.friendship_status === 'self' ? 'friends' : (profile?.friendship_status ?? 'none');
 
-    // Loads the profile metadata and posts for the viewed user.
-    const load = useCallback(async () => {
+    // Profile metadata and profile posts page separately so relationship state
+    // can refresh without replaying the full post timeline.
+    const loadProfile = useCallback(async () => {
         try {
-            // Profile metadata and posts are independent, so fetch them in parallel
-            // to shorten the time before the profile screen becomes useful.
-            const [profileData, postsData] = await Promise.all([
-                api.getUser(userId),
-                api.getUserPosts(userId),
-            ]);
+            const profileData = await api.getUser(userId);
             setProfile(profileData);
-            setPosts(postsData ?? []);
         } catch { }
     }, [userId]);
 
-    useEffect(() => {
-        load().finally(() => setLoading(false));
-        refreshFriendshipState().catch(() => {});
-    }, [load, refreshFriendshipState]);
+    const loadPosts = useCallback(async (page = 1, replace = false) => {
+        try {
+            const postsData = await api.getUserPosts(userId, page, 20);
+            setPosts(current => replace ? (postsData.items ?? []) : [...current, ...(postsData.items ?? [])]);
+            setPostsPage(postsData.page);
+            setPostsHasMore(postsData.has_more);
+        } catch {
+            if (replace) {
+                setPosts([]);
+                setPostsPage(1);
+                setPostsHasMore(false);
+            }
+        }
+    }, [userId]);
 
-    // Refreshes both the viewed profile data and shared friendship state.
+    useEffect(() => {
+        Promise.all([loadProfile(), loadPosts(1, true)]).finally(() => setLoading(false));
+    }, [loadProfile, loadPosts]);
+
     const onRefresh = async () => {
         setRefreshing(true);
-        await Promise.all([load(), refreshFriendshipState()]);
+        await Promise.all([loadProfile(), loadPosts(1, true)]);
         setRefreshing(false);
     };
 
-    // Optimistically updates the friendship state for the viewed user.
     const handleFriendAction = async () => {
         if (friendshipStatus === 'friends') {
             setFriendActionLoading(true);
-            onFriendshipChange(userId, 'none');
             try {
                 await api.removeFriend(userId);
-                await refreshFriendshipState();
+                await loadProfile();
             } catch {
-                onFriendshipChange(userId, 'friends');
             } finally {
                 setFriendActionLoading(false);
             }
@@ -99,21 +93,16 @@ export function UserProfileScreen({
         }
 
         setFriendActionLoading(true);
-        const current = friendshipStatus;
         try {
-            if (current === 'incoming') {
-                onFriendshipChange(userId, 'friends');
+            if (friendshipStatus === 'incoming') {
                 await api.updateFriendRequest(userId, 'accept');
-            } else if (current === 'outgoing') {
-                onFriendshipChange(userId, 'none');
+            } else if (friendshipStatus === 'outgoing') {
                 await api.cancelFriendRequest(userId);
             } else {
-                onFriendshipChange(userId, 'outgoing');
                 await api.sendFriendRequest(userId);
             }
-            await refreshFriendshipState();
+            await loadProfile();
         } catch {
-            onFriendshipChange(userId, current);
         } finally {
             setFriendActionLoading(false);
         }
@@ -145,6 +134,18 @@ export function UserProfileScreen({
             : friendshipStatus === 'outgoing'
                 ? 'Requested'
                 : 'Add Friend';
+
+    // Profile timelines use the same paged contract as the main feed, which
+    // keeps large author histories bounded on-device.
+    const handleLoadMorePosts = async () => {
+        if (loading || refreshing || loadingMorePosts || !postsHasMore) return;
+        setLoadingMorePosts(true);
+        try {
+            await loadPosts(postsPage + 1);
+        } finally {
+            setLoadingMorePosts(false);
+        }
+    };
 
     const ProfileHeader = (
         <View style={styles.profileHeader}>
@@ -205,6 +206,8 @@ export function UserProfileScreen({
             <FlatList
                 data={posts}
                 keyExtractor={p => p.id}
+                onEndReached={handleLoadMorePosts}
+                onEndReachedThreshold={0.4}
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
                 ListHeaderComponent={ProfileHeader}
                 contentContainerStyle={styles.list}
@@ -241,6 +244,7 @@ export function UserProfileScreen({
                         </View>
                     </View>
                 )}
+                ListFooterComponent={loadingMorePosts ? <ActivityIndicator style={styles.footerLoader} color={Colors.primary} /> : null}
             />
         </SafeAreaView>
     );
@@ -267,6 +271,7 @@ const styles = StyleSheet.create({
     },
 
     list: { paddingBottom: 32 },
+    footerLoader: { paddingVertical: Spacing.md },
 
     profileHeader: {
         alignItems: 'center',

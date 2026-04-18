@@ -68,6 +68,17 @@ export interface User {
     country?: string;
     sober_since?: string;
     created_at: string;
+    friendship_status: 'self' | 'none' | 'incoming' | 'outgoing' | 'friends';
+    friend_count: number;
+    incoming_friend_request_count: number;
+    outgoing_friend_request_count: number;
+}
+
+export interface PaginatedResponse<T> {
+    items: T[];
+    page: number;
+    limit: number;
+    has_more: boolean;
 }
 
 export interface Post {
@@ -153,6 +164,11 @@ export interface SupportResponse {
     created_at: string;
 }
 
+export interface SupportRequestsPage extends PaginatedResponse<SupportRequest> {
+    open_request_count?: number;
+    available_to_support_count?: number;
+}
+
 export interface Chat {
     id: string;
     is_group: boolean;
@@ -183,6 +199,13 @@ export interface Message {
     avatar_url?: string;
     body: string;
     sent_at: string;
+}
+
+export interface MessagePage {
+    items: Message[];
+    limit: number;
+    has_more: boolean;
+    next_before?: string | null;
 }
 
 // ── Auth ───────────────────────────────────────────────────────────────────
@@ -240,10 +263,12 @@ export async function getUser(id: string): Promise<User> {
 }
 
 // Queries discover results using optional search filters.
-export async function discoverUsers(params?: { query?: string; city?: string }): Promise<User[]> {
+export async function discoverUsers(params?: { query?: string; city?: string; page?: number; limit?: number }): Promise<PaginatedResponse<User>> {
     const search = new URLSearchParams();
     if (params?.query?.trim()) search.set('q', params.query.trim());
     if (params?.city?.trim()) search.set('city', params.city.trim());
+    if (params?.page) search.set('page', String(params.page));
+    if (params?.limit) search.set('limit', String(params.limit));
     const suffix = search.toString() ? `?${search.toString()}` : '';
     return request(`/users/discover${suffix}`);
 }
@@ -251,13 +276,13 @@ export async function discoverUsers(params?: { query?: string; city?: string }):
 // ── Feed & Posts ───────────────────────────────────────────────────────────
 
 // Loads the feed page used on the community tab.
-export async function getFeed(page = 1, limit = 20): Promise<Post[]> {
+export async function getFeed(page = 1, limit = 20): Promise<PaginatedResponse<Post>> {
     return request(`/feed?page=${page}&limit=${limit}`);
 }
 
 // Loads all posts authored by a specific user.
-export async function getUserPosts(userId: string): Promise<Post[]> {
-    return request(`/users/${userId}/posts`);
+export async function getUserPosts(userId: string, page = 1, limit = 20): Promise<PaginatedResponse<Post>> {
+    return request(`/users/${userId}/posts?page=${page}&limit=${limit}`);
 }
 
 // Creates a new feed post from the supplied text body.
@@ -293,9 +318,13 @@ export async function getComments(postId: string): Promise<Comment[]> {
 // ── Meetups ────────────────────────────────────────────────────────────────
 
 // Fetches meetup events, optionally filtered by city.
-export async function getMeetups(city?: string): Promise<Meetup[]> {
-    const params = city ? `?city=${encodeURIComponent(city)}` : '';
-    return request(`/meetups${params}`);
+export async function getMeetups(params?: { city?: string; page?: number; limit?: number }): Promise<PaginatedResponse<Meetup>> {
+    const search = new URLSearchParams();
+    if (params?.city) search.set('city', params.city);
+    if (params?.page) search.set('page', String(params.page));
+    if (params?.limit) search.set('limit', String(params.limit));
+    const suffix = search.toString() ? `?${search.toString()}` : '';
+    return request(`/meetups${suffix}`);
 }
 
 // Creates a new meetup with the provided event details.
@@ -310,8 +339,8 @@ export async function createMeetup(data: {
 }
 
 // Loads meetups created by the currently authenticated user.
-export async function getMyMeetups(): Promise<Meetup[]> {
-    return request('/users/me/meetups');
+export async function getMyMeetups(page = 1, limit = 20): Promise<PaginatedResponse<Meetup>> {
+    return request(`/users/me/meetups?page=${page}&limit=${limit}`);
 }
 
 // Loads the caller's support-availability settings.
@@ -338,13 +367,13 @@ export async function createSupportRequest(data: {
 }
 
 // Loads open support requests visible to the current user.
-export async function getSupportRequests(): Promise<SupportRequest[]> {
-    return request('/support/requests');
+export async function getSupportRequests(page = 1, limit = 20): Promise<SupportRequestsPage> {
+    return request(`/support/requests?page=${page}&limit=${limit}`);
 }
 
 // Loads support requests created by the current user.
-export async function getMySupportRequests(): Promise<SupportRequest[]> {
-    return request('/support/requests/mine');
+export async function getMySupportRequests(page = 1, limit = 20): Promise<PaginatedResponse<SupportRequest>> {
+    return request(`/support/requests/mine?page=${page}&limit=${limit}`);
 }
 
 // Loads a single support request by id.
@@ -404,9 +433,17 @@ function normalizeChat(chat: RawChat): Chat {
 }
 
 // Loads the current user's chat list and normalizes each row.
-export async function getChats(): Promise<Chat[]> {
-    const chats = await request<RawChat[]>('/chats');
-    return (chats ?? []).map(normalizeChat);
+export async function getChats(params?: { query?: string; page?: number; limit?: number }): Promise<PaginatedResponse<Chat>> {
+    const search = new URLSearchParams();
+    if (params?.query?.trim()) search.set('q', params.query.trim());
+    if (params?.page) search.set('page', String(params.page));
+    if (params?.limit) search.set('limit', String(params.limit));
+    const suffix = search.toString() ? `?${search.toString()}` : '';
+    const page = await request<PaginatedResponse<RawChat>>(`/chats${suffix}`);
+    return {
+        ...page,
+        items: (page.items ?? []).map(normalizeChat),
+    };
 }
 
 // Creates a direct or group chat and returns its id.
@@ -415,8 +452,12 @@ export async function createChat(memberIds: string[], name?: string): Promise<{ 
 }
 
 // Fetches the message history for a specific chat.
-export async function getMessages(chatId: string): Promise<Message[]> {
-    return request(`/chats/${chatId}/messages`);
+export async function getMessages(chatId: string, params?: { before?: string | null; limit?: number }): Promise<MessagePage> {
+    const search = new URLSearchParams();
+    if (params?.before) search.set('before', params.before);
+    if (params?.limit) search.set('limit', String(params.limit));
+    const suffix = search.toString() ? `?${search.toString()}` : '';
+    return request(`/chats/${chatId}/messages${suffix}`);
 }
 
 // Sends a new message into an existing chat thread.
@@ -456,16 +497,16 @@ export async function removeFriend(id: string): Promise<void> {
 }
 
 // Loads the list of accepted friends for the current user.
-export async function getFriends(): Promise<FriendUser[]> {
-    return request('/users/me/friends');
+export async function getFriends(page = 1, limit = 25): Promise<PaginatedResponse<FriendUser>> {
+    return request(`/users/me/friends?page=${page}&limit=${limit}`);
 }
 
 // Loads incoming friend requests for the current user.
-export async function getIncomingFriendRequests(): Promise<FriendUser[]> {
-    return request('/users/me/friend-requests/incoming');
+export async function getIncomingFriendRequests(page = 1, limit = 25): Promise<PaginatedResponse<FriendUser>> {
+    return request(`/users/me/friend-requests/incoming?page=${page}&limit=${limit}`);
 }
 
 // Loads outgoing friend requests for the current user.
-export async function getOutgoingFriendRequests(): Promise<FriendUser[]> {
-    return request('/users/me/friend-requests/outgoing');
+export async function getOutgoingFriendRequests(page = 1, limit = 25): Promise<PaginatedResponse<FriendUser>> {
+    return request(`/users/me/friend-requests/outgoing?page=${page}&limit=${limit}`);
 }

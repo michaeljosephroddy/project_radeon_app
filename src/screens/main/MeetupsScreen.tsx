@@ -172,6 +172,12 @@ export function MeetupsScreen({ isActive }: MeetupsScreenProps) {
   const [refreshing, setRefreshing] = useState(false);
   const [myMeetupsLoading, setMyMeetupsLoading] = useState(false);
   const [myMeetupsRefreshing, setMyMeetupsRefreshing] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [loadingMoreMine, setLoadingMoreMine] = useState(false);
+  const [page, setPage] = useState(1);
+  const [myPage, setMyPage] = useState(1);
+  const [hasMore, setHasMore] = useState(false);
+  const [myHasMore, setMyHasMore] = useState(false);
   const [rsvpPendingIds, setRsvpPendingIds] = useState<Set<string>>(new Set());
   const [submitError, setSubmitError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
@@ -197,14 +203,18 @@ export function MeetupsScreen({ isActive }: MeetupsScreenProps) {
     if (successMessage) setSuccessMessage('');
   };
 
-  const load = useCallback(async () => {
+  // Browse and host lists page independently so each meetup subview can grow
+  // without forcing the other list to stay resident or reload in lockstep.
+  const load = useCallback(async (nextPage = 1, replace = false) => {
     if (loadInFlightRef.current) return loadInFlightRef.current;
 
     // Reuse the same request for mount and pull-to-refresh callers that overlap.
     const request = (async () => {
       try {
-        const data = await api.getMeetups();
-        setMeetups(data ?? []);
+        const data = await api.getMeetups({ page: nextPage, limit: 20 });
+        setMeetups(prev => replace ? (data.items ?? []) : [...prev, ...(data.items ?? [])]);
+        setPage(data.page);
+        setHasMore(data.has_more);
       } catch {}
     })();
 
@@ -218,15 +228,21 @@ export function MeetupsScreen({ isActive }: MeetupsScreenProps) {
   }, []);
 
   // Loads the authenticated user's own created meetups.
-  const loadMyMeetups = useCallback(async () => {
+  const loadMyMeetups = useCallback(async (nextPage = 1, replace = false) => {
     if (myMeetupsLoadInFlightRef.current) return myMeetupsLoadInFlightRef.current;
 
     const request = (async () => {
       try {
-        const data = await api.getMyMeetups();
-        setMyMeetups(data ?? []);
+        const data = await api.getMyMeetups(nextPage, 20);
+        setMyMeetups(prev => replace ? (data.items ?? []) : [...prev, ...(data.items ?? [])]);
+        setMyPage(data.page);
+        setMyHasMore(data.has_more);
       } catch {
-        setMyMeetups([]);
+        if (replace) {
+          setMyMeetups([]);
+          setMyPage(1);
+          setMyHasMore(false);
+        }
       }
     })();
 
@@ -248,7 +264,7 @@ export function MeetupsScreen({ isActive }: MeetupsScreenProps) {
     const isFirstLoad = !hasLoadedRef.current;
     if (isFirstLoad) setLoading(true);
 
-    load().finally(() => {
+    load(1, true).finally(() => {
       hasLoadedRef.current = true;
       if (isFirstLoad) setLoading(false);
     });
@@ -258,7 +274,7 @@ export function MeetupsScreen({ isActive }: MeetupsScreenProps) {
     if (!isActive || subView !== 'my' || myMeetupsLoadedRef.current) return;
 
     setMyMeetupsLoading(true);
-    loadMyMeetups().finally(() => {
+    loadMyMeetups(1, true).finally(() => {
       myMeetupsLoadedRef.current = true;
       setMyMeetupsLoading(false);
     });
@@ -268,7 +284,7 @@ export function MeetupsScreen({ isActive }: MeetupsScreenProps) {
   const onRefresh = async () => {
     setRefreshing(true);
     try {
-      await load();
+      await load(1, true);
     } finally {
       setRefreshing(false);
     }
@@ -278,9 +294,32 @@ export function MeetupsScreen({ isActive }: MeetupsScreenProps) {
   const onRefreshMyMeetups = async () => {
     setMyMeetupsRefreshing(true);
     try {
-      await loadMyMeetups();
+      await loadMyMeetups(1, true);
     } finally {
       setMyMeetupsRefreshing(false);
+    }
+  };
+
+  // The active subview decides which meetup list advances when the user nears
+  // the end of the current FlatList.
+  const handleLoadMore = async () => {
+    if (subView === 'my') {
+      if (loadingMoreMine || myMeetupsRefreshing || !myHasMore) return;
+      setLoadingMoreMine(true);
+      try {
+        await loadMyMeetups(myPage + 1);
+      } finally {
+        setLoadingMoreMine(false);
+      }
+      return;
+    }
+
+    if (loadingMore || refreshing || !hasMore) return;
+    setLoadingMore(true);
+    try {
+      await load(page + 1);
+    } finally {
+      setLoadingMore(false);
     }
   };
 
@@ -465,6 +504,8 @@ export function MeetupsScreen({ isActive }: MeetupsScreenProps) {
       <FlatList
         data={myMeetups}
         keyExtractor={meetup => meetup.id}
+        onEndReached={handleLoadMore}
+        onEndReachedThreshold={0.4}
         refreshControl={<RefreshControl refreshing={myMeetupsRefreshing} onRefresh={onRefreshMyMeetups} tintColor={Colors.primary} />}
         contentContainerStyle={styles.list}
         ListHeaderComponent={
@@ -512,6 +553,7 @@ export function MeetupsScreen({ isActive }: MeetupsScreenProps) {
             actionLabel={item.is_attending ? 'Hosting ✓' : 'RSVP'}
           />
         )}
+        ListFooterComponent={loadingMoreMine ? <ActivityIndicator style={styles.footerLoader} color={Colors.primary} /> : null}
       />
     );
   }
@@ -520,6 +562,8 @@ export function MeetupsScreen({ isActive }: MeetupsScreenProps) {
     <FlatList
       data={meetups}
       keyExtractor={meetup => meetup.id}
+      onEndReached={handleLoadMore}
+      onEndReachedThreshold={0.4}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
       contentContainerStyle={styles.list}
       ListHeaderComponent={
@@ -558,6 +602,7 @@ export function MeetupsScreen({ isActive }: MeetupsScreenProps) {
           rsvpPending={rsvpPendingIds.has(item.id)}
         />
       )}
+      ListFooterComponent={loadingMore ? <ActivityIndicator style={styles.footerLoader} color={Colors.primary} /> : null}
     />
   );
 }
@@ -566,6 +611,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.light.background },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   list: { padding: Spacing.md, paddingBottom: 32 },
+  footerLoader: { paddingVertical: Spacing.md },
   formContent: { padding: Spacing.md, paddingBottom: 40 },
 
   segmentRow: {
