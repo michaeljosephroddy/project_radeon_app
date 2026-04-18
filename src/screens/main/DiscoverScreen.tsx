@@ -23,6 +23,7 @@ interface DiscoverScreenProps {
     refreshFollowingIds: () => Promise<void>;
 }
 
+// Renders the discover tab with debounced user search and follow toggles.
 export function DiscoverScreen({
     isActive,
     followingIds,
@@ -94,6 +95,7 @@ export function DiscoverScreen({
         });
     }, [debouncedQuery, isActive, load]);
 
+    // Refreshes discover results and the shared following state.
     const onRefresh = async () => {
         setRefreshing(true);
         try {
@@ -106,6 +108,7 @@ export function DiscoverScreen({
         }
     };
 
+    // Optimistically toggles follow state for a discovered user.
     const handleToggleFollow = async (user: api.User) => {
         const next = !followingIds.has(user.id);
 
@@ -131,6 +134,7 @@ export function DiscoverScreen({
         }
     };
 
+    // Builds the small result-count label shown above the grid.
     const resultLabel = (() => {
         if (debouncedQuery) {
             return users.length === 1 ? '1 result' : `${users.length} results`;

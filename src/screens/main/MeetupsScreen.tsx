@@ -6,6 +6,7 @@ import {
 import * as api from '../../api/client';
 import { Colors, Typography, Spacing, Radii } from '../../utils/theme';
 
+// Splits a meetup start date into compact parts used by the list badge.
 function formatMeetupDate(dateStr: string) {
   // Split the date into badge-friendly parts so the list can emphasize day/month
   // without repeating heavy date formatting inside renderItem.
@@ -22,6 +23,7 @@ interface MeetupCardProps {
   onToggleRSVP: (id: string) => void;
 }
 
+// Renders a single meetup row with its RSVP action.
 function MeetupCard({ meetup, onToggleRSVP }: MeetupCardProps) {
   const { day, month, time } = formatMeetupDate(meetup.starts_at);
 
@@ -54,6 +56,7 @@ interface MeetupsScreenProps {
   isActive: boolean;
 }
 
+// Renders the meetups tab and keeps RSVP state in sync with the list.
 export function MeetupsScreen({ isActive }: MeetupsScreenProps) {
   const [meetups, setMeetups] = useState<api.Meetup[]>([]);
   const [loading, setLoading] = useState(isActive);
@@ -97,6 +100,7 @@ export function MeetupsScreen({ isActive }: MeetupsScreenProps) {
     });
   }, [isActive, load]);
 
+  // Refreshes the meetup list for pull-to-refresh.
   const onRefresh = async () => {
     setRefreshing(true);
     try {
@@ -106,6 +110,7 @@ export function MeetupsScreen({ isActive }: MeetupsScreenProps) {
     }
   };
 
+  // Toggles the current user's RSVP state for a meetup.
   const handleRSVP = async (id: string) => {
     try {
       const res = await api.rsvpMeetup(id);

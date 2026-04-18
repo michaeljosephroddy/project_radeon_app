@@ -8,6 +8,7 @@ import * as api from '../../api/client';
 import { Colors, Typography, Spacing, Radii } from '../../utils/theme';
 import { formatUsername } from '../../utils/identity';
 
+// Formats chat timestamps into short labels that fit the list layout.
 function timeLabel(dateStr?: string): string {
     if (!dateStr) return '';
     // Chat timestamps are intentionally coarse so the list stays compact.
@@ -33,6 +34,7 @@ interface ChatItemProps {
     onOpenChat: (chat: api.Chat) => void;
 }
 
+// Renders a single row in the chats list.
 function ChatItem({ item, onOpenChat }: ChatItemProps) {
     const displayName = item.is_group
         ? (item.name ?? 'Group')
@@ -69,6 +71,7 @@ function ChatItem({ item, onOpenChat }: ChatItemProps) {
     );
 }
 
+// Renders the chats tab and refreshes chat summaries when needed.
 export function ChatsScreen({ isActive, refreshKey, onOpenChat }: ChatsScreenProps) {
     const [chats, setChats] = useState<api.Chat[]>([]);
     const [loading, setLoading] = useState(isActive);
@@ -104,6 +107,7 @@ export function ChatsScreen({ isActive, refreshKey, onOpenChat }: ChatsScreenPro
         if (isActive && refreshKeyChanged) load();
     }, [isActive, refreshKey, load]);
 
+    // Refreshes the chat list for pull-to-refresh.
     const onRefresh = async () => {
         setRefreshing(true);
         await load();

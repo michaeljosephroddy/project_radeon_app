@@ -21,6 +21,7 @@ interface ProfileTabScreenProps {
     onOpenUserProfile: (profile: { userId: string; username: string; avatarUrl?: string }) => void;
 }
 
+// Renders the current user's profile tab plus following, followers, and settings subviews.
 export function ProfileTabScreen({ isActive, onFollowChange, refreshFollowingIds, onOpenUserProfile }: ProfileTabScreenProps) {
     const { user, refreshUser, logout } = useAuth();
     const [subView, setSubView] = useState<SubView>('profile');
@@ -38,6 +39,7 @@ export function ProfileTabScreen({ isActive, onFollowChange, refreshFollowingIds
     const [followers, setFollowers] = useState<api.FollowUser[]>([]);
     const [unfollowing, setUnfollowing] = useState<Set<string>>(new Set());
 
+    // Loads the users the current account is following.
     const loadFollowing = useCallback(async () => {
         try {
             const following = await api.getFollowing();
@@ -45,6 +47,7 @@ export function ProfileTabScreen({ isActive, onFollowChange, refreshFollowingIds
         } catch {}
     }, []);
 
+    // Loads the users following the current account.
     const loadFollowers = useCallback(async () => {
         try {
             const followers = await api.getFollowers();
@@ -52,6 +55,7 @@ export function ProfileTabScreen({ isActive, onFollowChange, refreshFollowingIds
         } catch {}
     }, []);
 
+    // Reloads both follow lists that feed the profile stats.
     const loadFollowSummary = useCallback(async () => {
         // Both counts are shown in the profile header, so load them together and
         // let each request fail independently inside its own helper.
@@ -64,6 +68,7 @@ export function ProfileTabScreen({ isActive, onFollowChange, refreshFollowingIds
         }
     }, [isActive, loadFollowSummary]);
 
+    // Marks the profile form as dirty when a field changes.
     const mark = (setter: (v: string) => void) => (v: string) => {
         setter(v);
         // Track whether profile fields diverged from the last saved snapshot so the
@@ -71,6 +76,7 @@ export function ProfileTabScreen({ isActive, onFollowChange, refreshFollowingIds
         setDirty(true);
     };
 
+    // Opens the media picker and uploads a replacement avatar.
     const handlePickAvatar = async () => {
         const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (!perm.granted) {
@@ -98,6 +104,7 @@ export function ProfileTabScreen({ isActive, onFollowChange, refreshFollowingIds
         }
     };
 
+    // Persists the editable profile fields back to the API.
     const handleSave = async () => {
         setSaving(true);
         try {
@@ -116,6 +123,7 @@ export function ProfileTabScreen({ isActive, onFollowChange, refreshFollowingIds
         }
     };
 
+    // Optimistically removes a followed user from the following list.
     const handleUnfollow = async (u: api.FollowUser) => {
         // Remove the row optimistically so the list responds instantly while the
         // shared following state stays aligned with the rest of the app.
@@ -134,6 +142,7 @@ export function ProfileTabScreen({ isActive, onFollowChange, refreshFollowingIds
         }
     };
 
+    // Signs the current user out from the profile area.
     const handleLogout = async () => {
         try { await logout(); } catch {}
     };

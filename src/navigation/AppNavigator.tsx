@@ -32,6 +32,7 @@ const TABS: { key: Tab; label: string; icon: keyof typeof Ionicons.glyphMap; ico
     { key: 'profile',   label: 'profile',   icon: 'person-circle-outline', iconActive: 'person-circle' },
 ];
 
+// Coordinates tab state plus lightweight overlays for profiles and chats.
 export function AppNavigator() {
     const [activeTab, setActiveTab] = useState<Tab>('community');
     const [openChat, setOpenChat] = useState<Chat | null>(null);
@@ -44,6 +45,7 @@ export function AppNavigator() {
     const inChat = openChat !== null;
     const inUserProfile = openUserProfile !== null;
 
+    // Applies optimistic follow state updates shared across multiple tabs.
     const handleFollowChange = (userId: string, following: boolean) => {
         setFollowingIds(prev => {
             const next = new Set(prev);
@@ -52,6 +54,7 @@ export function AppNavigator() {
         });
     };
 
+    // Reloads the current following ids and ignores stale request results.
     const refreshFollowingIds = useCallback(async () => {
         const requestId = ++followingRequestIdRef.current;
         const following = await api.getFollowing();
@@ -60,20 +63,24 @@ export function AppNavigator() {
         setFollowingIds(new Set((following ?? []).map(user => user.user_id)));
     }, []);
 
+    // Opens a user profile overlay and closes any open chat overlay.
     const handleOpenUserProfile = (profile: OpenUserProfile) => {
         setOpenUserProfile(profile);
         setOpenChat(null);
     };
 
+    // Closes the chat overlay and bumps the chat refresh key for the list tab.
     const handleCloseChat = () => {
         setOpenChat(null);
         setChatsRefreshKey(current => current + 1);
     };
 
+    // Dismisses the currently open user profile overlay.
     const closeUserProfile = () => {
         setOpenUserProfile(null);
     };
 
+    // Renders the contextual top bar for the active top-level tab.
     const renderHeader = () => {
         if (inChat) return null;
         if (inUserProfile) return null;
@@ -99,6 +106,7 @@ export function AppNavigator() {
         );
     };
 
+    // Renders tab content and any active overlays without unmounting inactive tabs.
     const renderContent = () => {
         return (
             <>

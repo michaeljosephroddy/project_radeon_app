@@ -7,6 +7,7 @@ interface CardProps {
   style?: ViewStyle;
 }
 
+// Wraps content in the app's shared card styling.
 export function Card({ children, style }: CardProps) {
   return (
     <View style={[styles.card, style]}>

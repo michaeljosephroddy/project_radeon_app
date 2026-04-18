@@ -10,6 +10,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { Colors, Typography, Spacing, Radii } from '../../utils/theme';
 import { formatUsername } from '../../utils/identity';
 
+// Formats feed timestamps into compact relative labels.
 function timeAgo(dateStr: string): string {
     // Feed timestamps stay intentionally compact because they sit in dense cards.
     const diff = Date.now() - new Date(dateStr).getTime();
@@ -39,6 +40,7 @@ interface PostCardProps {
     onPressFollow: () => void;
 }
 
+// Renders a feed post card with inline reactions and comments.
 function PostCard({
     post,
     displayedCommentCount,
@@ -64,6 +66,7 @@ function PostCard({
         setLikeCount(post.like_count);
     }, [post.like_count]);
 
+    // Toggles the current user's reaction on this post.
     const handleReact = async () => {
         try {
             const res = await api.reactToPost(post.id);
@@ -178,6 +181,7 @@ interface FeedScreenProps {
     onOpenUserProfile: (profile: { userId: string; username: string; avatarUrl?: string }) => void;
 }
 
+// Renders the community feed and coordinates post, follow, and comment state.
 export function FeedScreen({ isActive, followingIds, onFollowChange, onOpenUserProfile }: FeedScreenProps) {
     const { user } = useAuth();
     const [posts, setPosts] = useState<api.Post[]>([]);
@@ -235,6 +239,7 @@ export function FeedScreen({ isActive, followingIds, onFollowChange, onOpenUserP
         });
     }, [isActive, load]);
 
+    // Refreshes the feed list for pull-to-refresh and initial loads.
     const onRefresh = async () => {
         setRefreshing(true);
         try {
@@ -244,6 +249,7 @@ export function FeedScreen({ isActive, followingIds, onFollowChange, onOpenUserP
         }
     };
 
+    // Follows the author of a post using optimistic shared state.
     const handleFollow = async (post: api.Post) => {
         if (followingIds.has(post.user_id)) return;
 
@@ -266,6 +272,7 @@ export function FeedScreen({ isActive, followingIds, onFollowChange, onOpenUserP
         }
     };
 
+    // Creates a new post and reloads the feed afterward.
     const handlePost = async () => {
         if (!draft.trim()) return;
         setPosting(true);
@@ -281,6 +288,7 @@ export function FeedScreen({ isActive, followingIds, onFollowChange, onOpenUserP
         }
     };
 
+    // Loads comments for a post and syncs the visible comment count.
     const loadComments = useCallback(async (postId: string) => {
         setCommentLoadingIds(prev => new Set(prev).add(postId));
         try {
@@ -307,6 +315,7 @@ export function FeedScreen({ isActive, followingIds, onFollowChange, onOpenUserP
         }
     }, []);
 
+    // Expands or collapses a post's comments and lazily loads them once.
     const handleToggleComments = useCallback((postId: string) => {
         let shouldLoad = false;
 
@@ -328,10 +337,12 @@ export function FeedScreen({ isActive, followingIds, onFollowChange, onOpenUserP
         }
     }, [loadComments]);
 
+    // Stores the draft text for a single post's comment composer.
     const handleCommentDraftChange = useCallback((postId: string, value: string) => {
         setCommentDrafts(prev => ({ ...prev, [postId]: value }));
     }, []);
 
+    // Submits a new comment and appends it locally to the post thread.
     const handleSubmitComment = useCallback(async (post: api.Post) => {
         const draftValue = commentDrafts[post.id]?.trim() ?? '';
         if (!draftValue || !user) return;

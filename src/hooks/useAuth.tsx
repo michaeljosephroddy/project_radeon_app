@@ -13,6 +13,7 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
+// Provides app-wide auth state and auth actions to the component tree.
 export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [user, setUser] = useState<api.User | null>(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -35,6 +36,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         })();
     }, []);
 
+    // Signs a user in, persists the token, and hydrates the full profile.
     const login = async (email: string, password: string) => {
         const { token } = await api.login(email, password);
         await api.setToken(token);
@@ -44,6 +46,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(me);
     };
 
+    // Registers a new user, persists the token, and hydrates the full profile.
     const register = async (data: Parameters<typeof api.register>[0]) => {
         const { token } = await api.register(data);
         await api.setToken(token);
@@ -51,11 +54,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(me);
     };
 
+    // Clears local auth state and removes the current user from context.
     const logout = async () => {
         await api.logout();
         setUser(null);
     };
 
+    // Refreshes the current user's profile from the API.
     const refreshUser = async () => {
         const me = await api.getMe();
         setUser(me);
@@ -76,6 +81,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     );
 }
 
+// Reads the auth context and ensures it is only used inside AuthProvider.
 export function useAuth() {
     const ctx = useContext(AuthContext);
     if (!ctx) throw new Error('useAuth must be used within AuthProvider');

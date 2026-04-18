@@ -12,12 +12,14 @@ interface LoginScreenProps {
     onGoToRegister: () => void;
 }
 
+// Renders the sign-in screen and submits login credentials through auth context.
 export function LoginScreen({ onGoToRegister }: LoginScreenProps) {
     const { login } = useAuth();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
 
+    // Validates and submits the login form.
     const handleLogin = async () => {
         if (!email || !password) {
             Alert.alert('Missing fields', 'Please enter your email and password.');

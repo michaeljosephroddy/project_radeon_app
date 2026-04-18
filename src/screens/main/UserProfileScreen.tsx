@@ -10,6 +10,7 @@ import * as api from '../../api/client';
 import { Colors, Typography, Spacing, Radii } from '../../utils/theme';
 import { formatUsername } from '../../utils/identity';
 
+// Formats profile post timestamps into compact relative labels.
 function timeAgo(dateStr: string): string {
     const diff = Date.now() - new Date(dateStr).getTime();
     const mins = Math.floor(diff / 60000);
@@ -31,6 +32,7 @@ interface UserProfileScreenProps {
     onOpenChat: (chat: api.Chat) => void;
 }
 
+// Renders another user's profile plus follow and direct-message actions.
 export function UserProfileScreen({
     userId, username, avatarUrl,
     followingIds, onBack, onFollowChange, refreshFollowingIds, onOpenChat,
@@ -43,6 +45,7 @@ export function UserProfileScreen({
     const [followLoading, setFollowLoading] = useState(false);
     const [dmLoading, setDmLoading] = useState(false);
 
+    // Loads the profile metadata and posts for the viewed user.
     const load = useCallback(async () => {
         try {
             // Profile metadata and posts are independent, so fetch them in parallel
@@ -61,12 +64,14 @@ export function UserProfileScreen({
         refreshFollowingIds().catch(() => {});
     }, [load, refreshFollowingIds]);
 
+    // Refreshes both the viewed profile data and shared follow state.
     const onRefresh = async () => {
         setRefreshing(true);
         await Promise.all([load(), refreshFollowingIds()]);
         setRefreshing(false);
     };
 
+    // Optimistically toggles the follow state for the viewed user.
     const handleFollow = async () => {
         setFollowLoading(true);
         const next = !isFollowing;
@@ -87,6 +92,7 @@ export function UserProfileScreen({
         }
     };
 
+    // Creates or opens a direct message thread with the viewed user.
     const handleDM = async () => {
         setDmLoading(true);
         try {

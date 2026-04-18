@@ -9,6 +9,7 @@ interface AvatarProps {
   fontSize?: number;
 }
 
+// Renders either a remote avatar image or a deterministic initials fallback.
 export function Avatar({ username, avatarUrl, size = 36, fontSize = 13 }: AvatarProps) {
   const colors = getAvatarColors(username);
   const initials = getInitials(username);

@@ -12,6 +12,7 @@ interface RegisterScreenProps {
   onGoToLogin: () => void;
 }
 
+// Renders the registration screen and submits the create-account form.
 export function RegisterScreen({ onGoToLogin }: RegisterScreenProps) {
   const { register } = useAuth();
   const [form, setForm] = useState({
@@ -25,9 +26,11 @@ export function RegisterScreen({ onGoToLogin }: RegisterScreenProps) {
 
   // Build small field setters on demand so each input can stay declarative without
   // duplicating object spread logic inline.
+  // Builds a field-specific setter for the registration form object.
   const set = (key: keyof typeof form) => (val: string) =>
     setForm(prev => ({ ...prev, [key]: val }));
 
+  // Validates and submits the registration form.
   const handleRegister = async () => {
     if (!form.username || !form.email || !form.password) {
       Alert.alert('Missing fields', 'Please fill in your username, email and password.');

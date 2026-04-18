@@ -15,6 +15,7 @@ interface Props {
     onBack: () => void;
 }
 
+// Renders a single chat thread and handles optimistic message sending.
 export function ChatScreen({ chat, onBack }: Props) {
     const { user } = useAuth();
     const [messages, setMessages] = useState<api.Message[]>([]);
@@ -32,6 +33,7 @@ export function ChatScreen({ chat, onBack }: Props) {
             .finally(() => setLoading(false));
     }, [chat.id]);
 
+    // Sends the current draft and appends it locally so the thread feels instant.
     const handleSend = async () => {
         if (!draft.trim()) return;
         setSending(true);
@@ -64,6 +66,7 @@ export function ChatScreen({ chat, onBack }: Props) {
         ? (chat.name ?? 'Group')
         : formatUsername(chat.username);
 
+    // Resolves the best avatar to show for each message bubble.
     const getMessageAvatarUrl = (message: api.Message): string | undefined => {
         // DMs can omit sender avatars in the message payload, so fall back to the
         // chat/user context we already have before leaving the bubble blank.

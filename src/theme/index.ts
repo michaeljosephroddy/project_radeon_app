@@ -4,6 +4,7 @@ export { Spacing, Radius } from './layout';
 
 import { Colors } from './colors';
 
+// Picks a deterministic fallback avatar palette from a username.
 export function getAvatarColors(name: string) {
   // Pick from a small fixed palette so generated avatars stay consistent across sessions.
   const palettes = [
@@ -17,6 +18,7 @@ export function getAvatarColors(name: string) {
   return palettes[idx];
 }
 
+// Derives up to two initials for avatar fallbacks from a user label.
 export function getInitials(label: string) {
   // Usernames are displayed with an optional @ prefix elsewhere, so strip it here
   // to keep fallback avatars from rendering punctuation.

@@ -8,6 +8,7 @@ import { AppNavigator } from './src/navigation/AppNavigator';
 import { Colors } from './src/utils/theme';
 import { StatusBar } from 'expo-status-bar';
 
+// Chooses between the authenticated app shell and the auth flow once session state is resolved.
 function RootNavigator() {
     const { isAuthenticated, isLoading } = useAuth();
 
@@ -24,6 +25,7 @@ function RootNavigator() {
     return isAuthenticated ? <AppNavigator /> : <AuthNavigator />;
 }
 
+// Mounts the global providers required by every screen in the app.
 export default function App() {
     return (
         // These top-level providers need to wrap the whole tree because gesture

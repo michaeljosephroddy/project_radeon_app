@@ -10,6 +10,7 @@ interface SettingsScreenProps {
     onLogout: () => void;
 }
 
+// Renders the settings screen and exposes account-level actions.
 export function SettingsScreen({ onBack, onLogout }: SettingsScreenProps) {
     return (
         <SafeAreaView style={styles.container} edges={['bottom']}>
