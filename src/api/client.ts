@@ -118,6 +118,41 @@ export interface MeetupAttendee {
     rsvp_at: string;
 }
 
+export interface SupportProfile {
+    is_available_to_support: boolean;
+    support_modes: string[];
+    support_updated_at?: string | null;
+}
+
+export interface SupportRequest {
+    id: string;
+    requester_id: string;
+    username: string;
+    avatar_url?: string | null;
+    city?: string | null;
+    type: 'need_to_talk' | 'need_distraction' | 'need_encouragement' | 'need_company';
+    message?: string | null;
+    audience: 'followers' | 'city' | 'community';
+    status: 'open' | 'matched' | 'closed' | 'expired';
+    response_count: number;
+    expires_at: string;
+    created_at: string;
+    has_responded: boolean;
+    is_own_request: boolean;
+}
+
+export interface SupportResponse {
+    id: string;
+    support_request_id: string;
+    responder_id: string;
+    username: string;
+    avatar_url?: string | null;
+    city?: string | null;
+    response_type: 'can_chat' | 'check_in_later' | 'nearby';
+    message?: string | null;
+    created_at: string;
+}
+
 export interface Chat {
     id: string;
     is_group: boolean;
@@ -277,6 +312,64 @@ export async function createMeetup(data: {
 // Loads meetups created by the currently authenticated user.
 export async function getMyMeetups(): Promise<Meetup[]> {
     return request('/users/me/meetups');
+}
+
+// Loads the caller's support-availability settings.
+export async function getMySupportProfile(): Promise<SupportProfile> {
+    return request('/support/me');
+}
+
+// Updates the caller's support-availability settings.
+export async function updateMySupportProfile(data: {
+    is_available_to_support: boolean;
+    support_modes?: string[];
+}): Promise<SupportProfile> {
+    return request('/support/me', { method: 'PATCH', body: JSON.stringify(data) });
+}
+
+// Creates a new support request that can appear inline in the community feed.
+export async function createSupportRequest(data: {
+    type: SupportRequest['type'];
+    message?: string | null;
+    audience: SupportRequest['audience'];
+    expires_at: string;
+}): Promise<SupportRequest> {
+    return request('/support/requests', { method: 'POST', body: JSON.stringify(data) });
+}
+
+// Loads open support requests visible to the current user.
+export async function getSupportRequests(): Promise<SupportRequest[]> {
+    return request('/support/requests');
+}
+
+// Loads support requests created by the current user.
+export async function getMySupportRequests(): Promise<SupportRequest[]> {
+    return request('/support/requests/mine');
+}
+
+// Loads a single support request by id.
+export async function getSupportRequest(id: string): Promise<SupportRequest> {
+    return request(`/support/requests/${id}`);
+}
+
+// Updates a support request owned by the current user.
+export async function updateSupportRequest(id: string, data: {
+    status: 'closed';
+}): Promise<SupportRequest> {
+    return request(`/support/requests/${id}`, { method: 'PATCH', body: JSON.stringify(data) });
+}
+
+// Creates a response to an open support request.
+export async function createSupportResponse(id: string, data: {
+    response_type: SupportResponse['response_type'];
+    message?: string | null;
+}): Promise<SupportResponse> {
+    return request(`/support/requests/${id}/responses`, { method: 'POST', body: JSON.stringify(data) });
+}
+
+// Loads responses for a support request owned by the current user.
+export async function getSupportRequestResponses(id: string): Promise<SupportResponse[]> {
+    return request(`/support/requests/${id}/responses`);
 }
 
 // Toggles the current user's RSVP state for a meetup.

@@ -19,10 +19,11 @@ interface ProfileTabScreenProps {
     onFollowChange: (userId: string, following: boolean) => void;
     refreshFollowingIds: () => Promise<void>;
     onOpenUserProfile: (profile: { userId: string; username: string; avatarUrl?: string }) => void;
+    onBack?: () => void;
 }
 
 // Renders the current user's profile tab plus following, followers, and settings subviews.
-export function ProfileTabScreen({ isActive, onFollowChange, refreshFollowingIds, onOpenUserProfile }: ProfileTabScreenProps) {
+export function ProfileTabScreen({ isActive, onFollowChange, refreshFollowingIds, onOpenUserProfile, onBack }: ProfileTabScreenProps) {
     const { user, refreshUser, logout } = useAuth();
     const [subView, setSubView] = useState<SubView>('profile');
 
@@ -229,6 +230,13 @@ export function ProfileTabScreen({ isActive, onFollowChange, refreshFollowingIds
     return (
         <SafeAreaView style={styles.container}>
             <View style={styles.topBar}>
+                {onBack ? (
+                    <TouchableOpacity onPress={onBack} style={styles.topBarSide}>
+                        <Text style={styles.backIcon}>←</Text>
+                    </TouchableOpacity>
+                ) : (
+                    <View style={styles.topBarSide} />
+                )}
                 <Text style={styles.topBarTitle}>Profile</Text>
                 <TouchableOpacity onPress={() => setSubView('settings')} style={styles.settingsBtn}>
                     <Text style={styles.settingsIcon}>⚙</Text>
@@ -329,12 +337,13 @@ const styles = StyleSheet.create({
         borderBottomWidth: 0.5,
         borderBottomColor: Colors.light.border,
     },
+    topBarSide: { width: 40 },
     topBarTitle: {
         fontSize: Typography.sizes.lg,
         fontWeight: '500',
         color: Colors.light.textPrimary,
     },
-    settingsBtn: { padding: 4 },
+    settingsBtn: { padding: 4, width: 40, alignItems: 'flex-end' },
     settingsIcon: { fontSize: 20, color: Colors.light.textTertiary },
 
     subHeader: {

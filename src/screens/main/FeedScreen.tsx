@@ -10,9 +10,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { Colors, Typography, Spacing, Radii } from '../../utils/theme';
 import { formatUsername } from '../../utils/identity';
 
-// Formats feed timestamps into compact relative labels.
 function timeAgo(dateStr: string): string {
-    // Feed timestamps stay intentionally compact because they sit in dense cards.
     const diff = Date.now() - new Date(dateStr).getTime();
     const mins = Math.floor(diff / 60000);
     if (mins < 1) return 'just now';
@@ -40,7 +38,6 @@ interface PostCardProps {
     onPressFollow: () => void;
 }
 
-// Renders a feed post card with inline reactions and comments.
 function PostCard({
     post,
     displayedCommentCount,
@@ -66,13 +63,10 @@ function PostCard({
         setLikeCount(post.like_count);
     }, [post.like_count]);
 
-    // Toggles the current user's reaction on this post.
     const handleReact = async () => {
         try {
             const res = await api.reactToPost(post.id);
             setLiked(res.reacted);
-            // Update the count optimistically from the server toggle response instead
-            // of forcing the entire feed to refetch after every like.
             setLikeCount(prev => res.reacted ? prev + 1 : prev - 1);
         } catch { }
     };
@@ -181,7 +175,6 @@ interface FeedScreenProps {
     onOpenUserProfile: (profile: { userId: string; username: string; avatarUrl?: string }) => void;
 }
 
-// Renders the community feed and coordinates post, follow, and comment state.
 export function FeedScreen({ isActive, followingIds, onFollowChange, onOpenUserProfile }: FeedScreenProps) {
     const { user } = useAuth();
     const [posts, setPosts] = useState<api.Post[]>([]);
@@ -204,8 +197,6 @@ export function FeedScreen({ isActive, followingIds, onFollowChange, onOpenUserP
     const load = useCallback(async () => {
         if (loadInFlightRef.current) return loadInFlightRef.current;
 
-        // Share one in-flight promise across refreshes/initial mount so concurrent
-        // callers do not stampede the feed endpoint.
         const request = (async () => {
             try {
                 const feedData = await api.getFeed();
@@ -225,9 +216,6 @@ export function FeedScreen({ isActive, followingIds, onFollowChange, onOpenUserP
     useEffect(() => {
         const becameActive = isActive && !wasActiveRef.current;
         wasActiveRef.current = isActive;
-
-        // Tabs stay mounted, so only trigger the expensive first load when this tab
-        // becomes visible rather than every parent re-render.
         if (!becameActive) return;
 
         const isFirstLoad = !hasLoadedRef.current;
@@ -239,7 +227,6 @@ export function FeedScreen({ isActive, followingIds, onFollowChange, onOpenUserP
         });
     }, [isActive, load]);
 
-    // Refreshes the feed list for pull-to-refresh and initial loads.
     const onRefresh = async () => {
         setRefreshing(true);
         try {
@@ -249,12 +236,9 @@ export function FeedScreen({ isActive, followingIds, onFollowChange, onOpenUserP
         }
     };
 
-    // Follows the author of a post using optimistic shared state.
     const handleFollow = async (post: api.Post) => {
         if (followingIds.has(post.user_id)) return;
 
-        // Mirror the follow immediately in parent-owned state so every screen that
-        // consumes followingIds stays in sync without waiting for the network.
         setPendingFollows(prev => new Set(prev).add(post.user_id));
         onFollowChange(post.user_id, true);
 
@@ -272,7 +256,6 @@ export function FeedScreen({ isActive, followingIds, onFollowChange, onOpenUserP
         }
     };
 
-    // Creates a new post and reloads the feed afterward.
     const handlePost = async () => {
         if (!draft.trim()) return;
         setPosting(true);
@@ -288,21 +271,12 @@ export function FeedScreen({ isActive, followingIds, onFollowChange, onOpenUserP
         }
     };
 
-    // Loads comments for a post and syncs the visible comment count.
     const loadComments = useCallback(async (postId: string) => {
         setCommentLoadingIds(prev => new Set(prev).add(postId));
         try {
             const comments = await api.getComments(postId);
             setCommentsByPostId(prev => ({ ...prev, [postId]: comments ?? [] }));
-            // Keep the feed card count aligned with the fetched thread because the
-            // summary count in the feed payload can lag behind comment creation.
-            setPosts(prev =>
-                prev.map(post =>
-                    post.id === postId
-                        ? { ...post, comment_count: comments?.length ?? 0 }
-                        : post
-                )
-            );
+            setPosts(prev => prev.map(post => post.id === postId ? { ...post, comment_count: comments?.length ?? 0 } : post));
             loadedCommentPostIdsRef.current.add(postId);
         } catch (e: unknown) {
             Alert.alert('Error', e instanceof Error ? e.message : 'Something went wrong.');
@@ -315,34 +289,25 @@ export function FeedScreen({ isActive, followingIds, onFollowChange, onOpenUserP
         }
     }, []);
 
-    // Expands or collapses a post's comments and lazily loads them once.
     const handleToggleComments = useCallback((postId: string) => {
         let shouldLoad = false;
-
         setExpandedCommentIds(prev => {
             const next = new Set(prev);
             if (next.has(postId)) {
                 next.delete(postId);
             } else {
                 next.add(postId);
-                // Fetch a thread only on first expansion; after that we keep the
-                // local cache warm so collapsing/reopening feels instant.
                 shouldLoad = !loadedCommentPostIdsRef.current.has(postId);
             }
             return next;
         });
-
-        if (shouldLoad) {
-            loadComments(postId).catch(() => {});
-        }
+        if (shouldLoad) loadComments(postId).catch(() => {});
     }, [loadComments]);
 
-    // Stores the draft text for a single post's comment composer.
     const handleCommentDraftChange = useCallback((postId: string, value: string) => {
         setCommentDrafts(prev => ({ ...prev, [postId]: value }));
     }, []);
 
-    // Submits a new comment and appends it locally to the post thread.
     const handleSubmitComment = useCallback(async (post: api.Post) => {
         const draftValue = commentDrafts[post.id]?.trim() ?? '';
         if (!draftValue || !user) return;
@@ -350,8 +315,6 @@ export function FeedScreen({ isActive, followingIds, onFollowChange, onOpenUserP
         setCommentSubmittingIds(prev => new Set(prev).add(post.id));
         try {
             const res = await api.addComment(post.id, draftValue);
-            // Insert the new comment locally so the user sees it immediately even
-            // though the feed endpoint itself is not reloaded.
             const newComment: api.Comment = {
                 id: res.id,
                 user_id: user.id,
@@ -365,20 +328,11 @@ export function FeedScreen({ isActive, followingIds, onFollowChange, onOpenUserP
             setCommentsByPostId(prev => {
                 const nextComments = [...(prev[post.id] ?? []), newComment];
                 nextCommentCount = nextComments.length;
-                return {
-                    ...prev,
-                    [post.id]: nextComments,
-                };
+                return { ...prev, [post.id]: nextComments };
             });
             loadedCommentPostIdsRef.current.add(post.id);
             setCommentDrafts(prev => ({ ...prev, [post.id]: '' }));
-            setPosts(prev =>
-                prev.map(item =>
-                    item.id === post.id
-                        ? { ...item, comment_count: nextCommentCount }
-                        : item
-                )
-            );
+            setPosts(prev => prev.map(item => item.id === post.id ? { ...item, comment_count: nextCommentCount } : item));
         } catch (e: unknown) {
             Alert.alert('Error', e instanceof Error ? e.message : 'Something went wrong.');
         } finally {
@@ -438,32 +392,30 @@ export function FeedScreen({ isActive, followingIds, onFollowChange, onOpenUserP
                 }
                 renderItem={({ item }) => {
                     const loadedComments = commentsByPostId[item.id];
-                    const displayedCommentCount = loadedComments
-                        ? Math.max(item.comment_count, loadedComments.length)
-                        : item.comment_count;
+                    const displayedCommentCount = loadedComments ? Math.max(item.comment_count, loadedComments.length) : item.comment_count;
 
                     return (
-                    <PostCard
-                        post={item}
-                        displayedCommentCount={displayedCommentCount}
-                        currentUserId={user?.id ?? ''}
-                        isFollowing={followingIds.has(item.user_id)}
-                        followPending={pendingFollows.has(item.user_id)}
-                        comments={loadedComments ?? []}
-                        commentsExpanded={expandedCommentIds.has(item.id)}
-                        commentsLoading={commentLoadingIds.has(item.id)}
-                        commentSubmitting={commentSubmittingIds.has(item.id)}
-                        commentDraft={commentDrafts[item.id] ?? ''}
-                        onCommentDraftChange={value => handleCommentDraftChange(item.id, value)}
-                        onToggleComments={() => handleToggleComments(item.id)}
-                        onSubmitComment={() => handleSubmitComment(item)}
-                        onPressUser={() => onOpenUserProfile({
-                            userId: item.user_id,
-                            username: item.username,
-                            avatarUrl: item.avatar_url,
-                        })}
-                        onPressFollow={() => handleFollow(item)}
-                    />
+                        <PostCard
+                            post={item}
+                            displayedCommentCount={displayedCommentCount}
+                            currentUserId={user?.id ?? ''}
+                            isFollowing={followingIds.has(item.user_id)}
+                            followPending={pendingFollows.has(item.user_id)}
+                            comments={loadedComments ?? []}
+                            commentsExpanded={expandedCommentIds.has(item.id)}
+                            commentsLoading={commentLoadingIds.has(item.id)}
+                            commentSubmitting={commentSubmittingIds.has(item.id)}
+                            commentDraft={commentDrafts[item.id] ?? ''}
+                            onCommentDraftChange={value => handleCommentDraftChange(item.id, value)}
+                            onToggleComments={() => handleToggleComments(item.id)}
+                            onSubmitComment={() => handleSubmitComment(item)}
+                            onPressUser={() => onOpenUserProfile({
+                                userId: item.user_id,
+                                username: item.username,
+                                avatarUrl: item.avatar_url,
+                            })}
+                            onPressFollow={() => handleFollow(item)}
+                        />
                     );
                 }}
                 contentContainerStyle={styles.list}
@@ -476,7 +428,6 @@ const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: Colors.light.background },
     center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
     list: { padding: Spacing.md, paddingBottom: 32 },
-
     composeBar: {
         backgroundColor: Colors.light.backgroundSecondary,
         borderRadius: Radii.md,
@@ -486,21 +437,10 @@ const styles = StyleSheet.create({
         gap: Spacing.sm,
         marginBottom: Spacing.md,
     },
-    composeInput: {
-        flex: 1,
-        fontSize: Typography.sizes.base,
-        color: Colors.light.textPrimary,
-        maxHeight: 100,
-    },
+    composeInput: { flex: 1, fontSize: Typography.sizes.base, color: Colors.light.textPrimary, maxHeight: 100 },
     composePlaceholder: { flex: 1, fontSize: Typography.sizes.base, color: Colors.light.textTertiary, textAlignVertical: 'center' },
-    postBtn: {
-        backgroundColor: Colors.success,
-        borderRadius: Radii.sm,
-        paddingHorizontal: Spacing.md,
-        paddingVertical: 6,
-    },
+    postBtn: { backgroundColor: Colors.success, borderRadius: Radii.sm, paddingHorizontal: Spacing.md, paddingVertical: 6 },
     postBtnText: { color: Colors.textOn.primary, fontSize: Typography.sizes.sm, fontWeight: '600' },
-
     postCard: {
         backgroundColor: Colors.light.background,
         borderRadius: Radii.lg,
@@ -510,31 +450,11 @@ const styles = StyleSheet.create({
         overflow: 'hidden',
     },
     postHeadBody: { flex: 1 },
-    postHead: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: Spacing.sm,
-        padding: Spacing.md,
-        paddingBottom: Spacing.sm,
-    },
+    postHead: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, padding: Spacing.md, paddingBottom: Spacing.sm },
     postName: { fontSize: Typography.sizes.md, fontWeight: '500', color: Colors.light.textPrimary },
     postMeta: { fontSize: Typography.sizes.xs, color: Colors.light.textTertiary, marginTop: 1 },
-    postBody: {
-        fontSize: Typography.sizes.base,
-        color: Colors.light.textSecondary,
-        lineHeight: 19,
-        paddingHorizontal: Spacing.md,
-        paddingBottom: Spacing.sm,
-    },
-    postFoot: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 14,
-        paddingHorizontal: Spacing.md,
-        paddingVertical: 10,
-        borderTopWidth: 0.5,
-        borderTopColor: Colors.light.border,
-    },
+    postBody: { fontSize: Typography.sizes.base, color: Colors.light.textSecondary, lineHeight: 19, paddingHorizontal: Spacing.md, paddingBottom: Spacing.sm },
+    postFoot: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: Spacing.md, paddingVertical: 10, borderTopWidth: 0.5, borderTopColor: Colors.light.border },
     postAction: { flexDirection: 'row', alignItems: 'center', gap: 4 },
     postActionText: { fontSize: Typography.sizes.sm, color: Colors.light.textTertiary },
     liked: { color: Colors.danger },
@@ -546,20 +466,10 @@ const styles = StyleSheet.create({
         gap: Spacing.sm,
         backgroundColor: Colors.light.backgroundSecondary,
     },
-    commentsLoading: {
-        paddingVertical: Spacing.sm,
-        alignItems: 'center',
-    },
+    commentsLoading: { paddingVertical: Spacing.sm, alignItems: 'center' },
     commentsList: { gap: Spacing.sm },
-    commentsEmpty: {
-        fontSize: Typography.sizes.sm,
-        color: Colors.light.textTertiary,
-    },
-    commentRow: {
-        flexDirection: 'row',
-        alignItems: 'flex-start',
-        gap: Spacing.sm,
-    },
+    commentsEmpty: { fontSize: Typography.sizes.sm, color: Colors.light.textTertiary },
+    commentRow: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.sm },
     commentBodyWrap: { flex: 1, minWidth: 0 },
     commentBubble: {
         backgroundColor: Colors.light.background,
@@ -569,28 +479,10 @@ const styles = StyleSheet.create({
         borderWidth: 0.5,
         borderColor: Colors.light.border,
     },
-    commentAuthor: {
-        fontSize: Typography.sizes.sm,
-        fontWeight: '600',
-        color: Colors.light.textPrimary,
-        marginBottom: 2,
-    },
-    commentBody: {
-        fontSize: Typography.sizes.sm,
-        color: Colors.light.textSecondary,
-        lineHeight: 18,
-    },
-    commentMeta: {
-        fontSize: Typography.sizes.xs,
-        color: Colors.light.textTertiary,
-        marginTop: 4,
-        paddingHorizontal: 2,
-    },
-    commentComposer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: Spacing.sm,
-    },
+    commentAuthor: { fontSize: Typography.sizes.sm, fontWeight: '600', color: Colors.light.textPrimary, marginBottom: 2 },
+    commentBody: { fontSize: Typography.sizes.sm, color: Colors.light.textSecondary, lineHeight: 18 },
+    commentMeta: { fontSize: Typography.sizes.xs, color: Colors.light.textTertiary, marginTop: 4, paddingHorizontal: 2 },
+    commentComposer: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
     commentInput: {
         flex: 1,
         backgroundColor: Colors.light.background,
@@ -602,36 +494,14 @@ const styles = StyleSheet.create({
         fontSize: Typography.sizes.sm,
         color: Colors.light.textPrimary,
     },
-    commentSendButton: {
-        backgroundColor: Colors.primary,
-        borderRadius: Radii.full,
-        paddingHorizontal: Spacing.md,
-        paddingVertical: 10,
-    },
-    commentSendButtonDisabled: {
-        opacity: 0.6,
-    },
-    commentSendButtonText: {
-        fontSize: Typography.sizes.sm,
-        fontWeight: '600',
-        color: Colors.textOn.primary,
-    },
-
-    followPill: {
-        backgroundColor: Colors.primary,
-        borderRadius: Radii.full,
-        paddingHorizontal: 12,
-        paddingVertical: 4,
-    },
+    commentSendButton: { backgroundColor: Colors.success, borderRadius: Radii.full, paddingHorizontal: Spacing.md, paddingVertical: 10 },
+    commentSendButtonDisabled: { opacity: 0.6 },
+    commentSendButtonText: { fontSize: Typography.sizes.sm, fontWeight: '600', color: Colors.textOn.primary },
+    followPill: { backgroundColor: Colors.success, borderRadius: Radii.full, paddingHorizontal: 12, paddingVertical: 4 },
     followPillDisabled: { opacity: 0.6 },
-    followingPill: {
-        backgroundColor: 'transparent',
-        borderWidth: 1,
-        borderColor: Colors.light.border,
-    },
+    followingPill: { backgroundColor: 'transparent', borderWidth: 1, borderColor: Colors.light.border },
     followPillText: { fontSize: Typography.sizes.xs, color: '#FFFFFF', fontWeight: '500' },
     followingPillText: { color: Colors.light.textTertiary },
-
     empty: { alignItems: 'center', paddingTop: 60 },
     emptyText: { fontSize: Typography.sizes.lg, fontWeight: '500', color: Colors.light.textPrimary },
     emptySubtext: { fontSize: Typography.sizes.base, color: Colors.light.textTertiary, marginTop: Spacing.sm, textAlign: 'center' },

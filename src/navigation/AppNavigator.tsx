@@ -7,12 +7,15 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons';
 import { FeedScreen } from '../screens/main/FeedScreen';
 import { DiscoverScreen } from '../screens/main/DiscoverScreen';
+import { SupportScreen } from '../screens/main/SupportScreen';
 import { MeetupsScreen } from '../screens/main/MeetupsScreen';
 import { ChatsScreen } from '../screens/main/ChatsScreen';
 import { ProfileTabScreen } from '../screens/main/ProfileTabScreen';
 import { ChatScreen } from '../screens/main/ChatScreen';
 import { UserProfileScreen } from '../screens/main/UserProfileScreen';
+import { Avatar } from '../components/Avatar';
 import { Colors, Typography, Spacing } from '../utils/theme';
+import { useAuth } from '../hooks/useAuth';
 import * as api from '../api/client';
 import type { Chat } from '../api/client';
 
@@ -22,21 +25,22 @@ interface OpenUserProfile {
     avatarUrl?: string;
 }
 
-type Tab = 'community' | 'discover' | 'meetups' | 'chats' | 'profile';
+type Tab = 'community' | 'discover' | 'support' | 'meetups' | 'chats';
 
 const TABS: { key: Tab; label: string; icon: keyof typeof Ionicons.glyphMap; iconActive: keyof typeof Ionicons.glyphMap }[] = [
     { key: 'community', label: 'community', icon: 'newspaper-outline', iconActive: 'newspaper' },
     { key: 'discover',  label: 'discover',  icon: 'grid-outline', iconActive: 'grid' },
+    { key: 'support',   label: 'support',   icon: 'heart-outline', iconActive: 'heart' },
     { key: 'meetups',   label: 'meetups',   icon: 'calendar-outline', iconActive: 'calendar' },
     { key: 'chats',     label: 'chats',     icon: 'chatbubble-outline', iconActive: 'chatbubble' },
-    { key: 'profile',   label: 'profile',   icon: 'person-circle-outline', iconActive: 'person-circle' },
 ];
 
-// Coordinates tab state plus lightweight overlays for profiles and chats.
 export function AppNavigator() {
+    const { user } = useAuth();
     const [activeTab, setActiveTab] = useState<Tab>('community');
     const [openChat, setOpenChat] = useState<Chat | null>(null);
     const [openUserProfile, setOpenUserProfile] = useState<OpenUserProfile | null>(null);
+    const [ownProfileOpen, setOwnProfileOpen] = useState(false);
     const [chatsRefreshKey, setChatsRefreshKey] = useState(0);
     const [followingIds, setFollowingIds] = useState<Set<string>>(new Set());
     const followingRequestIdRef = useRef(0);
@@ -44,8 +48,8 @@ export function AppNavigator() {
 
     const inChat = openChat !== null;
     const inUserProfile = openUserProfile !== null;
+    const inOwnProfile = ownProfileOpen;
 
-    // Applies optimistic follow state updates shared across multiple tabs.
     const handleFollowChange = (userId: string, following: boolean) => {
         setFollowingIds(prev => {
             const next = new Set(prev);
@@ -54,37 +58,42 @@ export function AppNavigator() {
         });
     };
 
-    // Reloads the current following ids and ignores stale request results.
     const refreshFollowingIds = useCallback(async () => {
         const requestId = ++followingRequestIdRef.current;
         const following = await api.getFollowing();
-        // Ignore stale responses if a newer refresh started while this request was in flight.
         if (requestId !== followingRequestIdRef.current) return;
         setFollowingIds(new Set((following ?? []).map(user => user.user_id)));
     }, []);
 
-    // Opens a user profile overlay and closes any open chat overlay.
     const handleOpenUserProfile = (profile: OpenUserProfile) => {
         setOpenUserProfile(profile);
+        setOwnProfileOpen(false);
         setOpenChat(null);
     };
 
-    // Closes the chat overlay and bumps the chat refresh key for the list tab.
     const handleCloseChat = () => {
         setOpenChat(null);
         setChatsRefreshKey(current => current + 1);
     };
 
-    // Dismisses the currently open user profile overlay.
     const closeUserProfile = () => {
         setOpenUserProfile(null);
     };
 
-    // Renders the contextual top bar for the active top-level tab.
+    const openOwnProfile = () => {
+        setOwnProfileOpen(true);
+        setOpenUserProfile(null);
+        setOpenChat(null);
+    };
+
+    const closeOwnProfile = () => {
+        setOwnProfileOpen(false);
+    };
+
     const renderHeader = () => {
         if (inChat) return null;
         if (inUserProfile) return null;
-        if (activeTab === 'profile') return null;
+        if (inOwnProfile) return null;
 
         const titles: Record<Tab, React.ReactNode> = {
             community: (
@@ -93,25 +102,29 @@ export function AppNavigator() {
                 </Text>
             ),
             discover: <Text style={styles.pageTitle}>Discover</Text>,
-            meetups:  <Text style={styles.pageTitle}>Meetups</Text>,
+            support: <Text style={styles.pageTitle}>Support</Text>,
+            meetups: <Text style={styles.pageTitle}>Meetups</Text>,
             chats: <Text style={styles.pageTitle}>Chats</Text>,
-            profile:  null,
         };
 
         return (
             <View style={styles.topBar}>
                 {titles[activeTab]}
-                <View />
+                <TouchableOpacity onPress={openOwnProfile} disabled={!user}>
+                    <Avatar
+                        username={user?.username ?? 'me'}
+                        avatarUrl={user?.avatar_url}
+                        size={34}
+                        fontSize={12}
+                    />
+                </TouchableOpacity>
             </View>
         );
     };
 
-    // Renders tab content and any active overlays without unmounting inactive tabs.
     const renderContent = () => {
         return (
             <>
-                {/* Keep each tab mounted and toggle visibility so local screen state
-                    survives tab switches without adding a full navigation library. */}
                 <View style={activeTab === 'community' ? styles.tabVisible : styles.tabHidden}>
                     <FeedScreen
                         isActive={activeTab === 'community'}
@@ -129,6 +142,13 @@ export function AppNavigator() {
                         refreshFollowingIds={refreshFollowingIds}
                     />
                 </View>
+                <View style={activeTab === 'support' ? styles.tabVisible : styles.tabHidden}>
+                    <SupportScreen
+                        isActive={activeTab === 'support'}
+                        onOpenChat={setOpenChat}
+                        onOpenUserProfile={handleOpenUserProfile}
+                    />
+                </View>
                 <View style={activeTab === 'meetups' ? styles.tabVisible : styles.tabHidden}>
                     <MeetupsScreen isActive={activeTab === 'meetups'} />
                 </View>
@@ -139,16 +159,18 @@ export function AppNavigator() {
                         onOpenChat={setOpenChat}
                     />
                 </View>
-                <View style={activeTab === 'profile' ? styles.tabVisible : styles.tabHidden}>
-                    <ProfileTabScreen
-                        isActive={activeTab === 'profile'}
-                        onFollowChange={handleFollowChange}
-                        refreshFollowingIds={refreshFollowingIds}
-                        onOpenUserProfile={handleOpenUserProfile}
-                    />
-                </View>
+                {inOwnProfile && (
+                    <View style={StyleSheet.absoluteFill}>
+                        <ProfileTabScreen
+                            isActive={inOwnProfile}
+                            onBack={closeOwnProfile}
+                            onFollowChange={handleFollowChange}
+                            refreshFollowingIds={refreshFollowingIds}
+                            onOpenUserProfile={handleOpenUserProfile}
+                        />
+                    </View>
+                )}
                 {inUserProfile && (
-                    // Detail screens render above the tab content as lightweight overlays.
                     <View style={StyleSheet.absoluteFill}>
                         <UserProfileScreen
                             userId={openUserProfile!.userId}
@@ -181,19 +203,17 @@ export function AppNavigator() {
                 {renderHeader()}
                 <View style={styles.content}>{renderContent()}</View>
 
-                {!inChat && !inUserProfile && (
+                {!inChat && !inUserProfile && !inOwnProfile && (
                     <View style={[styles.tabBar, { paddingBottom: insets.bottom + 6 }]}>
                         {TABS.map(tab => (
                             <TouchableOpacity
                                 key={tab.key}
                                 style={styles.tabItem}
-                            onPress={() => {
-                                setActiveTab(tab.key);
-                                // Closing the open chat avoids leaving a stale conversation
-                                // overlay visible when the user switches sections.
-                                setOpenChat(null);
-                            }}
-                        >
+                                onPress={() => {
+                                    setActiveTab(tab.key);
+                                    setOpenChat(null);
+                                }}
+                            >
                                 <Ionicons
                                     name={activeTab === tab.key ? tab.iconActive : tab.icon}
                                     size={22}
