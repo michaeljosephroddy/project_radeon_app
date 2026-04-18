@@ -102,12 +102,20 @@ export interface Meetup {
     id: string;
     organizer_id: string;
     title: string;
-    description?: string;
+    description?: string | null;
     city: string;
     starts_at: string;
-    capacity?: number;
+    capacity?: number | null;
     attendee_count: number;
     is_attending: boolean;
+}
+
+export interface MeetupAttendee {
+    id: string;
+    username: string;
+    avatar_url?: string | null;
+    city?: string | null;
+    rsvp_at: string;
 }
 
 export interface Chat {
@@ -258,17 +266,27 @@ export async function getMeetups(city?: string): Promise<Meetup[]> {
 // Creates a new meetup with the provided event details.
 export async function createMeetup(data: {
     title: string;
-    description?: string;
+    description?: string | null;
     city: string;
     starts_at: string;
-    capacity?: number;
-}): Promise<{ id: string }> {
+    capacity?: number | null;
+}): Promise<Meetup> {
     return request('/meetups', { method: 'POST', body: JSON.stringify(data) });
+}
+
+// Loads meetups created by the currently authenticated user.
+export async function getMyMeetups(): Promise<Meetup[]> {
+    return request('/users/me/meetups');
 }
 
 // Toggles the current user's RSVP state for a meetup.
 export async function rsvpMeetup(id: string): Promise<{ attending: boolean }> {
     return request(`/meetups/${id}/rsvp`, { method: 'POST' });
+}
+
+// Loads the attendee list for a specific meetup.
+export async function getMeetupAttendees(id: string): Promise<MeetupAttendee[]> {
+    return request(`/meetups/${id}/attendees`);
 }
 
 // ── Messages ───────────────────────────────────────────────────────────────
