@@ -179,7 +179,7 @@ export function DiscoverScreen({
                         <Text style={styles.heroEyebrow}>DISCOVER</Text>
                         <Text style={styles.heroTitle}>Find people in the community.</Text>
                         <Text style={styles.heroText}>
-                            Search by username now. Smarter suggestions can plug in later without changing the screen structure.
+                            Search by username now.
                         </Text>
                     </View>
 

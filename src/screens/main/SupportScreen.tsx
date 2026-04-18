@@ -58,7 +58,6 @@ interface SupportRequestCardProps {
   closingPending: boolean;
   onRespond: (request: api.SupportRequest, responseType: SupportResponseType) => void;
   onClose: (request: api.SupportRequest) => void;
-  onOpenChat: (request: api.SupportRequest) => void;
   onPressUser: () => void;
 }
 
@@ -68,7 +67,6 @@ function SupportRequestCard({
   closingPending,
   onRespond,
   onClose,
-  onOpenChat,
   onPressUser,
 }: SupportRequestCardProps) {
   const isClosed = request.status !== 'open';
@@ -130,13 +128,6 @@ function SupportRequestCard({
             disabled={responsePending || request.has_responded || isClosed}
           >
             <Text style={styles.actionSecondaryText}>Check in later</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.messageButton, responsePending && styles.actionDisabled]}
-            onPress={() => onOpenChat(request)}
-            disabled={responsePending}
-          >
-            <Text style={styles.messageButtonText}>Message</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -446,6 +437,7 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
 
   const isMineView = subView === 'mine';
   const data = isMineView ? myRequests : requests;
+  const openRequestCount = requests.filter(request => request.status === 'open').length;
 
   return (
     <FlatList
@@ -482,6 +474,14 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
                 : 'Respond quickly when you can genuinely show up for someone.'}
             </Text>
           </View>
+          {!isMineView ? (
+            <View style={styles.statsRow}>
+              <View style={styles.statCard}>
+                <Text style={styles.statValue}>{openRequestCount}</Text>
+                <Text style={styles.statLabel}>Open requests</Text>
+              </View>
+            </View>
+          ) : null}
           {!isMineView ? availabilityCard : null}
         </>
       }
@@ -491,18 +491,17 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
           <Text style={styles.emptySubtext}>{isMineView ? 'Create one when you need the community.' : 'Check back later or turn on availability in your profile.'}</Text>
         </View>
       }
-      renderItem={({ item }) => (
-        <SupportRequestCard
-          request={item}
-          responsePending={responsePendingIds.has(item.id)}
-          closingPending={closingIds.has(item.id)}
-          onRespond={handleRespond}
-          onClose={handleClose}
-          onOpenChat={openChat}
-          onPressUser={() => onOpenUserProfile({
-            userId: item.requester_id,
-            username: item.username,
-            avatarUrl: item.avatar_url ?? undefined,
+        renderItem={({ item }) => (
+          <SupportRequestCard
+            request={item}
+            responsePending={responsePendingIds.has(item.id)}
+            closingPending={closingIds.has(item.id)}
+            onRespond={handleRespond}
+            onClose={handleClose}
+            onPressUser={() => onOpenUserProfile({
+              userId: item.requester_id,
+              username: item.username,
+              avatarUrl: item.avatar_url ?? undefined,
           })}
         />
       )}
@@ -537,6 +536,28 @@ const styles = StyleSheet.create({
   heroEyebrow: { fontSize: Typography.sizes.xs, fontWeight: '700', color: Colors.primary, letterSpacing: 0.8, marginBottom: 6 },
   heroTitle: { fontSize: Typography.sizes.xl, fontWeight: '600', color: Colors.light.textPrimary },
   heroText: { fontSize: Typography.sizes.sm, color: Colors.light.textSecondary, lineHeight: 19, marginTop: Spacing.sm },
+  statsRow: {
+    flexDirection: 'row',
+    marginBottom: Spacing.md,
+  },
+  statCard: {
+    flex: 1,
+    backgroundColor: Colors.light.backgroundSecondary,
+    borderRadius: Radii.lg,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+    padding: Spacing.md,
+  },
+  statValue: {
+    fontSize: Typography.sizes.xl,
+    fontWeight: '700',
+    color: Colors.light.textPrimary,
+  },
+  statLabel: {
+    fontSize: Typography.sizes.sm,
+    color: Colors.light.textTertiary,
+    marginTop: 4,
+  },
   availabilityCard: {
     backgroundColor: Colors.light.backgroundSecondary,
     borderRadius: Radii.lg,
@@ -641,8 +662,6 @@ const styles = StyleSheet.create({
     borderColor: Colors.light.border,
   },
   actionSecondaryText: { color: Colors.light.textSecondary, fontSize: Typography.sizes.sm, fontWeight: '600' },
-  messageButton: { backgroundColor: Colors.primary, borderRadius: Radii.full, paddingHorizontal: Spacing.md, paddingVertical: 10 },
-  messageButtonText: { color: Colors.textOn.primary, fontSize: Typography.sizes.sm, fontWeight: '600' },
   actionDisabled: { opacity: 0.6 },
   empty: { alignItems: 'center', paddingTop: 60 },
   emptyText: { fontSize: Typography.sizes.lg, fontWeight: '500', color: Colors.light.textPrimary },

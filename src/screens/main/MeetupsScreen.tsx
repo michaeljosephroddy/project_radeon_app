@@ -26,12 +26,38 @@ function formatMeetupDate(dateStr: string) {
   };
 }
 
-// Converts the date input into the RFC3339 string expected by the backend.
-function toStartsAtValue(input: string): string | null {
-  const trimmed = input.trim();
-  if (!trimmed) return null;
-  const parsed = new Date(trimmed);
+// Combines separate local date/time inputs into the RFC3339 value expected by the backend.
+function toStartsAtValue(dateInput: string, timeInput: string): string | null {
+  const date = dateInput.trim();
+  const time = timeInput.trim();
+  if (!date || !time) return null;
+
+  const dateMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
+  const timeMatch = /^(\d{1,2}):(\d{2})$/.exec(time);
+  if (!dateMatch || !timeMatch) return null;
+
+  const year = Number(dateMatch[1]);
+  const month = Number(dateMatch[2]);
+  const day = Number(dateMatch[3]);
+  const hours = Number(timeMatch[1]);
+  const minutes = Number(timeMatch[2]);
+
+  if (month < 1 || month > 12 || day < 1 || day > 31 || hours > 23 || minutes > 59) {
+    return null;
+  }
+
+  const parsed = new Date(year, month - 1, day, hours, minutes);
   if (Number.isNaN(parsed.getTime())) return null;
+  if (
+    parsed.getFullYear() !== year ||
+    parsed.getMonth() !== month - 1 ||
+    parsed.getDate() !== day ||
+    parsed.getHours() !== hours ||
+    parsed.getMinutes() !== minutes
+  ) {
+    return null;
+  }
+
   return parsed.toISOString();
 }
 
@@ -40,6 +66,7 @@ function validateMeetupForm(form: {
   title: string;
   description: string;
   city: string;
+  startsOn: string;
   startsAt: string;
   capacity: string;
 }): { error: string } | {
@@ -53,14 +80,15 @@ function validateMeetupForm(form: {
 } {
   const title = form.title.trim();
   const city = form.city.trim();
-  const startsAt = toStartsAtValue(form.startsAt);
+  const startsAt = toStartsAtValue(form.startsOn, form.startsAt);
   const description = form.description.trim();
   const capacityText = form.capacity.trim();
 
   if (!title) return { error: 'Title is required.' };
   if (!city) return { error: 'City is required.' };
-  if (!form.startsAt.trim()) return { error: 'Start date and time are required.' };
-  if (!startsAt) return { error: 'Enter a valid start date/time. Use a full ISO value or something like 2026-05-01T19:30.' };
+  if (!form.startsOn.trim()) return { error: 'Start date is required.' };
+  if (!form.startsAt.trim()) return { error: 'Start time is required.' };
+  if (!startsAt) return { error: 'Enter a valid date and time, like 2026-05-01 and 19:30.' };
 
   let capacity: number | null = null;
   if (capacityText) {
@@ -152,6 +180,7 @@ export function MeetupsScreen({ isActive }: MeetupsScreenProps) {
     title: '',
     description: '',
     city: '',
+    startsOn: '',
     startsAt: '',
     capacity: '',
   });
@@ -307,6 +336,7 @@ export function MeetupsScreen({ isActive }: MeetupsScreenProps) {
         title: '',
         description: '',
         city: '',
+        startsOn: '',
         startsAt: '',
         capacity: '',
       });
@@ -346,7 +376,7 @@ export function MeetupsScreen({ isActive }: MeetupsScreenProps) {
             <Text style={styles.heroEyebrow}>CREATE</Text>
             <Text style={styles.heroTitle}>Start a meetup in your city.</Text>
             <Text style={styles.heroText}>
-              Enter a local date/time like 2026-05-01T19:30 or a full ISO 8601 value. It will be sent to the API in RFC3339 format.
+              Add the essentials so people know what to expect.
             </Text>
           </View>
 
@@ -378,16 +408,31 @@ export function MeetupsScreen({ isActive }: MeetupsScreenProps) {
             placeholderTextColor={Colors.light.textTertiary}
           />
 
-          <Text style={styles.label}>Starts At</Text>
-          <TextInput
-            style={styles.input}
-            value={form.startsAt}
-            onChangeText={setField('startsAt')}
-            placeholder="2026-05-01T19:30"
-            placeholderTextColor={Colors.light.textTertiary}
-            autoCapitalize="none"
-          />
-
+          <Text style={styles.label}>Starts</Text>
+          <View style={styles.dateTimeRow}>
+            <View style={styles.dateTimeField}>
+              <Text style={styles.fieldHint}>Date</Text>
+              <TextInput
+                style={styles.input}
+                value={form.startsOn}
+                onChangeText={setField('startsOn')}
+                placeholder="2026-05-01"
+                placeholderTextColor={Colors.light.textTertiary}
+                keyboardType="numbers-and-punctuation"
+              />
+            </View>
+            <View style={styles.dateTimeField}>
+              <Text style={styles.fieldHint}>Time (24hr local time)</Text>
+              <TextInput
+                style={styles.input}
+                value={form.startsAt}
+                onChangeText={setField('startsAt')}
+                placeholder="19:30"
+                placeholderTextColor={Colors.light.textTertiary}
+                keyboardType="numbers-and-punctuation"
+              />
+            </View>
+          </View>
           <Text style={styles.label}>Capacity</Text>
           <TextInput
             style={styles.input}
@@ -624,6 +669,18 @@ const styles = StyleSheet.create({
     marginBottom: 4,
     marginTop: Spacing.sm,
   },
+  dateTimeRow: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
+  },
+  dateTimeField: {
+    flex: 1,
+  },
+  fieldHint: {
+    fontSize: Typography.sizes.xs,
+    color: Colors.light.textTertiary,
+    marginBottom: 6,
+  },
   input: {
     backgroundColor: Colors.light.backgroundSecondary,
     borderRadius: Radii.md,
@@ -637,6 +694,11 @@ const styles = StyleSheet.create({
   inputMultiline: {
     minHeight: 110,
     textAlignVertical: 'top',
+  },
+  helperText: {
+    fontSize: Typography.sizes.xs,
+    color: Colors.light.textTertiary,
+    marginTop: 6,
   },
   errorText: {
     color: Colors.danger,

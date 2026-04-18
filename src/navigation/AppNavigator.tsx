@@ -150,10 +150,6 @@ export function AppNavigator() {
                 <View style={activeTab === 'community' ? styles.tabVisible : styles.tabHidden}>
                     <FeedScreen
                         isActive={activeTab === 'community'}
-                        friendIds={friendIds}
-                        incomingFriendRequestIds={incomingFriendRequestIds}
-                        outgoingFriendRequestIds={outgoingFriendRequestIds}
-                        onFriendshipChange={handleFriendshipChange}
                         onOpenUserProfile={handleOpenUserProfile}
                     />
                 </View>

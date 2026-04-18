@@ -76,6 +76,7 @@ export function ChatsScreen({ isActive, refreshKey, onOpenChat }: ChatsScreenPro
     const [chats, setChats] = useState<api.Chat[]>([]);
     const [loading, setLoading] = useState(isActive);
     const [refreshing, setRefreshing] = useState(false);
+    const [query, setQuery] = useState('');
     const hasLoadedRef = useRef(false);
     const previousRefreshKeyRef = useRef(refreshKey);
 
@@ -114,28 +115,42 @@ export function ChatsScreen({ isActive, refreshKey, onOpenChat }: ChatsScreenPro
         setRefreshing(false);
     };
 
+    const normalizedQuery = query.trim().toLowerCase();
+    const filteredChats = chats.filter(chat => {
+        if (!normalizedQuery) return true;
+        const searchTarget = chat.is_group
+            ? (chat.name ?? '')
+            : (chat.username ?? '');
+        return searchTarget.toLowerCase().includes(normalizedQuery);
+    });
+
     if (loading) {
         return <View style={styles.center}><ActivityIndicator color={Colors.primary} /></View>;
     }
 
     return (
         <FlatList
-            data={chats}
+            data={filteredChats}
             keyExtractor={chat => chat.id}
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
             contentContainerStyle={styles.list}
+            keyboardShouldPersistTaps="handled"
             ListHeaderComponent={
                 <>
                     <View style={styles.searchBar}>
                         <Text style={styles.searchIcon}>⌕</Text>
                         <TextInput
+                            value={query}
+                            onChangeText={setQuery}
                             style={styles.searchInput}
                             placeholder="Search chats"
                             placeholderTextColor={Colors.light.textTertiary}
+                            autoCapitalize="none"
+                            autoCorrect={false}
                         />
                     </View>
 
-                    {chats.length > 0 && (
+                    {filteredChats.length > 0 && (
                         <Text style={styles.sectionLabel}>CHATS</Text>
                     )}
                 </>
@@ -145,6 +160,11 @@ export function ChatsScreen({ isActive, refreshKey, onOpenChat }: ChatsScreenPro
                     <View style={styles.empty}>
                         <Text style={styles.emptyText}>No chats yet.</Text>
                         <Text style={styles.emptySubtext}>Connect with people to start chatting.</Text>
+                    </View>
+                ) : normalizedQuery ? (
+                    <View style={styles.empty}>
+                        <Text style={styles.emptyText}>No matching chats.</Text>
+                        <Text style={styles.emptySubtext}>Try a different username search.</Text>
                     </View>
                 ) : null
             }

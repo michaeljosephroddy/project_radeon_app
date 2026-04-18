@@ -9,6 +9,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { Colors, Typography, Spacing, Radii } from '../../utils/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { formatUsername } from '../../utils/identity';
+import { formatReadableTimestamp } from '../../utils/date';
 
 interface Props {
     chat: api.Chat;
@@ -101,15 +102,22 @@ export function ChatScreen({ chat, onBack }: Props) {
                     onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: false })}
                     renderItem={({ item }) => {
                         const isMe = item.sender_id === user?.id;
+                        const senderLabel = formatUsername(isMe ? (user?.username ?? item.username) : item.username);
                         return (
-                            <View style={[styles.bubble, isMe ? styles.bubbleMe : styles.bubbleThem]}>
-                                {!isMe && (
-                                    <Avatar username={item.username} avatarUrl={getMessageAvatarUrl(item)} size={26} fontSize={10} />
-                                )}
+                            <View style={styles.bubble}>
+                                <Avatar
+                                    username={isMe ? (user?.username ?? item.username) : item.username}
+                                    avatarUrl={getMessageAvatarUrl(item)}
+                                    size={26}
+                                    fontSize={10}
+                                />
                                 <View style={[styles.bubbleInner, isMe ? styles.bubbleInnerMe : styles.bubbleInnerThem]}>
-                                    {!isMe && (
-                                        <Text style={styles.senderName}>{formatUsername(item.username)}</Text>
-                                    )}
+                                    <View style={styles.messageHeader}>
+                                        <Text style={[styles.senderName, isMe && styles.senderNameMe]}>{senderLabel}</Text>
+                                        <Text style={[styles.messageMeta, isMe && styles.messageMetaMe]}>
+                                            {formatReadableTimestamp(item.sent_at)}
+                                        </Text>
+                                    </View>
                                     <Text style={[styles.bubbleText, isMe && styles.bubbleTextMe]}>{item.body}</Text>
                                 </View>
                             </View>
@@ -165,23 +173,33 @@ const styles = StyleSheet.create({
 
     list: { padding: Spacing.md, paddingBottom: Spacing.sm, gap: Spacing.sm },
 
-    bubble: { flexDirection: 'row', gap: Spacing.sm, alignItems: 'flex-end' },
-    bubbleMe: { flexDirection: 'row-reverse' },
-    bubbleThem: {},
+    bubble: { flexDirection: 'row', gap: Spacing.sm, alignItems: 'flex-start' },
     bubbleInner: { maxWidth: '75%', borderRadius: Radii.md, padding: Spacing.sm },
     bubbleInnerMe: { backgroundColor: Colors.primary, borderBottomRightRadius: 4 },
     bubbleInnerThem: {
         backgroundColor: Colors.light.backgroundSecondary,
         borderBottomLeftRadius: 4,
     },
+    messageHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        flexWrap: 'wrap',
+        gap: 6,
+        marginBottom: 2,
+    },
     senderName: {
         fontSize: Typography.sizes.xs,
         fontWeight: '500',
         color: Colors.light.textTertiary,
-        marginBottom: 2,
     },
+    senderNameMe: { color: 'rgba(255,255,255,0.9)' },
     bubbleText: { fontSize: Typography.sizes.base, color: Colors.light.textPrimary, lineHeight: 18 },
     bubbleTextMe: { color: Colors.textOn.primary },
+    messageMeta: {
+        fontSize: Typography.sizes.xs,
+        color: Colors.light.textTertiary,
+    },
+    messageMetaMe: { color: 'rgba(255,255,255,0.85)' },
 
     composer: {
         flexDirection: 'row',

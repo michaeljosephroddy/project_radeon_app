@@ -9,23 +9,12 @@ import * as api from '../../api/client';
 import { useAuth } from '../../hooks/useAuth';
 import { Colors, Typography, Spacing, Radii } from '../../utils/theme';
 import { formatUsername } from '../../utils/identity';
-
-function timeAgo(dateStr: string): string {
-    const diff = Date.now() - new Date(dateStr).getTime();
-    const mins = Math.floor(diff / 60000);
-    if (mins < 1) return 'just now';
-    if (mins < 60) return `${mins}m`;
-    const hrs = Math.floor(mins / 60);
-    if (hrs < 24) return `${hrs}h`;
-    return `${Math.floor(hrs / 24)}d`;
-}
+import { formatReadableTimestamp } from '../../utils/date';
 
 interface PostCardProps {
     post: api.Post;
     displayedCommentCount: number;
     currentUserId: string;
-    friendshipStatus: 'none' | 'incoming' | 'outgoing' | 'friends';
-    friendshipPending: boolean;
     comments: api.Comment[];
     commentsExpanded: boolean;
     commentsLoading: boolean;
@@ -35,15 +24,12 @@ interface PostCardProps {
     onToggleComments: () => void;
     onSubmitComment: () => void;
     onPressUser: () => void;
-    onPressFriendAction: () => void;
 }
 
 function PostCard({
     post,
     displayedCommentCount,
     currentUserId,
-    friendshipStatus,
-    friendshipPending,
     comments,
     commentsExpanded,
     commentsLoading,
@@ -53,7 +39,6 @@ function PostCard({
     onToggleComments,
     onSubmitComment,
     onPressUser,
-    onPressFriendAction,
 }: PostCardProps) {
     const [liked, setLiked] = useState(false);
     const [likeCount, setLikeCount] = useState(post.like_count);
@@ -71,15 +56,6 @@ function PostCard({
         } catch { }
     };
 
-    const friendButtonLabel = friendshipStatus === 'friends'
-        ? 'Friends'
-        : friendshipStatus === 'incoming'
-            ? 'Accept'
-            : friendshipStatus === 'outgoing'
-                ? 'Requested'
-                : '+ Friend';
-    const friendButtonDisabled = friendshipStatus === 'friends' || friendshipPending;
-
     return (
         <View style={styles.postCard}>
             <View style={styles.postHead}>
@@ -87,27 +63,15 @@ function PostCard({
                     <Avatar username={post.username} avatarUrl={post.avatar_url} size={36} />
                 </TouchableOpacity>
                 <View style={styles.postHeadBody}>
-                    <Text style={styles.postName}>{formatUsername(post.username)}</Text>
-                    <Text style={styles.postMeta}>{timeAgo(post.created_at)}</Text>
+                    <View style={styles.postTitleRow}>
+                        <Text style={styles.postName}>{formatUsername(post.username)}</Text>
+                        <Text style={styles.postMeta}>{formatReadableTimestamp(post.created_at)}</Text>
+                    </View>
                 </View>
-                {!isOwn && (
-                    <TouchableOpacity
-                        style={[
-                            styles.followPill,
-                            friendshipStatus === 'outgoing' && styles.requestedPill,
-                            friendshipStatus === 'friends' && styles.followingPill,
-                            friendshipPending && styles.followPillDisabled,
-                        ]}
-                        onPress={onPressFriendAction}
-                        disabled={friendButtonDisabled}
-                    >
-                        <Text style={[styles.followPillText, friendshipStatus === 'friends' && styles.followingPillText]}>
-                            {friendButtonLabel}
-                        </Text>
-                    </TouchableOpacity>
-                )}
             </View>
-            <Text style={styles.postBody}>{post.body}</Text>
+            <View style={styles.postContent}>
+                <Text style={styles.postBody}>{post.body}</Text>
+            </View>
             <View style={styles.postFoot}>
                 <TouchableOpacity style={styles.postAction} onPress={handleReact}>
                     <Ionicons
@@ -143,10 +107,12 @@ function PostCard({
                                     <Avatar username={comment.username} avatarUrl={comment.avatar_url} size={28} fontSize={11} />
                                     <View style={styles.commentBodyWrap}>
                                         <View style={styles.commentBubble}>
-                                            <Text style={styles.commentAuthor}>{formatUsername(comment.username)}</Text>
+                                            <View style={styles.commentHeader}>
+                                                <Text style={styles.commentAuthor}>{formatUsername(comment.username)}</Text>
+                                                <Text style={styles.commentMeta}>{formatReadableTimestamp(comment.created_at)}</Text>
+                                            </View>
                                             <Text style={styles.commentBody}>{comment.body}</Text>
                                         </View>
-                                        <Text style={styles.commentMeta}>{timeAgo(comment.created_at)}</Text>
                                     </View>
                                 </View>
                             ))}
@@ -180,19 +146,11 @@ function PostCard({
 
 interface FeedScreenProps {
     isActive: boolean;
-    friendIds: Set<string>;
-    incomingFriendRequestIds: Set<string>;
-    outgoingFriendRequestIds: Set<string>;
-    onFriendshipChange: (userId: string, status: 'none' | 'incoming' | 'outgoing' | 'friends') => void;
     onOpenUserProfile: (profile: { userId: string; username: string; avatarUrl?: string }) => void;
 }
 
 export function FeedScreen({
     isActive,
-    friendIds = new Set<string>(),
-    incomingFriendRequestIds = new Set<string>(),
-    outgoingFriendRequestIds = new Set<string>(),
-    onFriendshipChange,
     onOpenUserProfile,
 }: FeedScreenProps) {
     const { user } = useAuth();
@@ -202,7 +160,6 @@ export function FeedScreen({
     const [composing, setComposing] = useState(false);
     const [draft, setDraft] = useState('');
     const [posting, setPosting] = useState(false);
-    const [pendingFriendActions, setPendingFriendActions] = useState<Set<string>>(new Set());
     const [expandedCommentIds, setExpandedCommentIds] = useState<Set<string>>(new Set());
     const [commentLoadingIds, setCommentLoadingIds] = useState<Set<string>>(new Set());
     const [commentSubmittingIds, setCommentSubmittingIds] = useState<Set<string>>(new Set());
@@ -252,42 +209,6 @@ export function FeedScreen({
             await load();
         } finally {
             setRefreshing(false);
-        }
-    };
-
-    const getFriendshipStatus = (userId: string): 'none' | 'incoming' | 'outgoing' | 'friends' => {
-        if (friendIds.has(userId)) return 'friends';
-        if (incomingFriendRequestIds.has(userId)) return 'incoming';
-        if (outgoingFriendRequestIds.has(userId)) return 'outgoing';
-        return 'none';
-    };
-
-    const handleFriendAction = async (post: api.Post) => {
-        const current = getFriendshipStatus(post.user_id);
-        if (current === 'friends') return;
-
-        setPendingFriendActions(prev => new Set(prev).add(post.user_id));
-
-        try {
-            if (current === 'incoming') {
-                onFriendshipChange(post.user_id, 'friends');
-                await api.updateFriendRequest(post.user_id, 'accept');
-            } else if (current === 'outgoing') {
-                onFriendshipChange(post.user_id, 'none');
-                await api.cancelFriendRequest(post.user_id);
-            } else {
-                onFriendshipChange(post.user_id, 'outgoing');
-                await api.sendFriendRequest(post.user_id);
-            }
-        } catch (e: unknown) {
-            onFriendshipChange(post.user_id, current);
-            Alert.alert('Error', e instanceof Error ? e.message : 'Something went wrong.');
-        } finally {
-            setPendingFriendActions(prev => {
-                const next = new Set(prev);
-                next.delete(post.user_id);
-                return next;
-            });
         }
     };
 
@@ -434,8 +355,6 @@ export function FeedScreen({
                             post={item}
                             displayedCommentCount={displayedCommentCount}
                             currentUserId={user?.id ?? ''}
-                            friendshipStatus={getFriendshipStatus(item.user_id)}
-                            friendshipPending={pendingFriendActions.has(item.user_id)}
                             comments={loadedComments ?? []}
                             commentsExpanded={expandedCommentIds.has(item.id)}
                             commentsLoading={commentLoadingIds.has(item.id)}
@@ -449,7 +368,6 @@ export function FeedScreen({
                                 username: item.username,
                                 avatarUrl: item.avatar_url,
                             })}
-                            onPressFriendAction={() => handleFriendAction(item)}
                         />
                     );
                 }}
@@ -484,11 +402,13 @@ const styles = StyleSheet.create({
         marginBottom: Spacing.sm,
         overflow: 'hidden',
     },
-    postHeadBody: { flex: 1 },
+    postHeadBody: { flex: 1, minWidth: 0 },
     postHead: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, padding: Spacing.md, paddingBottom: Spacing.sm },
+    postTitleRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, flexWrap: 'wrap' },
     postName: { fontSize: Typography.sizes.md, fontWeight: '500', color: Colors.light.textPrimary },
-    postMeta: { fontSize: Typography.sizes.xs, color: Colors.light.textTertiary, marginTop: 1 },
-    postBody: { fontSize: Typography.sizes.base, color: Colors.light.textSecondary, lineHeight: 19, paddingHorizontal: Spacing.md, paddingBottom: Spacing.sm },
+    postContent: { paddingHorizontal: Spacing.md, paddingBottom: Spacing.sm },
+    postMeta: { fontSize: Typography.sizes.xs, color: Colors.light.textTertiary },
+    postBody: { fontSize: Typography.sizes.base, color: Colors.light.textSecondary, lineHeight: 19 },
     postFoot: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: Spacing.md, paddingVertical: 10, borderTopWidth: 0.5, borderTopColor: Colors.light.border },
     postAction: { flexDirection: 'row', alignItems: 'center', gap: 4 },
     postActionText: { fontSize: Typography.sizes.sm, color: Colors.light.textTertiary },
@@ -514,9 +434,18 @@ const styles = StyleSheet.create({
         borderWidth: 0.5,
         borderColor: Colors.light.border,
     },
-    commentAuthor: { fontSize: Typography.sizes.sm, fontWeight: '600', color: Colors.light.textPrimary, marginBottom: 2 },
+    commentHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        marginBottom: 2,
+    },
+    commentAuthor: { fontSize: Typography.sizes.sm, fontWeight: '600', color: Colors.light.textPrimary },
     commentBody: { fontSize: Typography.sizes.sm, color: Colors.light.textSecondary, lineHeight: 18 },
-    commentMeta: { fontSize: Typography.sizes.xs, color: Colors.light.textTertiary, marginTop: 4, paddingHorizontal: 2 },
+    commentMeta: {
+        fontSize: Typography.sizes.xs,
+        color: Colors.light.textTertiary,
+    },
     commentComposer: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
     commentInput: {
         flex: 1,
@@ -532,12 +461,6 @@ const styles = StyleSheet.create({
     commentSendButton: { backgroundColor: Colors.success, borderRadius: Radii.full, paddingHorizontal: Spacing.md, paddingVertical: 10 },
     commentSendButtonDisabled: { opacity: 0.6 },
     commentSendButtonText: { fontSize: Typography.sizes.sm, fontWeight: '600', color: Colors.textOn.primary },
-    followPill: { backgroundColor: Colors.primary, borderRadius: Radii.full, paddingHorizontal: 12, paddingVertical: 4 },
-    followPillDisabled: { opacity: 0.6 },
-    requestedPill: { backgroundColor: Colors.success },
-    followingPill: { backgroundColor: 'transparent', borderWidth: 1, borderColor: Colors.light.border },
-    followPillText: { fontSize: Typography.sizes.xs, color: '#FFFFFF', fontWeight: '500' },
-    followingPillText: { color: Colors.light.textTertiary },
     empty: { alignItems: 'center', paddingTop: 60 },
     emptyText: { fontSize: Typography.sizes.lg, fontWeight: '500', color: Colors.light.textPrimary },
     emptySubtext: { fontSize: Typography.sizes.base, color: Colors.light.textTertiary, marginTop: Spacing.sm, textAlign: 'center' },
