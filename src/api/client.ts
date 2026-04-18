@@ -68,6 +68,7 @@ export interface Post {
     avatar_url?: string;
     body: string;
     created_at: string;
+    comment_count: number;
 }
 
 export interface Comment {
@@ -87,7 +88,7 @@ export interface Reaction {
     type: string;
 }
 
-export interface Event {
+export interface Meetup {
     id: string;
     organizer_id: string;
     title: string;
@@ -99,7 +100,7 @@ export interface Event {
     is_attending: boolean;
 }
 
-export interface Conversation {
+export interface Chat {
     id: string;
     is_group: boolean;
     name?: string;
@@ -208,43 +209,43 @@ export async function getComments(postId: string): Promise<Comment[]> {
     return request(`/posts/${postId}/comments`);
 }
 
-// ── Events ─────────────────────────────────────────────────────────────────
+// ── Meetups ────────────────────────────────────────────────────────────────
 
-export async function getEvents(city?: string): Promise<Event[]> {
+export async function getMeetups(city?: string): Promise<Meetup[]> {
     const params = city ? `?city=${encodeURIComponent(city)}` : '';
-    return request(`/events${params}`);
+    return request(`/meetups${params}`);
 }
 
-export async function createEvent(data: {
+export async function createMeetup(data: {
     title: string;
     description?: string;
     city: string;
     starts_at: string;
     capacity?: number;
 }): Promise<{ id: string }> {
-    return request('/events', { method: 'POST', body: JSON.stringify(data) });
+    return request('/meetups', { method: 'POST', body: JSON.stringify(data) });
 }
 
-export async function rsvpEvent(id: string): Promise<{ attending: boolean }> {
-    return request(`/events/${id}/rsvp`, { method: 'POST' });
+export async function rsvpMeetup(id: string): Promise<{ attending: boolean }> {
+    return request(`/meetups/${id}/rsvp`, { method: 'POST' });
 }
 
 // ── Messages ───────────────────────────────────────────────────────────────
 
-export async function getConversations(): Promise<Conversation[]> {
-    return request('/conversations');
+export async function getChats(): Promise<Chat[]> {
+    return request('/chats');
 }
 
-export async function createConversation(memberIds: string[], name?: string): Promise<{ id: string }> {
-    return request('/conversations', { method: 'POST', body: JSON.stringify({ member_ids: memberIds, name }) });
+export async function createChat(memberIds: string[], name?: string): Promise<{ id: string }> {
+    return request('/chats', { method: 'POST', body: JSON.stringify({ member_ids: memberIds, name }) });
 }
 
-export async function getMessages(conversationId: string): Promise<Message[]> {
-    return request(`/conversations/${conversationId}/messages`);
+export async function getMessages(chatId: string): Promise<Message[]> {
+    return request(`/chats/${chatId}/messages`);
 }
 
-export async function sendMessage(conversationId: string, body: string): Promise<{ id: string }> {
-    return request(`/conversations/${conversationId}/messages`, { method: 'POST', body: JSON.stringify({ body }) });
+export async function sendMessage(chatId: string, body: string): Promise<{ id: string }> {
+    return request(`/chats/${chatId}/messages`, { method: 'POST', body: JSON.stringify({ body }) });
 }
 
 // ── Follows ────────────────────────────────────────────────────────────────

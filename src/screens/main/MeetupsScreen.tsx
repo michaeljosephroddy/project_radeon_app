@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View, Text, FlatList, TouchableOpacity,
   StyleSheet, RefreshControl, ActivityIndicator, Alert,
@@ -6,7 +6,7 @@ import {
 import * as api from '../../api/client';
 import { Colors, Typography, Spacing, Radii } from '../../utils/theme';
 
-function formatEventDate(dateStr: string) {
+function formatMeetupDate(dateStr: string) {
   const d = new Date(dateStr);
   return {
     day: d.getDate().toString(),
@@ -15,13 +15,13 @@ function formatEventDate(dateStr: string) {
   };
 }
 
-interface EventCardProps {
-  event: api.Event;
+interface MeetupCardProps {
+  meetup: api.Meetup;
   onToggleRSVP: (id: string) => void;
 }
 
-function EventCard({ event, onToggleRSVP }: EventCardProps) {
-  const { day, month, time } = formatEventDate(event.starts_at);
+function MeetupCard({ meetup, onToggleRSVP }: MeetupCardProps) {
+  const { day, month, time } = formatMeetupDate(meetup.starts_at);
 
   return (
     <View style={styles.card}>
@@ -30,51 +30,86 @@ function EventCard({ event, onToggleRSVP }: EventCardProps) {
         <Text style={styles.dateMon}>{month}</Text>
       </View>
       <View style={styles.cardBody}>
-        <Text style={styles.title} numberOfLines={1}>{event.title}</Text>
+        <Text style={styles.title} numberOfLines={1}>{meetup.title}</Text>
         <Text style={styles.sub}>
-          {event.city} · {time}
-          {event.capacity ? ` · ${event.attendee_count}/${event.capacity}` : ` · ${event.attendee_count} going`}
+          {meetup.city} · {time}
+          {meetup.capacity ? ` · ${meetup.attendee_count}/${meetup.capacity}` : ` · ${meetup.attendee_count} going`}
         </Text>
       </View>
       <TouchableOpacity
-        style={[styles.rsvpPill, event.is_attending && styles.rsvpPillActive]}
-        onPress={() => onToggleRSVP(event.id)}
+        style={[styles.rsvpPill, meetup.is_attending && styles.rsvpPillActive]}
+        onPress={() => onToggleRSVP(meetup.id)}
       >
-        <Text style={[styles.rsvpText, event.is_attending && styles.rsvpTextActive]}>
-          {event.is_attending ? 'Going ✓' : 'Going?'}
+        <Text style={[styles.rsvpText, meetup.is_attending && styles.rsvpTextActive]}>
+          {meetup.is_attending ? 'Going ✓' : 'Going?'}
         </Text>
       </TouchableOpacity>
     </View>
   );
 }
 
-export function EventsScreen() {
-  const [events, setEvents] = useState<api.Event[]>([]);
-  const [loading, setLoading] = useState(true);
+interface MeetupsScreenProps {
+  isActive: boolean;
+}
+
+export function MeetupsScreen({ isActive }: MeetupsScreenProps) {
+  const [meetups, setMeetups] = useState<api.Meetup[]>([]);
+  const [loading, setLoading] = useState(isActive);
   const [refreshing, setRefreshing] = useState(false);
+  const hasLoadedRef = useRef(false);
+  const wasActiveRef = useRef(false);
+  const loadInFlightRef = useRef<Promise<void> | null>(null);
 
   const load = useCallback(async () => {
+    if (loadInFlightRef.current) return loadInFlightRef.current;
+
+    const request = (async () => {
+      try {
+        const data = await api.getMeetups();
+        setMeetups(data ?? []);
+      } catch {}
+    })();
+
+    loadInFlightRef.current = request;
+
     try {
-      const data = await api.getEvents();
-      setEvents(data ?? []);
-    } catch {}
+      await request;
+    } finally {
+      loadInFlightRef.current = null;
+    }
   }, []);
 
-  useEffect(() => { load().finally(() => setLoading(false)); }, [load]);
+  useEffect(() => {
+    const becameActive = isActive && !wasActiveRef.current;
+    wasActiveRef.current = isActive;
+
+    if (!becameActive) return;
+
+    const isFirstLoad = !hasLoadedRef.current;
+    if (isFirstLoad) setLoading(true);
+
+    load().finally(() => {
+      hasLoadedRef.current = true;
+      if (isFirstLoad) setLoading(false);
+    });
+  }, [isActive, load]);
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await load();
-    setRefreshing(false);
+    try {
+      await load();
+    } finally {
+      setRefreshing(false);
+    }
   };
 
   const handleRSVP = async (id: string) => {
     try {
-      const res = await api.rsvpEvent(id);
-      setEvents(prev =>
-        prev.map(e => e.id === id
-          ? { ...e, is_attending: res.attending, attendee_count: e.attendee_count + (res.attending ? 1 : -1) }
-          : e
+      const res = await api.rsvpMeetup(id);
+      setMeetups(prev =>
+        prev.map(meetup => meetup.id === id
+          ? { ...meetup, is_attending: res.attending, attendee_count: meetup.attendee_count + (res.attending ? 1 : -1) }
+          : meetup
         )
       );
     } catch (e: unknown) {
@@ -88,18 +123,18 @@ export function EventsScreen() {
 
   return (
     <FlatList
-      data={events}
-      keyExtractor={e => e.id}
+      data={meetups}
+      keyExtractor={meetup => meetup.id}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
       contentContainerStyle={styles.list}
       ListEmptyComponent={
         <View style={styles.empty}>
-          <Text style={styles.emptyText}>No upcoming events.</Text>
+          <Text style={styles.emptyText}>No upcoming meetups.</Text>
           <Text style={styles.emptySubtext}>Be the first to create one in your city.</Text>
         </View>
       }
       renderItem={({ item }) => (
-        <EventCard event={item} onToggleRSVP={handleRSVP} />
+        <MeetupCard meetup={item} onToggleRSVP={handleRSVP} />
       )}
     />
   );

@@ -22,14 +22,39 @@ function timeAgo(dateStr: string): string {
 
 interface PostCardProps {
     post: api.Post;
+    displayedCommentCount: number;
     currentUserId: string;
     isFollowing: boolean;
     followPending: boolean;
+    comments: api.Comment[];
+    commentsExpanded: boolean;
+    commentsLoading: boolean;
+    commentSubmitting: boolean;
+    commentDraft: string;
+    onCommentDraftChange: (value: string) => void;
+    onToggleComments: () => void;
+    onSubmitComment: () => void;
     onPressUser: () => void;
     onPressFollow: () => void;
 }
 
-function PostCard({ post, currentUserId, isFollowing, followPending, onPressUser, onPressFollow }: PostCardProps) {
+function PostCard({
+    post,
+    displayedCommentCount,
+    currentUserId,
+    isFollowing,
+    followPending,
+    comments,
+    commentsExpanded,
+    commentsLoading,
+    commentSubmitting,
+    commentDraft,
+    onCommentDraftChange,
+    onToggleComments,
+    onSubmitComment,
+    onPressUser,
+    onPressFollow,
+}: PostCardProps) {
     const [liked, setLiked] = useState(false);
     const [likeCount, setLikeCount] = useState(0);
     const isOwn = post.user_id === currentUserId;
@@ -80,11 +105,61 @@ function PostCard({ post, currentUserId, isFollowing, followPending, onPressUser
                         {likeCount > 0 ? likeCount : 'Like'}
                     </Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.postAction}>
-                    <Ionicons name="chatbubble-outline" size={15} color={Colors.light.textTertiary} />
-                    <Text style={styles.postActionText}>Comment</Text>
+                <TouchableOpacity style={styles.postAction} onPress={onToggleComments}>
+                    <Ionicons
+                        name={commentsExpanded ? 'chatbubble' : 'chatbubble-outline'}
+                        size={15}
+                        color={Colors.light.textTertiary}
+                    />
+                    <Text style={styles.postActionText}>
+                        {displayedCommentCount > 0 ? `${displayedCommentCount} comments` : 'Comment'}
+                    </Text>
                 </TouchableOpacity>
             </View>
+            {commentsExpanded && (
+                <View style={styles.commentsSection}>
+                    {commentsLoading ? (
+                        <View style={styles.commentsLoading}>
+                            <ActivityIndicator color={Colors.primary} size="small" />
+                        </View>
+                    ) : comments.length > 0 ? (
+                        <View style={styles.commentsList}>
+                            {comments.map(comment => (
+                                <View key={comment.id} style={styles.commentRow}>
+                                    <Avatar username={comment.username} avatarUrl={comment.avatar_url} size={28} fontSize={11} />
+                                    <View style={styles.commentBodyWrap}>
+                                        <View style={styles.commentBubble}>
+                                            <Text style={styles.commentAuthor}>{formatUsername(comment.username)}</Text>
+                                            <Text style={styles.commentBody}>{comment.body}</Text>
+                                        </View>
+                                        <Text style={styles.commentMeta}>{timeAgo(comment.created_at)}</Text>
+                                    </View>
+                                </View>
+                            ))}
+                        </View>
+                    ) : (
+                        <Text style={styles.commentsEmpty}>No comments yet.</Text>
+                    )}
+
+                    <View style={styles.commentComposer}>
+                        <TextInput
+                            style={styles.commentInput}
+                            placeholder="Write a comment"
+                            placeholderTextColor={Colors.light.textTertiary}
+                            value={commentDraft}
+                            onChangeText={onCommentDraftChange}
+                            editable={!commentSubmitting}
+                        />
+                        <TouchableOpacity
+                            style={[styles.commentSendButton, (commentSubmitting || !commentDraft.trim()) && styles.commentSendButtonDisabled]}
+                            onPress={onSubmitComment}
+                            disabled={commentSubmitting || !commentDraft.trim()}
+                        >
+                            <Text style={styles.commentSendButtonText}>{commentSubmitting ? '...' : 'Send'}</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            )}
         </View>
     );
 }
@@ -105,9 +180,15 @@ export function FeedScreen({ isActive, followingIds, onFollowChange, onOpenUserP
     const [draft, setDraft] = useState('');
     const [posting, setPosting] = useState(false);
     const [pendingFollows, setPendingFollows] = useState<Set<string>>(new Set());
+    const [expandedCommentIds, setExpandedCommentIds] = useState<Set<string>>(new Set());
+    const [commentLoadingIds, setCommentLoadingIds] = useState<Set<string>>(new Set());
+    const [commentSubmittingIds, setCommentSubmittingIds] = useState<Set<string>>(new Set());
+    const [commentsByPostId, setCommentsByPostId] = useState<Record<string, api.Comment[]>>({});
+    const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>({});
     const hasLoadedRef = useRef(false);
     const wasActiveRef = useRef(false);
     const loadInFlightRef = useRef<Promise<void> | null>(null);
+    const loadedCommentPostIdsRef = useRef<Set<string>>(new Set());
 
     const load = useCallback(async () => {
         if (loadInFlightRef.current) return loadInFlightRef.current;
@@ -187,6 +268,98 @@ export function FeedScreen({ isActive, followingIds, onFollowChange, onOpenUserP
         }
     };
 
+    const loadComments = useCallback(async (postId: string) => {
+        setCommentLoadingIds(prev => new Set(prev).add(postId));
+        try {
+            const comments = await api.getComments(postId);
+            setCommentsByPostId(prev => ({ ...prev, [postId]: comments ?? [] }));
+            setPosts(prev =>
+                prev.map(post =>
+                    post.id === postId
+                        ? { ...post, comment_count: comments?.length ?? 0 }
+                        : post
+                )
+            );
+            loadedCommentPostIdsRef.current.add(postId);
+        } catch (e: unknown) {
+            Alert.alert('Error', e instanceof Error ? e.message : 'Something went wrong.');
+        } finally {
+            setCommentLoadingIds(prev => {
+                const next = new Set(prev);
+                next.delete(postId);
+                return next;
+            });
+        }
+    }, []);
+
+    const handleToggleComments = useCallback((postId: string) => {
+        let shouldLoad = false;
+
+        setExpandedCommentIds(prev => {
+            const next = new Set(prev);
+            if (next.has(postId)) {
+                next.delete(postId);
+            } else {
+                next.add(postId);
+                shouldLoad = !loadedCommentPostIdsRef.current.has(postId);
+            }
+            return next;
+        });
+
+        if (shouldLoad) {
+            loadComments(postId).catch(() => {});
+        }
+    }, [loadComments]);
+
+    const handleCommentDraftChange = useCallback((postId: string, value: string) => {
+        setCommentDrafts(prev => ({ ...prev, [postId]: value }));
+    }, []);
+
+    const handleSubmitComment = useCallback(async (post: api.Post) => {
+        const draftValue = commentDrafts[post.id]?.trim() ?? '';
+        if (!draftValue || !user) return;
+
+        setCommentSubmittingIds(prev => new Set(prev).add(post.id));
+        try {
+            const res = await api.addComment(post.id, draftValue);
+            const newComment: api.Comment = {
+                id: res.id,
+                user_id: user.id,
+                username: user.username,
+                avatar_url: user.avatar_url,
+                body: draftValue,
+                created_at: new Date().toISOString(),
+            };
+
+            let nextCommentCount = 1;
+            setCommentsByPostId(prev => {
+                const nextComments = [...(prev[post.id] ?? []), newComment];
+                nextCommentCount = nextComments.length;
+                return {
+                    ...prev,
+                    [post.id]: nextComments,
+                };
+            });
+            loadedCommentPostIdsRef.current.add(post.id);
+            setCommentDrafts(prev => ({ ...prev, [post.id]: '' }));
+            setPosts(prev =>
+                prev.map(item =>
+                    item.id === post.id
+                        ? { ...item, comment_count: nextCommentCount }
+                        : item
+                )
+            );
+        } catch (e: unknown) {
+            Alert.alert('Error', e instanceof Error ? e.message : 'Something went wrong.');
+        } finally {
+            setCommentSubmittingIds(prev => {
+                const next = new Set(prev);
+                next.delete(post.id);
+                return next;
+            });
+        }
+    }, [commentDrafts, user]);
+
     if (loading) {
         return <View style={styles.center}><ActivityIndicator color={Colors.primary} /></View>;
     }
@@ -233,12 +406,27 @@ export function FeedScreen({ isActive, followingIds, onFollowChange, onOpenUserP
                         <Text style={styles.emptySubtext}>Follow people to see their posts here.</Text>
                     </View>
                 }
-                renderItem={({ item }) => (
+                renderItem={({ item }) => {
+                    const loadedComments = commentsByPostId[item.id];
+                    const displayedCommentCount = loadedComments
+                        ? Math.max(item.comment_count, loadedComments.length)
+                        : item.comment_count;
+
+                    return (
                     <PostCard
                         post={item}
+                        displayedCommentCount={displayedCommentCount}
                         currentUserId={user?.id ?? ''}
                         isFollowing={followingIds.has(item.user_id)}
                         followPending={pendingFollows.has(item.user_id)}
+                        comments={loadedComments ?? []}
+                        commentsExpanded={expandedCommentIds.has(item.id)}
+                        commentsLoading={commentLoadingIds.has(item.id)}
+                        commentSubmitting={commentSubmittingIds.has(item.id)}
+                        commentDraft={commentDrafts[item.id] ?? ''}
+                        onCommentDraftChange={value => handleCommentDraftChange(item.id, value)}
+                        onToggleComments={() => handleToggleComments(item.id)}
+                        onSubmitComment={() => handleSubmitComment(item)}
                         onPressUser={() => onOpenUserProfile({
                             userId: item.user_id,
                             username: item.username,
@@ -246,7 +434,8 @@ export function FeedScreen({ isActive, followingIds, onFollowChange, onOpenUserP
                         })}
                         onPressFollow={() => handleFollow(item)}
                     />
-                )}
+                    );
+                }}
                 contentContainerStyle={styles.list}
             />
         </View>
@@ -319,6 +508,84 @@ const styles = StyleSheet.create({
     postAction: { flexDirection: 'row', alignItems: 'center', gap: 4 },
     postActionText: { fontSize: Typography.sizes.sm, color: Colors.light.textTertiary },
     liked: { color: Colors.danger },
+    commentsSection: {
+        borderTopWidth: 0.5,
+        borderTopColor: Colors.light.border,
+        paddingHorizontal: Spacing.md,
+        paddingVertical: Spacing.md,
+        gap: Spacing.sm,
+        backgroundColor: Colors.light.backgroundSecondary,
+    },
+    commentsLoading: {
+        paddingVertical: Spacing.sm,
+        alignItems: 'center',
+    },
+    commentsList: { gap: Spacing.sm },
+    commentsEmpty: {
+        fontSize: Typography.sizes.sm,
+        color: Colors.light.textTertiary,
+    },
+    commentRow: {
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        gap: Spacing.sm,
+    },
+    commentBodyWrap: { flex: 1, minWidth: 0 },
+    commentBubble: {
+        backgroundColor: Colors.light.background,
+        borderRadius: Radii.md,
+        paddingHorizontal: Spacing.sm,
+        paddingVertical: 8,
+        borderWidth: 0.5,
+        borderColor: Colors.light.border,
+    },
+    commentAuthor: {
+        fontSize: Typography.sizes.sm,
+        fontWeight: '600',
+        color: Colors.light.textPrimary,
+        marginBottom: 2,
+    },
+    commentBody: {
+        fontSize: Typography.sizes.sm,
+        color: Colors.light.textSecondary,
+        lineHeight: 18,
+    },
+    commentMeta: {
+        fontSize: Typography.sizes.xs,
+        color: Colors.light.textTertiary,
+        marginTop: 4,
+        paddingHorizontal: 2,
+    },
+    commentComposer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: Spacing.sm,
+    },
+    commentInput: {
+        flex: 1,
+        backgroundColor: Colors.light.background,
+        borderRadius: Radii.full,
+        borderWidth: 0.5,
+        borderColor: Colors.light.border,
+        paddingHorizontal: 14,
+        paddingVertical: 10,
+        fontSize: Typography.sizes.sm,
+        color: Colors.light.textPrimary,
+    },
+    commentSendButton: {
+        backgroundColor: Colors.primary,
+        borderRadius: Radii.full,
+        paddingHorizontal: Spacing.md,
+        paddingVertical: 10,
+    },
+    commentSendButtonDisabled: {
+        opacity: 0.6,
+    },
+    commentSendButtonText: {
+        fontSize: Typography.sizes.sm,
+        fontWeight: '600',
+        color: Colors.textOn.primary,
+    },
 
     followPill: {
         backgroundColor: Colors.primary,

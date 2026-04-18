@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
     View,
     Text,
@@ -16,6 +16,7 @@ import { Colors, Typography, Spacing, Radii } from '../../utils/theme';
 import { formatUsername } from '../../utils/identity';
 
 interface DiscoverScreenProps {
+    isActive: boolean;
     followingIds: Set<string>;
     onFollowChange: (userId: string, following: boolean) => void;
     onOpenUserProfile: (profile: { userId: string; username: string; avatarUrl?: string }) => void;
@@ -23,55 +24,75 @@ interface DiscoverScreenProps {
 }
 
 export function DiscoverScreen({
+    isActive,
     followingIds,
     onFollowChange,
     onOpenUserProfile,
     refreshFollowingIds,
 }: DiscoverScreenProps) {
     const [users, setUsers] = useState<api.User[]>([]);
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading] = useState(isActive);
     const [refreshing, setRefreshing] = useState(false);
     const [query, setQuery] = useState('');
     const [debouncedQuery, setDebouncedQuery] = useState('');
     const [pendingFollows, setPendingFollows] = useState<Set<string>>(new Set());
+    const hasLoadedRef = useRef(false);
+    const wasActiveRef = useRef(false);
+    const previousQueryRef = useRef('');
+    const loadRequestIdRef = useRef(0);
 
     useEffect(() => {
         const timer = setTimeout(() => setDebouncedQuery(query.trim()), 250);
         return () => clearTimeout(timer);
     }, [query]);
 
+    const load = useCallback(async (searchQuery: string) => {
+        const requestId = ++loadRequestIdRef.current;
+
+        try {
+            const discoverData = await api.discoverUsers({ query: searchQuery });
+            if (requestId !== loadRequestIdRef.current) return;
+            setUsers(discoverData ?? []);
+        } catch {
+            if (requestId !== loadRequestIdRef.current) return;
+            setUsers([]);
+        }
+    }, []);
+
     useEffect(() => {
-        let cancelled = false;
+        const becameActive = isActive && !wasActiveRef.current;
+        wasActiveRef.current = isActive;
 
-        const load = async () => {
-            try {
-                const discoverData = await api.discoverUsers({ query: debouncedQuery });
+        if (!becameActive) return;
 
-                if (cancelled) return;
+        const isFirstLoad = !hasLoadedRef.current;
+        if (isFirstLoad) setLoading(true);
 
-                setUsers(discoverData ?? []);
-            } catch {
-                if (!cancelled) setUsers([]);
-            } finally {
-                if (!cancelled) {
-                    setLoading(false);
-                    setRefreshing(false);
-                }
-            }
-        };
+        load(debouncedQuery).finally(() => {
+            hasLoadedRef.current = true;
+            if (isFirstLoad) setLoading(false);
+        });
+    }, [isActive, debouncedQuery, load]);
 
-        load();
+    useEffect(() => {
+        const queryChanged = debouncedQuery !== previousQueryRef.current;
+        previousQueryRef.current = debouncedQuery;
 
-        return () => {
-            cancelled = true;
-        };
-    }, [debouncedQuery]);
+        if (!queryChanged || !isActive) return;
+
+        const isFirstLoad = !hasLoadedRef.current;
+        if (isFirstLoad) setLoading(true);
+
+        load(debouncedQuery).finally(() => {
+            hasLoadedRef.current = true;
+            if (isFirstLoad) setLoading(false);
+        });
+    }, [debouncedQuery, isActive, load]);
 
     const onRefresh = async () => {
         setRefreshing(true);
         try {
-            const discoverData = await api.discoverUsers({ query: debouncedQuery });
-            setUsers(discoverData ?? []);
+            await load(debouncedQuery);
             await refreshFollowingIds();
         } catch {
             setUsers([]);

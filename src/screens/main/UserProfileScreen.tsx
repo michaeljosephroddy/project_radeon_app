@@ -27,12 +27,12 @@ interface UserProfileScreenProps {
     onBack: () => void;
     onFollowChange: (userId: string, following: boolean) => void;
     refreshFollowingIds: () => Promise<void>;
-    onOpenConversation: (conv: api.Conversation) => void;
+    onOpenChat: (chat: api.Chat) => void;
 }
 
 export function UserProfileScreen({
     userId, username, avatarUrl,
-    followingIds, onBack, onFollowChange, refreshFollowingIds, onOpenConversation,
+    followingIds, onBack, onFollowChange, refreshFollowingIds, onOpenChat,
 }: UserProfileScreenProps) {
     const [profile, setProfile] = useState<api.User | null>(null);
     const [posts, setPosts] = useState<api.Post[]>([]);
@@ -85,8 +85,8 @@ export function UserProfileScreen({
     const handleDM = async () => {
         setDmLoading(true);
         try {
-            const { id } = await api.createConversation([userId]);
-            onOpenConversation({
+            const { id } = await api.createChat([userId]);
+            onOpenChat({
                 id,
                 is_group: false,
                 username,

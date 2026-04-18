@@ -7,14 +7,14 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons';
 import { FeedScreen } from '../screens/main/FeedScreen';
 import { DiscoverScreen } from '../screens/main/DiscoverScreen';
-import { EventsScreen } from '../screens/main/EventsScreen';
-import { MessagesScreen } from '../screens/main/MessagesScreen';
+import { MeetupsScreen } from '../screens/main/MeetupsScreen';
+import { ChatsScreen } from '../screens/main/ChatsScreen';
 import { ProfileTabScreen } from '../screens/main/ProfileTabScreen';
 import { ChatScreen } from '../screens/main/ChatScreen';
 import { UserProfileScreen } from '../screens/main/UserProfileScreen';
 import { Colors, Typography, Spacing } from '../utils/theme';
 import * as api from '../api/client';
-import type { Conversation } from '../api/client';
+import type { Chat } from '../api/client';
 
 interface OpenUserProfile {
     userId: string;
@@ -22,26 +22,26 @@ interface OpenUserProfile {
     avatarUrl?: string;
 }
 
-type Tab = 'community' | 'discover' | 'events' | 'messages' | 'profile';
+type Tab = 'community' | 'discover' | 'meetups' | 'chats' | 'profile';
 
 const TABS: { key: Tab; label: string; icon: keyof typeof Ionicons.glyphMap; iconActive: keyof typeof Ionicons.glyphMap }[] = [
     { key: 'community', label: 'community', icon: 'newspaper-outline', iconActive: 'newspaper' },
     { key: 'discover',  label: 'discover',  icon: 'grid-outline', iconActive: 'grid' },
-    { key: 'events',    label: 'events',    icon: 'calendar-outline', iconActive: 'calendar' },
-    { key: 'messages',  label: 'messages',  icon: 'chatbubble-outline', iconActive: 'chatbubble' },
+    { key: 'meetups',   label: 'meetups',   icon: 'calendar-outline', iconActive: 'calendar' },
+    { key: 'chats',     label: 'chats',     icon: 'chatbubble-outline', iconActive: 'chatbubble' },
     { key: 'profile',   label: 'profile',   icon: 'person-circle-outline', iconActive: 'person-circle' },
 ];
 
 export function AppNavigator() {
     const [activeTab, setActiveTab] = useState<Tab>('community');
-    const [openConversation, setOpenConversation] = useState<Conversation | null>(null);
+    const [openChat, setOpenChat] = useState<Chat | null>(null);
     const [openUserProfile, setOpenUserProfile] = useState<OpenUserProfile | null>(null);
-    const [messagesRefreshKey, setMessagesRefreshKey] = useState(0);
+    const [chatsRefreshKey, setChatsRefreshKey] = useState(0);
     const [followingIds, setFollowingIds] = useState<Set<string>>(new Set());
     const followingRequestIdRef = useRef(0);
     const insets = useSafeAreaInsets();
 
-    const inChat = openConversation !== null;
+    const inChat = openChat !== null;
     const inUserProfile = openUserProfile !== null;
 
     const handleFollowChange = (userId: string, following: boolean) => {
@@ -61,12 +61,12 @@ export function AppNavigator() {
 
     const handleOpenUserProfile = (profile: OpenUserProfile) => {
         setOpenUserProfile(profile);
-        setOpenConversation(null);
+        setOpenChat(null);
     };
 
-    const handleCloseConversation = () => {
-        setOpenConversation(null);
-        setMessagesRefreshKey(current => current + 1);
+    const handleCloseChat = () => {
+        setOpenChat(null);
+        setChatsRefreshKey(current => current + 1);
     };
 
     const closeUserProfile = () => {
@@ -85,8 +85,8 @@ export function AppNavigator() {
                 </Text>
             ),
             discover: <Text style={styles.pageTitle}>Discover</Text>,
-            events:   <Text style={styles.pageTitle}>Events</Text>,
-            messages: <Text style={styles.pageTitle}>Messages</Text>,
+            meetups:  <Text style={styles.pageTitle}>Meetups</Text>,
+            chats: <Text style={styles.pageTitle}>Chats</Text>,
             profile:  null,
         };
 
@@ -111,20 +111,21 @@ export function AppNavigator() {
                 </View>
                 <View style={activeTab === 'discover' ? styles.tabVisible : styles.tabHidden}>
                     <DiscoverScreen
+                        isActive={activeTab === 'discover'}
                         followingIds={followingIds}
                         onFollowChange={handleFollowChange}
                         onOpenUserProfile={handleOpenUserProfile}
                         refreshFollowingIds={refreshFollowingIds}
                     />
                 </View>
-                <View style={activeTab === 'events' ? styles.tabVisible : styles.tabHidden}>
-                    <EventsScreen />
+                <View style={activeTab === 'meetups' ? styles.tabVisible : styles.tabHidden}>
+                    <MeetupsScreen isActive={activeTab === 'meetups'} />
                 </View>
-                <View style={activeTab === 'messages' ? styles.tabVisible : styles.tabHidden}>
-                    <MessagesScreen
-                        isActive={activeTab === 'messages'}
-                        refreshKey={messagesRefreshKey}
-                        onOpenConversation={setOpenConversation}
+                <View style={activeTab === 'chats' ? styles.tabVisible : styles.tabHidden}>
+                    <ChatsScreen
+                        isActive={activeTab === 'chats'}
+                        refreshKey={chatsRefreshKey}
+                        onOpenChat={setOpenChat}
                     />
                 </View>
                 <View style={activeTab === 'profile' ? styles.tabVisible : styles.tabHidden}>
@@ -145,15 +146,15 @@ export function AppNavigator() {
                             onBack={closeUserProfile}
                             onFollowChange={handleFollowChange}
                             refreshFollowingIds={refreshFollowingIds}
-                            onOpenConversation={setOpenConversation}
+                            onOpenChat={setOpenChat}
                         />
                     </View>
                 )}
                 {inChat && (
                     <View style={StyleSheet.absoluteFill}>
                         <ChatScreen
-                            conversation={openConversation!}
-                            onBack={handleCloseConversation}
+                            chat={openChat!}
+                            onBack={handleCloseChat}
                         />
                     </View>
                 )}
@@ -176,7 +177,7 @@ export function AppNavigator() {
                                 style={styles.tabItem}
                                 onPress={() => {
                                     setActiveTab(tab.key);
-                                    setOpenConversation(null);
+                                    setOpenChat(null);
                                 }}
                             >
                                 <Ionicons

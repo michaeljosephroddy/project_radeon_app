@@ -45,7 +45,7 @@ Screens → useAuth hook / API client → Go backend
 
 **`src/navigation/`** — Two navigators:
 - `AuthNavigator`: Shows Login or Register based on auth state.
-- `AppNavigator`: Tab-based main app (feed, people, events, messages). Tabs use a custom indicator rather than React Navigation's default tab bar. Conversation drill-down and the ProfileSheet modal are managed here, not via stack navigation.
+- `AppNavigator`: Tab-based main app (feed, people, meetups, chats). Tabs use a custom indicator rather than React Navigation's default tab bar. Chat drill-down and the ProfileSheet modal are managed here, not via stack navigation.
 
 **`src/screens/`** — Each screen is self-contained: owns its local state, fetches its own data, and calls API client functions directly. Navigation uses callbacks passed as props rather than React Navigation's `navigation.push`.
 
@@ -56,7 +56,7 @@ Screens → useAuth hook / API client → Go backend
 ### Key patterns
 
 - **No external state library** — React Context + hooks only.
-- **Callback-based navigation** — screens receive `onPress`/`onClose` props; AppNavigator owns conversation and sheet state.
+- **Callback-based navigation** — screens receive `onPress`/`onClose` props; AppNavigator owns chat and sheet state.
 - **Optimistic updates** — some actions (e.g., likes) update local state before the API responds.
 - **Path alias** — `@/*` maps to `src/*` (configured in `tsconfig.json` and Babel).
 
@@ -82,7 +82,7 @@ Screens → useAuth hook / API client → Go backend
 
 ### Hooks and state
 
-- Extract non-trivial data-fetching or business logic into a custom hook (`useConversations`, `useProfile`) rather than bloating a screen component.
+- Extract non-trivial data-fetching or business logic into a custom hook (`useChats`, `useProfile`) rather than bloating a screen component.
 - Co-locate state as close to where it is used as possible. Only lift state up when two or more siblings need it.
 - Clean up side effects: every `useEffect` that sets up a subscription, timer, or listener must return a cleanup function.
 - Never call hooks conditionally or inside loops.
@@ -91,7 +91,7 @@ Screens → useAuth hook / API client → Go backend
 
 - All network calls go through `src/api/client.ts`. Screens and hooks import from there — they never call `fetch` directly.
 - Each API function has an explicit TypeScript return type matching the backend response shape.
-- Add new endpoints in the same grouping pattern already in the file (Auth, Users, Feed, Connections, Events, Messages, Interests).
+- Add new endpoints in the same grouping pattern already in the file (Auth, Users, Feed, Connections, Meetups, Chats, Interests).
 
 ### Styling
 
@@ -114,7 +114,7 @@ src/
   navigation/   # AppNavigator, AuthNavigator
   screens/
     auth/       # Login, Register
-    main/       # Feed, People, Events, Messages, Chat, Profile
+    main/       # Feed, People, Meetups, Chats, Chat, Profile
   utils/        # theme.ts and any pure utility functions
 ```
 

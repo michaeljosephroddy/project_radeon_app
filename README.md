@@ -37,7 +37,7 @@ src/
 ├── hooks/
 │   └── useAuth.tsx         # Auth context — login, register, logout, session restore
 ├── navigation/
-│   ├── AppNavigator.tsx    # Main tab bar (feed, people, events, messages)
+│   ├── AppNavigator.tsx    # Main tab bar (feed, people, meetups, chats)
 │   └── AuthNavigator.tsx   # Login / register switcher
 ├── screens/
 │   ├── auth/
@@ -46,9 +46,9 @@ src/
 │   └── main/
 │       ├── FeedScreen.tsx      # Posts, compose, react
 │       ├── PeopleScreen.tsx    # Discover + pending requests
-│       ├── EventsScreen.tsx    # Upcoming events + RSVP
-│       ├── MessagesScreen.tsx  # Conversations list
-│       └── ChatScreen.tsx      # Individual conversation
+│       ├── MeetupsScreen.tsx   # Upcoming meetups + RSVP
+│       ├── ChatsScreen.tsx     # Chats list
+│       └── ChatScreen.tsx      # Individual chat
 └── utils/
     └── theme.ts            # Colours, typography, spacing, avatar palette
 ```

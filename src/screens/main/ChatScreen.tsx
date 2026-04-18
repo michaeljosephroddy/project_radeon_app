@@ -11,11 +11,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { formatUsername } from '../../utils/identity';
 
 interface Props {
-    conversation: api.Conversation;
+    chat: api.Chat;
     onBack: () => void;
 }
 
-export function ChatScreen({ conversation, onBack }: Props) {
+export function ChatScreen({ chat, onBack }: Props) {
     const { user } = useAuth();
     const [messages, setMessages] = useState<api.Message[]>([]);
     const [loading, setLoading] = useState(true);
@@ -25,10 +25,10 @@ export function ChatScreen({ conversation, onBack }: Props) {
     const insets = useSafeAreaInsets();
 
     useEffect(() => {
-        api.getMessages(conversation.id)
+        api.getMessages(chat.id)
             .then(data => setMessages(data ?? []))
             .finally(() => setLoading(false));
-    }, [conversation.id]);
+    }, [chat.id]);
 
     const handleSend = async () => {
         if (!draft.trim()) return;
@@ -36,7 +36,7 @@ export function ChatScreen({ conversation, onBack }: Props) {
         const body = draft.trim();
         setDraft('');
         try {
-            const { id } = await api.sendMessage(conversation.id, body);
+            const { id } = await api.sendMessage(chat.id, body);
             setMessages(current => [
                 ...current,
                 {
@@ -56,9 +56,9 @@ export function ChatScreen({ conversation, onBack }: Props) {
         }
     };
 
-    const displayName = conversation.is_group
-        ? (conversation.name ?? 'Group')
-        : formatUsername(conversation.username);
+    const displayName = chat.is_group
+        ? (chat.name ?? 'Group')
+        : formatUsername(chat.username);
 
     return (
         <KeyboardAvoidingView

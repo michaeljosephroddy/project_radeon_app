@@ -21,18 +21,18 @@ function timeLabel(dateStr?: string): string {
     return d.toLocaleDateString('default', { weekday: 'short' });
 }
 
-interface MessagesScreenProps {
+interface ChatsScreenProps {
     isActive: boolean;
     refreshKey: number;
-    onOpenConversation: (conv: api.Conversation) => void;
+    onOpenChat: (chat: api.Chat) => void;
 }
 
-interface ConvItemProps {
-    item: api.Conversation;
-    onOpenConversation: (conv: api.Conversation) => void;
+interface ChatItemProps {
+    item: api.Chat;
+    onOpenChat: (chat: api.Chat) => void;
 }
 
-function ConvItem({ item, onOpenConversation }: ConvItemProps) {
+function ChatItem({ item, onOpenChat }: ChatItemProps) {
     const displayName = item.is_group
         ? (item.name ?? 'Group')
         : formatUsername(item.username);
@@ -40,7 +40,7 @@ function ConvItem({ item, onOpenConversation }: ConvItemProps) {
     return (
         <TouchableOpacity
             style={styles.item}
-            onPress={() => onOpenConversation(item)}
+            onPress={() => onOpenChat(item)}
         >
             <View style={styles.avatarWrap}>
                 <Avatar username={item.is_group ? 'group' : (item.username ?? 'unknown')} avatarUrl={item.is_group ? undefined : item.avatar_url} size={40} fontSize={13} />
@@ -68,8 +68,8 @@ function ConvItem({ item, onOpenConversation }: ConvItemProps) {
     );
 }
 
-export function MessagesScreen({ isActive, refreshKey, onOpenConversation }: MessagesScreenProps) {
-    const [convs, setConvs] = useState<api.Conversation[]>([]);
+export function ChatsScreen({ isActive, refreshKey, onOpenChat }: ChatsScreenProps) {
+    const [chats, setChats] = useState<api.Chat[]>([]);
     const [loading, setLoading] = useState(isActive);
     const [refreshing, setRefreshing] = useState(false);
     const hasLoadedRef = useRef(false);
@@ -77,8 +77,8 @@ export function MessagesScreen({ isActive, refreshKey, onOpenConversation }: Mes
 
     const load = useCallback(async () => {
         try {
-            const data = await api.getConversations();
-            setConvs(data ?? []);
+            const data = await api.getChats();
+            setChats(data ?? []);
         } catch { }
     }, []);
 
@@ -113,36 +113,35 @@ export function MessagesScreen({ isActive, refreshKey, onOpenConversation }: Mes
 
     return (
         <FlatList
-            data={convs}
-            keyExtractor={c => c.id}
+            data={chats}
+            keyExtractor={chat => chat.id}
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
             contentContainerStyle={styles.list}
             ListHeaderComponent={
                 <>
-                    {/* Search */}
                     <View style={styles.searchBar}>
                         <Text style={styles.searchIcon}>⌕</Text>
                         <TextInput
                             style={styles.searchInput}
-                            placeholder="Search messages"
+                            placeholder="Search chats"
                             placeholderTextColor={Colors.light.textTertiary}
                         />
                     </View>
 
-                    {convs.length > 0 && (
-                        <Text style={styles.sectionLabel}>MESSAGES</Text>
+                    {chats.length > 0 && (
+                        <Text style={styles.sectionLabel}>CHATS</Text>
                     )}
                 </>
             }
             ListEmptyComponent={
-                convs.length === 0 ? (
+                chats.length === 0 ? (
                     <View style={styles.empty}>
-                        <Text style={styles.emptyText}>No messages yet.</Text>
+                        <Text style={styles.emptyText}>No chats yet.</Text>
                         <Text style={styles.emptySubtext}>Connect with people to start chatting.</Text>
                     </View>
                 ) : null
             }
-            renderItem={({ item }) => <ConvItem item={item} onOpenConversation={onOpenConversation} />}
+            renderItem={({ item }) => <ChatItem item={item} onOpenChat={onOpenChat} />}
         />
     );
 }
