@@ -27,7 +27,7 @@ const SUPPORT_TYPE_LABELS: Record<SupportType, string> = {
 };
 
 const SUPPORT_AUDIENCE_LABELS: Record<SupportAudience, string> = {
-  followers: 'Followers',
+  friends: 'Friends',
   city: 'My city',
   community: 'Community',
 };

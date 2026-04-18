@@ -132,7 +132,7 @@ export interface SupportRequest {
     city?: string | null;
     type: 'need_to_talk' | 'need_distraction' | 'need_encouragement' | 'need_company';
     message?: string | null;
-    audience: 'followers' | 'city' | 'community';
+    audience: 'friends' | 'city' | 'community';
     status: 'open' | 'matched' | 'closed' | 'expired';
     response_count: number;
     expires_at: string;
@@ -424,9 +424,9 @@ export async function sendMessage(chatId: string, body: string): Promise<{ id: s
     return request(`/chats/${chatId}/messages`, { method: 'POST', body: JSON.stringify({ body }) });
 }
 
-// ── Follows ────────────────────────────────────────────────────────────────
+// ── Friends ────────────────────────────────────────────────────────────────
 
-export interface FollowUser {
+export interface FriendUser {
     id: string;
     user_id: string;
     username: string;
@@ -435,22 +435,37 @@ export interface FollowUser {
     created_at: string;
 }
 
-// Follows another user.
-export async function followUser(id: string): Promise<void> {
-    return request(`/users/${id}/follow`, { method: 'POST' });
+// Sends a friend request to another user.
+export async function sendFriendRequest(id: string): Promise<void> {
+    return request(`/users/${id}/friend-request`, { method: 'POST' });
 }
 
-// Unfollows another user.
-export async function unfollowUser(id: string): Promise<void> {
-    return request(`/users/${id}/follow`, { method: 'DELETE' });
+// Accepts or declines a pending friend request from another user.
+export async function updateFriendRequest(id: string, action: 'accept' | 'decline'): Promise<void> {
+    return request(`/users/${id}/friend-request`, { method: 'PATCH', body: JSON.stringify({ action }) });
 }
 
-// Loads the list of users the current user is following.
-export async function getFollowing(): Promise<FollowUser[]> {
-    return request('/users/me/following');
+// Cancels a pending outgoing friend request.
+export async function cancelFriendRequest(id: string): Promise<void> {
+    return request(`/users/${id}/friend-request`, { method: 'DELETE' });
 }
 
-// Loads the list of users following the current user.
-export async function getFollowers(): Promise<FollowUser[]> {
-    return request('/users/me/followers');
+// Removes an accepted friend relationship.
+export async function removeFriend(id: string): Promise<void> {
+    return request(`/users/${id}/friend`, { method: 'DELETE' });
+}
+
+// Loads the list of accepted friends for the current user.
+export async function getFriends(): Promise<FriendUser[]> {
+    return request('/users/me/friends');
+}
+
+// Loads incoming friend requests for the current user.
+export async function getIncomingFriendRequests(): Promise<FriendUser[]> {
+    return request('/users/me/friend-requests/incoming');
+}
+
+// Loads outgoing friend requests for the current user.
+export async function getOutgoingFriendRequests(): Promise<FriendUser[]> {
+    return request('/users/me/friend-requests/outgoing');
 }

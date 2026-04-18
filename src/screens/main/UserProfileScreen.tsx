@@ -25,24 +25,35 @@ interface UserProfileScreenProps {
     userId: string;
     username: string;
     avatarUrl?: string;
-    followingIds: Set<string>;
+    friendIds: Set<string>;
+    incomingFriendRequestIds: Set<string>;
+    outgoingFriendRequestIds: Set<string>;
     onBack: () => void;
-    onFollowChange: (userId: string, following: boolean) => void;
-    refreshFollowingIds: () => Promise<void>;
+    onFriendshipChange: (userId: string, status: 'none' | 'incoming' | 'outgoing' | 'friends') => void;
+    refreshFriendshipState: () => Promise<void>;
     onOpenChat: (chat: api.Chat) => void;
 }
 
-// Renders another user's profile plus follow and direct-message actions.
+// Renders another user's profile plus friendship and direct-message actions.
 export function UserProfileScreen({
     userId, username, avatarUrl,
-    followingIds, onBack, onFollowChange, refreshFollowingIds, onOpenChat,
+    friendIds = new Set<string>(),
+    incomingFriendRequestIds = new Set<string>(),
+    outgoingFriendRequestIds = new Set<string>(),
+    onBack, onFriendshipChange, refreshFriendshipState, onOpenChat,
 }: UserProfileScreenProps) {
     const [profile, setProfile] = useState<api.User | null>(null);
     const [posts, setPosts] = useState<api.Post[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
-    const isFollowing = followingIds.has(userId);
-    const [followLoading, setFollowLoading] = useState(false);
+    const friendshipStatus = friendIds.has(userId)
+        ? 'friends'
+        : incomingFriendRequestIds.has(userId)
+            ? 'incoming'
+            : outgoingFriendRequestIds.has(userId)
+                ? 'outgoing'
+                : 'none';
+    const [friendActionLoading, setFriendActionLoading] = useState(false);
     const [dmLoading, setDmLoading] = useState(false);
 
     // Loads the profile metadata and posts for the viewed user.
@@ -61,34 +72,50 @@ export function UserProfileScreen({
 
     useEffect(() => {
         load().finally(() => setLoading(false));
-        refreshFollowingIds().catch(() => {});
-    }, [load, refreshFollowingIds]);
+        refreshFriendshipState().catch(() => {});
+    }, [load, refreshFriendshipState]);
 
-    // Refreshes both the viewed profile data and shared follow state.
+    // Refreshes both the viewed profile data and shared friendship state.
     const onRefresh = async () => {
         setRefreshing(true);
-        await Promise.all([load(), refreshFollowingIds()]);
+        await Promise.all([load(), refreshFriendshipState()]);
         setRefreshing(false);
     };
 
-    // Optimistically toggles the follow state for the viewed user.
-    const handleFollow = async () => {
-        setFollowLoading(true);
-        const next = !isFollowing;
-        // This screen does not own follow state; it forwards optimistic updates to
-        // the parent so every tab reflects the change consistently.
-        onFollowChange(userId, next);
-        try {
-            if (next) {
-                await api.followUser(userId);
-            } else {
-                await api.unfollowUser(userId);
+    // Optimistically updates the friendship state for the viewed user.
+    const handleFriendAction = async () => {
+        if (friendshipStatus === 'friends') {
+            setFriendActionLoading(true);
+            onFriendshipChange(userId, 'none');
+            try {
+                await api.removeFriend(userId);
+                await refreshFriendshipState();
+            } catch {
+                onFriendshipChange(userId, 'friends');
+            } finally {
+                setFriendActionLoading(false);
             }
-            await refreshFollowingIds();
+            return;
+        }
+
+        setFriendActionLoading(true);
+        const current = friendshipStatus;
+        try {
+            if (current === 'incoming') {
+                onFriendshipChange(userId, 'friends');
+                await api.updateFriendRequest(userId, 'accept');
+            } else if (current === 'outgoing') {
+                onFriendshipChange(userId, 'none');
+                await api.cancelFriendRequest(userId);
+            } else {
+                onFriendshipChange(userId, 'outgoing');
+                await api.sendFriendRequest(userId);
+            }
+            await refreshFriendshipState();
         } catch {
-            onFollowChange(userId, !next);
+            onFriendshipChange(userId, current);
         } finally {
-            setFollowLoading(false);
+            setFriendActionLoading(false);
         }
     };
 
@@ -110,6 +137,14 @@ export function UserProfileScreen({
             setDmLoading(false);
         }
     };
+
+    const friendButtonLabel = friendshipStatus === 'friends'
+        ? 'Friends'
+        : friendshipStatus === 'incoming'
+            ? 'Accept Friend'
+            : friendshipStatus === 'outgoing'
+                ? 'Requested'
+                : 'Add Friend';
 
     const ProfileHeader = (
         <View style={styles.profileHeader}>
@@ -136,12 +171,12 @@ export function UserProfileScreen({
 
             <View style={styles.actionRow}>
                 <TouchableOpacity
-                    style={[styles.followBtn, isFollowing && styles.followingBtn, followLoading && { opacity: 0.6 }]}
-                    onPress={handleFollow}
-                    disabled={followLoading}
+                    style={[styles.followBtn, friendshipStatus === 'friends' && styles.followingBtn, friendActionLoading && { opacity: 0.6 }]}
+                    onPress={handleFriendAction}
+                    disabled={friendActionLoading}
                 >
-                    <Text style={[styles.followBtnText, isFollowing && styles.followingBtnText]}>
-                        {isFollowing ? 'Following' : 'Follow'}
+                    <Text style={[styles.followBtnText, friendshipStatus === 'friends' && styles.followingBtnText]}>
+                        {friendButtonLabel}
                     </Text>
                 </TouchableOpacity>
                 <TouchableOpacity

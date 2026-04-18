@@ -24,8 +24,8 @@ interface PostCardProps {
     post: api.Post;
     displayedCommentCount: number;
     currentUserId: string;
-    isFollowing: boolean;
-    followPending: boolean;
+    friendshipStatus: 'none' | 'incoming' | 'outgoing' | 'friends';
+    friendshipPending: boolean;
     comments: api.Comment[];
     commentsExpanded: boolean;
     commentsLoading: boolean;
@@ -35,15 +35,15 @@ interface PostCardProps {
     onToggleComments: () => void;
     onSubmitComment: () => void;
     onPressUser: () => void;
-    onPressFollow: () => void;
+    onPressFriendAction: () => void;
 }
 
 function PostCard({
     post,
     displayedCommentCount,
     currentUserId,
-    isFollowing,
-    followPending,
+    friendshipStatus,
+    friendshipPending,
     comments,
     commentsExpanded,
     commentsLoading,
@@ -53,7 +53,7 @@ function PostCard({
     onToggleComments,
     onSubmitComment,
     onPressUser,
-    onPressFollow,
+    onPressFriendAction,
 }: PostCardProps) {
     const [liked, setLiked] = useState(false);
     const [likeCount, setLikeCount] = useState(post.like_count);
@@ -71,6 +71,15 @@ function PostCard({
         } catch { }
     };
 
+    const friendButtonLabel = friendshipStatus === 'friends'
+        ? 'Friends'
+        : friendshipStatus === 'incoming'
+            ? 'Accept'
+            : friendshipStatus === 'outgoing'
+                ? 'Requested'
+                : '+ Friend';
+    const friendButtonDisabled = friendshipStatus === 'friends' || friendshipPending;
+
     return (
         <View style={styles.postCard}>
             <View style={styles.postHead}>
@@ -85,14 +94,15 @@ function PostCard({
                     <TouchableOpacity
                         style={[
                             styles.followPill,
-                            isFollowing && styles.followingPill,
-                            followPending && styles.followPillDisabled,
+                            friendshipStatus === 'outgoing' && styles.requestedPill,
+                            friendshipStatus === 'friends' && styles.followingPill,
+                            friendshipPending && styles.followPillDisabled,
                         ]}
-                        onPress={onPressFollow}
-                        disabled={isFollowing || followPending}
+                        onPress={onPressFriendAction}
+                        disabled={friendButtonDisabled}
                     >
-                        <Text style={[styles.followPillText, isFollowing && styles.followingPillText]}>
-                            {isFollowing ? 'Following' : '+ Follow'}
+                        <Text style={[styles.followPillText, friendshipStatus === 'friends' && styles.followingPillText]}>
+                            {friendButtonLabel}
                         </Text>
                     </TouchableOpacity>
                 )}
@@ -170,12 +180,21 @@ function PostCard({
 
 interface FeedScreenProps {
     isActive: boolean;
-    followingIds: Set<string>;
-    onFollowChange: (userId: string, following: boolean) => void;
+    friendIds: Set<string>;
+    incomingFriendRequestIds: Set<string>;
+    outgoingFriendRequestIds: Set<string>;
+    onFriendshipChange: (userId: string, status: 'none' | 'incoming' | 'outgoing' | 'friends') => void;
     onOpenUserProfile: (profile: { userId: string; username: string; avatarUrl?: string }) => void;
 }
 
-export function FeedScreen({ isActive, followingIds, onFollowChange, onOpenUserProfile }: FeedScreenProps) {
+export function FeedScreen({
+    isActive,
+    friendIds = new Set<string>(),
+    incomingFriendRequestIds = new Set<string>(),
+    outgoingFriendRequestIds = new Set<string>(),
+    onFriendshipChange,
+    onOpenUserProfile,
+}: FeedScreenProps) {
     const { user } = useAuth();
     const [posts, setPosts] = useState<api.Post[]>([]);
     const [loading, setLoading] = useState(isActive);
@@ -183,7 +202,7 @@ export function FeedScreen({ isActive, followingIds, onFollowChange, onOpenUserP
     const [composing, setComposing] = useState(false);
     const [draft, setDraft] = useState('');
     const [posting, setPosting] = useState(false);
-    const [pendingFollows, setPendingFollows] = useState<Set<string>>(new Set());
+    const [pendingFriendActions, setPendingFriendActions] = useState<Set<string>>(new Set());
     const [expandedCommentIds, setExpandedCommentIds] = useState<Set<string>>(new Set());
     const [commentLoadingIds, setCommentLoadingIds] = useState<Set<string>>(new Set());
     const [commentSubmittingIds, setCommentSubmittingIds] = useState<Set<string>>(new Set());
@@ -236,19 +255,35 @@ export function FeedScreen({ isActive, followingIds, onFollowChange, onOpenUserP
         }
     };
 
-    const handleFollow = async (post: api.Post) => {
-        if (followingIds.has(post.user_id)) return;
+    const getFriendshipStatus = (userId: string): 'none' | 'incoming' | 'outgoing' | 'friends' => {
+        if (friendIds.has(userId)) return 'friends';
+        if (incomingFriendRequestIds.has(userId)) return 'incoming';
+        if (outgoingFriendRequestIds.has(userId)) return 'outgoing';
+        return 'none';
+    };
 
-        setPendingFollows(prev => new Set(prev).add(post.user_id));
-        onFollowChange(post.user_id, true);
+    const handleFriendAction = async (post: api.Post) => {
+        const current = getFriendshipStatus(post.user_id);
+        if (current === 'friends') return;
+
+        setPendingFriendActions(prev => new Set(prev).add(post.user_id));
 
         try {
-            await api.followUser(post.user_id);
+            if (current === 'incoming') {
+                onFriendshipChange(post.user_id, 'friends');
+                await api.updateFriendRequest(post.user_id, 'accept');
+            } else if (current === 'outgoing') {
+                onFriendshipChange(post.user_id, 'none');
+                await api.cancelFriendRequest(post.user_id);
+            } else {
+                onFriendshipChange(post.user_id, 'outgoing');
+                await api.sendFriendRequest(post.user_id);
+            }
         } catch (e: unknown) {
-            onFollowChange(post.user_id, false);
+            onFriendshipChange(post.user_id, current);
             Alert.alert('Error', e instanceof Error ? e.message : 'Something went wrong.');
         } finally {
-            setPendingFollows(prev => {
+            setPendingFriendActions(prev => {
                 const next = new Set(prev);
                 next.delete(post.user_id);
                 return next;
@@ -387,7 +422,7 @@ export function FeedScreen({ isActive, followingIds, onFollowChange, onOpenUserP
                 ListEmptyComponent={
                     <View style={styles.empty}>
                         <Text style={styles.emptyText}>No posts yet.</Text>
-                        <Text style={styles.emptySubtext}>Follow people to see their posts here.</Text>
+                        <Text style={styles.emptySubtext}>Community posts will show up here as people share.</Text>
                     </View>
                 }
                 renderItem={({ item }) => {
@@ -399,8 +434,8 @@ export function FeedScreen({ isActive, followingIds, onFollowChange, onOpenUserP
                             post={item}
                             displayedCommentCount={displayedCommentCount}
                             currentUserId={user?.id ?? ''}
-                            isFollowing={followingIds.has(item.user_id)}
-                            followPending={pendingFollows.has(item.user_id)}
+                            friendshipStatus={getFriendshipStatus(item.user_id)}
+                            friendshipPending={pendingFriendActions.has(item.user_id)}
                             comments={loadedComments ?? []}
                             commentsExpanded={expandedCommentIds.has(item.id)}
                             commentsLoading={commentLoadingIds.has(item.id)}
@@ -414,7 +449,7 @@ export function FeedScreen({ isActive, followingIds, onFollowChange, onOpenUserP
                                 username: item.username,
                                 avatarUrl: item.avatar_url,
                             })}
-                            onPressFollow={() => handleFollow(item)}
+                            onPressFriendAction={() => handleFriendAction(item)}
                         />
                     );
                 }}
@@ -497,8 +532,9 @@ const styles = StyleSheet.create({
     commentSendButton: { backgroundColor: Colors.success, borderRadius: Radii.full, paddingHorizontal: Spacing.md, paddingVertical: 10 },
     commentSendButtonDisabled: { opacity: 0.6 },
     commentSendButtonText: { fontSize: Typography.sizes.sm, fontWeight: '600', color: Colors.textOn.primary },
-    followPill: { backgroundColor: Colors.success, borderRadius: Radii.full, paddingHorizontal: 12, paddingVertical: 4 },
+    followPill: { backgroundColor: Colors.primary, borderRadius: Radii.full, paddingHorizontal: 12, paddingVertical: 4 },
     followPillDisabled: { opacity: 0.6 },
+    requestedPill: { backgroundColor: Colors.success },
     followingPill: { backgroundColor: 'transparent', borderWidth: 1, borderColor: Colors.light.border },
     followPillText: { fontSize: Typography.sizes.xs, color: '#FFFFFF', fontWeight: '500' },
     followingPillText: { color: Colors.light.textTertiary },

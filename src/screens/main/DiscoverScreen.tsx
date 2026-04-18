@@ -17,26 +17,30 @@ import { formatUsername } from '../../utils/identity';
 
 interface DiscoverScreenProps {
     isActive: boolean;
-    followingIds: Set<string>;
-    onFollowChange: (userId: string, following: boolean) => void;
+    friendIds: Set<string>;
+    incomingFriendRequestIds: Set<string>;
+    outgoingFriendRequestIds: Set<string>;
+    onFriendshipChange: (userId: string, status: 'none' | 'incoming' | 'outgoing' | 'friends') => void;
     onOpenUserProfile: (profile: { userId: string; username: string; avatarUrl?: string }) => void;
-    refreshFollowingIds: () => Promise<void>;
+    refreshFriendshipState: () => Promise<void>;
 }
 
-// Renders the discover tab with debounced user search and follow toggles.
+// Renders the discover tab with debounced user search and friendship actions.
 export function DiscoverScreen({
     isActive,
-    followingIds,
-    onFollowChange,
+    friendIds = new Set<string>(),
+    incomingFriendRequestIds = new Set<string>(),
+    outgoingFriendRequestIds = new Set<string>(),
+    onFriendshipChange,
     onOpenUserProfile,
-    refreshFollowingIds,
+    refreshFriendshipState,
 }: DiscoverScreenProps) {
     const [users, setUsers] = useState<api.User[]>([]);
     const [loading, setLoading] = useState(isActive);
     const [refreshing, setRefreshing] = useState(false);
     const [query, setQuery] = useState('');
     const [debouncedQuery, setDebouncedQuery] = useState('');
-    const [pendingFollows, setPendingFollows] = useState<Set<string>>(new Set());
+    const [pendingFriendActions, setPendingFriendActions] = useState<Set<string>>(new Set());
     const hasLoadedRef = useRef(false);
     const wasActiveRef = useRef(false);
     const previousQueryRef = useRef('');
@@ -95,12 +99,19 @@ export function DiscoverScreen({
         });
     }, [debouncedQuery, isActive, load]);
 
-    // Refreshes discover results and the shared following state.
+    const getFriendshipStatus = (userId: string): 'none' | 'incoming' | 'outgoing' | 'friends' => {
+        if (friendIds.has(userId)) return 'friends';
+        if (incomingFriendRequestIds.has(userId)) return 'incoming';
+        if (outgoingFriendRequestIds.has(userId)) return 'outgoing';
+        return 'none';
+    };
+
+    // Refreshes discover results and the shared friendship state.
     const onRefresh = async () => {
         setRefreshing(true);
         try {
             await load(debouncedQuery);
-            await refreshFollowingIds();
+            await refreshFriendshipState();
         } catch {
             setUsers([]);
         } finally {
@@ -108,25 +119,28 @@ export function DiscoverScreen({
         }
     };
 
-    // Optimistically toggles follow state for a discovered user.
-    const handleToggleFollow = async (user: api.User) => {
-        const next = !followingIds.has(user.id);
+    // Optimistically updates friendship state for a discovered user.
+    const handleFriendAction = async (user: api.User) => {
+        const current = getFriendshipStatus(user.id);
+        if (current === 'friends') return;
 
-        // Discover shares the same optimistic follow source of truth as feed/profile,
-        // which keeps badges and buttons aligned across tabs.
-        setPendingFollows(prev => new Set(prev).add(user.id));
-        onFollowChange(user.id, next);
+        setPendingFriendActions(prev => new Set(prev).add(user.id));
 
         try {
-            if (next) {
-                await api.followUser(user.id);
+            if (current === 'incoming') {
+                onFriendshipChange(user.id, 'friends');
+                await api.updateFriendRequest(user.id, 'accept');
+            } else if (current === 'outgoing') {
+                onFriendshipChange(user.id, 'none');
+                await api.cancelFriendRequest(user.id);
             } else {
-                await api.unfollowUser(user.id);
+                onFriendshipChange(user.id, 'outgoing');
+                await api.sendFriendRequest(user.id);
             }
         } catch {
-            onFollowChange(user.id, !next);
+            onFriendshipChange(user.id, current);
         } finally {
-            setPendingFollows(prev => {
+            setPendingFriendActions(prev => {
                 const updated = new Set(prev);
                 updated.delete(user.id);
                 return updated;
@@ -201,8 +215,15 @@ export function DiscoverScreen({
                 </View>
             }
             renderItem={({ item }) => {
-                const isFollowing = followingIds.has(item.id);
-                const pending = pendingFollows.has(item.id);
+                const friendshipStatus = getFriendshipStatus(item.id);
+                const pending = pendingFriendActions.has(item.id);
+                const buttonLabel = friendshipStatus === 'friends'
+                    ? 'Friends'
+                    : friendshipStatus === 'incoming'
+                        ? 'Accept'
+                        : friendshipStatus === 'outgoing'
+                            ? 'Requested'
+                            : '+ Friend';
 
                 return (
                     <View style={styles.cardWrap}>
@@ -233,12 +254,17 @@ export function DiscoverScreen({
                             </TouchableOpacity>
 
                             <TouchableOpacity
-                                style={[styles.followButton, isFollowing && styles.followingButton, pending && styles.buttonDisabled]}
-                                onPress={() => handleToggleFollow(item)}
-                                disabled={pending}
+                                style={[
+                                    styles.followButton,
+                                    friendshipStatus === 'outgoing' && styles.requestedButton,
+                                    friendshipStatus === 'friends' && styles.followingButton,
+                                    pending && styles.buttonDisabled,
+                                ]}
+                                onPress={() => handleFriendAction(item)}
+                                disabled={pending || friendshipStatus === 'friends'}
                             >
-                                <Text style={[styles.followButtonText, isFollowing && styles.followingButtonText]}>
-                                    {isFollowing ? 'Following' : 'Follow'}
+                                <Text style={[styles.followButtonText, friendshipStatus === 'friends' && styles.followingButtonText]}>
+                                    {buttonLabel}
                                 </Text>
                             </TouchableOpacity>
                         </View>
@@ -369,6 +395,9 @@ const styles = StyleSheet.create({
         paddingVertical: 12,
         borderTopWidth: 1,
         borderTopColor: Colors.light.border,
+    },
+    requestedButton: {
+        backgroundColor: Colors.success,
     },
     followingButton: {
         backgroundColor: Colors.light.background,

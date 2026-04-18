@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
     View, Text, TouchableOpacity, StyleSheet,
 } from 'react-native';
@@ -42,28 +42,50 @@ export function AppNavigator() {
     const [openUserProfile, setOpenUserProfile] = useState<OpenUserProfile | null>(null);
     const [ownProfileOpen, setOwnProfileOpen] = useState(false);
     const [chatsRefreshKey, setChatsRefreshKey] = useState(0);
-    const [followingIds, setFollowingIds] = useState<Set<string>>(new Set());
-    const followingRequestIdRef = useRef(0);
+    const [friendIds, setFriendIds] = useState<Set<string>>(new Set());
+    const [incomingFriendRequestIds, setIncomingFriendRequestIds] = useState<Set<string>>(new Set());
+    const [outgoingFriendRequestIds, setOutgoingFriendRequestIds] = useState<Set<string>>(new Set());
+    const friendshipRequestIdRef = useRef(0);
     const insets = useSafeAreaInsets();
 
     const inChat = openChat !== null;
     const inUserProfile = openUserProfile !== null;
     const inOwnProfile = ownProfileOpen;
 
-    const handleFollowChange = (userId: string, following: boolean) => {
-        setFollowingIds(prev => {
+    const handleFriendshipChange = (userId: string, status: 'none' | 'incoming' | 'outgoing' | 'friends') => {
+        setFriendIds(prev => {
             const next = new Set(prev);
-            if (following) next.add(userId); else next.delete(userId);
+            if (status === 'friends') next.add(userId); else next.delete(userId);
+            return next;
+        });
+        setIncomingFriendRequestIds(prev => {
+            const next = new Set(prev);
+            if (status === 'incoming') next.add(userId); else next.delete(userId);
+            return next;
+        });
+        setOutgoingFriendRequestIds(prev => {
+            const next = new Set(prev);
+            if (status === 'outgoing') next.add(userId); else next.delete(userId);
             return next;
         });
     };
 
-    const refreshFollowingIds = useCallback(async () => {
-        const requestId = ++followingRequestIdRef.current;
-        const following = await api.getFollowing();
-        if (requestId !== followingRequestIdRef.current) return;
-        setFollowingIds(new Set((following ?? []).map(user => user.user_id)));
+    const refreshFriendshipState = useCallback(async () => {
+        const requestId = ++friendshipRequestIdRef.current;
+        const [friends, incoming, outgoing] = await Promise.all([
+            api.getFriends(),
+            api.getIncomingFriendRequests(),
+            api.getOutgoingFriendRequests(),
+        ]);
+        if (requestId !== friendshipRequestIdRef.current) return;
+        setFriendIds(new Set((friends ?? []).map(user => user.user_id)));
+        setIncomingFriendRequestIds(new Set((incoming ?? []).map(user => user.user_id)));
+        setOutgoingFriendRequestIds(new Set((outgoing ?? []).map(user => user.user_id)));
     }, []);
+
+    useEffect(() => {
+        refreshFriendshipState().catch(() => {});
+    }, [refreshFriendshipState]);
 
     const handleOpenUserProfile = (profile: OpenUserProfile) => {
         setOpenUserProfile(profile);
@@ -128,18 +150,22 @@ export function AppNavigator() {
                 <View style={activeTab === 'community' ? styles.tabVisible : styles.tabHidden}>
                     <FeedScreen
                         isActive={activeTab === 'community'}
-                        followingIds={followingIds}
-                        onFollowChange={handleFollowChange}
+                        friendIds={friendIds}
+                        incomingFriendRequestIds={incomingFriendRequestIds}
+                        outgoingFriendRequestIds={outgoingFriendRequestIds}
+                        onFriendshipChange={handleFriendshipChange}
                         onOpenUserProfile={handleOpenUserProfile}
                     />
                 </View>
                 <View style={activeTab === 'discover' ? styles.tabVisible : styles.tabHidden}>
                     <DiscoverScreen
                         isActive={activeTab === 'discover'}
-                        followingIds={followingIds}
-                        onFollowChange={handleFollowChange}
+                        friendIds={friendIds}
+                        incomingFriendRequestIds={incomingFriendRequestIds}
+                        outgoingFriendRequestIds={outgoingFriendRequestIds}
+                        onFriendshipChange={handleFriendshipChange}
                         onOpenUserProfile={handleOpenUserProfile}
-                        refreshFollowingIds={refreshFollowingIds}
+                        refreshFriendshipState={refreshFriendshipState}
                     />
                 </View>
                 <View style={activeTab === 'support' ? styles.tabVisible : styles.tabHidden}>
@@ -164,8 +190,8 @@ export function AppNavigator() {
                         <ProfileTabScreen
                             isActive={inOwnProfile}
                             onBack={closeOwnProfile}
-                            onFollowChange={handleFollowChange}
-                            refreshFollowingIds={refreshFollowingIds}
+                            onFriendshipChange={handleFriendshipChange}
+                            refreshFriendshipState={refreshFriendshipState}
                             onOpenUserProfile={handleOpenUserProfile}
                         />
                     </View>
@@ -176,10 +202,12 @@ export function AppNavigator() {
                             userId={openUserProfile!.userId}
                             username={openUserProfile!.username}
                             avatarUrl={openUserProfile!.avatarUrl}
-                            followingIds={followingIds}
+                            friendIds={friendIds}
+                            incomingFriendRequestIds={incomingFriendRequestIds}
+                            outgoingFriendRequestIds={outgoingFriendRequestIds}
                             onBack={closeUserProfile}
-                            onFollowChange={handleFollowChange}
-                            refreshFollowingIds={refreshFollowingIds}
+                            onFriendshipChange={handleFriendshipChange}
+                            refreshFriendshipState={refreshFriendshipState}
                             onOpenChat={setOpenChat}
                         />
                     </View>
