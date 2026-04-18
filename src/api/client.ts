@@ -112,6 +112,18 @@ export interface Chat {
     last_message_at?: string;
 }
 
+interface RawChat extends Chat {
+    avatarUrl?: string;
+    other_user_avatar_url?: string;
+    otherUserAvatarUrl?: string;
+    user_avatar_url?: string;
+    userAvatarUrl?: string;
+    profile_photo_url?: string;
+    profilePhotoUrl?: string;
+    photo_url?: string;
+    photoUrl?: string;
+}
+
 export interface Message {
     id: string;
     sender_id: string;
@@ -233,8 +245,25 @@ export async function rsvpMeetup(id: string): Promise<{ attending: boolean }> {
 
 // ── Messages ───────────────────────────────────────────────────────────────
 
+function normalizeChat(chat: RawChat): Chat {
+    return {
+        ...chat,
+        avatar_url: chat.avatar_url
+            ?? chat.avatarUrl
+            ?? chat.other_user_avatar_url
+            ?? chat.otherUserAvatarUrl
+            ?? chat.user_avatar_url
+            ?? chat.userAvatarUrl
+            ?? chat.profile_photo_url
+            ?? chat.profilePhotoUrl
+            ?? chat.photo_url
+            ?? chat.photoUrl,
+    };
+}
+
 export async function getChats(): Promise<Chat[]> {
-    return request('/chats');
+    const chats = await request<RawChat[]>('/chats');
+    return (chats ?? []).map(normalizeChat);
 }
 
 export async function createChat(memberIds: string[], name?: string): Promise<{ id: string }> {

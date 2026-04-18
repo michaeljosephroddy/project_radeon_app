@@ -60,6 +60,13 @@ export function ChatScreen({ chat, onBack }: Props) {
         ? (chat.name ?? 'Group')
         : formatUsername(chat.username);
 
+    const getMessageAvatarUrl = (message: api.Message): string | undefined => {
+        if (message.avatar_url) return message.avatar_url;
+        if (message.sender_id === user?.id) return user?.avatar_url;
+        if (!chat.is_group) return chat.avatar_url;
+        return undefined;
+    };
+
     return (
         <KeyboardAvoidingView
             style={styles.container}
@@ -88,7 +95,7 @@ export function ChatScreen({ chat, onBack }: Props) {
                         return (
                             <View style={[styles.bubble, isMe ? styles.bubbleMe : styles.bubbleThem]}>
                                 {!isMe && (
-                                    <Avatar username={item.username} avatarUrl={item.avatar_url} size={26} fontSize={10} />
+                                    <Avatar username={item.username} avatarUrl={getMessageAvatarUrl(item)} size={26} fontSize={10} />
                                 )}
                                 <View style={[styles.bubbleInner, isMe ? styles.bubbleInnerMe : styles.bubbleInnerThem]}>
                                     {!isMe && (
