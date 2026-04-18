@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
     View,
     Text,
@@ -103,12 +103,12 @@ export function DiscoverScreen({
         }
     };
 
-    const resultLabel = useMemo(() => {
+    const resultLabel = (() => {
         if (debouncedQuery) {
             return users.length === 1 ? '1 result' : `${users.length} results`;
         }
         return users.length === 1 ? '1 person' : `${users.length} people`;
-    }, [debouncedQuery, users.length]);
+    })();
 
     if (loading) {
         return (

@@ -3,6 +3,17 @@ import * as SecureStore from 'expo-secure-store';
 const BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:8080';
 const TOKEN_KEY = 'auth_token';
 
+async function parseDataResponse<T>(res: Response): Promise<T> {
+    const text = await res.text();
+    const json = text ? (() => { try { return JSON.parse(text); } catch { return {}; } })() : {};
+
+    if (!res.ok) {
+        throw new Error(json.error || `Request failed: ${res.status}`);
+    }
+
+    return json.data as T;
+}
+
 // ── Token helpers ──────────────────────────────────────────────────────────
 
 export async function getToken(): Promise<string | null> {
@@ -35,15 +46,7 @@ async function request<T>(
     }
 
     const res = await fetch(`${BASE_URL}${path}`, { ...options, headers });
-
-    const text = await res.text();
-    const json = text ? (() => { try { return JSON.parse(text); } catch { return {}; } })() : {};
-
-    if (!res.ok) {
-        throw new Error(json.error || `Request failed: ${res.status}`);
-    }
-
-    return json.data as T;
+    return parseDataResponse<T>(res);
 }
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -94,14 +97,6 @@ export interface Event {
     capacity?: number;
     attendee_count: number;
     is_attending: boolean;
-}
-
-export interface Attendee {
-    id: string;
-    username: string;
-    avatar_url?: string;
-    city?: string;
-    rsvp_at: string;
 }
 
 export interface Conversation {
@@ -164,10 +159,7 @@ export async function uploadAvatar(uri: string): Promise<{ avatar_url: string }>
         headers: token ? { Authorization: `Bearer ${token}` } : {},
         body: form,
     });
-    const text = await res.text();
-    const json = text ? (() => { try { return JSON.parse(text); } catch { return {}; } })() : {};
-    if (!res.ok) throw new Error(json.error || `Request failed: ${res.status}`);
-    return json.data;
+    return parseDataResponse<{ avatar_url: string }>(res);
 }
 
 export async function getUser(id: string): Promise<User> {
@@ -223,10 +215,6 @@ export async function getEvents(city?: string): Promise<Event[]> {
     return request(`/events${params}`);
 }
 
-export async function getEvent(id: string): Promise<Event> {
-    return request(`/events/${id}`);
-}
-
 export async function createEvent(data: {
     title: string;
     description?: string;
@@ -239,10 +227,6 @@ export async function createEvent(data: {
 
 export async function rsvpEvent(id: string): Promise<{ attending: boolean }> {
     return request(`/events/${id}/rsvp`, { method: 'POST' });
-}
-
-export async function getEventAttendees(id: string): Promise<Attendee[]> {
-    return request(`/events/${id}/attendees`);
 }
 
 // ── Messages ───────────────────────────────────────────────────────────────
@@ -261,20 +245,6 @@ export async function getMessages(conversationId: string): Promise<Message[]> {
 
 export async function sendMessage(conversationId: string, body: string): Promise<{ id: string }> {
     return request(`/conversations/${conversationId}/messages`, { method: 'POST', body: JSON.stringify({ body }) });
-}
-
-export async function getMessageRequests(): Promise<Conversation[]> {
-    return request('/conversations/requests');
-}
-
-export async function updateConversationStatus(
-    id: string,
-    status: 'active' | 'declined'
-): Promise<void> {
-    return request(`/conversations/${id}/status`, {
-        method: 'PATCH',
-        body: JSON.stringify({ status }),
-    });
 }
 
 // ── Follows ────────────────────────────────────────────────────────────────

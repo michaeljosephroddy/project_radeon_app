@@ -38,7 +38,7 @@ export function AppNavigator() {
     const [openUserProfile, setOpenUserProfile] = useState<OpenUserProfile | null>(null);
     const [messagesRefreshKey, setMessagesRefreshKey] = useState(0);
     const [followingIds, setFollowingIds] = useState<Set<string>>(new Set());
-const followingRequestIdRef = useRef(0);
+    const followingRequestIdRef = useRef(0);
     const insets = useSafeAreaInsets();
 
     const inChat = openConversation !== null;
@@ -61,11 +61,16 @@ const followingRequestIdRef = useRef(0);
 
     const handleOpenUserProfile = (profile: OpenUserProfile) => {
         setOpenUserProfile(profile);
+        setOpenConversation(null);
     };
 
     const handleCloseConversation = () => {
         setOpenConversation(null);
         setMessagesRefreshKey(current => current + 1);
+    };
+
+    const closeUserProfile = () => {
+        setOpenUserProfile(null);
     };
 
     const renderHeader = () => {
@@ -99,7 +104,6 @@ const followingRequestIdRef = useRef(0);
                 <View style={activeTab === 'community' ? styles.tabVisible : styles.tabHidden}>
                     <FeedScreen
                         followingIds={followingIds}
-                        onFollowChange={handleFollowChange}
                         onOpenUserProfile={handleOpenUserProfile}
                         onFollowingLoaded={setFollowingIds}
                     />
@@ -137,7 +141,7 @@ const followingRequestIdRef = useRef(0);
                             username={openUserProfile!.username}
                             avatarUrl={openUserProfile!.avatarUrl}
                             followingIds={followingIds}
-                            onBack={() => setOpenUserProfile(null)}
+                            onBack={closeUserProfile}
                             onFollowChange={handleFollowChange}
                             refreshFollowingIds={refreshFollowingIds}
                             onOpenConversation={setOpenConversation}

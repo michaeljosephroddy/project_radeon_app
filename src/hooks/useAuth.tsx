@@ -49,15 +49,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
 
     const logout = async () => {
-        console.log('logout called');
-        try {
-            await api.logout();
-            console.log('token cleared, setting user to null');
-            setUser(null);
-            console.log('user set to null');
-        } catch (e) {
-            console.log('logout error:', e);
-        }
+        await api.logout();
+        setUser(null);
     };
 
     const refreshUser = async () => {

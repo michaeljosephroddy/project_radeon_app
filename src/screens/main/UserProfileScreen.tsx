@@ -55,8 +55,8 @@ export function UserProfileScreen({
 
     useEffect(() => {
         load().finally(() => setLoading(false));
-        refreshFollowingIds();
-    }, [load]);
+        refreshFollowingIds().catch(() => {});
+    }, [load, refreshFollowingIds]);
 
     const onRefresh = async () => {
         setRefreshing(true);

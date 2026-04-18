@@ -84,12 +84,11 @@ function PostCard({ post, currentUserId, isFollowing, onPressUser }: PostCardPro
 
 interface FeedScreenProps {
     followingIds: Set<string>;
-    onFollowChange: (userId: string, following: boolean) => void;
     onOpenUserProfile: (profile: { userId: string; username: string; avatarUrl?: string }) => void;
     onFollowingLoaded: (ids: Set<string>) => void;
 }
 
-export function FeedScreen({ followingIds, onFollowChange, onOpenUserProfile, onFollowingLoaded }: FeedScreenProps) {
+export function FeedScreen({ followingIds, onOpenUserProfile, onFollowingLoaded }: FeedScreenProps) {
     const { user } = useAuth();
     const [posts, setPosts] = useState<api.Post[]>([]);
     const [loading, setLoading] = useState(true);
@@ -107,7 +106,7 @@ export function FeedScreen({ followingIds, onFollowChange, onOpenUserProfile, on
             setPosts(feedData ?? []);
             onFollowingLoaded(new Set((followingData ?? []).map(f => f.user_id)));
         } catch { }
-    }, []);
+    }, [onFollowingLoaded]);
 
     useEffect(() => { load().finally(() => setLoading(false)); }, [load]);
 

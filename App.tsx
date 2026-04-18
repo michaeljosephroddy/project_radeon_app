@@ -10,7 +10,6 @@ import { StatusBar } from 'expo-status-bar';
 
 function RootNavigator() {
     const { isAuthenticated, isLoading } = useAuth();
-    console.log('RootNavigator render — isAuthenticated:', isAuthenticated, 'isLoading:', isLoading);
 
     if (isLoading) {
         return (

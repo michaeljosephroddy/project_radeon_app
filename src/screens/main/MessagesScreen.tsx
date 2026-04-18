@@ -129,8 +129,6 @@ export function MessagesScreen({ isActive, refreshKey, onOpenConversation }: Mes
                         />
                     </View>
 
-                    {/* Message requests */}
-
                     {convs.length > 0 && (
                         <Text style={styles.sectionLabel}>MESSAGES</Text>
                     )}
@@ -166,24 +164,11 @@ const styles = StyleSheet.create({
     searchIcon: { fontSize: 14, color: Colors.light.textTertiary },
     searchInput: { flex: 1, fontSize: Typography.sizes.base, color: Colors.light.textPrimary },
 
-    requestsSection: { marginBottom: Spacing.md },
-    requestsHeader: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 6,
-        marginBottom: Spacing.sm,
-    },
     sectionLabel: {
         fontSize: Typography.sizes.xs,
         fontWeight: '500',
         color: Colors.light.textTertiary,
         letterSpacing: 0.7,
-    },
-    divider: {
-        height: 0.5,
-        backgroundColor: Colors.light.border,
-        marginTop: Spacing.sm,
-        marginBottom: Spacing.md,
     },
 
     item: {

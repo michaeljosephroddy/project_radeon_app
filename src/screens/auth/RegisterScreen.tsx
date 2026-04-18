@@ -121,8 +121,6 @@ const styles = StyleSheet.create({
   wordmarkAccent: { color: Colors.primary },
   tagline: { fontSize: Typography.sizes.base, color: Colors.light.textTertiary, marginTop: Spacing.sm },
   form: { gap: 4 },
-  row: { flexDirection: 'row', gap: Spacing.sm },
-  half: { flex: 1 },
   label: {
     fontSize: Typography.sizes.sm,
     fontWeight: '500',
