@@ -18,7 +18,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
-        // Try to restore session on mount
+        // Rehydrate the session once on app launch. If the token is stale we clear
+        // it here so the rest of the app can treat auth failures as logged out.
         (async () => {
             try {
                 const token = await api.getToken();
@@ -37,6 +38,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const login = async (email: string, password: string) => {
         const { token } = await api.login(email, password);
         await api.setToken(token);
+        // Always fetch /me after auth so React state reflects canonical server data
+        // instead of the partial fields returned by auth endpoints.
         const me = await api.getMe();
         setUser(me);
     };

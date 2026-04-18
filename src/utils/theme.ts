@@ -10,7 +10,8 @@ export const Radii = { ...Radius, full: Radius.pill };
 
 import { Colors as C } from '../theme';
 
-// Compat shim — maps new token structure to old Colors.light.* API used by screens.
+// Compat shim that lets older screens keep using Colors.light.* while the newer
+// token set lives in src/theme. This avoids a wide refactor while design tokens settle.
 export const Colors = {
   ...C,
 

@@ -12,6 +12,8 @@ function RootNavigator() {
     const { isAuthenticated, isLoading } = useAuth();
 
     if (isLoading) {
+        // Hold the app shell on a neutral splash while AuthProvider restores any
+        // persisted session so we do not flash the logged-out stack on launch.
         return (
             <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.light.background }}>
                 <ActivityIndicator color={Colors.primary} />
@@ -24,6 +26,8 @@ function RootNavigator() {
 
 export default function App() {
     return (
+        // These top-level providers need to wrap the whole tree because gesture
+        // handling, safe-area layout, and auth state are shared across every screen.
         <GestureHandlerRootView style={{ flex: 1 }}>
             <SafeAreaProvider>
                 <StatusBar style="dark" />

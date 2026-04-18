@@ -10,6 +10,7 @@ import { formatUsername } from '../../utils/identity';
 
 function timeLabel(dateStr?: string): string {
     if (!dateStr) return '';
+    // Chat timestamps are intentionally coarse so the list stays compact.
     const diff = Date.now() - new Date(dateStr).getTime();
     const mins = Math.floor(diff / 60000);
     if (mins < 60) return `${mins}m`;
@@ -98,6 +99,8 @@ export function ChatsScreen({ isActive, refreshKey, onOpenChat }: ChatsScreenPro
         const refreshKeyChanged = refreshKey !== previousRefreshKeyRef.current;
         previousRefreshKeyRef.current = refreshKey;
 
+        // The parent increments refreshKey when a conversation closes so the chat
+        // list can refresh previews without remounting the whole tab.
         if (isActive && refreshKeyChanged) load();
     }, [isActive, refreshKey, load]);
 

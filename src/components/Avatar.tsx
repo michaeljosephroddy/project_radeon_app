@@ -23,6 +23,8 @@ export function Avatar({ username, avatarUrl, size = 36, fontSize = 13 }: Avatar
     );
   }
 
+  // Fall back to deterministic initials so the UI still feels personalized
+  // before an avatar is uploaded or while remote image URLs are unavailable.
   return (
     <View style={[
       styles.avatar,

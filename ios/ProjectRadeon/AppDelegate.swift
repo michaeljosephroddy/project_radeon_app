@@ -13,6 +13,8 @@ class AppDelegate: ExpoAppDelegate {
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
   ) -> Bool {
+    // Expo owns the React Native factory setup, but we keep references here so
+    // app launch and plugin wiring happen once for the lifetime of the process.
     let delegate = ReactNativeDelegate()
     let factory = ExpoReactNativeFactory(delegate: delegate)
     delegate.dependencyProvider = RCTAppDependencyProvider()
@@ -55,7 +57,8 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
   // Extension point for config-plugins
 
   override func sourceURL(for bridge: RCTBridge) -> URL? {
-    // needed to return the correct URL for expo-dev-client.
+    // Prefer Expo's dev-client bundle URL when available so local development
+    // and packaged production builds can share the same delegate.
     bridge.bundleURL ?? bundleURL()
   }
 

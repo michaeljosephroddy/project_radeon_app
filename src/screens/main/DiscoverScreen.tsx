@@ -42,6 +42,8 @@ export function DiscoverScreen({
     const loadRequestIdRef = useRef(0);
 
     useEffect(() => {
+        // Debounce typing so search stays responsive without issuing a request on
+        // every keystroke.
         const timer = setTimeout(() => setDebouncedQuery(query.trim()), 250);
         return () => clearTimeout(timer);
     }, [query]);
@@ -51,6 +53,7 @@ export function DiscoverScreen({
 
         try {
             const discoverData = await api.discoverUsers({ query: searchQuery });
+            // Search results can return out of order; only the newest request should win.
             if (requestId !== loadRequestIdRef.current) return;
             setUsers(discoverData ?? []);
         } catch {
@@ -78,6 +81,8 @@ export function DiscoverScreen({
         const queryChanged = debouncedQuery !== previousQueryRef.current;
         previousQueryRef.current = debouncedQuery;
 
+        // Separate the "tab became visible" and "search changed" effects so we can
+        // avoid refetching unnecessarily when the screen is hidden.
         if (!queryChanged || !isActive) return;
 
         const isFirstLoad = !hasLoadedRef.current;
@@ -104,6 +109,8 @@ export function DiscoverScreen({
     const handleToggleFollow = async (user: api.User) => {
         const next = !followingIds.has(user.id);
 
+        // Discover shares the same optimistic follow source of truth as feed/profile,
+        // which keeps badges and buttons aligned across tabs.
         setPendingFollows(prev => new Set(prev).add(user.id));
         onFollowChange(user.id, next);
 

@@ -53,6 +53,8 @@ export function ProfileTabScreen({ isActive, onFollowChange, refreshFollowingIds
     }, []);
 
     const loadFollowSummary = useCallback(async () => {
+        // Both counts are shown in the profile header, so load them together and
+        // let each request fail independently inside its own helper.
         await Promise.all([loadFollowing(), loadFollowers()]);
     }, [loadFollowing, loadFollowers]);
 
@@ -64,6 +66,8 @@ export function ProfileTabScreen({ isActive, onFollowChange, refreshFollowingIds
 
     const mark = (setter: (v: string) => void) => (v: string) => {
         setter(v);
+        // Track whether profile fields diverged from the last saved snapshot so the
+        // save CTA only appears when there is something to persist.
         setDirty(true);
     };
 
@@ -83,6 +87,8 @@ export function ProfileTabScreen({ isActive, onFollowChange, refreshFollowingIds
         setUploadingAvatar(true);
         try {
             const { avatar_url } = await api.uploadAvatar(result.assets[0].uri);
+            // Bust any cached image URL immediately after upload so the new avatar
+            // shows up without waiting for the CDN/browser cache to expire.
             setLocalAvatarUrl(`${avatar_url}?t=${Date.now()}`);
             refreshUser().catch(() => {});
         } catch (e: unknown) {
@@ -111,6 +117,8 @@ export function ProfileTabScreen({ isActive, onFollowChange, refreshFollowingIds
     };
 
     const handleUnfollow = async (u: api.FollowUser) => {
+        // Remove the row optimistically so the list responds instantly while the
+        // shared following state stays aligned with the rest of the app.
         setUnfollowing(prev => new Set(prev).add(u.user_id));
         setFollowing(prev => prev.filter(f => f.user_id !== u.user_id));
         onFollowChange(u.user_id, false);

@@ -7,6 +7,8 @@ import * as api from '../../api/client';
 import { Colors, Typography, Spacing, Radii } from '../../utils/theme';
 
 function formatMeetupDate(dateStr: string) {
+  // Split the date into badge-friendly parts so the list can emphasize day/month
+  // without repeating heavy date formatting inside renderItem.
   const d = new Date(dateStr);
   return {
     day: d.getDate().toString(),
@@ -63,6 +65,7 @@ export function MeetupsScreen({ isActive }: MeetupsScreenProps) {
   const load = useCallback(async () => {
     if (loadInFlightRef.current) return loadInFlightRef.current;
 
+    // Reuse the same request for mount and pull-to-refresh callers that overlap.
     const request = (async () => {
       try {
         const data = await api.getMeetups();
@@ -106,6 +109,8 @@ export function MeetupsScreen({ isActive }: MeetupsScreenProps) {
   const handleRSVP = async (id: string) => {
     try {
       const res = await api.rsvpMeetup(id);
+      // Adjust attendance counts locally so the button feels instant and the user
+      // sees the toggle reflected without waiting for another fetch.
       setMeetups(prev =>
         prev.map(meetup => meetup.id === id
           ? { ...meetup, is_attending: res.attending, attendee_count: meetup.attendee_count + (res.attending ? 1 : -1) }

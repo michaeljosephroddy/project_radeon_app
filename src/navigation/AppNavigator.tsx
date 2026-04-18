@@ -55,6 +55,7 @@ export function AppNavigator() {
     const refreshFollowingIds = useCallback(async () => {
         const requestId = ++followingRequestIdRef.current;
         const following = await api.getFollowing();
+        // Ignore stale responses if a newer refresh started while this request was in flight.
         if (requestId !== followingRequestIdRef.current) return;
         setFollowingIds(new Set((following ?? []).map(user => user.user_id)));
     }, []);
@@ -101,6 +102,8 @@ export function AppNavigator() {
     const renderContent = () => {
         return (
             <>
+                {/* Keep each tab mounted and toggle visibility so local screen state
+                    survives tab switches without adding a full navigation library. */}
                 <View style={activeTab === 'community' ? styles.tabVisible : styles.tabHidden}>
                     <FeedScreen
                         isActive={activeTab === 'community'}
@@ -137,6 +140,7 @@ export function AppNavigator() {
                     />
                 </View>
                 {inUserProfile && (
+                    // Detail screens render above the tab content as lightweight overlays.
                     <View style={StyleSheet.absoluteFill}>
                         <UserProfileScreen
                             userId={openUserProfile!.userId}
@@ -175,11 +179,13 @@ export function AppNavigator() {
                             <TouchableOpacity
                                 key={tab.key}
                                 style={styles.tabItem}
-                                onPress={() => {
-                                    setActiveTab(tab.key);
-                                    setOpenChat(null);
-                                }}
-                            >
+                            onPress={() => {
+                                setActiveTab(tab.key);
+                                // Closing the open chat avoids leaving a stale conversation
+                                // overlay visible when the user switches sections.
+                                setOpenChat(null);
+                            }}
+                        >
                                 <Ionicons
                                     name={activeTab === tab.key ? tab.iconActive : tab.icon}
                                     size={22}

@@ -25,6 +25,8 @@ export function ChatScreen({ chat, onBack }: Props) {
     const insets = useSafeAreaInsets();
 
     useEffect(() => {
+        // Messages are fetched when the overlay opens; the chat list remains mounted
+        // underneath, so we scope this request to the selected chat id only.
         api.getMessages(chat.id)
             .then(data => setMessages(data ?? []))
             .finally(() => setLoading(false));
@@ -37,6 +39,8 @@ export function ChatScreen({ chat, onBack }: Props) {
         setDraft('');
         try {
             const { id } = await api.sendMessage(chat.id, body);
+            // Append locally so the composer feels realtime even though there is no
+            // websocket/subscription layer in this project yet.
             setMessages(current => [
                 ...current,
                 {
@@ -61,6 +65,8 @@ export function ChatScreen({ chat, onBack }: Props) {
         : formatUsername(chat.username);
 
     const getMessageAvatarUrl = (message: api.Message): string | undefined => {
+        // DMs can omit sender avatars in the message payload, so fall back to the
+        // chat/user context we already have before leaving the bubble blank.
         if (message.avatar_url) return message.avatar_url;
         if (message.sender_id === user?.id) return user?.avatar_url;
         if (!chat.is_group) return chat.avatar_url;

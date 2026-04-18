@@ -23,6 +23,8 @@ export function RegisterScreen({ onGoToLogin }: RegisterScreenProps) {
   });
   const [loading, setLoading] = useState(false);
 
+  // Build small field setters on demand so each input can stay declarative without
+  // duplicating object spread logic inline.
   const set = (key: keyof typeof form) => (val: string) =>
     setForm(prev => ({ ...prev, [key]: val }));
 
@@ -33,6 +35,8 @@ export function RegisterScreen({ onGoToLogin }: RegisterScreenProps) {
     }
     setLoading(true);
     try {
+      // Optional fields are converted to undefined so the API does not receive
+      // empty strings for values the user intentionally skipped.
       await register({
         ...form,
         email: form.email.trim().toLowerCase(),

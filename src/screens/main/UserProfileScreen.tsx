@@ -45,6 +45,8 @@ export function UserProfileScreen({
 
     const load = useCallback(async () => {
         try {
+            // Profile metadata and posts are independent, so fetch them in parallel
+            // to shorten the time before the profile screen becomes useful.
             const [profileData, postsData] = await Promise.all([
                 api.getUser(userId),
                 api.getUserPosts(userId),
@@ -68,6 +70,8 @@ export function UserProfileScreen({
     const handleFollow = async () => {
         setFollowLoading(true);
         const next = !isFollowing;
+        // This screen does not own follow state; it forwards optimistic updates to
+        // the parent so every tab reflects the change consistently.
         onFollowChange(userId, next);
         try {
             if (next) {
@@ -87,6 +91,8 @@ export function UserProfileScreen({
         setDmLoading(true);
         try {
             const { id } = await api.createChat([userId]);
+            // Jump straight into the newly created DM using enough metadata to render
+            // the chat overlay before the chats list refreshes.
             onOpenChat({
                 id,
                 is_group: false,

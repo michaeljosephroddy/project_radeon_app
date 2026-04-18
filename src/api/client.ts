@@ -5,6 +5,8 @@ const TOKEN_KEY = 'auth_token';
 
 async function parseDataResponse<T>(res: Response): Promise<T> {
     const text = await res.text();
+    // Some endpoints can legitimately return an empty body. Reading text first lets
+    // us gracefully handle both JSON payloads and "no content" responses.
     const json = text ? (() => { try { return JSON.parse(text); } catch { return {}; } })() : {};
 
     if (!res.ok) {
@@ -45,6 +47,8 @@ async function request<T>(
         if (token) headers['Authorization'] = `Bearer ${token}`;
     }
 
+    // Centralizing the auth/header merge here keeps the screen layer focused on
+    // UI state instead of repeating fetch boilerplate on every API call.
     const res = await fetch(`${BASE_URL}${path}`, { ...options, headers });
     return parseDataResponse<T>(res);
 }
@@ -248,6 +252,8 @@ export async function rsvpMeetup(id: string): Promise<{ attending: boolean }> {
 function normalizeChat(chat: RawChat): Chat {
     return {
         ...chat,
+        // The backend has used several avatar field names over time. Normalize
+        // them once so the rest of the app can consume a stable Chat shape.
         avatar_url: chat.avatar_url
             ?? chat.avatarUrl
             ?? chat.other_user_avatar_url

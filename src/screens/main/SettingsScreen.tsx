@@ -13,6 +13,8 @@ interface SettingsScreenProps {
 export function SettingsScreen({ onBack, onLogout }: SettingsScreenProps) {
     return (
         <SafeAreaView style={styles.container} edges={['bottom']}>
+            {/* Settings currently exposes a single destructive action, but the grouped
+                layout keeps room for more account/system options later. */}
             <View style={styles.header}>
                 <TouchableOpacity onPress={onBack} style={styles.headerSide}>
                     <Text style={styles.backIcon}>←</Text>

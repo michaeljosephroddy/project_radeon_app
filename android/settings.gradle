@@ -1,4 +1,6 @@
 pluginManagement {
+  // Resolve the React Native and Expo Gradle plugins from node_modules so the
+  // Android build always uses the versions pinned by package.json.
   def reactNativeGradlePlugin = new File(
     providers.exec {
       workingDir(rootDir)
@@ -23,6 +25,8 @@ plugins {
 }
 
 extensions.configure(com.facebook.react.ReactSettingsExtension) { ex ->
+  // Expo autolinking is the default, but the community path can still be forced
+  // for environments that opt out via EXPO_USE_COMMUNITY_AUTOLINKING.
   if (System.getenv('EXPO_USE_COMMUNITY_AUTOLINKING') == '1') {
     ex.autolinkLibrariesFromCommand()
   } else {

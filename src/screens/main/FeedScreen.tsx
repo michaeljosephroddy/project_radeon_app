@@ -11,6 +11,7 @@ import { Colors, Typography, Spacing, Radii } from '../../utils/theme';
 import { formatUsername } from '../../utils/identity';
 
 function timeAgo(dateStr: string): string {
+    // Feed timestamps stay intentionally compact because they sit in dense cards.
     const diff = Date.now() - new Date(dateStr).getTime();
     const mins = Math.floor(diff / 60000);
     if (mins < 1) return 'just now';
@@ -67,6 +68,8 @@ function PostCard({
         try {
             const res = await api.reactToPost(post.id);
             setLiked(res.reacted);
+            // Update the count optimistically from the server toggle response instead
+            // of forcing the entire feed to refetch after every like.
             setLikeCount(prev => res.reacted ? prev + 1 : prev - 1);
         } catch { }
     };
@@ -197,6 +200,8 @@ export function FeedScreen({ isActive, followingIds, onFollowChange, onOpenUserP
     const load = useCallback(async () => {
         if (loadInFlightRef.current) return loadInFlightRef.current;
 
+        // Share one in-flight promise across refreshes/initial mount so concurrent
+        // callers do not stampede the feed endpoint.
         const request = (async () => {
             try {
                 const feedData = await api.getFeed();
@@ -217,6 +222,8 @@ export function FeedScreen({ isActive, followingIds, onFollowChange, onOpenUserP
         const becameActive = isActive && !wasActiveRef.current;
         wasActiveRef.current = isActive;
 
+        // Tabs stay mounted, so only trigger the expensive first load when this tab
+        // becomes visible rather than every parent re-render.
         if (!becameActive) return;
 
         const isFirstLoad = !hasLoadedRef.current;
@@ -240,6 +247,8 @@ export function FeedScreen({ isActive, followingIds, onFollowChange, onOpenUserP
     const handleFollow = async (post: api.Post) => {
         if (followingIds.has(post.user_id)) return;
 
+        // Mirror the follow immediately in parent-owned state so every screen that
+        // consumes followingIds stays in sync without waiting for the network.
         setPendingFollows(prev => new Set(prev).add(post.user_id));
         onFollowChange(post.user_id, true);
 
@@ -277,6 +286,8 @@ export function FeedScreen({ isActive, followingIds, onFollowChange, onOpenUserP
         try {
             const comments = await api.getComments(postId);
             setCommentsByPostId(prev => ({ ...prev, [postId]: comments ?? [] }));
+            // Keep the feed card count aligned with the fetched thread because the
+            // summary count in the feed payload can lag behind comment creation.
             setPosts(prev =>
                 prev.map(post =>
                     post.id === postId
@@ -305,6 +316,8 @@ export function FeedScreen({ isActive, followingIds, onFollowChange, onOpenUserP
                 next.delete(postId);
             } else {
                 next.add(postId);
+                // Fetch a thread only on first expansion; after that we keep the
+                // local cache warm so collapsing/reopening feels instant.
                 shouldLoad = !loadedCommentPostIdsRef.current.has(postId);
             }
             return next;
@@ -326,6 +339,8 @@ export function FeedScreen({ isActive, followingIds, onFollowChange, onOpenUserP
         setCommentSubmittingIds(prev => new Set(prev).add(post.id));
         try {
             const res = await api.addComment(post.id, draftValue);
+            // Insert the new comment locally so the user sees it immediately even
+            // though the feed endpoint itself is not reloaded.
             const newComment: api.Comment = {
                 id: res.id,
                 user_id: user.id,

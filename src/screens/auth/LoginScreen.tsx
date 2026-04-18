@@ -25,6 +25,7 @@ export function LoginScreen({ onGoToRegister }: LoginScreenProps) {
         }
         setLoading(true);
         try {
+            // Normalize the email client-side so sign-in is resilient to user casing/spacing.
             await login(email.trim().toLowerCase(), password);
         } catch (e: unknown) {
             Alert.alert('Login failed', e instanceof Error ? e.message : 'Invalid credentials.');
