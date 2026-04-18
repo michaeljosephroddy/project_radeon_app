@@ -56,8 +56,12 @@ function PostCard({
     onPressFollow,
 }: PostCardProps) {
     const [liked, setLiked] = useState(false);
-    const [likeCount, setLikeCount] = useState(0);
+    const [likeCount, setLikeCount] = useState(post.like_count);
     const isOwn = post.user_id === currentUserId;
+
+    useEffect(() => {
+        setLikeCount(post.like_count);
+    }, [post.like_count]);
 
     const handleReact = async () => {
         try {

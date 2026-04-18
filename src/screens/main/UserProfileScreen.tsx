@@ -3,6 +3,7 @@ import {
     View, Text, TouchableOpacity, StyleSheet,
     FlatList, ActivityIndicator, RefreshControl,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Avatar } from '../../components/Avatar';
 import * as api from '../../api/client';
@@ -177,6 +178,20 @@ export function UserProfileScreen({
                             </View>
                         </View>
                         <Text style={styles.postBody}>{item.body}</Text>
+                        <View style={styles.postFoot}>
+                            <View style={styles.postAction}>
+                                <Ionicons name="heart-outline" size={16} color={Colors.light.textTertiary} />
+                                <Text style={styles.postActionText}>
+                                    {item.like_count > 0 ? item.like_count : 'Like'}
+                                </Text>
+                            </View>
+                            <View style={styles.postAction}>
+                                <Ionicons name="chatbubble-outline" size={15} color={Colors.light.textTertiary} />
+                                <Text style={styles.postActionText}>
+                                    {item.comment_count > 0 ? `${item.comment_count} comments` : 'Comment'}
+                                </Text>
+                            </View>
+                        </View>
                     </View>
                 )}
             />
@@ -291,6 +306,17 @@ const styles = StyleSheet.create({
         paddingHorizontal: Spacing.md,
         paddingBottom: Spacing.md,
     },
+    postFoot: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 14,
+        paddingHorizontal: Spacing.md,
+        paddingVertical: 10,
+        borderTopWidth: 0.5,
+        borderTopColor: Colors.light.border,
+    },
+    postAction: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+    postActionText: { fontSize: Typography.sizes.sm, color: Colors.light.textTertiary },
 
     empty: { alignItems: 'center', paddingTop: 40 },
     emptyText: { fontSize: Typography.sizes.base, color: Colors.light.textTertiary },

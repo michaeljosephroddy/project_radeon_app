@@ -69,6 +69,7 @@ export interface Post {
     body: string;
     created_at: string;
     comment_count: number;
+    like_count: number;
 }
 
 export interface Comment {
