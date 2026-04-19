@@ -148,6 +148,11 @@ export interface Meetup {
     capacity?: number | null;
     attendee_count: number;
     is_attending: boolean;
+    attendee_preview?: Array<{
+        id: string;
+        username: string;
+        avatar_url?: string | null;
+    }>;
 }
 
 export interface MeetupAttendee {
@@ -352,9 +357,10 @@ export async function getComments(postId: string, cursor?: string, limit = 20): 
 
 // ── Meetups ────────────────────────────────────────────────────────────────
 
-// Fetches meetup events, optionally filtered by city.
-export async function getMeetups(params?: { city?: string; page?: number; limit?: number }): Promise<PaginatedResponse<Meetup>> {
+// Fetches meetup events, optionally filtered by city and search query.
+export async function getMeetups(params?: { q?: string; city?: string; page?: number; limit?: number }): Promise<PaginatedResponse<Meetup>> {
     const search = new URLSearchParams();
+    if (params?.q) search.set('q', params.q);
     if (params?.city) search.set('city', params.city);
     if (params?.page) search.set('page', String(params.page));
     if (params?.limit) search.set('limit', String(params.limit));
@@ -446,8 +452,8 @@ export async function rsvpMeetup(id: string): Promise<{ attending: boolean }> {
 }
 
 // Loads the attendee list for a specific meetup.
-export async function getMeetupAttendees(id: string): Promise<MeetupAttendee[]> {
-    return request(`/meetups/${id}/attendees`);
+export async function getMeetupAttendees(id: string, page = 1, limit = 50): Promise<PaginatedResponse<MeetupAttendee>> {
+    return request(`/meetups/${id}/attendees?page=${page}&limit=${limit}`);
 }
 
 // ── Messages ───────────────────────────────────────────────────────────────
