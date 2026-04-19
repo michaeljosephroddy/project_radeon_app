@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import * as api from '../api/client';
 
 interface AuthContextType {
@@ -37,34 +37,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }, []);
 
     // Signs a user in, persists the token, and hydrates the full profile.
-    const login = async (email: string, password: string) => {
+    const login = useCallback(async (email: string, password: string) => {
         const { token } = await api.login(email, password);
         await api.setToken(token);
         // Always fetch /me after auth so React state reflects canonical server data
         // instead of the partial fields returned by auth endpoints.
         const me = await api.getMe();
         setUser(me);
-    };
+    }, []);
 
     // Registers a new user, persists the token, and hydrates the full profile.
-    const register = async (data: Parameters<typeof api.register>[0]) => {
+    const register = useCallback(async (data: Parameters<typeof api.register>[0]) => {
         const { token } = await api.register(data);
         await api.setToken(token);
         const me = await api.getMe();
         setUser(me);
-    };
+    }, []);
 
     // Clears local auth state and removes the current user from context.
-    const logout = async () => {
+    const logout = useCallback(async () => {
         await api.logout();
         setUser(null);
-    };
+    }, []);
 
     // Refreshes the current user's profile from the API.
-    const refreshUser = async () => {
+    const refreshUser = useCallback(async () => {
         const me = await api.getMe();
         setUser(me);
-    };
+    }, []);
 
     return (
         <AuthContext.Provider value={{

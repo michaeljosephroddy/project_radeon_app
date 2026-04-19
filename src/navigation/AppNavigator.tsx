@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
     View, Text, TouchableOpacity, StyleSheet,
 } from 'react-native';
@@ -34,6 +34,28 @@ const TABS: { key: Tab; label: string; icon: keyof typeof Ionicons.glyphMap; ico
     { key: 'chats',     label: 'chats',     icon: 'chatbubble-outline', iconActive: 'chatbubble' },
 ];
 
+// Each tab is its own memoized component so React skips reconciliation for the
+// three tabs that didn't change when the active tab switches.
+const FeedTab = React.memo(function FeedTab({ isActive, onOpenUserProfile }: { isActive: boolean; onOpenUserProfile: (p: OpenUserProfile) => void }) {
+    return <View style={isActive ? styles.tabVisible : styles.tabHidden}><FeedScreen isActive={isActive} onOpenUserProfile={onOpenUserProfile} /></View>;
+});
+
+const DiscoverTab = React.memo(function DiscoverTab({ isActive, onOpenUserProfile }: { isActive: boolean; onOpenUserProfile: (p: OpenUserProfile) => void }) {
+    return <View style={isActive ? styles.tabVisible : styles.tabHidden}><DiscoverScreen isActive={isActive} onOpenUserProfile={onOpenUserProfile} /></View>;
+});
+
+const SupportTab = React.memo(function SupportTab({ isActive, onOpenChat, onOpenUserProfile }: { isActive: boolean; onOpenChat: (c: Chat) => void; onOpenUserProfile: (p: OpenUserProfile) => void }) {
+    return <View style={isActive ? styles.tabVisible : styles.tabHidden}><SupportScreen isActive={isActive} onOpenChat={onOpenChat} onOpenUserProfile={onOpenUserProfile} /></View>;
+});
+
+const MeetupsTab = React.memo(function MeetupsTab({ isActive }: { isActive: boolean }) {
+    return <View style={isActive ? styles.tabVisible : styles.tabHidden}><MeetupsScreen isActive={isActive} /></View>;
+});
+
+const ChatsTab = React.memo(function ChatsTab({ isActive, refreshKey, onOpenChat }: { isActive: boolean; refreshKey: number; onOpenChat: (c: Chat) => void }) {
+    return <View style={isActive ? styles.tabVisible : styles.tabHidden}><ChatsScreen isActive={isActive} refreshKey={refreshKey} onOpenChat={onOpenChat} /></View>;
+});
+
 export function AppNavigator() {
     const { user } = useAuth();
     const [activeTab, setActiveTab] = useState<Tab>('community');
@@ -47,35 +69,38 @@ export function AppNavigator() {
     const inUserProfile = openUserProfile !== null;
     const inOwnProfile = ownProfileOpen;
 
-    const handleOpenUserProfile = (profile: OpenUserProfile) => {
+    const handleOpenUserProfile = useCallback((profile: OpenUserProfile) => {
         setOpenUserProfile(profile);
         setOwnProfileOpen(false);
         setOpenChat(null);
-    };
+    }, []);
 
-    const handleCloseChat = () => {
+    const handleCloseChat = useCallback(() => {
         setOpenChat(null);
         setChatsRefreshKey(current => current + 1);
-    };
+    }, []);
 
-    const closeUserProfile = () => {
+    const closeUserProfile = useCallback(() => {
         setOpenUserProfile(null);
-    };
+    }, []);
 
-    const openOwnProfile = () => {
+    const openOwnProfile = useCallback(() => {
         setOwnProfileOpen(true);
         setOpenUserProfile(null);
         setOpenChat(null);
-    };
+    }, []);
 
-    const closeOwnProfile = () => {
+    const closeOwnProfile = useCallback(() => {
         setOwnProfileOpen(false);
-    };
+    }, []);
 
-    const renderHeader = () => {
-        if (inChat) return null;
-        if (inUserProfile) return null;
-        if (inOwnProfile) return null;
+    const handleTabPress = useCallback((tab: Tab) => {
+        setActiveTab(tab);
+        setOpenChat(null);
+    }, []);
+
+    const header = useMemo(() => {
+        if (inChat || inUserProfile || inOwnProfile) return null;
 
         const titles: Record<Tab, React.ReactNode> = {
             community: (
@@ -102,78 +127,58 @@ export function AppNavigator() {
                 </TouchableOpacity>
             </View>
         );
-    };
+    }, [inChat, inUserProfile, inOwnProfile, activeTab, user, openOwnProfile]);
 
-    const renderContent = () => {
-        return (
-            <>
-                <View style={activeTab === 'community' ? styles.tabVisible : styles.tabHidden}>
-                    <FeedScreen
-                        isActive={activeTab === 'community'}
+    const overlays = useMemo(() => (
+        <>
+            {inOwnProfile && (
+                <View style={StyleSheet.absoluteFill}>
+                    <ProfileTabScreen
+                        isActive={inOwnProfile}
+                        onBack={closeOwnProfile}
                         onOpenUserProfile={handleOpenUserProfile}
                     />
                 </View>
-                <View style={activeTab === 'discover' ? styles.tabVisible : styles.tabHidden}>
-                    <DiscoverScreen
-                        isActive={activeTab === 'discover'}
-                        onOpenUserProfile={handleOpenUserProfile}
-                    />
-                </View>
-                <View style={activeTab === 'support' ? styles.tabVisible : styles.tabHidden}>
-                    <SupportScreen
-                        isActive={activeTab === 'support'}
-                        onOpenChat={setOpenChat}
-                        onOpenUserProfile={handleOpenUserProfile}
-                    />
-                </View>
-                <View style={activeTab === 'meetups' ? styles.tabVisible : styles.tabHidden}>
-                    <MeetupsScreen isActive={activeTab === 'meetups'} />
-                </View>
-                <View style={activeTab === 'chats' ? styles.tabVisible : styles.tabHidden}>
-                    <ChatsScreen
-                        isActive={activeTab === 'chats'}
-                        refreshKey={chatsRefreshKey}
+            )}
+            {inUserProfile && (
+                <View style={StyleSheet.absoluteFill}>
+                    <UserProfileScreen
+                        userId={openUserProfile!.userId}
+                        username={openUserProfile!.username}
+                        avatarUrl={openUserProfile!.avatarUrl}
+                        onBack={closeUserProfile}
                         onOpenChat={setOpenChat}
                     />
                 </View>
-                {inOwnProfile && (
-                    <View style={StyleSheet.absoluteFill}>
-                        <ProfileTabScreen
-                            isActive={inOwnProfile}
-                            onBack={closeOwnProfile}
-                            onOpenUserProfile={handleOpenUserProfile}
-                        />
-                    </View>
-                )}
-                {inUserProfile && (
-                    <View style={StyleSheet.absoluteFill}>
-                        <UserProfileScreen
-                            userId={openUserProfile!.userId}
-                            username={openUserProfile!.username}
-                            avatarUrl={openUserProfile!.avatarUrl}
-                            onBack={closeUserProfile}
-                            onOpenChat={setOpenChat}
-                        />
-                    </View>
-                )}
-                {inChat && (
-                    <View style={StyleSheet.absoluteFill}>
-                        <ChatScreen
-                            chat={openChat!}
-                            onBack={handleCloseChat}
-                        />
-                    </View>
-                )}
-            </>
-        );
-    };
+            )}
+            {inChat && (
+                <View style={StyleSheet.absoluteFill}>
+                    <ChatScreen
+                        chat={openChat!}
+                        onBack={handleCloseChat}
+                    />
+                </View>
+            )}
+        </>
+    ), [
+        inOwnProfile, inUserProfile, inChat,
+        openUserProfile, openChat,
+        handleOpenUserProfile, handleCloseChat, closeUserProfile, closeOwnProfile,
+    ]);
 
     return (
         <>
             <StatusBar style="light" />
             <SafeAreaView style={styles.container} edges={['top']}>
-                {renderHeader()}
-                <View style={styles.content}>{renderContent()}</View>
+                {header}
+                <View style={styles.content}>
+                    <FeedTab isActive={activeTab === 'community'} onOpenUserProfile={handleOpenUserProfile} />
+                    <DiscoverTab isActive={activeTab === 'discover'} onOpenUserProfile={handleOpenUserProfile} />
+                    <SupportTab isActive={activeTab === 'support'} onOpenChat={setOpenChat} onOpenUserProfile={handleOpenUserProfile} />
+                    <MeetupsTab isActive={activeTab === 'meetups'} />
+                    <ChatsTab isActive={activeTab === 'chats'} refreshKey={chatsRefreshKey} onOpenChat={setOpenChat} />
+                    {overlays}
+                </View>
 
                 {!inChat && !inUserProfile && !inOwnProfile && (
                     <View style={[styles.tabBar, { paddingBottom: insets.bottom + 6 }]}>
@@ -181,10 +186,7 @@ export function AppNavigator() {
                             <TouchableOpacity
                                 key={tab.key}
                                 style={styles.tabItem}
-                                onPress={() => {
-                                    setActiveTab(tab.key);
-                                    setOpenChat(null);
-                                }}
+                                onPress={() => handleTabPress(tab.key)}
                             >
                                 <Ionicons
                                     name={activeTab === tab.key ? tab.iconActive : tab.icon}

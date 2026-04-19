@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
     View, Text, FlatList, TouchableOpacity, TextInput,
-    StyleSheet, RefreshControl, ActivityIndicator, Alert,
+    StyleSheet, RefreshControl, ActivityIndicator, Alert, Dimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Avatar } from '../../components/Avatar';
@@ -11,6 +11,8 @@ import { Colors, Typography, Spacing, Radii } from '../../utils/theme';
 import { formatUsername } from '../../utils/identity';
 import { formatReadableTimestamp } from '../../utils/date';
 
+const EMPTY_COMMENTS: api.Comment[] = [];
+
 interface PostCardProps {
     post: api.Post;
     displayedCommentCount: number;
@@ -18,27 +20,33 @@ interface PostCardProps {
     comments: api.Comment[];
     commentsExpanded: boolean;
     commentsLoading: boolean;
+    commentsLoadingMore: boolean;
+    hasMoreComments: boolean;
     commentSubmitting: boolean;
     commentDraft: string;
-    onCommentDraftChange: (value: string) => void;
-    onToggleComments: () => void;
-    onSubmitComment: () => void;
-    onPressUser: () => void;
+    onCommentDraftChange: (postId: string, value: string) => void;
+    onToggleComments: (postId: string) => void;
+    onSubmitComment: (post: api.Post) => void;
+    onPressUser: (profile: { userId: string; username: string; avatarUrl?: string }) => void;
+    onRegisterCommentSentinel: (postId: string, ref: View | null) => void;
 }
 
-function PostCard({
+const PostCard = React.memo(function PostCard({
     post,
     displayedCommentCount,
     currentUserId,
     comments,
     commentsExpanded,
     commentsLoading,
+    commentsLoadingMore,
+    hasMoreComments,
     commentSubmitting,
     commentDraft,
     onCommentDraftChange,
     onToggleComments,
     onSubmitComment,
     onPressUser,
+    onRegisterCommentSentinel,
 }: PostCardProps) {
     const [liked, setLiked] = useState(false);
     const [likeCount, setLikeCount] = useState(post.like_count);
@@ -48,18 +56,24 @@ function PostCard({
         setLikeCount(post.like_count);
     }, [post.like_count]);
 
-    const handleReact = async () => {
+    const handleReact = useCallback(async () => {
         try {
             const res = await api.reactToPost(post.id);
             setLiked(res.reacted);
             setLikeCount(prev => res.reacted ? prev + 1 : prev - 1);
         } catch { }
-    };
+    }, [post.id]);
+
+    const handleToggleComments = useCallback(() => onToggleComments(post.id), [post.id, onToggleComments]);
+    const handleCommentDraftChange = useCallback((value: string) => onCommentDraftChange(post.id, value), [post.id, onCommentDraftChange]);
+    const handleSubmitComment = useCallback(() => onSubmitComment(post), [post, onSubmitComment]);
+    const handlePressUser = useCallback(() => onPressUser({ userId: post.user_id, username: post.username, avatarUrl: post.avatar_url }), [post.user_id, post.username, post.avatar_url, onPressUser]);
+    const handleRegisterSentinel = useCallback((ref: View | null) => onRegisterCommentSentinel(post.id, ref), [post.id, onRegisterCommentSentinel]);
 
     return (
         <View style={styles.postCard}>
             <View style={styles.postHead}>
-                <TouchableOpacity onPress={isOwn ? undefined : onPressUser} disabled={isOwn}>
+                <TouchableOpacity onPress={isOwn ? undefined : handlePressUser} disabled={isOwn}>
                     <Avatar username={post.username} avatarUrl={post.avatar_url} size={36} />
                 </TouchableOpacity>
                 <View style={styles.postHeadBody}>
@@ -83,7 +97,7 @@ function PostCard({
                         {likeCount > 0 ? likeCount : 'Like'}
                     </Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.postAction} onPress={onToggleComments}>
+                <TouchableOpacity style={styles.postAction} onPress={handleToggleComments}>
                     <Ionicons
                         name={commentsExpanded ? 'chatbubble' : 'chatbubble-outline'}
                         size={15}
@@ -94,8 +108,8 @@ function PostCard({
                     </Text>
                 </TouchableOpacity>
             </View>
-            {commentsExpanded && (
-                <View style={styles.commentsSection}>
+            {(commentsExpanded || comments.length > 0) && (
+                <View style={[styles.commentsSection, !commentsExpanded && { display: 'none' }]}>
                     {commentsLoading ? (
                         <View style={styles.commentsLoading}>
                             <ActivityIndicator color={Colors.primary} size="small" />
@@ -121,18 +135,21 @@ function PostCard({
                         <Text style={styles.commentsEmpty}>No comments yet.</Text>
                     )}
 
+                    {hasMoreComments && <View ref={handleRegisterSentinel} style={styles.commentSentinel} />}
+                    {commentsLoadingMore && <ActivityIndicator size="small" color={Colors.primary} style={styles.commentsLoadingMore} />}
+
                     <View style={styles.commentComposer}>
                         <TextInput
                             style={styles.commentInput}
                             placeholder="Write a comment"
                             placeholderTextColor={Colors.light.textTertiary}
                             value={commentDraft}
-                            onChangeText={onCommentDraftChange}
+                            onChangeText={handleCommentDraftChange}
                             editable={!commentSubmitting}
                         />
                         <TouchableOpacity
                             style={[styles.commentSendButton, (commentSubmitting || !commentDraft.trim()) && styles.commentSendButtonDisabled]}
-                            onPress={onSubmitComment}
+                            onPress={handleSubmitComment}
                             disabled={commentSubmitting || !commentDraft.trim()}
                         >
                             <Text style={styles.commentSendButtonText}>{commentSubmitting ? '...' : 'Send'}</Text>
@@ -142,7 +159,7 @@ function PostCard({
             )}
         </View>
     );
-}
+});
 
 interface FeedScreenProps {
     isActive: boolean;
@@ -165,13 +182,20 @@ export function FeedScreen({
     const [posting, setPosting] = useState(false);
     const [expandedCommentIds, setExpandedCommentIds] = useState<Set<string>>(new Set());
     const [commentLoadingIds, setCommentLoadingIds] = useState<Set<string>>(new Set());
+    const [commentLoadingMoreIds, setCommentLoadingMoreIds] = useState<Set<string>>(new Set());
     const [commentSubmittingIds, setCommentSubmittingIds] = useState<Set<string>>(new Set());
     const [commentsByPostId, setCommentsByPostId] = useState<Record<string, api.Comment[]>>({});
+    const [commentHasMoreByPostId, setCommentHasMoreByPostId] = useState<Record<string, boolean>>({});
     const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>({});
     const hasLoadedRef = useRef(false);
     const wasActiveRef = useRef(false);
     const loadInFlightRef = useRef<Promise<void> | null>(null);
     const loadedCommentPostIdsRef = useRef<Set<string>>(new Set());
+    const commentPageRef = useRef<Record<string, number>>({});
+    const commentHasMoreRef = useRef<Record<string, boolean>>({});
+    const commentLoadingMoreRef = useRef<Set<string>>(new Set());
+    const commentSentinelRefs = useRef<Record<string, View | null>>({});
+    const flatListRef = useRef<FlatList>(null);
 
     // Feed paging reuses a single in-flight request so pull-to-refresh and
     // scroll pagination cannot stampede the same endpoint concurrently.
@@ -249,9 +273,11 @@ export function FeedScreen({
     const loadComments = useCallback(async (postId: string) => {
         setCommentLoadingIds(prev => new Set(prev).add(postId));
         try {
-            const comments = await api.getComments(postId);
-            setCommentsByPostId(prev => ({ ...prev, [postId]: comments ?? [] }));
-            setPosts(prev => prev.map(post => post.id === postId ? { ...post, comment_count: comments?.length ?? 0 } : post));
+            const result = await api.getComments(postId, 1);
+            setCommentsByPostId(prev => ({ ...prev, [postId]: result.items ?? [] }));
+            commentPageRef.current[postId] = result.page;
+            commentHasMoreRef.current[postId] = result.has_more;
+            setCommentHasMoreByPostId(prev => ({ ...prev, [postId]: result.has_more }));
             loadedCommentPostIdsRef.current.add(postId);
         } catch (e: unknown) {
             Alert.alert('Error', e instanceof Error ? e.message : 'Something went wrong.');
@@ -279,6 +305,50 @@ export function FeedScreen({
         if (shouldLoad) loadComments(postId).catch(() => {});
     }, [loadComments]);
 
+    const loadMoreComments = useCallback(async (postId: string) => {
+        if (commentLoadingMoreRef.current.has(postId)) return;
+        if (!commentHasMoreRef.current[postId]) return;
+
+        commentLoadingMoreRef.current.add(postId);
+        setCommentLoadingMoreIds(new Set(commentLoadingMoreRef.current));
+
+        try {
+            const nextPage = (commentPageRef.current[postId] ?? 1) + 1;
+            const result = await api.getComments(postId, nextPage);
+            commentPageRef.current[postId] = result.page;
+            commentHasMoreRef.current[postId] = result.has_more;
+            setCommentHasMoreByPostId(prev => ({ ...prev, [postId]: result.has_more }));
+            setCommentsByPostId(prev => ({
+                ...prev,
+                [postId]: [...(prev[postId] ?? []), ...(result.items ?? [])],
+            }));
+        } catch (e: unknown) {
+            Alert.alert('Error', e instanceof Error ? e.message : 'Something went wrong.');
+        } finally {
+            commentLoadingMoreRef.current.delete(postId);
+            setCommentLoadingMoreIds(new Set(commentLoadingMoreRef.current));
+        }
+    }, []);
+
+    const checkCommentSentinels = useCallback(() => {
+        const screenHeight = Dimensions.get('window').height;
+        Object.entries(commentSentinelRefs.current).forEach(([postId, sentinelRef]) => {
+            if (!sentinelRef) return;
+            if (!commentHasMoreRef.current[postId]) return;
+            if (commentLoadingMoreRef.current.has(postId)) return;
+            sentinelRef.measure((_x, _y, _w, _h, _pageX, pageY) => {
+                if (pageY <= screenHeight + 150) {
+                    loadMoreComments(postId);
+                }
+            });
+        });
+    }, [loadMoreComments]);
+
+    // Re-check sentinels after new pages load in case the sentinel is already on screen.
+    useEffect(() => {
+        checkCommentSentinels();
+    }, [commentHasMoreByPostId, checkCommentSentinels]);
+
     const handleCommentDraftChange = useCallback((postId: string, value: string) => {
         setCommentDrafts(prev => ({ ...prev, [postId]: value }));
     }, []);
@@ -299,15 +369,10 @@ export function FeedScreen({
                 created_at: new Date().toISOString(),
             };
 
-            let nextCommentCount = 1;
-            setCommentsByPostId(prev => {
-                const nextComments = [...(prev[post.id] ?? []), newComment];
-                nextCommentCount = nextComments.length;
-                return { ...prev, [post.id]: nextComments };
-            });
+            setCommentsByPostId(prev => ({ ...prev, [post.id]: [...(prev[post.id] ?? []), newComment] }));
             loadedCommentPostIdsRef.current.add(post.id);
             setCommentDrafts(prev => ({ ...prev, [post.id]: '' }));
-            setPosts(prev => prev.map(item => item.id === post.id ? { ...item, comment_count: nextCommentCount } : item));
+            setPosts(prev => prev.map(item => item.id === post.id ? { ...item, comment_count: item.comment_count + 1 } : item));
         } catch (e: unknown) {
             Alert.alert('Error', e instanceof Error ? e.message : 'Something went wrong.');
         } finally {
@@ -319,6 +384,37 @@ export function FeedScreen({
         }
     }, [commentDrafts, user]);
 
+    const handleRegisterCommentSentinel = useCallback((postId: string, ref: View | null) => {
+        commentSentinelRefs.current[postId] = ref;
+    }, []);
+
+    const currentUserId = user?.id ?? '';
+
+    const renderItem = useCallback(({ item }: { item: api.Post }) => (
+        <PostCard
+            post={item}
+            displayedCommentCount={item.comment_count}
+            currentUserId={currentUserId}
+            comments={commentsByPostId[item.id] ?? EMPTY_COMMENTS}
+            commentsExpanded={expandedCommentIds.has(item.id)}
+            commentsLoading={commentLoadingIds.has(item.id)}
+            commentsLoadingMore={commentLoadingMoreIds.has(item.id)}
+            hasMoreComments={commentHasMoreByPostId[item.id] ?? false}
+            commentSubmitting={commentSubmittingIds.has(item.id)}
+            commentDraft={commentDrafts[item.id] ?? ''}
+            onCommentDraftChange={handleCommentDraftChange}
+            onToggleComments={handleToggleComments}
+            onSubmitComment={handleSubmitComment}
+            onPressUser={onOpenUserProfile}
+            onRegisterCommentSentinel={handleRegisterCommentSentinel}
+        />
+    ), [
+        currentUserId, commentsByPostId, expandedCommentIds, commentLoadingIds,
+        commentLoadingMoreIds, commentHasMoreByPostId, commentSubmittingIds, commentDrafts,
+        handleCommentDraftChange, handleToggleComments, handleSubmitComment,
+        onOpenUserProfile, handleRegisterCommentSentinel,
+    ]);
+
     if (loading) {
         return <View style={styles.center}><ActivityIndicator color={Colors.primary} /></View>;
     }
@@ -326,12 +422,15 @@ export function FeedScreen({
     return (
         <View style={styles.container}>
             <FlatList
+                ref={flatListRef}
                 data={posts}
                 keyExtractor={p => p.id}
                 keyboardShouldPersistTaps="handled"
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
                 onEndReached={handleLoadMore}
                 onEndReachedThreshold={0.4}
+                onScroll={checkCommentSentinels}
+                scrollEventThrottle={200}
                 ListHeaderComponent={
                     <View style={styles.composeBar}>
                         {user && <Avatar username={user.username} avatarUrl={user.avatar_url} size={28} />}
@@ -367,31 +466,7 @@ export function FeedScreen({
                         <Text style={styles.emptySubtext}>Community posts will show up here as people share.</Text>
                     </View>
                 }
-                renderItem={({ item }) => {
-                    const loadedComments = commentsByPostId[item.id];
-                    const displayedCommentCount = loadedComments ? Math.max(item.comment_count, loadedComments.length) : item.comment_count;
-
-                    return (
-                        <PostCard
-                            post={item}
-                            displayedCommentCount={displayedCommentCount}
-                            currentUserId={user?.id ?? ''}
-                            comments={loadedComments ?? []}
-                            commentsExpanded={expandedCommentIds.has(item.id)}
-                            commentsLoading={commentLoadingIds.has(item.id)}
-                            commentSubmitting={commentSubmittingIds.has(item.id)}
-                            commentDraft={commentDrafts[item.id] ?? ''}
-                            onCommentDraftChange={value => handleCommentDraftChange(item.id, value)}
-                            onToggleComments={() => handleToggleComments(item.id)}
-                            onSubmitComment={() => handleSubmitComment(item)}
-                            onPressUser={() => onOpenUserProfile({
-                                userId: item.user_id,
-                                username: item.username,
-                                avatarUrl: item.avatar_url,
-                            })}
-                        />
-                    );
-                }}
+                renderItem={renderItem}
                 ListFooterComponent={loadingMore ? <ActivityIndicator style={styles.footerLoader} color={Colors.primary} /> : null}
                 contentContainerStyle={styles.list}
             />
@@ -468,6 +543,8 @@ const styles = StyleSheet.create({
         fontSize: Typography.sizes.xs,
         color: Colors.light.textTertiary,
     },
+    commentSentinel: { height: 1 },
+    commentsLoadingMore: { marginVertical: 4 },
     commentComposer: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
     commentInput: {
         flex: 1,

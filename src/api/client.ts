@@ -310,9 +310,9 @@ export async function addComment(postId: string, body: string): Promise<{ id: st
     return request(`/posts/${postId}/comments`, { method: 'POST', body: JSON.stringify({ body }) });
 }
 
-// Loads all comments for a given post.
-export async function getComments(postId: string): Promise<Comment[]> {
-    return request(`/posts/${postId}/comments`);
+// Loads a page of comments for a given post.
+export async function getComments(postId: string, page = 1): Promise<PaginatedResponse<Comment>> {
+    return request(`/posts/${postId}/comments?page=${page}`);
 }
 
 // ── Meetups ────────────────────────────────────────────────────────────────
