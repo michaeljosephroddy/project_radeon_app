@@ -28,6 +28,7 @@ interface MeetupDetailScreenProps {
   meetup: api.Meetup;
   onBack: () => void;
   onToggleRSVP: (id: string) => void;
+  onOpenUserProfile: (profile: { userId: string; username: string; avatarUrl?: string }) => void;
   rsvpPending?: boolean;
   actionLabel?: string;
 }
@@ -36,6 +37,7 @@ export function MeetupDetailScreen({
   meetup,
   onBack,
   onToggleRSVP,
+  onOpenUserProfile,
   rsvpPending = false,
   actionLabel,
 }: MeetupDetailScreenProps) {
@@ -146,7 +148,15 @@ export function MeetupDetailScreen({
                   const isHost = featuredAttendee.id === meetup.organizer_id;
 
                   return (
-                    <View style={styles.attendeeCard}>
+                    <TouchableOpacity
+                      style={styles.attendeeCard}
+                      activeOpacity={0.85}
+                      onPress={() => onOpenUserProfile({
+                        userId: featuredAttendee.id,
+                        username: featuredAttendee.username,
+                        avatarUrl: featuredAttendee.avatar_url ?? undefined,
+                      })}
+                    >
                       <Avatar
                         username={featuredAttendee.username}
                         avatarUrl={featuredAttendee.avatar_url ?? undefined}
@@ -160,7 +170,7 @@ export function MeetupDetailScreen({
                       )}
                       <Text style={styles.attendeeCardName} numberOfLines={1}>{featuredAttendee.username}</Text>
                       <Text style={styles.attendeeCardMeta}>{isHost ? 'Organizer' : 'Member'}</Text>
-                    </View>
+                    </TouchableOpacity>
                   );
                 })()}
 
@@ -189,7 +199,16 @@ export function MeetupDetailScreen({
               {attendeesExpanded && (
                 <View style={styles.attendeeGrid}>
                   {attendees.map(attendee => (
-                    <View key={`row-${attendee.id}`} style={styles.attendeeGridCard}>
+                    <TouchableOpacity
+                      key={`row-${attendee.id}`}
+                      style={styles.attendeeGridCard}
+                      activeOpacity={0.85}
+                      onPress={() => onOpenUserProfile({
+                        userId: attendee.id,
+                        username: attendee.username,
+                        avatarUrl: attendee.avatar_url ?? undefined,
+                      })}
+                    >
                       <Avatar
                         username={attendee.username}
                         avatarUrl={attendee.avatar_url ?? undefined}
@@ -200,7 +219,7 @@ export function MeetupDetailScreen({
                       <Text style={styles.attendeeGridMeta}>
                         {attendee.id === meetup.organizer_id ? 'Organizer' : (attendee.city ?? 'Member')}
                       </Text>
-                    </View>
+                    </TouchableOpacity>
                   ))}
                 </View>
               )}
@@ -351,7 +370,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   hostBadge: {
-    marginTop: -10,
+    marginTop: Spacing.sm,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: Radii.full,

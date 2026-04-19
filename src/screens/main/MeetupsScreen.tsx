@@ -196,10 +196,11 @@ function MeetupCard({ meetup, onPress, onToggleRSVP, rsvpPending = false, action
 
 interface MeetupsScreenProps {
     isActive: boolean;
+    onOpenUserProfile: (profile: { userId: string; username: string; avatarUrl?: string }) => void;
 }
 
 // Renders the meetups tab and keeps RSVP state in sync with the list.
-export function MeetupsScreen({ isActive }: MeetupsScreenProps) {
+export function MeetupsScreen({ isActive, onOpenUserProfile }: MeetupsScreenProps) {
     const { user } = useAuth();
     const [subView, setSubView] = useState<MeetupsSubView>('browse');
     const [meetups, setMeetups] = useState<api.Meetup[]>([]);
@@ -511,13 +512,14 @@ export function MeetupsScreen({ isActive }: MeetupsScreenProps) {
 
     if (selectedMeetup) {
         return (
-            <MeetupDetailScreen
-                meetup={selectedMeetup}
-                onBack={closeMeetupDetails}
-                onToggleRSVP={handleRSVP}
-                rsvpPending={rsvpPendingIds.has(selectedMeetup.id)}
-                actionLabel={subView === 'my' && selectedMeetup.is_attending ? 'Hosting ✓' : undefined}
-            />
+      <MeetupDetailScreen
+        meetup={selectedMeetup}
+        onBack={closeMeetupDetails}
+        onToggleRSVP={handleRSVP}
+        onOpenUserProfile={onOpenUserProfile}
+        rsvpPending={rsvpPendingIds.has(selectedMeetup.id)}
+        actionLabel={subView === 'my' && selectedMeetup.is_attending ? 'Hosting ✓' : undefined}
+      />
         );
     }
 

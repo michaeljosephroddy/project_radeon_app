@@ -48,8 +48,8 @@ const SupportTab = React.memo(function SupportTab({ isActive, onOpenChat, onOpen
     return <View style={isActive ? styles.tabVisible : styles.tabHidden}><SupportScreen isActive={isActive} onOpenChat={onOpenChat} onOpenUserProfile={onOpenUserProfile} /></View>;
 });
 
-const MeetupsTab = React.memo(function MeetupsTab({ isActive }: { isActive: boolean }) {
-    return <View style={isActive ? styles.tabVisible : styles.tabHidden}><MeetupsScreen isActive={isActive} /></View>;
+const MeetupsTab = React.memo(function MeetupsTab({ isActive, onOpenUserProfile }: { isActive: boolean; onOpenUserProfile: (p: OpenUserProfile) => void }) {
+    return <View style={isActive ? styles.tabVisible : styles.tabHidden}><MeetupsScreen isActive={isActive} onOpenUserProfile={onOpenUserProfile} /></View>;
 });
 
 const ChatsTab = React.memo(function ChatsTab({ isActive, refreshKey, onOpenChat }: { isActive: boolean; refreshKey: number; onOpenChat: (c: Chat) => void }) {
@@ -175,7 +175,7 @@ export function AppNavigator() {
                     <FeedTab isActive={activeTab === 'community'} onOpenUserProfile={handleOpenUserProfile} />
                     <DiscoverTab isActive={activeTab === 'discover'} onOpenUserProfile={handleOpenUserProfile} />
                     <SupportTab isActive={activeTab === 'support'} onOpenChat={setOpenChat} onOpenUserProfile={handleOpenUserProfile} />
-                    <MeetupsTab isActive={activeTab === 'meetups'} />
+                    <MeetupsTab isActive={activeTab === 'meetups'} onOpenUserProfile={handleOpenUserProfile} />
                     <ChatsTab isActive={activeTab === 'chats'} refreshKey={chatsRefreshKey} onOpenChat={setOpenChat} />
                     {overlays}
                 </View>

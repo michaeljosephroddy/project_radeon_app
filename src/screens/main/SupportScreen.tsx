@@ -122,13 +122,6 @@ function SupportRequestCard({
                     >
                         <Text style={styles.actionPrimaryText}>I can chat</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity
-                        style={[styles.actionSecondary, (responsePending || request.has_responded || isClosed) && styles.actionDisabled]}
-                        onPress={() => onRespond(request, 'check_in_later')}
-                        disabled={responsePending || request.has_responded || isClosed}
-                    >
-                        <Text style={styles.actionSecondaryText}>Check in later</Text>
-                    </TouchableOpacity>
                 </View>
             )}
         </View>
@@ -383,7 +376,7 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
             <View style={styles.availabilityBody}>
                 <Text style={styles.availabilityTitle}>Available to support</Text>
                 <Text style={styles.availabilityText}>
-                    Let people know you are open to chatting, checking in, or showing up for someone today.
+                    Let people know you are open to chatting or showing up for someone today.
                 </Text>
             </View>
             <TouchableOpacity
