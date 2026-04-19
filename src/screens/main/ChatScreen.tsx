@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import {
     View, Text, FlatList, TouchableOpacity, TextInput,
-    StyleSheet, KeyboardAvoidingView, ActivityIndicator,
+    StyleSheet, KeyboardAvoidingView, ActivityIndicator, Platform,
 } from 'react-native';
 import { Avatar } from '../../components/Avatar';
 import * as api from '../../api/client';
@@ -102,7 +102,7 @@ export function ChatScreen({ chat, onBack }: Props) {
     return (
         <KeyboardAvoidingView
             style={styles.container}
-            behavior="padding"
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
             keyboardVerticalOffset={0}
         >
             {/* Header */}
@@ -110,6 +110,12 @@ export function ChatScreen({ chat, onBack }: Props) {
                 <TouchableOpacity onPress={onBack} style={styles.backBtn}>
                     <Text style={styles.backIcon}>←</Text>
                 </TouchableOpacity>
+                <Avatar
+                    username={chat.is_group ? (chat.name ?? 'Group') : (chat.username ?? 'unknown')}
+                    avatarUrl={chat.is_group ? undefined : chat.avatar_url}
+                    size={32}
+                    fontSize={12}
+                />
                 <Text style={styles.headerName} numberOfLines={1}>{displayName}</Text>
             </View>
 
@@ -160,23 +166,25 @@ export function ChatScreen({ chat, onBack }: Props) {
             )}
 
             {/* Composer */}
-            <View style={[styles.composer, { paddingBottom: insets.bottom + Spacing.md }]}>
-                <TextInput
-                    style={styles.composerInput}
-                    placeholder="Message…"
-                    placeholderTextColor={Colors.light.textTertiary}
-                    value={draft}
-                    onChangeText={setDraft}
-                    multiline
-                    maxLength={1000}
-                />
-                <TouchableOpacity
-                    style={[styles.sendBtn, (!draft.trim() || sending) && styles.sendBtnDisabled]}
-                    onPress={handleSend}
-                    disabled={!draft.trim() || sending}
-                >
-                    <Text style={styles.sendBtnText}>↑</Text>
-                </TouchableOpacity>
+            <View style={[styles.composerShell, { paddingBottom: insets.bottom }]}>
+                <View style={styles.composer}>
+                    <TextInput
+                        style={styles.composerInput}
+                        placeholder="Message…"
+                        placeholderTextColor={Colors.light.textTertiary}
+                        value={draft}
+                        onChangeText={setDraft}
+                        multiline
+                        maxLength={1000}
+                    />
+                    <TouchableOpacity
+                        style={[styles.sendBtn, (!draft.trim() || sending) && styles.sendBtnDisabled]}
+                        onPress={handleSend}
+                        disabled={!draft.trim() || sending}
+                    >
+                        <Text style={styles.sendBtnText}>↑</Text>
+                    </TouchableOpacity>
+                </View>
             </View>
         </KeyboardAvoidingView>
     );
@@ -234,13 +242,18 @@ const styles = StyleSheet.create({
     },
     messageMetaMe: { color: 'rgba(255,255,255,0.85)' },
 
+    composerShell: {
+        backgroundColor: Colors.light.background,
+        borderTopWidth: 0.5,
+        borderTopColor: Colors.light.border,
+    },
     composer: {
         flexDirection: 'row',
         alignItems: 'flex-end',
         gap: Spacing.sm,
-        padding: Spacing.md,
-        borderTopWidth: 0.5,
-        borderTopColor: Colors.light.border,
+        paddingHorizontal: Spacing.md,
+        paddingTop: Spacing.md,
+        paddingBottom: Spacing.sm,
     },
     composerInput: {
         flex: 1,
