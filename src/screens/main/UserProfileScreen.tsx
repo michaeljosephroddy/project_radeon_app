@@ -9,6 +9,7 @@ import { Avatar } from '../../components/Avatar';
 import * as api from '../../api/client';
 import { Colors, Typography, Spacing, Radii } from '../../utils/theme';
 import { formatUsername } from '../../utils/identity';
+import { formatRecoveryDuration, formatSobrietyDate, getRecoveryMilestone } from '../../utils/date';
 
 // Formats profile post timestamps into compact relative labels.
 function timeAgo(dateStr: string): string {
@@ -44,6 +45,8 @@ export function UserProfileScreen({
     const [friendActionLoading, setFriendActionLoading] = useState(false);
     const [dmLoading, setDmLoading] = useState(false);
     const friendshipStatus = profile?.friendship_status === 'self' ? 'friends' : (profile?.friendship_status ?? 'none');
+    const formattedSobrietyDate = formatSobrietyDate(profile?.sober_since);
+    const recoveryMilestone = getRecoveryMilestone(profile?.sober_since);
 
     // Profile metadata and profile posts page separately so relationship state
     // can refresh without replaying the full post timeline.
@@ -164,8 +167,24 @@ export function UserProfileScreen({
                     {profile?.city && (
                         <Text style={styles.meta}>{profile.city}{profile.country ? `, ${profile.country}` : ''}</Text>
                     )}
-                    {profile?.sober_since && (
-                        <Text style={styles.meta}>Sober since {profile.sober_since}</Text>
+                    {formattedSobrietyDate && (
+                        <Text style={styles.meta}>Sober since {formattedSobrietyDate}</Text>
+                    )}
+                    {recoveryMilestone && (
+                        <View style={styles.milestoneCard}>
+                            <Text style={styles.milestoneLabel}>MILESTONE</Text>
+                            <View style={styles.milestoneBadge}>
+                                <Text style={styles.milestoneBadgeText}>{recoveryMilestone.currentLabel}</Text>
+                            </View>
+                            <Text style={styles.milestoneValue}>
+                                {formatRecoveryDuration(recoveryMilestone.daysSober)}
+                            </Text>
+                            <Text style={styles.milestoneHint}>
+                                {recoveryMilestone.nextLabel && recoveryMilestone.daysToNext
+                                    ? `${recoveryMilestone.daysToNext} days to ${recoveryMilestone.nextLabel}`
+                                    : 'Longest milestone badge unlocked'}
+                            </Text>
+                        </View>
                     )}
                 </>
             )}
@@ -290,6 +309,42 @@ const styles = StyleSheet.create({
         marginTop: Spacing.sm,
     },
     meta: {
+        fontSize: Typography.sizes.sm,
+        color: Colors.light.textTertiary,
+    },
+    milestoneCard: {
+        width: '100%',
+        backgroundColor: Colors.light.backgroundSecondary,
+        borderRadius: Radii.md,
+        paddingHorizontal: Spacing.md,
+        paddingVertical: Spacing.md,
+        alignItems: 'center',
+        gap: 6,
+        marginTop: Spacing.md,
+    },
+    milestoneLabel: {
+        fontSize: Typography.sizes.xs,
+        fontWeight: '600',
+        color: Colors.light.textTertiary,
+        letterSpacing: 0.7,
+    },
+    milestoneBadge: {
+        backgroundColor: Colors.primary,
+        borderRadius: Radii.full,
+        paddingHorizontal: Spacing.md,
+        paddingVertical: 7,
+    },
+    milestoneBadgeText: {
+        fontSize: Typography.sizes.sm,
+        fontWeight: '700',
+        color: Colors.textOn.primary,
+    },
+    milestoneValue: {
+        fontSize: Typography.sizes.base,
+        fontWeight: '600',
+        color: Colors.light.textPrimary,
+    },
+    milestoneHint: {
         fontSize: Typography.sizes.sm,
         color: Colors.light.textTertiary,
     },

@@ -11,6 +11,7 @@ import * as api from '../../api/client';
 import { useAuth } from '../../hooks/useAuth';
 import { Colors, Typography, Spacing, Radii } from '../../utils/theme';
 import { formatUsername } from '../../utils/identity';
+import { formatRecoveryDuration, formatSobrietyDate, getRecoveryMilestone } from '../../utils/date';
 
 type SubView = 'profile' | 'friends' | 'requests' | 'settings';
 type RequestsSubView = 'incoming' | 'outgoing';
@@ -31,6 +32,7 @@ export function ProfileTabScreen({ isActive, onOpenUserProfile, onBack }: Profil
     const [city, setCity]             = useState(user?.city ?? '');
     const [country, setCountry]       = useState(user?.country ?? '');
     const [soberSince, setSoberSince] = useState(user?.sober_since ?? '');
+    const [isEditingSoberSince, setIsEditingSoberSince] = useState(false);
     const [saving, setSaving]           = useState(false);
     const [dirty, setDirty]             = useState(false);
     const [uploadingAvatar, setUploadingAvatar] = useState(false);
@@ -49,6 +51,9 @@ export function ProfileTabScreen({ isActive, onOpenUserProfile, onBack }: Profil
     const [loadingMoreIncoming, setLoadingMoreIncoming] = useState(false);
     const [loadingMoreOutgoing, setLoadingMoreOutgoing] = useState(false);
     const [pendingActionIds, setPendingActionIds] = useState<Set<string>>(new Set());
+    const formattedSobrietyDate = formatSobrietyDate(soberSince);
+    const recoveryMilestone = getRecoveryMilestone(soberSince);
+    const sobrietyFieldValue = isEditingSoberSince ? soberSince : (formattedSobrietyDate || soberSince);
 
     // Loads one page of accepted friends for the current account.
     const loadFriends = useCallback(async (cursor?: string, replace = true) => {
@@ -158,7 +163,7 @@ export function ProfileTabScreen({ isActive, onOpenUserProfile, onBack }: Profil
         setFriends(prev => prev.filter(f => f.user_id !== u.user_id));
         try {
             await api.removeFriend(u.user_id);
-            await Promise.all([loadFriends(1, true), refreshUser()]);
+            await Promise.all([loadFriends(undefined, true), refreshUser()]);
         } catch (e: unknown) {
             setFriends(prev => [u, ...prev]);
             Alert.alert('Error', e instanceof Error ? e.message : 'Something went wrong.');
@@ -173,7 +178,7 @@ export function ProfileTabScreen({ isActive, onOpenUserProfile, onBack }: Profil
         setFriends(prev => [u, ...prev]);
         try {
             await api.updateFriendRequest(u.user_id, 'accept');
-            await Promise.all([loadFriends(1, true), loadIncomingRequests(1, true), loadOutgoingRequests(1, true), refreshUser()]);
+            await Promise.all([loadFriends(undefined, true), loadIncomingRequests(undefined, true), loadOutgoingRequests(undefined, true), refreshUser()]);
         } catch (e: unknown) {
             setIncomingRequests(prev => [u, ...prev]);
             setFriends(prev => prev.filter(friend => friend.user_id !== u.user_id));
@@ -188,7 +193,7 @@ export function ProfileTabScreen({ isActive, onOpenUserProfile, onBack }: Profil
         setIncomingRequests(prev => prev.filter(req => req.user_id !== u.user_id));
         try {
             await api.updateFriendRequest(u.user_id, 'decline');
-            await Promise.all([loadIncomingRequests(1, true), loadOutgoingRequests(1, true), refreshUser()]);
+            await Promise.all([loadIncomingRequests(undefined, true), loadOutgoingRequests(undefined, true), refreshUser()]);
         } catch (e: unknown) {
             setIncomingRequests(prev => [u, ...prev]);
             Alert.alert('Error', e instanceof Error ? e.message : 'Something went wrong.');
@@ -202,7 +207,7 @@ export function ProfileTabScreen({ isActive, onOpenUserProfile, onBack }: Profil
         setOutgoingRequests(prev => prev.filter(req => req.user_id !== u.user_id));
         try {
             await api.cancelFriendRequest(u.user_id);
-            await Promise.all([loadIncomingRequests(1, true), loadOutgoingRequests(1, true), refreshUser()]);
+            await Promise.all([loadIncomingRequests(undefined, true), loadOutgoingRequests(undefined, true), refreshUser()]);
         } catch (e: unknown) {
             setOutgoingRequests(prev => [u, ...prev]);
             Alert.alert('Error', e instanceof Error ? e.message : 'Something went wrong.');
@@ -435,9 +440,38 @@ export function ProfileTabScreen({ isActive, onOpenUserProfile, onBack }: Profil
 
                     <Text style={styles.sectionLabel}>SOBRIETY</Text>
                     <View style={styles.fieldGroup}>
+                        {formattedSobrietyDate && recoveryMilestone && (
+                            <>
+                                <View style={styles.sobrietySummary}>
+                                    <View style={styles.sobrietySummaryHeader}>
+                                        <Text style={styles.sobrietySummaryTitle}>Sober since {formattedSobrietyDate}</Text>
+                                        <View style={styles.milestoneBadge}>
+                                            <Text style={styles.milestoneBadgeText}>{recoveryMilestone.currentLabel}</Text>
+                                        </View>
+                                    </View>
+                                    <Text style={styles.sobrietySummaryValue}>
+                                        {formatRecoveryDuration(recoveryMilestone.daysSober)}
+                                    </Text>
+                                    <Text style={styles.sobrietySummaryHint}>
+                                        {recoveryMilestone.nextLabel && recoveryMilestone.daysToNext
+                                            ? `${recoveryMilestone.daysToNext} days to ${recoveryMilestone.nextLabel}`
+                                            : 'Longest milestone badge unlocked'}
+                                    </Text>
+                                </View>
+                                <View style={styles.fieldDivider} />
+                            </>
+                        )}
                         <View style={styles.fieldRow}>
                             <Text style={styles.fieldLabel}>Sober since</Text>
-                            <TextInput style={styles.fieldInput} value={soberSince} onChangeText={mark(setSoberSince)} placeholder="YYYY-MM-DD" placeholderTextColor={Colors.light.textTertiary} />
+                            <TextInput
+                                style={styles.fieldInput}
+                                value={sobrietyFieldValue}
+                                onChangeText={mark(setSoberSince)}
+                                onFocus={() => setIsEditingSoberSince(true)}
+                                onBlur={() => setIsEditingSoberSince(false)}
+                                placeholder="YYYY-MM-DD"
+                                placeholderTextColor={Colors.light.textTertiary}
+                            />
                         </View>
                     </View>
 
@@ -623,6 +657,43 @@ const styles = StyleSheet.create({
     fieldDivider: { height: 0.5, backgroundColor: Colors.light.border, marginLeft: Spacing.md },
     fieldLabel: { width: 90, fontSize: Typography.sizes.sm, color: Colors.light.textTertiary },
     fieldInput: { flex: 1, fontSize: Typography.sizes.base, color: Colors.light.textPrimary, textAlign: 'right', padding: 0 },
+    sobrietySummary: {
+        paddingHorizontal: Spacing.md,
+        paddingVertical: Spacing.md,
+        gap: 6,
+    },
+    sobrietySummaryHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: Spacing.sm,
+    },
+    sobrietySummaryTitle: {
+        flex: 1,
+        fontSize: Typography.sizes.base,
+        fontWeight: '600',
+        color: Colors.light.textPrimary,
+    },
+    sobrietySummaryValue: {
+        fontSize: Typography.sizes.sm,
+        fontWeight: '600',
+        color: Colors.light.textSecondary,
+    },
+    sobrietySummaryHint: {
+        fontSize: Typography.sizes.sm,
+        color: Colors.light.textTertiary,
+    },
+    milestoneBadge: {
+        backgroundColor: Colors.primary,
+        borderRadius: Radii.full,
+        paddingHorizontal: Spacing.md,
+        paddingVertical: 7,
+    },
+    milestoneBadgeText: {
+        fontSize: Typography.sizes.sm,
+        fontWeight: '700',
+        color: Colors.textOn.primary,
+    },
 
     saveBtn: {
         backgroundColor: Colors.primary,
