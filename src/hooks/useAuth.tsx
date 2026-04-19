@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import * as api from '../api/client';
 
 interface AuthContextType {
@@ -17,6 +17,13 @@ const AuthContext = createContext<AuthContextType | null>(null);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [user, setUser] = useState<api.User | null>(null);
     const [isLoading, setIsLoading] = useState(true);
+    const setUserRef = useRef(setUser);
+    setUserRef.current = setUser;
+
+    useEffect(() => {
+        // Any 401 received after startup clears the session and forces re-login.
+        api.setUnauthorizedHandler(() => setUserRef.current(null));
+    }, []);
 
     useEffect(() => {
         // Rehydrate the session once on app launch. If the token is stale we clear

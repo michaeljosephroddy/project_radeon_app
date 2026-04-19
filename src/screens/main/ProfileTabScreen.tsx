@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
     View, Text, TextInput, TouchableOpacity,
     StyleSheet, ScrollView, FlatList, ActivityIndicator, Alert,
@@ -39,9 +39,9 @@ export function ProfileTabScreen({ isActive, onOpenUserProfile, onBack }: Profil
     const [friends, setFriends] = useState<api.FriendUser[]>([]);
     const [incomingRequests, setIncomingRequests] = useState<api.FriendUser[]>([]);
     const [outgoingRequests, setOutgoingRequests] = useState<api.FriendUser[]>([]);
-    const [friendsPage, setFriendsPage] = useState(1);
-    const [incomingPage, setIncomingPage] = useState(1);
-    const [outgoingPage, setOutgoingPage] = useState(1);
+    const friendsCursorRef = useRef<string | undefined>(undefined);
+    const incomingCursorRef = useRef<string | undefined>(undefined);
+    const outgoingCursorRef = useRef<string | undefined>(undefined);
     const [friendsHasMore, setFriendsHasMore] = useState(false);
     const [incomingHasMore, setIncomingHasMore] = useState(false);
     const [outgoingHasMore, setOutgoingHasMore] = useState(false);
@@ -51,31 +51,31 @@ export function ProfileTabScreen({ isActive, onOpenUserProfile, onBack }: Profil
     const [pendingActionIds, setPendingActionIds] = useState<Set<string>>(new Set());
 
     // Loads one page of accepted friends for the current account.
-    const loadFriends = useCallback(async (page = 1, replace = true) => {
+    const loadFriends = useCallback(async (cursor?: string, replace = true) => {
         try {
-            const nextFriends = await api.getFriends(page, 25);
+            const nextFriends = await api.getFriends(cursor, 25);
             setFriends(current => replace ? (nextFriends.items ?? []) : [...current, ...(nextFriends.items ?? [])]);
-            setFriendsPage(nextFriends.page);
+            friendsCursorRef.current = nextFriends.next_cursor ?? undefined;
             setFriendsHasMore(nextFriends.has_more);
         } catch {}
     }, []);
 
     // Keeps incoming and outgoing request paging independent so each tab can
     // load deeper without pulling the other list along with it.
-    const loadIncomingRequests = useCallback(async (page = 1, replace = true) => {
+    const loadIncomingRequests = useCallback(async (cursor?: string, replace = true) => {
         try {
-            const incoming = await api.getIncomingFriendRequests(page, 25);
+            const incoming = await api.getIncomingFriendRequests(cursor, 25);
             setIncomingRequests(current => replace ? (incoming.items ?? []) : [...current, ...(incoming.items ?? [])]);
-            setIncomingPage(incoming.page);
+            incomingCursorRef.current = incoming.next_cursor ?? undefined;
             setIncomingHasMore(incoming.has_more);
         } catch {}
     }, []);
 
-    const loadOutgoingRequests = useCallback(async (page = 1, replace = true) => {
+    const loadOutgoingRequests = useCallback(async (cursor?: string, replace = true) => {
         try {
-            const outgoing = await api.getOutgoingFriendRequests(page, 25);
+            const outgoing = await api.getOutgoingFriendRequests(cursor, 25);
             setOutgoingRequests(current => replace ? (outgoing.items ?? []) : [...current, ...(outgoing.items ?? [])]);
-            setOutgoingPage(outgoing.page);
+            outgoingCursorRef.current = outgoing.next_cursor ?? undefined;
             setOutgoingHasMore(outgoing.has_more);
         } catch {}
     }, []);
@@ -84,9 +84,9 @@ export function ProfileTabScreen({ isActive, onOpenUserProfile, onBack }: Profil
     // and detail subviews stay aligned after mutations.
     const loadFriendSummary = useCallback(async () => {
         await Promise.all([
-            loadFriends(1, true),
-            loadIncomingRequests(1, true),
-            loadOutgoingRequests(1, true),
+            loadFriends(undefined, true),
+            loadIncomingRequests(undefined, true),
+            loadOutgoingRequests(undefined, true),
         ]);
     }, [loadFriends, loadIncomingRequests, loadOutgoingRequests]);
 
@@ -222,7 +222,7 @@ export function ProfileTabScreen({ isActive, onOpenUserProfile, onBack }: Profil
         if (loadingMoreFriends || !friendsHasMore) return;
         setLoadingMoreFriends(true);
         try {
-            await loadFriends(friendsPage + 1, false);
+            await loadFriends(friendsCursorRef.current, false);
         } finally {
             setLoadingMoreFriends(false);
         }
@@ -233,7 +233,7 @@ export function ProfileTabScreen({ isActive, onOpenUserProfile, onBack }: Profil
             if (loadingMoreIncoming || !incomingHasMore) return;
             setLoadingMoreIncoming(true);
             try {
-                await loadIncomingRequests(incomingPage + 1, false);
+                await loadIncomingRequests(incomingCursorRef.current, false);
             } finally {
                 setLoadingMoreIncoming(false);
             }
@@ -243,7 +243,7 @@ export function ProfileTabScreen({ isActive, onOpenUserProfile, onBack }: Profil
         if (loadingMoreOutgoing || !outgoingHasMore) return;
         setLoadingMoreOutgoing(true);
         try {
-            await loadOutgoingRequests(outgoingPage + 1, false);
+            await loadOutgoingRequests(outgoingCursorRef.current, false);
         } finally {
             setLoadingMoreOutgoing(false);
         }

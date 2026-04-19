@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
     View, Text, TouchableOpacity, StyleSheet,
     FlatList, ActivityIndicator, RefreshControl,
@@ -39,7 +39,7 @@ export function UserProfileScreen({
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [loadingMorePosts, setLoadingMorePosts] = useState(false);
-    const [postsPage, setPostsPage] = useState(1);
+    const postsCursorRef = useRef<string | undefined>(undefined);
     const [postsHasMore, setPostsHasMore] = useState(false);
     const [friendActionLoading, setFriendActionLoading] = useState(false);
     const [dmLoading, setDmLoading] = useState(false);
@@ -54,28 +54,28 @@ export function UserProfileScreen({
         } catch { }
     }, [userId]);
 
-    const loadPosts = useCallback(async (page = 1, replace = false) => {
+    const loadPosts = useCallback(async (cursor?: string, replace = false) => {
         try {
-            const postsData = await api.getUserPosts(userId, page, 20);
+            const postsData = await api.getUserPosts(userId, cursor, 20);
             setPosts(current => replace ? (postsData.items ?? []) : [...current, ...(postsData.items ?? [])]);
-            setPostsPage(postsData.page);
+            postsCursorRef.current = postsData.next_cursor ?? undefined;
             setPostsHasMore(postsData.has_more);
         } catch {
             if (replace) {
                 setPosts([]);
-                setPostsPage(1);
+                postsCursorRef.current = undefined;
                 setPostsHasMore(false);
             }
         }
     }, [userId]);
 
     useEffect(() => {
-        Promise.all([loadProfile(), loadPosts(1, true)]).finally(() => setLoading(false));
+        Promise.all([loadProfile(), loadPosts(undefined, true)]).finally(() => setLoading(false));
     }, [loadProfile, loadPosts]);
 
     const onRefresh = async () => {
         setRefreshing(true);
-        await Promise.all([loadProfile(), loadPosts(1, true)]);
+        await Promise.all([loadProfile(), loadPosts(undefined, true)]);
         setRefreshing(false);
     };
 
@@ -141,7 +141,7 @@ export function UserProfileScreen({
         if (loading || refreshing || loadingMorePosts || !postsHasMore) return;
         setLoadingMorePosts(true);
         try {
-            await loadPosts(postsPage + 1);
+            await loadPosts(postsCursorRef.current);
         } finally {
             setLoadingMorePosts(false);
         }

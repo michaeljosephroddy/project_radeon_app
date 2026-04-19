@@ -3,12 +3,24 @@ import * as SecureStore from 'expo-secure-store';
 const BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:8080';
 const TOKEN_KEY = 'auth_token';
 
+// Called by useAuth to handle any 401 response after the initial session check.
+let _onUnauthorized: (() => void) | null = null;
+export function setUnauthorizedHandler(handler: () => void): void {
+    _onUnauthorized = handler;
+}
+
 // Parses the standard API envelope and throws a useful error for non-OK responses.
 async function parseDataResponse<T>(res: Response): Promise<T> {
     const text = await res.text();
     // Some endpoints can legitimately return an empty body. Reading text first lets
     // us gracefully handle both JSON payloads and "no content" responses.
     const json = text ? (() => { try { return JSON.parse(text); } catch { return {}; } })() : {};
+
+    if (res.status === 401) {
+        await clearToken();
+        _onUnauthorized?.();
+        throw new Error(json.error || 'Unauthorized');
+    }
 
     if (!res.ok) {
         throw new Error(json.error || `Request failed: ${res.status}`);
@@ -79,6 +91,13 @@ export interface PaginatedResponse<T> {
     page: number;
     limit: number;
     has_more: boolean;
+}
+
+export interface CursorResponse<T> {
+    items: T[];
+    limit: number;
+    has_more: boolean;
+    next_cursor?: string | null;
 }
 
 export interface Post {
@@ -164,7 +183,7 @@ export interface SupportResponse {
     created_at: string;
 }
 
-export interface SupportRequestsPage extends PaginatedResponse<SupportRequest> {
+export interface SupportRequestsPage extends CursorResponse<SupportRequest> {
     open_request_count?: number;
     available_to_support_count?: number;
 }
@@ -276,13 +295,17 @@ export async function discoverUsers(params?: { query?: string; city?: string; pa
 // ── Feed & Posts ───────────────────────────────────────────────────────────
 
 // Loads the feed page used on the community tab.
-export async function getFeed(page = 1, limit = 20): Promise<PaginatedResponse<Post>> {
-    return request(`/feed?page=${page}&limit=${limit}`);
+export async function getFeed(cursor?: string, limit = 20): Promise<CursorResponse<Post>> {
+    const search = new URLSearchParams({ limit: String(limit) });
+    if (cursor) search.set('before', cursor);
+    return request(`/feed?${search.toString()}`);
 }
 
 // Loads all posts authored by a specific user.
-export async function getUserPosts(userId: string, page = 1, limit = 20): Promise<PaginatedResponse<Post>> {
-    return request(`/users/${userId}/posts?page=${page}&limit=${limit}`);
+export async function getUserPosts(userId: string, cursor?: string, limit = 20): Promise<CursorResponse<Post>> {
+    const search = new URLSearchParams({ limit: String(limit) });
+    if (cursor) search.set('before', cursor);
+    return request(`/users/${userId}/posts?${search.toString()}`);
 }
 
 // Creates a new feed post from the supplied text body.
@@ -311,8 +334,10 @@ export async function addComment(postId: string, body: string): Promise<{ id: st
 }
 
 // Loads a page of comments for a given post.
-export async function getComments(postId: string, page = 1): Promise<PaginatedResponse<Comment>> {
-    return request(`/posts/${postId}/comments?page=${page}`);
+export async function getComments(postId: string, cursor?: string, limit = 20): Promise<CursorResponse<Comment>> {
+    const search = new URLSearchParams({ limit: String(limit) });
+    if (cursor) search.set('after', cursor);
+    return request(`/posts/${postId}/comments?${search.toString()}`);
 }
 
 // ── Meetups ────────────────────────────────────────────────────────────────
@@ -367,13 +392,17 @@ export async function createSupportRequest(data: {
 }
 
 // Loads open support requests visible to the current user.
-export async function getSupportRequests(page = 1, limit = 20): Promise<SupportRequestsPage> {
-    return request(`/support/requests?page=${page}&limit=${limit}`);
+export async function getSupportRequests(cursor?: string, limit = 20): Promise<SupportRequestsPage> {
+    const search = new URLSearchParams({ limit: String(limit) });
+    if (cursor) search.set('before', cursor);
+    return request(`/support/requests?${search.toString()}`);
 }
 
 // Loads support requests created by the current user.
-export async function getMySupportRequests(page = 1, limit = 20): Promise<PaginatedResponse<SupportRequest>> {
-    return request(`/support/requests/mine?page=${page}&limit=${limit}`);
+export async function getMySupportRequests(cursor?: string, limit = 20): Promise<CursorResponse<SupportRequest>> {
+    const search = new URLSearchParams({ limit: String(limit) });
+    if (cursor) search.set('before', cursor);
+    return request(`/support/requests/mine?${search.toString()}`);
 }
 
 // Loads a single support request by id.
@@ -497,16 +526,22 @@ export async function removeFriend(id: string): Promise<void> {
 }
 
 // Loads the list of accepted friends for the current user.
-export async function getFriends(page = 1, limit = 25): Promise<PaginatedResponse<FriendUser>> {
-    return request(`/users/me/friends?page=${page}&limit=${limit}`);
+export async function getFriends(cursor?: string, limit = 25): Promise<CursorResponse<FriendUser>> {
+    const search = new URLSearchParams({ limit: String(limit) });
+    if (cursor) search.set('before', cursor);
+    return request(`/users/me/friends?${search.toString()}`);
 }
 
 // Loads incoming friend requests for the current user.
-export async function getIncomingFriendRequests(page = 1, limit = 25): Promise<PaginatedResponse<FriendUser>> {
-    return request(`/users/me/friend-requests/incoming?page=${page}&limit=${limit}`);
+export async function getIncomingFriendRequests(cursor?: string, limit = 25): Promise<CursorResponse<FriendUser>> {
+    const search = new URLSearchParams({ limit: String(limit) });
+    if (cursor) search.set('before', cursor);
+    return request(`/users/me/friend-requests/incoming?${search.toString()}`);
 }
 
 // Loads outgoing friend requests for the current user.
-export async function getOutgoingFriendRequests(page = 1, limit = 25): Promise<PaginatedResponse<FriendUser>> {
-    return request(`/users/me/friend-requests/outgoing?page=${page}&limit=${limit}`);
+export async function getOutgoingFriendRequests(cursor?: string, limit = 25): Promise<CursorResponse<FriendUser>> {
+    const search = new URLSearchParams({ limit: String(limit) });
+    if (cursor) search.set('before', cursor);
+    return request(`/users/me/friend-requests/outgoing?${search.toString()}`);
 }

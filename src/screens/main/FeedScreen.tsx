@@ -175,7 +175,6 @@ export function FeedScreen({
     const [loading, setLoading] = useState(isActive);
     const [refreshing, setRefreshing] = useState(false);
     const [loadingMore, setLoadingMore] = useState(false);
-    const [page, setPage] = useState(1);
     const [hasMore, setHasMore] = useState(false);
     const [composing, setComposing] = useState(false);
     const [draft, setDraft] = useState('');
@@ -190,8 +189,9 @@ export function FeedScreen({
     const hasLoadedRef = useRef(false);
     const wasActiveRef = useRef(false);
     const loadInFlightRef = useRef<Promise<void> | null>(null);
+    const nextCursorRef = useRef<string | undefined>(undefined);
     const loadedCommentPostIdsRef = useRef<Set<string>>(new Set());
-    const commentPageRef = useRef<Record<string, number>>({});
+    const commentCursorRef = useRef<Record<string, string | undefined>>({});
     const commentHasMoreRef = useRef<Record<string, boolean>>({});
     const commentLoadingMoreRef = useRef<Set<string>>(new Set());
     const commentSentinelRefs = useRef<Record<string, View | null>>({});
@@ -199,14 +199,14 @@ export function FeedScreen({
 
     // Feed paging reuses a single in-flight request so pull-to-refresh and
     // scroll pagination cannot stampede the same endpoint concurrently.
-    const load = useCallback(async (nextPage: number, replace = false) => {
+    const load = useCallback(async (cursor?: string, replace = false) => {
         if (loadInFlightRef.current) return loadInFlightRef.current;
 
         const request = (async () => {
             try {
-                const feedData = await api.getFeed(nextPage, 20);
+                const feedData = await api.getFeed(cursor, 20);
                 setPosts(current => replace ? (feedData.items ?? []) : [...current, ...(feedData.items ?? [])]);
-                setPage(feedData.page);
+                nextCursorRef.current = feedData.next_cursor ?? undefined;
                 setHasMore(feedData.has_more);
             } catch { }
         })();
@@ -228,7 +228,7 @@ export function FeedScreen({
         const isFirstLoad = !hasLoadedRef.current;
         if (isFirstLoad) setLoading(true);
 
-        load(1, true).finally(() => {
+        load(undefined, true).finally(() => {
             hasLoadedRef.current = true;
             if (isFirstLoad) setLoading(false);
         });
@@ -237,7 +237,7 @@ export function FeedScreen({
     const onRefresh = async () => {
         setRefreshing(true);
         try {
-            await load(1, true);
+            await load(undefined, true);
         } finally {
             setRefreshing(false);
         }
@@ -250,7 +250,7 @@ export function FeedScreen({
             await api.createPost(draft.trim());
             setDraft('');
             setComposing(false);
-            await load(1, true);
+            await load(undefined, true);
         } catch (e: unknown) {
             Alert.alert('Error', e instanceof Error ? e.message : 'Something went wrong.');
         } finally {
@@ -264,7 +264,7 @@ export function FeedScreen({
         if (!isActive || loading || refreshing || loadingMore || !hasMore) return;
         setLoadingMore(true);
         try {
-            await load(page + 1);
+            await load(nextCursorRef.current);
         } finally {
             setLoadingMore(false);
         }
@@ -273,9 +273,9 @@ export function FeedScreen({
     const loadComments = useCallback(async (postId: string) => {
         setCommentLoadingIds(prev => new Set(prev).add(postId));
         try {
-            const result = await api.getComments(postId, 1);
+            const result = await api.getComments(postId);
             setCommentsByPostId(prev => ({ ...prev, [postId]: result.items ?? [] }));
-            commentPageRef.current[postId] = result.page;
+            commentCursorRef.current[postId] = result.next_cursor ?? undefined;
             commentHasMoreRef.current[postId] = result.has_more;
             setCommentHasMoreByPostId(prev => ({ ...prev, [postId]: result.has_more }));
             loadedCommentPostIdsRef.current.add(postId);
@@ -313,9 +313,8 @@ export function FeedScreen({
         setCommentLoadingMoreIds(new Set(commentLoadingMoreRef.current));
 
         try {
-            const nextPage = (commentPageRef.current[postId] ?? 1) + 1;
-            const result = await api.getComments(postId, nextPage);
-            commentPageRef.current[postId] = result.page;
+            const result = await api.getComments(postId, commentCursorRef.current[postId]);
+            commentCursorRef.current[postId] = result.next_cursor ?? undefined;
             commentHasMoreRef.current[postId] = result.has_more;
             setCommentHasMoreByPostId(prev => ({ ...prev, [postId]: result.has_more }));
             setCommentsByPostId(prev => ({

@@ -147,8 +147,8 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
     const [myRefreshing, setMyRefreshing] = useState(false);
     const [loadingMoreOpen, setLoadingMoreOpen] = useState(false);
     const [loadingMoreMine, setLoadingMoreMine] = useState(false);
-    const [openPage, setOpenPage] = useState(1);
-    const [myPage, setMyPage] = useState(1);
+    const openCursorRef = useRef<string | undefined>(undefined);
+    const myCursorRef = useRef<string | undefined>(undefined);
     const [openHasMore, setOpenHasMore] = useState(false);
     const [myHasMore, setMyHasMore] = useState(false);
     const [submitting, setSubmitting] = useState(false);
@@ -168,20 +168,20 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
 
   // Loads visible community support requests plus the lightweight header
   // counts so the tab can paginate cards without separate summary calls.
-  const loadOpen = useCallback(async (page = 1, replace = false) => {
+  const loadOpen = useCallback(async (cursor?: string, replace = false) => {
         if (openLoadRef.current) return openLoadRef.current;
         const request = (async () => {
             try {
-                const data = await api.getSupportRequests(page, 20);
+                const data = await api.getSupportRequests(cursor, 20);
                 setRequests(prev => replace ? (data.items ?? []) : [...prev, ...(data.items ?? [])]);
-                setOpenPage(data.page);
+                openCursorRef.current = data.next_cursor ?? undefined;
                 setOpenHasMore(data.has_more);
                 setOpenRequestCount(data.open_request_count ?? 0);
                 setAvailableToSupportCount(data.available_to_support_count ?? 0);
             } catch {
                 if (replace) {
                     setRequests([]);
-                    setOpenPage(1);
+                    openCursorRef.current = undefined;
                     setOpenHasMore(false);
                     setOpenRequestCount(0);
                     setAvailableToSupportCount(0);
@@ -198,18 +198,18 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
 
   // Loads the caller's own support requests lazily because that list is only
   // needed after the user switches into the "My requests" subview.
-  const loadMine = useCallback(async (page = 1, replace = false) => {
+  const loadMine = useCallback(async (cursor?: string, replace = false) => {
         if (myLoadRef.current) return myLoadRef.current;
         const request = (async () => {
             try {
-                const data = await api.getMySupportRequests(page, 20);
+                const data = await api.getMySupportRequests(cursor, 20);
                 setMyRequests(prev => replace ? (data.items ?? []) : [...prev, ...(data.items ?? [])]);
-                setMyPage(data.page);
+                myCursorRef.current = data.next_cursor ?? undefined;
                 setMyHasMore(data.has_more);
             } catch {
                 if (replace) {
                     setMyRequests([]);
-                    setMyPage(1);
+                    myCursorRef.current = undefined;
                     setMyHasMore(false);
                 }
             }
@@ -230,7 +230,7 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
         const isFirstLoad = !hasLoadedRef.current;
         if (isFirstLoad) setLoading(true);
         Promise.all([
-            loadOpen(1, true),
+            loadOpen(undefined, true),
             api.getMySupportProfile().then(profile => setIsAvailableToSupport(profile.is_available_to_support)).catch(() => { }),
         ]).finally(() => {
             hasLoadedRef.current = true;
@@ -240,13 +240,13 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
 
     useEffect(() => {
         if (!isActive || subView !== 'mine' || myRequests.length > 0) return;
-        loadMine(1, true).catch(() => { });
+        loadMine(undefined, true).catch(() => { });
     }, [isActive, myRequests.length, subView, loadMine]);
 
     const refreshOpen = async () => {
         setRefreshing(true);
         try {
-            await loadOpen(1, true);
+            await loadOpen(undefined, true);
         } finally {
             setRefreshing(false);
         }
@@ -255,7 +255,7 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
     const refreshMine = async () => {
         setMyRefreshing(true);
         try {
-            await loadMine(1, true);
+            await loadMine(undefined, true);
         } finally {
             setMyRefreshing(false);
         }
@@ -362,7 +362,7 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
             if (loadingMoreMine || myRefreshing || !myHasMore) return;
             setLoadingMoreMine(true);
             try {
-                await loadMine(myPage + 1);
+                await loadMine(myCursorRef.current);
             } finally {
                 setLoadingMoreMine(false);
             }
@@ -372,7 +372,7 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
         if (loadingMoreOpen || refreshing || !openHasMore) return;
         setLoadingMoreOpen(true);
         try {
-            await loadOpen(openPage + 1);
+            await loadOpen(openCursorRef.current);
         } finally {
             setLoadingMoreOpen(false);
         }
