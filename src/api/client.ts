@@ -2,6 +2,8 @@ import * as SecureStore from 'expo-secure-store';
 
 const BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:8080';
 const TOKEN_KEY = 'auth_token';
+let inMemoryToken: string | null = null;
+let hasLoadedToken = false;
 
 // Called by useAuth to handle any 401 response after the initial session check.
 let _onUnauthorized: (() => void) | null = null;
@@ -33,16 +35,24 @@ async function parseDataResponse<T>(res: Response): Promise<T> {
 
 // Reads the persisted auth token from secure storage for authenticated requests.
 export async function getToken(): Promise<string | null> {
-    return SecureStore.getItemAsync(TOKEN_KEY);
+    if (hasLoadedToken) return inMemoryToken;
+    const token = await SecureStore.getItemAsync(TOKEN_KEY);
+    inMemoryToken = token;
+    hasLoadedToken = true;
+    return token;
 }
 
 // Persists the auth token after a successful login or registration flow.
 export async function setToken(token: string): Promise<void> {
+    inMemoryToken = token;
+    hasLoadedToken = true;
     await SecureStore.setItemAsync(TOKEN_KEY, token);
 }
 
 // Removes any persisted auth token when the session is no longer valid.
 export async function clearToken(): Promise<void> {
+    inMemoryToken = null;
+    hasLoadedToken = true;
     await SecureStore.deleteItemAsync(TOKEN_KEY);
 }
 

@@ -84,6 +84,7 @@ export function ChatsScreen({ isActive, refreshKey, onOpenChat }: ChatsScreenPro
     const hasLoadedRef = useRef(false);
     const previousRefreshKeyRef = useRef(refreshKey);
     const previousQueryRef = useRef('');
+    const loadRequestIdRef = useRef(0);
 
     useEffect(() => {
         const timer = setTimeout(() => setDebouncedQuery(query.trim()), 250);
@@ -93,12 +94,22 @@ export function ChatsScreen({ isActive, refreshKey, onOpenChat }: ChatsScreenPro
     // Chat list search and paging both happen on the backend so the client
     // never needs to download the full inbox just to filter it locally.
     const load = useCallback(async (nextPage: number, replace = false) => {
+        const requestId = ++loadRequestIdRef.current;
+
         try {
             const data = await api.getChats({ query: debouncedQuery, page: nextPage, limit: 20 });
+            if (requestId !== loadRequestIdRef.current) return;
             setChats(prev => replace ? (data.items ?? []) : [...prev, ...(data.items ?? [])]);
             setPage(data.page);
             setHasMore(data.has_more);
-        } catch { }
+        } catch {
+            if (requestId !== loadRequestIdRef.current) return;
+            if (replace) {
+                setChats([]);
+                setPage(1);
+                setHasMore(false);
+            }
+        }
     }, [debouncedQuery]);
 
     useEffect(() => {
