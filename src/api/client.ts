@@ -510,6 +510,11 @@ export async function sendMessage(chatId: string, body: string): Promise<{ id: s
     return request(`/chats/${chatId}/messages`, { method: 'POST', body: JSON.stringify({ body }) });
 }
 
+// Deletes a direct chat or leaves a group chat for the current user.
+export async function deleteChat(chatId: string): Promise<{ action: 'deleted' | 'left' }> {
+    return request(`/chats/${chatId}`, { method: 'DELETE' });
+}
+
 // ── Friends ────────────────────────────────────────────────────────────────
 
 export interface FriendUser {

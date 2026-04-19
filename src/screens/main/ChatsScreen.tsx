@@ -1,8 +1,9 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
     View, Text, FlatList, TouchableOpacity,
-    StyleSheet, RefreshControl, ActivityIndicator, TextInput,
+    StyleSheet, RefreshControl, ActivityIndicator, TextInput, Alert,
 } from 'react-native';
+import { Swipeable } from 'react-native-gesture-handler';
 import { Avatar } from '../../components/Avatar';
 import * as api from '../../api/client';
 import { Colors, Typography, Spacing, Radii } from '../../utils/theme';
@@ -32,42 +33,58 @@ interface ChatsScreenProps {
 interface ChatItemProps {
     item: api.Chat;
     onOpenChat: (chat: api.Chat) => void;
+    onDeleteChat: (chat: api.Chat) => void;
+    actionPending?: boolean;
 }
 
 // Renders a single row in the chats list.
-function ChatItem({ item, onOpenChat }: ChatItemProps) {
+function ChatItem({ item, onOpenChat, onDeleteChat, actionPending = false }: ChatItemProps) {
     const displayName = item.is_group
         ? (item.name ?? 'Group')
         : formatUsername(item.username);
+    const actionLabel = item.is_group ? 'Leave' : 'Delete';
 
     return (
-        <TouchableOpacity
-            style={styles.item}
-            onPress={() => onOpenChat(item)}
+        <Swipeable
+            overshootRight={false}
+            renderRightActions={() => (
+                <TouchableOpacity
+                    style={[styles.deleteAction, actionPending && styles.deleteActionDisabled]}
+                    onPress={() => onDeleteChat(item)}
+                    disabled={actionPending}
+                >
+                    <Text style={styles.deleteActionText}>{actionPending ? '...' : actionLabel}</Text>
+                </TouchableOpacity>
+            )}
         >
-            <View style={styles.avatarWrap}>
-                <Avatar username={item.is_group ? 'group' : (item.username ?? 'unknown')} avatarUrl={item.is_group ? undefined : item.avatar_url} size={40} fontSize={13} />
-                {item.is_group && (
-                    <View style={styles.groupBadge}>
-                        <Text style={styles.groupBadgeText}>G</Text>
-                    </View>
-                )}
-            </View>
-            <View style={styles.meta}>
-                <View style={styles.metaTop}>
-                    <Text style={styles.name}>{displayName}</Text>
+            <TouchableOpacity
+                style={styles.item}
+                onPress={() => onOpenChat(item)}
+            >
+                <View style={styles.avatarWrap}>
+                    <Avatar username={item.is_group ? 'group' : (item.username ?? 'unknown')} avatarUrl={item.is_group ? undefined : item.avatar_url} size={40} fontSize={13} />
                     {item.is_group && (
-                        <View style={styles.groupPill}>
-                            <Text style={styles.groupPillText}>group</Text>
+                        <View style={styles.groupBadge}>
+                            <Text style={styles.groupBadgeText}>G</Text>
                         </View>
                     )}
                 </View>
-                {item.last_message && (
-                    <Text style={styles.preview} numberOfLines={1}>{item.last_message}</Text>
-                )}
-            </View>
-            <Text style={styles.time}>{timeLabel(item.last_message_at)}</Text>
-        </TouchableOpacity>
+                <View style={styles.meta}>
+                    <View style={styles.metaTop}>
+                        <Text style={styles.name}>{displayName}</Text>
+                        {item.is_group && (
+                            <View style={styles.groupPill}>
+                                <Text style={styles.groupPillText}>group</Text>
+                            </View>
+                        )}
+                    </View>
+                    {item.last_message && (
+                        <Text style={styles.preview} numberOfLines={1}>{item.last_message}</Text>
+                    )}
+                </View>
+                <Text style={styles.time}>{timeLabel(item.last_message_at)}</Text>
+            </TouchableOpacity>
+        </Swipeable>
     );
 }
 
@@ -81,6 +98,7 @@ export function ChatsScreen({ isActive, refreshKey, onOpenChat }: ChatsScreenPro
     const [debouncedQuery, setDebouncedQuery] = useState('');
     const [page, setPage] = useState(1);
     const [hasMore, setHasMore] = useState(false);
+    const [pendingDeleteIds, setPendingDeleteIds] = useState<Set<string>>(new Set());
     const hasLoadedRef = useRef(false);
     const previousRefreshKeyRef = useRef(refreshKey);
     const previousQueryRef = useRef('');
@@ -166,6 +184,39 @@ export function ChatsScreen({ isActive, refreshKey, onOpenChat }: ChatsScreenPro
         }
     };
 
+    const handleDeleteChat = useCallback((chat: api.Chat) => {
+        const title = chat.is_group ? 'Leave this group?' : 'Delete this chat?';
+        const message = chat.is_group
+            ? 'You will be removed from this group conversation.'
+            : 'This conversation will be deleted.';
+
+        Alert.alert(title, message, [
+            { text: 'Cancel', style: 'cancel' },
+            {
+                text: chat.is_group ? 'Leave' : 'Delete',
+                style: 'destructive',
+                onPress: async () => {
+                    setPendingDeleteIds(prev => new Set(prev).add(chat.id));
+                    const previousChats = chats;
+                    setChats(prev => prev.filter(item => item.id !== chat.id));
+
+                    try {
+                        await api.deleteChat(chat.id);
+                    } catch (e: unknown) {
+                        setChats(previousChats);
+                        Alert.alert(chat.is_group ? 'Could not leave group' : 'Could not delete chat', e instanceof Error ? e.message : 'Something went wrong.');
+                    } finally {
+                        setPendingDeleteIds(prev => {
+                            const next = new Set(prev);
+                            next.delete(chat.id);
+                            return next;
+                        });
+                    }
+                },
+            },
+        ]);
+    }, [chats]);
+
     if (loading) {
         return <View style={styles.center}><ActivityIndicator color={Colors.primary} /></View>;
     }
@@ -208,7 +259,14 @@ export function ChatsScreen({ isActive, refreshKey, onOpenChat }: ChatsScreenPro
                 ) : null
             }
             ListFooterComponent={loadingMore ? <ActivityIndicator style={styles.footerLoader} color={Colors.primary} /> : null}
-            renderItem={({ item }) => <ChatItem item={item} onOpenChat={onOpenChat} />}
+            renderItem={({ item }) => (
+                <ChatItem
+                    item={item}
+                    onOpenChat={onOpenChat}
+                    onDeleteChat={handleDeleteChat}
+                    actionPending={pendingDeleteIds.has(item.id)}
+                />
+            )}
         />
     );
 }
@@ -244,6 +302,21 @@ const styles = StyleSheet.create({
         paddingVertical: 11,
         borderBottomWidth: 0.5,
         borderBottomColor: Colors.light.border,
+        backgroundColor: Colors.light.background,
+    },
+    deleteAction: {
+        width: 68,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: Colors.danger,
+        borderRadius: Radii.md,
+        marginVertical: 7,
+    },
+    deleteActionDisabled: { opacity: 0.6 },
+    deleteActionText: {
+        fontSize: Typography.sizes.sm,
+        fontWeight: '700',
+        color: Colors.textOn.primary,
     },
     avatarWrap: { position: 'relative' },
     groupBadge: {
