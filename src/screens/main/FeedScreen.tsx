@@ -2,9 +2,10 @@ import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
     View, Text, FlatList, TouchableOpacity, TextInput,
     StyleSheet, RefreshControl, ActivityIndicator, Alert, Dimensions,
-    Platform,
+    Platform, KeyboardAvoidingView, Keyboard, BackHandler, LayoutAnimation, UIManager,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Avatar } from '../../components/Avatar';
 import * as api from '../../api/client';
 import { useAuth } from '../../hooks/useAuth';
@@ -14,6 +15,10 @@ import { formatReadableTimestamp } from '../../utils/date';
 
 const EMPTY_COMMENTS: api.Comment[] = [];
 const EMPTY_USERS: api.User[] = [];
+
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+    UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 
 interface ActiveMentionState {
     query: string;
@@ -31,16 +36,11 @@ interface PostCardProps {
     commentsLoadingMore: boolean;
     hasMoreComments: boolean;
     commentSubmitting: boolean;
-    commentDraft: string;
-    activeMention?: ActiveMentionState;
-    mentionSuggestions: api.User[];
-    mentionSearching: boolean;
-    onCommentDraftChange: (postId: string, value: string) => void;
     onToggleComments: (postId: string) => void;
-    onSubmitComment: (post: api.Post) => void;
-    onSelectMention: (postId: string, user: api.User) => void;
+    onStartComment: (post: api.Post) => void;
     onPressUser: (profile: { userId: string; username: string; avatarUrl?: string }) => void;
     onRegisterCommentSentinel: (postId: string, ref: View | null) => void;
+    isCommentComposerActive: boolean;
 }
 
 const PostCard = React.memo(function PostCard({
@@ -53,16 +53,11 @@ const PostCard = React.memo(function PostCard({
     commentsLoadingMore,
     hasMoreComments,
     commentSubmitting,
-    commentDraft,
-    activeMention,
-    mentionSuggestions,
-    mentionSearching,
-    onCommentDraftChange,
     onToggleComments,
-    onSubmitComment,
-    onSelectMention,
+    onStartComment,
     onPressUser,
     onRegisterCommentSentinel,
+    isCommentComposerActive,
 }: PostCardProps) {
     const [liked, setLiked] = useState(false);
     const [likeCount, setLikeCount] = useState(post.like_count);
@@ -81,12 +76,9 @@ const PostCard = React.memo(function PostCard({
     }, [post.id]);
 
     const handleToggleComments = useCallback(() => onToggleComments(post.id), [post.id, onToggleComments]);
-    const handleCommentDraftChange = useCallback((value: string) => onCommentDraftChange(post.id, value), [post.id, onCommentDraftChange]);
-    const handleSubmitComment = useCallback(() => onSubmitComment(post), [post, onSubmitComment]);
+    const handleStartComment = useCallback(() => onStartComment(post), [post, onStartComment]);
     const handlePressUser = useCallback(() => onPressUser({ userId: post.user_id, username: post.username, avatarUrl: post.avatar_url }), [post.user_id, post.username, post.avatar_url, onPressUser]);
     const handleRegisterSentinel = useCallback((ref: View | null) => onRegisterCommentSentinel(post.id, ref), [post.id, onRegisterCommentSentinel]);
-    const handleSelectMention = useCallback((user: api.User) => onSelectMention(post.id, user), [post.id, onSelectMention]);
-    const showMentionPanel = !!activeMention?.query.trim();
 
     return (
         <View style={styles.postCard}>
@@ -159,46 +151,16 @@ const PostCard = React.memo(function PostCard({
                     {commentsLoadingMore && <ActivityIndicator size="small" color={Colors.primary} style={styles.commentsLoadingMore} />}
 
                     <View style={styles.commentComposer}>
-                        {showMentionPanel && (
-                            <View style={styles.mentionPanel}>
-                                {mentionSearching ? (
-                                    <ActivityIndicator size="small" color={Colors.primary} />
-                                ) : mentionSuggestions.length > 0 ? (
-                                    mentionSuggestions.map(user => (
-                                        <TouchableOpacity
-                                            key={user.id}
-                                            style={styles.mentionRow}
-                                            onPress={() => handleSelectMention(user)}
-                                        >
-                                            <Avatar username={user.username} avatarUrl={user.avatar_url} size={26} fontSize={10} />
-                                            <Text style={styles.mentionRowText}>{formatUsername(user.username)}</Text>
-                                        </TouchableOpacity>
-                                    ))
-                                ) : (
-                                    <Text style={styles.mentionEmpty}>No matches for @{activeMention?.query}</Text>
-                                )}
-                            </View>
-                        )}
-
-                        <View style={styles.commentComposerRow}>
-                            <TextInput
-                                style={styles.commentInput}
-                                placeholder="Write a comment"
-                                placeholderTextColor={Colors.light.textTertiary}
-                                value={commentDraft}
-                                onChangeText={handleCommentDraftChange}
-                                editable={!commentSubmitting}
-                                autoCapitalize="none"
-                                autoCorrect={false}
-                            />
-                            <TouchableOpacity
-                                style={[styles.commentSendButton, (commentSubmitting || !commentDraft.trim()) && styles.commentSendButtonDisabled]}
-                                onPress={handleSubmitComment}
-                                disabled={commentSubmitting || !commentDraft.trim()}
-                            >
-                                <Text style={styles.commentSendButtonText}>{commentSubmitting ? '...' : 'Send'}</Text>
-                            </TouchableOpacity>
-                        </View>
+                        <TouchableOpacity
+                            style={[styles.commentComposerLauncher, isCommentComposerActive && styles.commentComposerLauncherActive]}
+                            onPress={handleStartComment}
+                            disabled={commentSubmitting}
+                        >
+                            <Ionicons name="chatbubble-ellipses-outline" size={16} color={Colors.light.textTertiary} />
+                            <Text style={styles.commentComposerLauncherText}>
+                                {isCommentComposerActive ? 'Writing a comment…' : 'Write a comment'}
+                            </Text>
+                        </TouchableOpacity>
                     </View>
                 </View>
             )}
@@ -215,6 +177,7 @@ export function FeedScreen({
     isActive,
     onOpenUserProfile,
 }: FeedScreenProps) {
+    const ScreenContainer = Platform.OS === 'ios' ? KeyboardAvoidingView : View;
     const { user } = useAuth();
     const [posts, setPosts] = useState<api.Post[]>([]);
     const [loading, setLoading] = useState(isActive);
@@ -247,6 +210,11 @@ export function FeedScreen({
     const mentionSearchSeqRef = useRef<Record<string, number>>({});
     const selectedMentionUserIdsRef = useRef<Record<string, Record<string, string>>>({});
     const flatListRef = useRef<FlatList>(null);
+    const commentInputRef = useRef<TextInput>(null);
+    const canCloseComposerOnKeyboardHideRef = useRef(false);
+    const insets = useSafeAreaInsets();
+    const [activeCommentPostId, setActiveCommentPostId] = useState<string | null>(null);
+    const [keyboardHeight, setKeyboardHeight] = useState(0);
 
     const load = useCallback(async (cursor?: string, replace = false) => {
         if (loadInFlightRef.current) return loadInFlightRef.current;
@@ -288,6 +256,30 @@ export function FeedScreen({
             if (timer) clearTimeout(timer);
         });
     }, []);
+
+    useEffect(() => {
+        const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+        const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+        const showSub = Keyboard.addListener(showEvent, event => {
+            setKeyboardHeight(event.endCoordinates?.height ?? 0);
+            if (Platform.OS === 'android' && activeCommentPostId) {
+                canCloseComposerOnKeyboardHideRef.current = true;
+            }
+        });
+        const hideSub = Keyboard.addListener(hideEvent, () => {
+            setKeyboardHeight(0);
+            if (Platform.OS === 'android' && activeCommentPostId && canCloseComposerOnKeyboardHideRef.current) {
+                canCloseComposerOnKeyboardHideRef.current = false;
+                setActiveCommentPostId(null);
+            }
+        });
+
+        return () => {
+            showSub.remove();
+            hideSub.remove();
+        };
+    }, [activeCommentPostId]);
 
     const onRefresh = async () => {
         setRefreshing(true);
@@ -349,6 +341,7 @@ export function FeedScreen({
             const next = new Set(prev);
             if (next.has(postId)) {
                 next.delete(postId);
+                setActiveCommentPostId(current => current === postId ? null : current);
             } else {
                 next.add(postId);
                 shouldLoad = !loadedCommentPostIdsRef.current.has(postId);
@@ -357,6 +350,53 @@ export function FeedScreen({
         });
         if (shouldLoad) loadComments(postId).catch(() => {});
     }, [loadComments]);
+
+    const handleStartComment = useCallback((post: api.Post) => {
+        let shouldLoad = false;
+        setExpandedCommentIds(prev => {
+            if (prev.has(post.id)) return prev;
+            const next = new Set(prev);
+            next.add(post.id);
+            shouldLoad = !loadedCommentPostIdsRef.current.has(post.id);
+            return next;
+        });
+        if (shouldLoad) loadComments(post.id).catch(() => {});
+
+        const postIndex = posts.findIndex(item => item.id === post.id);
+        if (postIndex >= 0) {
+            flatListRef.current?.scrollToIndex({ index: postIndex, animated: true, viewPosition: 0.5 });
+        }
+
+        canCloseComposerOnKeyboardHideRef.current = false;
+        setActiveCommentPostId(post.id);
+    }, [loadComments, posts]);
+
+    useEffect(() => {
+        if (!activeCommentPostId) return;
+
+        const focusTimer = setTimeout(() => {
+            commentInputRef.current?.focus();
+        }, 50);
+
+        return () => clearTimeout(focusTimer);
+    }, [activeCommentPostId]);
+
+    useEffect(() => {
+        if (Platform.OS !== 'android') return;
+
+        const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+            if (!activeCommentPostId) return false;
+            if (keyboardHeight > 0) {
+                Keyboard.dismiss();
+            } else {
+                canCloseComposerOnKeyboardHideRef.current = false;
+                setActiveCommentPostId(null);
+            }
+            return true;
+        });
+
+        return () => subscription.remove();
+    }, [activeCommentPostId, keyboardHeight]);
 
     const loadMoreComments = useCallback(async (postId: string) => {
         if (commentLoadingMoreRef.current.has(postId)) return;
@@ -465,14 +505,26 @@ export function FeedScreen({
         try {
             const mentionUserIds = collectMentionUserIds(draftValue, selectedMentionUserIdsRef.current[post.id] ?? {});
             const newComment = await api.addComment(post.id, draftValue, mentionUserIds);
+            LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+            canCloseComposerOnKeyboardHideRef.current = false;
+            setActiveCommentPostId(current => current === post.id ? null : current);
+            Keyboard.dismiss();
 
-            setCommentsByPostId(prev => ({ ...prev, [post.id]: [...(prev[post.id] ?? []), newComment] }));
-            loadedCommentPostIdsRef.current.add(post.id);
             setCommentDrafts(prev => ({ ...prev, [post.id]: '' }));
             setActiveMentionByPostId(prev => ({ ...prev, [post.id]: undefined }));
             setMentionSuggestionsByPostId(prev => ({ ...prev, [post.id]: EMPTY_USERS }));
             delete selectedMentionUserIdsRef.current[post.id];
-            setPosts(prev => prev.map(item => item.id === post.id ? { ...item, comment_count: item.comment_count + 1 } : item));
+
+            const applyCommentUpdate = () => {
+                LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+                setCommentsByPostId(prev => ({ ...prev, [post.id]: [...(prev[post.id] ?? []), newComment] }));
+                loadedCommentPostIdsRef.current.add(post.id);
+                setPosts(prev => prev.map(item => item.id === post.id ? { ...item, comment_count: item.comment_count + 1 } : item));
+            };
+
+            requestAnimationFrame(() => {
+                setTimeout(applyCommentUpdate, Platform.OS === 'android' ? 90 : 60);
+            });
         } catch (e: unknown) {
             Alert.alert('Error', e instanceof Error ? e.message : 'Something went wrong.');
         } finally {
@@ -489,6 +541,24 @@ export function FeedScreen({
     }, []);
 
     const currentUserId = user?.id ?? '';
+    const activeCommentPost = activeCommentPostId ? posts.find(post => post.id === activeCommentPostId) ?? null : null;
+    const activeCommentDraft = activeCommentPost ? (commentDrafts[activeCommentPost.id] ?? '') : '';
+    const activeMention = activeCommentPost ? activeMentionByPostId[activeCommentPost.id] : undefined;
+    const activeMentionSuggestions = activeCommentPost ? (mentionSuggestionsByPostId[activeCommentPost.id] ?? EMPTY_USERS) : EMPTY_USERS;
+    const isMentionSearching = activeCommentPost ? mentionLoadingIds.has(activeCommentPost.id) : false;
+    const isActiveCommentSubmitting = activeCommentPost ? commentSubmittingIds.has(activeCommentPost.id) : false;
+    const composerBottomOffset = Platform.OS === 'android' ? keyboardHeight : 0;
+    const composerClosedPadding = insets.bottom + 8;
+
+    const handleActiveCommentDraftChange = useCallback((value: string) => {
+        if (!activeCommentPost) return;
+        handleCommentDraftChange(activeCommentPost.id, value);
+    }, [activeCommentPost, handleCommentDraftChange]);
+
+    const handleSubmitActiveComment = useCallback(() => {
+        if (!activeCommentPost) return;
+        handleSubmitComment(activeCommentPost);
+    }, [activeCommentPost, handleSubmitComment]);
 
     const renderItem = useCallback(({ item }: { item: api.Post }) => (
         <PostCard
@@ -501,23 +571,17 @@ export function FeedScreen({
             commentsLoadingMore={commentLoadingMoreIds.has(item.id)}
             hasMoreComments={commentHasMoreByPostId[item.id] ?? false}
             commentSubmitting={commentSubmittingIds.has(item.id)}
-            commentDraft={commentDrafts[item.id] ?? ''}
-            activeMention={activeMentionByPostId[item.id]}
-            mentionSuggestions={mentionSuggestionsByPostId[item.id] ?? EMPTY_USERS}
-            mentionSearching={mentionLoadingIds.has(item.id)}
-            onCommentDraftChange={handleCommentDraftChange}
             onToggleComments={handleToggleComments}
-            onSubmitComment={handleSubmitComment}
-            onSelectMention={handleSelectMention}
+            onStartComment={handleStartComment}
             onPressUser={onOpenUserProfile}
             onRegisterCommentSentinel={handleRegisterCommentSentinel}
+            isCommentComposerActive={activeCommentPostId === item.id}
         />
     ), [
         currentUserId, commentsByPostId, expandedCommentIds, commentLoadingIds,
-        commentLoadingMoreIds, commentHasMoreByPostId, commentSubmittingIds, commentDrafts,
-        handleCommentDraftChange, handleToggleComments, handleSubmitComment,
-        activeMentionByPostId, mentionSuggestionsByPostId, mentionLoadingIds,
-        handleSelectMention, onOpenUserProfile, handleRegisterCommentSentinel,
+        commentLoadingMoreIds, commentHasMoreByPostId, commentSubmittingIds,
+        handleToggleComments, handleStartComment,
+        onOpenUserProfile, handleRegisterCommentSentinel, activeCommentPostId,
     ]);
 
     if (loading) {
@@ -525,7 +589,10 @@ export function FeedScreen({
     }
 
     return (
-        <View style={styles.container}>
+        <ScreenContainer
+            style={styles.container}
+            {...(Platform.OS === 'ios' ? { behavior: 'padding' as const, keyboardVerticalOffset: 0 } : {})}
+        >
             <FlatList
                 ref={flatListRef}
                 data={posts}
@@ -580,9 +647,77 @@ export function FeedScreen({
                 }
                 renderItem={renderItem}
                 ListFooterComponent={loadingMore ? <ActivityIndicator style={styles.footerLoader} color={Colors.primary} /> : null}
-                contentContainerStyle={styles.list}
+                contentContainerStyle={[
+                    styles.list,
+                    {
+                        paddingBottom: activeCommentPost
+                            ? 168 + composerClosedPadding + composerBottomOffset
+                            : 110 + insets.bottom,
+                    },
+                ]}
             />
-        </View>
+
+            {activeCommentPost && (
+                <View
+                    style={[
+                        styles.activeCommentComposerShell,
+                        {
+                            paddingBottom: composerClosedPadding,
+                            bottom: composerBottomOffset,
+                        },
+                    ]}
+                >
+                    {!!activeMention?.query.trim() && (
+                        <View style={styles.mentionPanel}>
+                            {isMentionSearching ? (
+                                <ActivityIndicator size="small" color={Colors.primary} />
+                            ) : activeMentionSuggestions.length > 0 ? (
+                                activeMentionSuggestions.map(user => (
+                                    <TouchableOpacity
+                                        key={user.id}
+                                        style={styles.mentionRow}
+                                        onPress={() => handleSelectMention(activeCommentPost.id, user)}
+                                    >
+                                        <Avatar username={user.username} avatarUrl={user.avatar_url} size={26} fontSize={10} />
+                                        <Text style={styles.mentionRowText}>{formatUsername(user.username)}</Text>
+                                    </TouchableOpacity>
+                                ))
+                            ) : (
+                                <Text style={styles.mentionEmpty}>No matches for @{activeMention?.query}</Text>
+                            )}
+                        </View>
+                    )}
+
+                    <View style={styles.activeCommentComposerHeader}>
+                        <Text style={styles.activeCommentComposerTitle}>
+                            Commenting on {formatUsername(activeCommentPost.username)}
+                        </Text>
+                    </View>
+
+                    <View style={styles.commentComposerRow}>
+                        <TextInput
+                            ref={commentInputRef}
+                            style={styles.commentInput}
+                            placeholder="Write a comment"
+                            placeholderTextColor={Colors.light.textTertiary}
+                            value={activeCommentDraft}
+                            onChangeText={handleActiveCommentDraftChange}
+                            editable={!isActiveCommentSubmitting}
+                            autoCapitalize="none"
+                            autoCorrect={false}
+                            autoFocus
+                        />
+                        <TouchableOpacity
+                            style={[styles.commentSendButton, (isActiveCommentSubmitting || !activeCommentDraft.trim()) && styles.commentSendButtonDisabled]}
+                            onPress={handleSubmitActiveComment}
+                            disabled={isActiveCommentSubmitting || !activeCommentDraft.trim()}
+                        >
+                            <Text style={styles.commentSendButtonText}>{isActiveCommentSubmitting ? '...' : 'Send'}</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            )}
+        </ScreenContainer>
     );
 }
 
@@ -658,6 +793,24 @@ const styles = StyleSheet.create({
     commentSentinel: { height: 1 },
     commentsLoadingMore: { marginVertical: 4 },
     commentComposer: { gap: Spacing.xs },
+    commentComposerLauncher: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: Spacing.xs,
+        backgroundColor: Colors.light.background,
+        borderRadius: Radii.full,
+        borderWidth: 0.5,
+        borderColor: Colors.light.border,
+        paddingHorizontal: 14,
+        paddingVertical: 10,
+    },
+    commentComposerLauncherActive: {
+        borderColor: Colors.primary,
+    },
+    commentComposerLauncherText: {
+        fontSize: Typography.sizes.sm,
+        color: Colors.light.textTertiary,
+    },
     commentComposerRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
     commentInput: {
         flex: 1,
@@ -674,6 +827,28 @@ const styles = StyleSheet.create({
     commentSendButtonDisabled: { opacity: 0.6 },
     commentSendButtonText: { fontSize: Typography.sizes.sm, fontWeight: '600', color: Colors.textOn.primary },
     commentMention: { color: Colors.primary, fontWeight: '600' },
+    activeCommentComposerShell: {
+        position: 'absolute',
+        left: 0,
+        right: 0,
+        bottom: 0,
+        borderTopWidth: 0.5,
+        borderTopColor: Colors.light.border,
+        backgroundColor: Colors.light.backgroundSecondary,
+        paddingHorizontal: Spacing.md,
+        paddingTop: Spacing.sm,
+        gap: Spacing.xs,
+    },
+    activeCommentComposerHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    activeCommentComposerTitle: {
+        flex: 1,
+        fontSize: Typography.sizes.sm,
+        color: Colors.light.textSecondary,
+        fontWeight: '500',
+    },
     mentionPanel: {
         borderWidth: 1,
         borderColor: Colors.light.border,

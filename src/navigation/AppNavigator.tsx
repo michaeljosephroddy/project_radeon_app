@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import {
-    View, Text, TouchableOpacity, StyleSheet,
+    View, Text, TouchableOpacity, StyleSheet, Keyboard, Platform,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -63,6 +63,7 @@ export function AppNavigator() {
     const [openUserProfile, setOpenUserProfile] = useState<OpenUserProfile | null>(null);
     const [ownProfileOpen, setOwnProfileOpen] = useState(false);
     const [chatsRefreshKey, setChatsRefreshKey] = useState(0);
+    const [keyboardVisible, setKeyboardVisible] = useState(false);
     const insets = useSafeAreaInsets();
 
     const inChat = openChat !== null;
@@ -97,6 +98,19 @@ export function AppNavigator() {
     const handleTabPress = useCallback((tab: Tab) => {
         setActiveTab(tab);
         setOpenChat(null);
+    }, []);
+
+    React.useEffect(() => {
+        const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+        const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+        const showSub = Keyboard.addListener(showEvent, () => setKeyboardVisible(true));
+        const hideSub = Keyboard.addListener(hideEvent, () => setKeyboardVisible(false));
+
+        return () => {
+            showSub.remove();
+            hideSub.remove();
+        };
     }, []);
 
     const header = useMemo(() => {
@@ -180,7 +194,7 @@ export function AppNavigator() {
                     {overlays}
                 </View>
 
-                {!inChat && !inUserProfile && !inOwnProfile && (
+                {!inChat && !inUserProfile && !inOwnProfile && !keyboardVisible && (
                     <View style={[styles.tabBar, { paddingBottom: insets.bottom + 6 }]}>
                         {TABS.map(tab => (
                             <TouchableOpacity
