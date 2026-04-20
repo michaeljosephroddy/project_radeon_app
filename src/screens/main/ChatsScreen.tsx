@@ -38,28 +38,31 @@ interface ChatItemProps {
 }
 
 // Renders a single row in the chats list.
-function ChatItem({ item, onOpenChat, onDeleteChat, actionPending = false }: ChatItemProps) {
+const ChatItem = React.memo(function ChatItem({ item, onOpenChat, onDeleteChat, actionPending = false }: ChatItemProps) {
     const displayName = item.is_group
         ? (item.name ?? 'Group')
         : formatUsername(item.username);
     const actionLabel = item.is_group ? 'Leave' : 'Delete';
+    const handleDelete = useCallback(() => onDeleteChat(item), [item, onDeleteChat]);
+    const handleOpen = useCallback(() => onOpenChat(item), [item, onOpenChat]);
+    const renderRightActions = useCallback(() => (
+        <TouchableOpacity
+            style={[styles.deleteAction, actionPending && styles.deleteActionDisabled]}
+            onPress={handleDelete}
+            disabled={actionPending}
+        >
+            <Text style={styles.deleteActionText}>{actionPending ? '...' : actionLabel}</Text>
+        </TouchableOpacity>
+    ), [actionLabel, actionPending, handleDelete]);
 
     return (
         <Swipeable
             overshootRight={false}
-            renderRightActions={() => (
-                <TouchableOpacity
-                    style={[styles.deleteAction, actionPending && styles.deleteActionDisabled]}
-                    onPress={() => onDeleteChat(item)}
-                    disabled={actionPending}
-                >
-                    <Text style={styles.deleteActionText}>{actionPending ? '...' : actionLabel}</Text>
-                </TouchableOpacity>
-            )}
+            renderRightActions={renderRightActions}
         >
             <TouchableOpacity
                 style={styles.item}
-                onPress={() => onOpenChat(item)}
+                onPress={handleOpen}
             >
                 <View style={styles.avatarWrap}>
                     <Avatar username={item.is_group ? 'group' : (item.username ?? 'unknown')} avatarUrl={item.is_group ? undefined : item.avatar_url} size={40} fontSize={13} />
@@ -86,7 +89,7 @@ function ChatItem({ item, onOpenChat, onDeleteChat, actionPending = false }: Cha
             </TouchableOpacity>
         </Swipeable>
     );
-}
+}, areChatItemPropsEqual);
 
 // Renders the chats tab and refreshes chat summaries when needed.
 export function ChatsScreen({ isActive, refreshKey, onOpenChat }: ChatsScreenProps) {
@@ -217,6 +220,15 @@ export function ChatsScreen({ isActive, refreshKey, onOpenChat }: ChatsScreenPro
         ]);
     }, [chats]);
 
+    const renderItem = useCallback(({ item }: { item: api.Chat }) => (
+        <ChatItem
+            item={item}
+            onOpenChat={onOpenChat}
+            onDeleteChat={handleDeleteChat}
+            actionPending={pendingDeleteIds.has(item.id)}
+        />
+    ), [handleDeleteChat, onOpenChat, pendingDeleteIds]);
+
     if (loading) {
         return <View style={styles.center}><ActivityIndicator color={Colors.primary} /></View>;
     }
@@ -225,6 +237,10 @@ export function ChatsScreen({ isActive, refreshKey, onOpenChat }: ChatsScreenPro
         <FlatList
             data={chats}
             keyExtractor={chat => chat.id}
+            initialNumToRender={10}
+            maxToRenderPerBatch={8}
+            updateCellsBatchingPeriod={60}
+            windowSize={8}
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
             contentContainerStyle={styles.list}
             keyboardShouldPersistTaps="handled"
@@ -259,16 +275,16 @@ export function ChatsScreen({ isActive, refreshKey, onOpenChat }: ChatsScreenPro
                 ) : null
             }
             ListFooterComponent={loadingMore ? <ActivityIndicator style={styles.footerLoader} color={Colors.primary} /> : null}
-            renderItem={({ item }) => (
-                <ChatItem
-                    item={item}
-                    onOpenChat={onOpenChat}
-                    onDeleteChat={handleDeleteChat}
-                    actionPending={pendingDeleteIds.has(item.id)}
-                />
-            )}
+            renderItem={renderItem}
         />
     );
+}
+
+function areChatItemPropsEqual(prev: ChatItemProps, next: ChatItemProps) {
+    return prev.item === next.item
+        && prev.onOpenChat === next.onOpenChat
+        && prev.onDeleteChat === next.onDeleteChat
+        && prev.actionPending === next.actionPending;
 }
 
 const styles = StyleSheet.create({
