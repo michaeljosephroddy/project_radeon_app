@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
     View, Text, FlatList, TouchableOpacity, TextInput,
     StyleSheet, RefreshControl, ActivityIndicator, Alert, Dimensions,
+    Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Avatar } from '../../components/Avatar';
@@ -12,6 +13,13 @@ import { formatUsername } from '../../utils/identity';
 import { formatReadableTimestamp } from '../../utils/date';
 
 const EMPTY_COMMENTS: api.Comment[] = [];
+const EMPTY_USERS: api.User[] = [];
+
+interface ActiveMentionState {
+    query: string;
+    tokenStart: number;
+    tokenEnd: number;
+}
 
 interface PostCardProps {
     post: api.Post;
@@ -24,9 +32,13 @@ interface PostCardProps {
     hasMoreComments: boolean;
     commentSubmitting: boolean;
     commentDraft: string;
+    activeMention?: ActiveMentionState;
+    mentionSuggestions: api.User[];
+    mentionSearching: boolean;
     onCommentDraftChange: (postId: string, value: string) => void;
     onToggleComments: (postId: string) => void;
     onSubmitComment: (post: api.Post) => void;
+    onSelectMention: (postId: string, user: api.User) => void;
     onPressUser: (profile: { userId: string; username: string; avatarUrl?: string }) => void;
     onRegisterCommentSentinel: (postId: string, ref: View | null) => void;
 }
@@ -42,9 +54,13 @@ const PostCard = React.memo(function PostCard({
     hasMoreComments,
     commentSubmitting,
     commentDraft,
+    activeMention,
+    mentionSuggestions,
+    mentionSearching,
     onCommentDraftChange,
     onToggleComments,
     onSubmitComment,
+    onSelectMention,
     onPressUser,
     onRegisterCommentSentinel,
 }: PostCardProps) {
@@ -69,6 +85,8 @@ const PostCard = React.memo(function PostCard({
     const handleSubmitComment = useCallback(() => onSubmitComment(post), [post, onSubmitComment]);
     const handlePressUser = useCallback(() => onPressUser({ userId: post.user_id, username: post.username, avatarUrl: post.avatar_url }), [post.user_id, post.username, post.avatar_url, onPressUser]);
     const handleRegisterSentinel = useCallback((ref: View | null) => onRegisterCommentSentinel(post.id, ref), [post.id, onRegisterCommentSentinel]);
+    const handleSelectMention = useCallback((user: api.User) => onSelectMention(post.id, user), [post.id, onSelectMention]);
+    const showMentionPanel = !!activeMention?.query.trim();
 
     return (
         <View style={styles.postCard}>
@@ -125,7 +143,9 @@ const PostCard = React.memo(function PostCard({
                                                 <Text style={styles.commentAuthor}>{formatUsername(comment.username)}</Text>
                                                 <Text style={styles.commentMeta}>{formatReadableTimestamp(comment.created_at)}</Text>
                                             </View>
-                                            <Text style={styles.commentBody}>{comment.body}</Text>
+                                            <Text style={styles.commentBody}>
+                                                {renderCommentBody(comment, onPressUser)}
+                                            </Text>
                                         </View>
                                     </View>
                                 </View>
@@ -139,21 +159,46 @@ const PostCard = React.memo(function PostCard({
                     {commentsLoadingMore && <ActivityIndicator size="small" color={Colors.primary} style={styles.commentsLoadingMore} />}
 
                     <View style={styles.commentComposer}>
-                        <TextInput
-                            style={styles.commentInput}
-                            placeholder="Write a comment"
-                            placeholderTextColor={Colors.light.textTertiary}
-                            value={commentDraft}
-                            onChangeText={handleCommentDraftChange}
-                            editable={!commentSubmitting}
-                        />
-                        <TouchableOpacity
-                            style={[styles.commentSendButton, (commentSubmitting || !commentDraft.trim()) && styles.commentSendButtonDisabled]}
-                            onPress={handleSubmitComment}
-                            disabled={commentSubmitting || !commentDraft.trim()}
-                        >
-                            <Text style={styles.commentSendButtonText}>{commentSubmitting ? '...' : 'Send'}</Text>
-                        </TouchableOpacity>
+                        {showMentionPanel && (
+                            <View style={styles.mentionPanel}>
+                                {mentionSearching ? (
+                                    <ActivityIndicator size="small" color={Colors.primary} />
+                                ) : mentionSuggestions.length > 0 ? (
+                                    mentionSuggestions.map(user => (
+                                        <TouchableOpacity
+                                            key={user.id}
+                                            style={styles.mentionRow}
+                                            onPress={() => handleSelectMention(user)}
+                                        >
+                                            <Avatar username={user.username} avatarUrl={user.avatar_url} size={26} fontSize={10} />
+                                            <Text style={styles.mentionRowText}>{formatUsername(user.username)}</Text>
+                                        </TouchableOpacity>
+                                    ))
+                                ) : (
+                                    <Text style={styles.mentionEmpty}>No matches for @{activeMention?.query}</Text>
+                                )}
+                            </View>
+                        )}
+
+                        <View style={styles.commentComposerRow}>
+                            <TextInput
+                                style={styles.commentInput}
+                                placeholder="Write a comment"
+                                placeholderTextColor={Colors.light.textTertiary}
+                                value={commentDraft}
+                                onChangeText={handleCommentDraftChange}
+                                editable={!commentSubmitting}
+                                autoCapitalize="none"
+                                autoCorrect={false}
+                            />
+                            <TouchableOpacity
+                                style={[styles.commentSendButton, (commentSubmitting || !commentDraft.trim()) && styles.commentSendButtonDisabled]}
+                                onPress={handleSubmitComment}
+                                disabled={commentSubmitting || !commentDraft.trim()}
+                            >
+                                <Text style={styles.commentSendButtonText}>{commentSubmitting ? '...' : 'Send'}</Text>
+                            </TouchableOpacity>
+                        </View>
                     </View>
                 </View>
             )}
@@ -186,6 +231,9 @@ export function FeedScreen({
     const [commentsByPostId, setCommentsByPostId] = useState<Record<string, api.Comment[]>>({});
     const [commentHasMoreByPostId, setCommentHasMoreByPostId] = useState<Record<string, boolean>>({});
     const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>({});
+    const [activeMentionByPostId, setActiveMentionByPostId] = useState<Record<string, ActiveMentionState | undefined>>({});
+    const [mentionSuggestionsByPostId, setMentionSuggestionsByPostId] = useState<Record<string, api.User[]>>({});
+    const [mentionLoadingIds, setMentionLoadingIds] = useState<Set<string>>(new Set());
     const hasLoadedRef = useRef(false);
     const wasActiveRef = useRef(false);
     const loadInFlightRef = useRef<Promise<void> | null>(null);
@@ -195,10 +243,11 @@ export function FeedScreen({
     const commentHasMoreRef = useRef<Record<string, boolean>>({});
     const commentLoadingMoreRef = useRef<Set<string>>(new Set());
     const commentSentinelRefs = useRef<Record<string, View | null>>({});
+    const mentionSearchTimersRef = useRef<Record<string, ReturnType<typeof setTimeout> | undefined>>({});
+    const mentionSearchSeqRef = useRef<Record<string, number>>({});
+    const selectedMentionUserIdsRef = useRef<Record<string, Record<string, string>>>({});
     const flatListRef = useRef<FlatList>(null);
 
-    // Feed paging reuses a single in-flight request so pull-to-refresh and
-    // scroll pagination cannot stampede the same endpoint concurrently.
     const load = useCallback(async (cursor?: string, replace = false) => {
         if (loadInFlightRef.current) return loadInFlightRef.current;
 
@@ -234,6 +283,12 @@ export function FeedScreen({
         });
     }, [isActive, load]);
 
+    useEffect(() => () => {
+        Object.values(mentionSearchTimersRef.current).forEach(timer => {
+            if (timer) clearTimeout(timer);
+        });
+    }, []);
+
     const onRefresh = async () => {
         setRefreshing(true);
         try {
@@ -258,8 +313,6 @@ export function FeedScreen({
         }
     };
 
-    // Feed pages append in order; comment state stays separate so expanding a
-    // thread does not force a feed-wide reload.
     const handleLoadMore = async () => {
         if (!isActive || loading || refreshing || loadingMore || !hasMore) return;
         setLoadingMore(true);
@@ -343,14 +396,66 @@ export function FeedScreen({
         });
     }, [loadMoreComments]);
 
-    // Re-check sentinels after new pages load in case the sentinel is already on screen.
     useEffect(() => {
         checkCommentSentinels();
     }, [commentHasMoreByPostId, checkCommentSentinels]);
 
     const handleCommentDraftChange = useCallback((postId: string, value: string) => {
         setCommentDrafts(prev => ({ ...prev, [postId]: value }));
+        pruneSelectedMentions(postId, value, selectedMentionUserIdsRef.current);
+
+        const activeMention = findActiveMention(value);
+        setActiveMentionByPostId(prev => ({ ...prev, [postId]: activeMention }));
+
+        if (mentionSearchTimersRef.current[postId]) clearTimeout(mentionSearchTimersRef.current[postId]);
+
+        if (!activeMention || !activeMention.query.trim()) {
+            setMentionSuggestionsByPostId(prev => ({ ...prev, [postId]: EMPTY_USERS }));
+            setMentionLoadingIds(prev => {
+                const next = new Set(prev);
+                next.delete(postId);
+                return next;
+            });
+            return;
+        }
+
+        mentionSearchTimersRef.current[postId] = setTimeout(async () => {
+            const nextSeq = (mentionSearchSeqRef.current[postId] ?? 0) + 1;
+            mentionSearchSeqRef.current[postId] = nextSeq;
+            setMentionLoadingIds(prev => new Set(prev).add(postId));
+
+            try {
+                const result = await api.discoverUsers({ query: activeMention.query, page: 1, limit: 5 });
+                if (mentionSearchSeqRef.current[postId] !== nextSeq) return;
+                setMentionSuggestionsByPostId(prev => ({ ...prev, [postId]: result.items ?? [] }));
+            } catch {
+                if (mentionSearchSeqRef.current[postId] !== nextSeq) return;
+                setMentionSuggestionsByPostId(prev => ({ ...prev, [postId]: EMPTY_USERS }));
+            } finally {
+                if (mentionSearchSeqRef.current[postId] !== nextSeq) return;
+                setMentionLoadingIds(prev => {
+                    const next = new Set(prev);
+                    next.delete(postId);
+                    return next;
+                });
+            }
+        }, 180);
     }, []);
+
+    const handleSelectMention = useCallback((postId: string, selectedUser: api.User) => {
+        const activeMention = activeMentionByPostId[postId];
+        const draftValue = commentDrafts[postId] ?? '';
+        if (!activeMention) return;
+
+        const nextValue = `${draftValue.slice(0, activeMention.tokenStart)}@${selectedUser.username} ${draftValue.slice(activeMention.tokenEnd)}`;
+        setCommentDrafts(prev => ({ ...prev, [postId]: nextValue }));
+        selectedMentionUserIdsRef.current[postId] = {
+            ...(selectedMentionUserIdsRef.current[postId] ?? {}),
+            [selectedUser.username.toLowerCase()]: selectedUser.id,
+        };
+        setActiveMentionByPostId(prev => ({ ...prev, [postId]: undefined }));
+        setMentionSuggestionsByPostId(prev => ({ ...prev, [postId]: EMPTY_USERS }));
+    }, [activeMentionByPostId, commentDrafts]);
 
     const handleSubmitComment = useCallback(async (post: api.Post) => {
         const draftValue = commentDrafts[post.id]?.trim() ?? '';
@@ -358,19 +463,15 @@ export function FeedScreen({
 
         setCommentSubmittingIds(prev => new Set(prev).add(post.id));
         try {
-            const res = await api.addComment(post.id, draftValue);
-            const newComment: api.Comment = {
-                id: res.id,
-                user_id: user.id,
-                username: user.username,
-                avatar_url: user.avatar_url,
-                body: draftValue,
-                created_at: new Date().toISOString(),
-            };
+            const mentionUserIds = collectMentionUserIds(draftValue, selectedMentionUserIdsRef.current[post.id] ?? {});
+            const newComment = await api.addComment(post.id, draftValue, mentionUserIds);
 
             setCommentsByPostId(prev => ({ ...prev, [post.id]: [...(prev[post.id] ?? []), newComment] }));
             loadedCommentPostIdsRef.current.add(post.id);
             setCommentDrafts(prev => ({ ...prev, [post.id]: '' }));
+            setActiveMentionByPostId(prev => ({ ...prev, [post.id]: undefined }));
+            setMentionSuggestionsByPostId(prev => ({ ...prev, [post.id]: EMPTY_USERS }));
+            delete selectedMentionUserIdsRef.current[post.id];
             setPosts(prev => prev.map(item => item.id === post.id ? { ...item, comment_count: item.comment_count + 1 } : item));
         } catch (e: unknown) {
             Alert.alert('Error', e instanceof Error ? e.message : 'Something went wrong.');
@@ -401,9 +502,13 @@ export function FeedScreen({
             hasMoreComments={commentHasMoreByPostId[item.id] ?? false}
             commentSubmitting={commentSubmittingIds.has(item.id)}
             commentDraft={commentDrafts[item.id] ?? ''}
+            activeMention={activeMentionByPostId[item.id]}
+            mentionSuggestions={mentionSuggestionsByPostId[item.id] ?? EMPTY_USERS}
+            mentionSearching={mentionLoadingIds.has(item.id)}
             onCommentDraftChange={handleCommentDraftChange}
             onToggleComments={handleToggleComments}
             onSubmitComment={handleSubmitComment}
+            onSelectMention={handleSelectMention}
             onPressUser={onOpenUserProfile}
             onRegisterCommentSentinel={handleRegisterCommentSentinel}
         />
@@ -411,7 +516,8 @@ export function FeedScreen({
         currentUserId, commentsByPostId, expandedCommentIds, commentLoadingIds,
         commentLoadingMoreIds, commentHasMoreByPostId, commentSubmittingIds, commentDrafts,
         handleCommentDraftChange, handleToggleComments, handleSubmitComment,
-        onOpenUserProfile, handleRegisterCommentSentinel,
+        activeMentionByPostId, mentionSuggestionsByPostId, mentionLoadingIds,
+        handleSelectMention, onOpenUserProfile, handleRegisterCommentSentinel,
     ]);
 
     if (loading) {
@@ -425,10 +531,17 @@ export function FeedScreen({
                 data={posts}
                 keyExtractor={p => p.id}
                 keyboardShouldPersistTaps="handled"
+                keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
                 onEndReached={handleLoadMore}
                 onEndReachedThreshold={0.4}
                 onScroll={checkCommentSentinels}
+                onScrollToIndexFailed={({ index, averageItemLength }) => {
+                    flatListRef.current?.scrollToOffset({
+                        offset: Math.max(index * averageItemLength - 120, 0),
+                        animated: true,
+                    });
+                }}
                 scrollEventThrottle={200}
                 ListHeaderComponent={
                     <View style={styles.composeBar}>
@@ -544,7 +657,8 @@ const styles = StyleSheet.create({
     },
     commentSentinel: { height: 1 },
     commentsLoadingMore: { marginVertical: 4 },
-    commentComposer: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+    commentComposer: { gap: Spacing.xs },
+    commentComposerRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
     commentInput: {
         flex: 1,
         backgroundColor: Colors.light.background,
@@ -559,8 +673,134 @@ const styles = StyleSheet.create({
     commentSendButton: { backgroundColor: Colors.success, borderRadius: Radii.full, paddingHorizontal: Spacing.md, paddingVertical: 10 },
     commentSendButtonDisabled: { opacity: 0.6 },
     commentSendButtonText: { fontSize: Typography.sizes.sm, fontWeight: '600', color: Colors.textOn.primary },
+    commentMention: { color: Colors.primary, fontWeight: '600' },
+    mentionPanel: {
+        borderWidth: 1,
+        borderColor: Colors.light.border,
+        borderRadius: Radii.md,
+        backgroundColor: Colors.light.background,
+        paddingVertical: 6,
+    },
+    mentionRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: Spacing.sm,
+        paddingHorizontal: Spacing.sm,
+        paddingVertical: 8,
+    },
+    mentionRowText: { fontSize: Typography.sizes.sm, color: Colors.light.textPrimary, fontWeight: '500' },
+    mentionEmpty: {
+        fontSize: Typography.sizes.sm,
+        color: Colors.light.textTertiary,
+        paddingHorizontal: Spacing.sm,
+        paddingVertical: 8,
+    },
     empty: { alignItems: 'center', paddingTop: 60 },
     emptyText: { fontSize: Typography.sizes.lg, fontWeight: '500', color: Colors.light.textPrimary },
     emptySubtext: { fontSize: Typography.sizes.base, color: Colors.light.textTertiary, marginTop: Spacing.sm, textAlign: 'center' },
     footerLoader: { paddingVertical: Spacing.md },
 });
+
+function pruneSelectedMentions(postId: string, value: string, store: Record<string, Record<string, string>>) {
+    const current = store[postId];
+    if (!current) return;
+
+    const handles = new Set(extractMentionHandles(value));
+    store[postId] = Object.fromEntries(
+        Object.entries(current).filter(([username]) => handles.has(username))
+    );
+}
+
+function collectMentionUserIds(value: string, selectedMentionUserIds: Record<string, string>): string[] {
+    const ids = new Set<string>();
+
+    extractMentionHandles(value).forEach(handle => {
+        const id = selectedMentionUserIds[handle];
+        if (id) ids.add(id);
+    });
+
+    return Array.from(ids);
+}
+
+function findActiveMention(value: string): ActiveMentionState | undefined {
+    const match = value.match(/(^|\s)@([a-z0-9._]*)$/i);
+    if (!match || match.index === undefined) return undefined;
+
+    return {
+        query: match[2] ?? '',
+        tokenStart: match.index + match[1].length,
+        tokenEnd: value.length,
+    };
+}
+
+function extractMentionHandles(value: string): string[] {
+    const matches = value.match(/(^|\s)@([a-z0-9._]+)/gi) ?? [];
+    const seen = new Set<string>();
+    const handles: string[] = [];
+
+    matches.forEach(match => {
+        const handle = match.trim().slice(1).toLowerCase();
+        if (seen.has(handle)) return;
+        seen.add(handle);
+        handles.push(handle);
+    });
+
+    return handles;
+}
+
+function renderCommentBody(
+    comment: api.Comment,
+    onPressUser: (profile: { userId: string; username: string; avatarUrl?: string }) => void
+) {
+    const mentionByUsername = new Map((comment.mentions ?? []).map(mention => [mention.username.toLowerCase(), mention]));
+    const parts: Array<{ key: string; text: string; mention?: api.CommentMention }> = [];
+    let cursor = 0;
+    let lastPlainStart = 0;
+    let keyIndex = 0;
+
+    while (cursor < comment.body.length) {
+        if (comment.body[cursor] === '@' && (cursor === 0 || !isMentionBodyChar(comment.body[cursor - 1]))) {
+            let next = cursor + 1;
+            while (next < comment.body.length && isMentionBodyChar(comment.body[next])) next += 1;
+
+            if (next > cursor + 1) {
+                const username = comment.body.slice(cursor + 1, next).toLowerCase();
+                const mention = mentionByUsername.get(username);
+                if (mention) {
+                    if (lastPlainStart < cursor) {
+                        parts.push({ key: `plain-${keyIndex++}`, text: comment.body.slice(lastPlainStart, cursor) });
+                    }
+                    parts.push({ key: `mention-${keyIndex++}`, text: comment.body.slice(cursor, next), mention });
+                    cursor = next;
+                    lastPlainStart = next;
+                    continue;
+                }
+            }
+        }
+        cursor += 1;
+    }
+
+    if (lastPlainStart < comment.body.length) {
+        parts.push({ key: `plain-${keyIndex++}`, text: comment.body.slice(lastPlainStart) });
+    }
+
+    if (parts.length === 0) {
+        return comment.body;
+    }
+
+    return parts.map(part => part.mention ? (
+        <Text
+            key={part.key}
+            style={styles.commentMention}
+            onPress={() => onPressUser({ userId: part.mention!.user_id, username: part.mention!.username })}
+        >
+            {part.text}
+        </Text>
+    ) : (
+        <Text key={part.key}>{part.text}</Text>
+    ));
+}
+
+function isMentionBodyChar(char?: string) {
+    return !!char && /[a-z0-9._]/i.test(char);
+}

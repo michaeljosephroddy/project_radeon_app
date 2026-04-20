@@ -128,6 +128,16 @@ export interface Comment {
     avatar_url?: string;
     body: string;
     created_at: string;
+    mentions: CommentMention[];
+}
+
+export interface CommentMention {
+    user_id: string;
+    username: string;
+}
+
+interface RawComment extends Omit<Comment, 'mentions'> {
+    mentions?: CommentMention[] | null;
 }
 
 export interface Reaction {
@@ -344,15 +354,23 @@ export async function getReactions(id: string): Promise<Reaction[]> {
 }
 
 // Creates a new comment on a specific post.
-export async function addComment(postId: string, body: string): Promise<{ id: string }> {
-    return request(`/posts/${postId}/comments`, { method: 'POST', body: JSON.stringify({ body }) });
+export async function addComment(postId: string, body: string, mentionUserIds: string[] = []): Promise<Comment> {
+    const comment = await request<RawComment>(`/posts/${postId}/comments`, {
+        method: 'POST',
+        body: JSON.stringify({ body, mention_user_ids: mentionUserIds }),
+    });
+    return normalizeComment(comment);
 }
 
 // Loads a page of comments for a given post.
 export async function getComments(postId: string, cursor?: string, limit = 20): Promise<CursorResponse<Comment>> {
     const search = new URLSearchParams({ limit: String(limit) });
     if (cursor) search.set('after', cursor);
-    return request(`/posts/${postId}/comments?${search.toString()}`);
+    const page = await request<CursorResponse<RawComment>>(`/posts/${postId}/comments?${search.toString()}`);
+    return {
+        ...page,
+        items: (page.items ?? []).map(normalizeComment),
+    };
 }
 
 // ── Meetups ────────────────────────────────────────────────────────────────
@@ -457,6 +475,13 @@ export async function getMeetupAttendees(id: string, page = 1, limit = 50): Prom
 }
 
 // ── Messages ───────────────────────────────────────────────────────────────
+
+function normalizeComment(comment: RawComment): Comment {
+    return {
+        ...comment,
+        mentions: comment.mentions ?? [],
+    };
+}
 
 // Normalizes chat payloads so the UI can rely on one avatar field name.
 function normalizeChat(chat: RawChat): Chat {
