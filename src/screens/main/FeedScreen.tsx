@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
     View, Text, FlatList, TouchableOpacity, TextInput,
-    StyleSheet, RefreshControl, ActivityIndicator, Alert, Dimensions,
+    StyleSheet, RefreshControl, ActivityIndicator, Alert,
     Platform, KeyboardAvoidingView, Keyboard, BackHandler, LayoutAnimation, UIManager,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -38,10 +38,34 @@ interface PostCardProps {
     commentSubmitting: boolean;
     onToggleComments: (postId: string) => void;
     onStartComment: (post: api.Post) => void;
+    onLoadMoreComments: (postId: string) => void;
     onPressUser: (profile: { userId: string; username: string; avatarUrl?: string }) => void;
-    onRegisterCommentSentinel: (postId: string, ref: View | null) => void;
     isCommentComposerActive: boolean;
 }
+
+interface CommentItemProps {
+    comment: api.Comment;
+    onPressUser: (profile: { userId: string; username: string; avatarUrl?: string }) => void;
+}
+
+const CommentItem = React.memo(function CommentItem({ comment, onPressUser }: CommentItemProps) {
+    return (
+        <View style={styles.commentRow}>
+            <Avatar username={comment.username} avatarUrl={comment.avatar_url} size={28} fontSize={11} />
+            <View style={styles.commentBodyWrap}>
+                <View style={styles.commentBubble}>
+                    <View style={styles.commentHeader}>
+                        <Text style={styles.commentAuthor}>{formatUsername(comment.username)}</Text>
+                        <Text style={styles.commentMeta}>{formatReadableTimestamp(comment.created_at)}</Text>
+                    </View>
+                    <Text style={styles.commentBody}>
+                        {renderCommentBody(comment, onPressUser)}
+                    </Text>
+                </View>
+            </View>
+        </View>
+    );
+});
 
 const PostCard = React.memo(function PostCard({
     post,
@@ -55,8 +79,8 @@ const PostCard = React.memo(function PostCard({
     commentSubmitting,
     onToggleComments,
     onStartComment,
+    onLoadMoreComments,
     onPressUser,
-    onRegisterCommentSentinel,
     isCommentComposerActive,
 }: PostCardProps) {
     const [liked, setLiked] = useState(false);
@@ -77,8 +101,8 @@ const PostCard = React.memo(function PostCard({
 
     const handleToggleComments = useCallback(() => onToggleComments(post.id), [post.id, onToggleComments]);
     const handleStartComment = useCallback(() => onStartComment(post), [post, onStartComment]);
+    const handleLoadMoreComments = useCallback(() => onLoadMoreComments(post.id), [post.id, onLoadMoreComments]);
     const handlePressUser = useCallback(() => onPressUser({ userId: post.user_id, username: post.username, avatarUrl: post.avatar_url }), [post.user_id, post.username, post.avatar_url, onPressUser]);
-    const handleRegisterSentinel = useCallback((ref: View | null) => onRegisterCommentSentinel(post.id, ref), [post.id, onRegisterCommentSentinel]);
 
     return (
         <View style={styles.postCard}>
@@ -118,8 +142,8 @@ const PostCard = React.memo(function PostCard({
                     </Text>
                 </TouchableOpacity>
             </View>
-            {(commentsExpanded || comments.length > 0) && (
-                <View style={[styles.commentsSection, !commentsExpanded && { display: 'none' }]}>
+            {commentsExpanded && (
+                <View style={styles.commentsSection}>
                     {commentsLoading ? (
                         <View style={styles.commentsLoading}>
                             <ActivityIndicator color={Colors.primary} size="small" />
@@ -127,28 +151,26 @@ const PostCard = React.memo(function PostCard({
                     ) : comments.length > 0 ? (
                         <View style={styles.commentsList}>
                             {comments.map(comment => (
-                                <View key={comment.id} style={styles.commentRow}>
-                                    <Avatar username={comment.username} avatarUrl={comment.avatar_url} size={28} fontSize={11} />
-                                    <View style={styles.commentBodyWrap}>
-                                        <View style={styles.commentBubble}>
-                                            <View style={styles.commentHeader}>
-                                                <Text style={styles.commentAuthor}>{formatUsername(comment.username)}</Text>
-                                                <Text style={styles.commentMeta}>{formatReadableTimestamp(comment.created_at)}</Text>
-                                            </View>
-                                            <Text style={styles.commentBody}>
-                                                {renderCommentBody(comment, onPressUser)}
-                                            </Text>
-                                        </View>
-                                    </View>
-                                </View>
+                                <CommentItem key={comment.id} comment={comment} onPressUser={onPressUser} />
                             ))}
                         </View>
                     ) : (
                         <Text style={styles.commentsEmpty}>No comments yet.</Text>
                     )}
 
-                    {hasMoreComments && <View ref={handleRegisterSentinel} style={styles.commentSentinel} />}
-                    {commentsLoadingMore && <ActivityIndicator size="small" color={Colors.primary} style={styles.commentsLoadingMore} />}
+                    {hasMoreComments && (
+                        <TouchableOpacity
+                            style={[styles.loadMoreCommentsButton, commentsLoadingMore && styles.loadMoreCommentsButtonDisabled]}
+                            onPress={handleLoadMoreComments}
+                            disabled={commentsLoadingMore}
+                        >
+                            {commentsLoadingMore ? (
+                                <ActivityIndicator size="small" color={Colors.primary} />
+                            ) : (
+                                <Text style={styles.loadMoreCommentsText}>Load more comments</Text>
+                            )}
+                        </TouchableOpacity>
+                    )}
 
                     <View style={styles.commentComposer}>
                         <TouchableOpacity
@@ -166,7 +188,7 @@ const PostCard = React.memo(function PostCard({
             )}
         </View>
     );
-});
+}, arePostCardPropsEqual);
 
 interface FeedScreenProps {
     isActive: boolean;
@@ -193,21 +215,20 @@ export function FeedScreen({
     const [commentSubmittingIds, setCommentSubmittingIds] = useState<Set<string>>(new Set());
     const [commentsByPostId, setCommentsByPostId] = useState<Record<string, api.Comment[]>>({});
     const [commentHasMoreByPostId, setCommentHasMoreByPostId] = useState<Record<string, boolean>>({});
-    const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>({});
-    const [activeMentionByPostId, setActiveMentionByPostId] = useState<Record<string, ActiveMentionState | undefined>>({});
-    const [mentionSuggestionsByPostId, setMentionSuggestionsByPostId] = useState<Record<string, api.User[]>>({});
-    const [mentionLoadingIds, setMentionLoadingIds] = useState<Set<string>>(new Set());
+    const [activeCommentDraft, setActiveCommentDraft] = useState('');
+    const [activeMention, setActiveMention] = useState<ActiveMentionState | undefined>(undefined);
+    const [activeMentionSuggestions, setActiveMentionSuggestions] = useState<api.User[]>(EMPTY_USERS);
+    const [isMentionSearching, setIsMentionSearching] = useState(false);
     const hasLoadedRef = useRef(false);
     const wasActiveRef = useRef(false);
     const loadInFlightRef = useRef<Promise<void> | null>(null);
     const nextCursorRef = useRef<string | undefined>(undefined);
     const loadedCommentPostIdsRef = useRef<Set<string>>(new Set());
     const commentCursorRef = useRef<Record<string, string | undefined>>({});
-    const commentHasMoreRef = useRef<Record<string, boolean>>({});
     const commentLoadingMoreRef = useRef<Set<string>>(new Set());
-    const commentSentinelRefs = useRef<Record<string, View | null>>({});
-    const mentionSearchTimersRef = useRef<Record<string, ReturnType<typeof setTimeout> | undefined>>({});
-    const mentionSearchSeqRef = useRef<Record<string, number>>({});
+    const mentionSearchTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+    const mentionSearchSeqRef = useRef(0);
+    const commentDraftCacheRef = useRef<Record<string, string>>({});
     const selectedMentionUserIdsRef = useRef<Record<string, Record<string, string>>>({});
     const flatListRef = useRef<FlatList>(null);
     const commentInputRef = useRef<TextInput>(null);
@@ -215,6 +236,17 @@ export function FeedScreen({
     const insets = useSafeAreaInsets();
     const [activeCommentPostId, setActiveCommentPostId] = useState<string | null>(null);
     const [keyboardHeight, setKeyboardHeight] = useState(0);
+
+    const closeActiveCommentComposer = useCallback(() => {
+        canCloseComposerOnKeyboardHideRef.current = false;
+        mentionSearchSeqRef.current += 1;
+        setActiveCommentPostId(null);
+        setActiveCommentDraft('');
+        setActiveMention(undefined);
+        setActiveMentionSuggestions(EMPTY_USERS);
+        setIsMentionSearching(false);
+        if (mentionSearchTimerRef.current) clearTimeout(mentionSearchTimerRef.current);
+    }, []);
 
     const load = useCallback(async (cursor?: string, replace = false) => {
         if (loadInFlightRef.current) return loadInFlightRef.current;
@@ -252,9 +284,7 @@ export function FeedScreen({
     }, [isActive, load]);
 
     useEffect(() => () => {
-        Object.values(mentionSearchTimersRef.current).forEach(timer => {
-            if (timer) clearTimeout(timer);
-        });
+        if (mentionSearchTimerRef.current) clearTimeout(mentionSearchTimerRef.current);
     }, []);
 
     useEffect(() => {
@@ -270,8 +300,7 @@ export function FeedScreen({
         const hideSub = Keyboard.addListener(hideEvent, () => {
             setKeyboardHeight(0);
             if (Platform.OS === 'android' && activeCommentPostId && canCloseComposerOnKeyboardHideRef.current) {
-                canCloseComposerOnKeyboardHideRef.current = false;
-                setActiveCommentPostId(null);
+                closeActiveCommentComposer();
             }
         });
 
@@ -279,7 +308,7 @@ export function FeedScreen({
             showSub.remove();
             hideSub.remove();
         };
-    }, [activeCommentPostId]);
+    }, [activeCommentPostId, closeActiveCommentComposer]);
 
     const onRefresh = async () => {
         setRefreshing(true);
@@ -321,7 +350,6 @@ export function FeedScreen({
             const result = await api.getComments(postId);
             setCommentsByPostId(prev => ({ ...prev, [postId]: result.items ?? [] }));
             commentCursorRef.current[postId] = result.next_cursor ?? undefined;
-            commentHasMoreRef.current[postId] = result.has_more;
             setCommentHasMoreByPostId(prev => ({ ...prev, [postId]: result.has_more }));
             loadedCommentPostIdsRef.current.add(postId);
         } catch (e: unknown) {
@@ -337,22 +365,25 @@ export function FeedScreen({
 
     const handleToggleComments = useCallback((postId: string) => {
         let shouldLoad = false;
+        const shouldCloseComposer = activeCommentPostId === postId;
+        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
         setExpandedCommentIds(prev => {
             const next = new Set(prev);
             if (next.has(postId)) {
                 next.delete(postId);
-                setActiveCommentPostId(current => current === postId ? null : current);
             } else {
                 next.add(postId);
                 shouldLoad = !loadedCommentPostIdsRef.current.has(postId);
             }
             return next;
         });
+        if (shouldCloseComposer) closeActiveCommentComposer();
         if (shouldLoad) loadComments(postId).catch(() => {});
-    }, [loadComments]);
+    }, [activeCommentPostId, closeActiveCommentComposer, loadComments]);
 
     const handleStartComment = useCallback((post: api.Post) => {
         let shouldLoad = false;
+        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
         setExpandedCommentIds(prev => {
             if (prev.has(post.id)) return prev;
             const next = new Set(prev);
@@ -368,6 +399,10 @@ export function FeedScreen({
         }
 
         canCloseComposerOnKeyboardHideRef.current = false;
+        setActiveCommentDraft(commentDraftCacheRef.current[post.id] ?? '');
+        setActiveMention(undefined);
+        setActiveMentionSuggestions(EMPTY_USERS);
+        setIsMentionSearching(false);
         setActiveCommentPostId(post.id);
     }, [loadComments, posts]);
 
@@ -389,18 +424,17 @@ export function FeedScreen({
             if (keyboardHeight > 0) {
                 Keyboard.dismiss();
             } else {
-                canCloseComposerOnKeyboardHideRef.current = false;
-                setActiveCommentPostId(null);
+                closeActiveCommentComposer();
             }
             return true;
         });
 
         return () => subscription.remove();
-    }, [activeCommentPostId, keyboardHeight]);
+    }, [activeCommentPostId, closeActiveCommentComposer, keyboardHeight]);
 
     const loadMoreComments = useCallback(async (postId: string) => {
         if (commentLoadingMoreRef.current.has(postId)) return;
-        if (!commentHasMoreRef.current[postId]) return;
+        if (!commentHasMoreByPostId[postId]) return;
 
         commentLoadingMoreRef.current.add(postId);
         setCommentLoadingMoreIds(new Set(commentLoadingMoreRef.current));
@@ -408,7 +442,6 @@ export function FeedScreen({
         try {
             const result = await api.getComments(postId, commentCursorRef.current[postId]);
             commentCursorRef.current[postId] = result.next_cursor ?? undefined;
-            commentHasMoreRef.current[postId] = result.has_more;
             setCommentHasMoreByPostId(prev => ({ ...prev, [postId]: result.has_more }));
             setCommentsByPostId(prev => ({
                 ...prev,
@@ -420,112 +453,98 @@ export function FeedScreen({
             commentLoadingMoreRef.current.delete(postId);
             setCommentLoadingMoreIds(new Set(commentLoadingMoreRef.current));
         }
-    }, []);
+    }, [commentHasMoreByPostId]);
 
-    const checkCommentSentinels = useCallback(() => {
-        const screenHeight = Dimensions.get('window').height;
-        Object.entries(commentSentinelRefs.current).forEach(([postId, sentinelRef]) => {
-            if (!sentinelRef) return;
-            if (!commentHasMoreRef.current[postId]) return;
-            if (commentLoadingMoreRef.current.has(postId)) return;
-            sentinelRef.measure((_x, _y, _w, _h, _pageX, pageY) => {
-                if (pageY <= screenHeight + 150) {
-                    loadMoreComments(postId);
-                }
-            });
-        });
-    }, [loadMoreComments]);
+    const handleActiveCommentDraftChange = useCallback((value: string) => {
+        if (!activeCommentPostId) return;
 
-    useEffect(() => {
-        checkCommentSentinels();
-    }, [commentHasMoreByPostId, checkCommentSentinels]);
+        setActiveCommentDraft(value);
+        commentDraftCacheRef.current[activeCommentPostId] = value;
+        pruneSelectedMentions(activeCommentPostId, value, selectedMentionUserIdsRef.current);
 
-    const handleCommentDraftChange = useCallback((postId: string, value: string) => {
-        setCommentDrafts(prev => ({ ...prev, [postId]: value }));
-        pruneSelectedMentions(postId, value, selectedMentionUserIdsRef.current);
+        const nextMention = findActiveMention(value);
+        setActiveMention(nextMention);
 
-        const activeMention = findActiveMention(value);
-        setActiveMentionByPostId(prev => ({ ...prev, [postId]: activeMention }));
+        if (mentionSearchTimerRef.current) clearTimeout(mentionSearchTimerRef.current);
 
-        if (mentionSearchTimersRef.current[postId]) clearTimeout(mentionSearchTimersRef.current[postId]);
-
-        if (!activeMention || !activeMention.query.trim()) {
-            setMentionSuggestionsByPostId(prev => ({ ...prev, [postId]: EMPTY_USERS }));
-            setMentionLoadingIds(prev => {
-                const next = new Set(prev);
-                next.delete(postId);
-                return next;
-            });
+        if (!nextMention || !nextMention.query.trim()) {
+            setActiveMentionSuggestions(EMPTY_USERS);
+            setIsMentionSearching(false);
             return;
         }
 
-        mentionSearchTimersRef.current[postId] = setTimeout(async () => {
-            const nextSeq = (mentionSearchSeqRef.current[postId] ?? 0) + 1;
-            mentionSearchSeqRef.current[postId] = nextSeq;
-            setMentionLoadingIds(prev => new Set(prev).add(postId));
+        mentionSearchTimerRef.current = setTimeout(async () => {
+            const nextSeq = mentionSearchSeqRef.current + 1;
+            mentionSearchSeqRef.current = nextSeq;
+            setIsMentionSearching(true);
 
             try {
-                const result = await api.discoverUsers({ query: activeMention.query, page: 1, limit: 5 });
-                if (mentionSearchSeqRef.current[postId] !== nextSeq) return;
-                setMentionSuggestionsByPostId(prev => ({ ...prev, [postId]: result.items ?? [] }));
+                const result = await api.discoverUsers({ query: nextMention.query, page: 1, limit: 5 });
+                if (mentionSearchSeqRef.current !== nextSeq) return;
+                setActiveMentionSuggestions(result.items ?? []);
             } catch {
-                if (mentionSearchSeqRef.current[postId] !== nextSeq) return;
-                setMentionSuggestionsByPostId(prev => ({ ...prev, [postId]: EMPTY_USERS }));
+                if (mentionSearchSeqRef.current !== nextSeq) return;
+                setActiveMentionSuggestions(EMPTY_USERS);
             } finally {
-                if (mentionSearchSeqRef.current[postId] !== nextSeq) return;
-                setMentionLoadingIds(prev => {
-                    const next = new Set(prev);
-                    next.delete(postId);
-                    return next;
-                });
+                if (mentionSearchSeqRef.current !== nextSeq) return;
+                setIsMentionSearching(false);
             }
         }, 180);
-    }, []);
+    }, [activeCommentPostId]);
 
-    const handleSelectMention = useCallback((postId: string, selectedUser: api.User) => {
-        const activeMention = activeMentionByPostId[postId];
-        const draftValue = commentDrafts[postId] ?? '';
-        if (!activeMention) return;
+    const handleSelectMention = useCallback((selectedUser: api.User) => {
+        if (!activeCommentPostId || !activeMention) return;
 
-        const nextValue = `${draftValue.slice(0, activeMention.tokenStart)}@${selectedUser.username} ${draftValue.slice(activeMention.tokenEnd)}`;
-        setCommentDrafts(prev => ({ ...prev, [postId]: nextValue }));
-        selectedMentionUserIdsRef.current[postId] = {
-            ...(selectedMentionUserIdsRef.current[postId] ?? {}),
+        const nextValue = `${activeCommentDraft.slice(0, activeMention.tokenStart)}@${selectedUser.username} ${activeCommentDraft.slice(activeMention.tokenEnd)}`;
+        setActiveCommentDraft(nextValue);
+        commentDraftCacheRef.current[activeCommentPostId] = nextValue;
+        selectedMentionUserIdsRef.current[activeCommentPostId] = {
+            ...(selectedMentionUserIdsRef.current[activeCommentPostId] ?? {}),
             [selectedUser.username.toLowerCase()]: selectedUser.id,
         };
-        setActiveMentionByPostId(prev => ({ ...prev, [postId]: undefined }));
-        setMentionSuggestionsByPostId(prev => ({ ...prev, [postId]: EMPTY_USERS }));
-    }, [activeMentionByPostId, commentDrafts]);
+        setActiveMention(undefined);
+        setActiveMentionSuggestions(EMPTY_USERS);
+        setIsMentionSearching(false);
+    }, [activeCommentDraft, activeCommentPostId, activeMention]);
 
     const handleSubmitComment = useCallback(async (post: api.Post) => {
-        const draftValue = commentDrafts[post.id]?.trim() ?? '';
+        const draftValue = activeCommentDraft.trim();
         if (!draftValue || !user) return;
+        const selectedMentionUserIds = selectedMentionUserIdsRef.current[post.id] ?? {};
+        const mentionUserIds = collectMentionUserIds(draftValue, selectedMentionUserIds);
+
+        const optimisticComment = buildOptimisticComment({
+            body: draftValue,
+            postId: post.id,
+            user,
+            selectedMentionUserIds,
+        });
 
         setCommentSubmittingIds(prev => new Set(prev).add(post.id));
+        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+
+        delete commentDraftCacheRef.current[post.id];
+        delete selectedMentionUserIdsRef.current[post.id];
+        setCommentsByPostId(prev => ({ ...prev, [post.id]: [...(prev[post.id] ?? []), optimisticComment] }));
+        setPosts(prev => prev.map(item => item.id === post.id ? { ...item, comment_count: item.comment_count + 1 } : item));
+        closeActiveCommentComposer();
+        Keyboard.dismiss();
+        loadedCommentPostIdsRef.current.add(post.id);
+
         try {
-            const mentionUserIds = collectMentionUserIds(draftValue, selectedMentionUserIdsRef.current[post.id] ?? {});
             const newComment = await api.addComment(post.id, draftValue, mentionUserIds);
-            LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-            canCloseComposerOnKeyboardHideRef.current = false;
-            setActiveCommentPostId(current => current === post.id ? null : current);
-            Keyboard.dismiss();
-
-            setCommentDrafts(prev => ({ ...prev, [post.id]: '' }));
-            setActiveMentionByPostId(prev => ({ ...prev, [post.id]: undefined }));
-            setMentionSuggestionsByPostId(prev => ({ ...prev, [post.id]: EMPTY_USERS }));
-            delete selectedMentionUserIdsRef.current[post.id];
-
-            const applyCommentUpdate = () => {
-                LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-                setCommentsByPostId(prev => ({ ...prev, [post.id]: [...(prev[post.id] ?? []), newComment] }));
-                loadedCommentPostIdsRef.current.add(post.id);
-                setPosts(prev => prev.map(item => item.id === post.id ? { ...item, comment_count: item.comment_count + 1 } : item));
-            };
-
-            requestAnimationFrame(() => {
-                setTimeout(applyCommentUpdate, Platform.OS === 'android' ? 90 : 60);
-            });
+            setCommentsByPostId(prev => ({
+                ...prev,
+                [post.id]: (prev[post.id] ?? []).map(comment => comment.id === optimisticComment.id ? newComment : comment),
+            }));
         } catch (e: unknown) {
+            LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+            commentDraftCacheRef.current[post.id] = draftValue;
+            setCommentsByPostId(prev => ({
+                ...prev,
+                [post.id]: (prev[post.id] ?? []).filter(comment => comment.id !== optimisticComment.id),
+            }));
+            setPosts(prev => prev.map(item => item.id === post.id ? { ...item, comment_count: Math.max(item.comment_count - 1, 0) } : item));
             Alert.alert('Error', e instanceof Error ? e.message : 'Something went wrong.');
         } finally {
             setCommentSubmittingIds(prev => {
@@ -534,26 +553,16 @@ export function FeedScreen({
                 return next;
             });
         }
-    }, [commentDrafts, user]);
-
-    const handleRegisterCommentSentinel = useCallback((postId: string, ref: View | null) => {
-        commentSentinelRefs.current[postId] = ref;
-    }, []);
+    }, [activeCommentDraft, closeActiveCommentComposer, user]);
 
     const currentUserId = user?.id ?? '';
     const activeCommentPost = activeCommentPostId ? posts.find(post => post.id === activeCommentPostId) ?? null : null;
-    const activeCommentDraft = activeCommentPost ? (commentDrafts[activeCommentPost.id] ?? '') : '';
-    const activeMention = activeCommentPost ? activeMentionByPostId[activeCommentPost.id] : undefined;
-    const activeMentionSuggestions = activeCommentPost ? (mentionSuggestionsByPostId[activeCommentPost.id] ?? EMPTY_USERS) : EMPTY_USERS;
-    const isMentionSearching = activeCommentPost ? mentionLoadingIds.has(activeCommentPost.id) : false;
     const isActiveCommentSubmitting = activeCommentPost ? commentSubmittingIds.has(activeCommentPost.id) : false;
     const composerBottomOffset = Platform.OS === 'android' ? keyboardHeight : 0;
     const composerClosedPadding = insets.bottom + 8;
-
-    const handleActiveCommentDraftChange = useCallback((value: string) => {
-        if (!activeCommentPost) return;
-        handleCommentDraftChange(activeCommentPost.id, value);
-    }, [activeCommentPost, handleCommentDraftChange]);
+    const activeComposerPadding = activeCommentPost
+        ? 164 + composerClosedPadding + (activeMention?.query.trim() ? 128 : 0)
+        : 110 + insets.bottom;
 
     const handleSubmitActiveComment = useCallback(() => {
         if (!activeCommentPost) return;
@@ -573,15 +582,15 @@ export function FeedScreen({
             commentSubmitting={commentSubmittingIds.has(item.id)}
             onToggleComments={handleToggleComments}
             onStartComment={handleStartComment}
+            onLoadMoreComments={loadMoreComments}
             onPressUser={onOpenUserProfile}
-            onRegisterCommentSentinel={handleRegisterCommentSentinel}
             isCommentComposerActive={activeCommentPostId === item.id}
         />
     ), [
         currentUserId, commentsByPostId, expandedCommentIds, commentLoadingIds,
         commentLoadingMoreIds, commentHasMoreByPostId, commentSubmittingIds,
-        handleToggleComments, handleStartComment,
-        onOpenUserProfile, handleRegisterCommentSentinel, activeCommentPostId,
+        handleToggleComments, handleStartComment, loadMoreComments,
+        onOpenUserProfile, activeCommentPostId,
     ]);
 
     if (loading) {
@@ -597,19 +606,21 @@ export function FeedScreen({
                 ref={flatListRef}
                 data={posts}
                 keyExtractor={p => p.id}
+                initialNumToRender={6}
+                maxToRenderPerBatch={4}
+                updateCellsBatchingPeriod={80}
+                windowSize={5}
                 keyboardShouldPersistTaps="handled"
                 keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
                 onEndReached={handleLoadMore}
                 onEndReachedThreshold={0.4}
-                onScroll={checkCommentSentinels}
                 onScrollToIndexFailed={({ index, averageItemLength }) => {
                     flatListRef.current?.scrollToOffset({
                         offset: Math.max(index * averageItemLength - 120, 0),
                         animated: true,
                     });
                 }}
-                scrollEventThrottle={200}
                 ListHeaderComponent={
                     <View style={styles.composeBar}>
                         {user && <Avatar username={user.username} avatarUrl={user.avatar_url} size={28} />}
@@ -650,9 +661,7 @@ export function FeedScreen({
                 contentContainerStyle={[
                     styles.list,
                     {
-                        paddingBottom: activeCommentPost
-                            ? 168 + composerClosedPadding + composerBottomOffset
-                            : 110 + insets.bottom,
+                        paddingBottom: activeComposerPadding,
                     },
                 ]}
             />
@@ -676,7 +685,7 @@ export function FeedScreen({
                                     <TouchableOpacity
                                         key={user.id}
                                         style={styles.mentionRow}
-                                        onPress={() => handleSelectMention(activeCommentPost.id, user)}
+                                        onPress={() => handleSelectMention(user)}
                                     >
                                         <Avatar username={user.username} avatarUrl={user.avatar_url} size={26} fontSize={10} />
                                         <Text style={styles.mentionRowText}>{formatUsername(user.username)}</Text>
@@ -703,9 +712,11 @@ export function FeedScreen({
                             value={activeCommentDraft}
                             onChangeText={handleActiveCommentDraftChange}
                             editable={!isActiveCommentSubmitting}
+                            multiline
                             autoCapitalize="none"
                             autoCorrect={false}
-                            autoFocus
+                            textAlignVertical="top"
+                            maxLength={1000}
                         />
                         <TouchableOpacity
                             style={[styles.commentSendButton, (isActiveCommentSubmitting || !activeCommentDraft.trim()) && styles.commentSendButtonDisabled]}
@@ -719,6 +730,19 @@ export function FeedScreen({
             )}
         </ScreenContainer>
     );
+}
+
+function arePostCardPropsEqual(prev: PostCardProps, next: PostCardProps) {
+    return prev.post === next.post
+        && prev.displayedCommentCount === next.displayedCommentCount
+        && prev.currentUserId === next.currentUserId
+        && prev.comments === next.comments
+        && prev.commentsExpanded === next.commentsExpanded
+        && prev.commentsLoading === next.commentsLoading
+        && prev.commentsLoadingMore === next.commentsLoadingMore
+        && prev.hasMoreComments === next.hasMoreComments
+        && prev.commentSubmitting === next.commentSubmitting
+        && prev.isCommentComposerActive === next.isCommentComposerActive;
 }
 
 const styles = StyleSheet.create({
@@ -790,8 +814,22 @@ const styles = StyleSheet.create({
         fontSize: Typography.sizes.xs,
         color: Colors.light.textTertiary,
     },
-    commentSentinel: { height: 1 },
-    commentsLoadingMore: { marginVertical: 4 },
+    loadMoreCommentsButton: {
+        minHeight: 38,
+        borderRadius: Radii.full,
+        borderWidth: 0.5,
+        borderColor: Colors.light.border,
+        backgroundColor: Colors.light.background,
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingHorizontal: Spacing.md,
+    },
+    loadMoreCommentsButtonDisabled: { opacity: 0.7 },
+    loadMoreCommentsText: {
+        fontSize: Typography.sizes.sm,
+        color: Colors.primary,
+        fontWeight: '600',
+    },
     commentComposer: { gap: Spacing.xs },
     commentComposerLauncher: {
         flexDirection: 'row',
@@ -811,11 +849,13 @@ const styles = StyleSheet.create({
         fontSize: Typography.sizes.sm,
         color: Colors.light.textTertiary,
     },
-    commentComposerRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+    commentComposerRow: { flexDirection: 'row', alignItems: 'flex-end', gap: Spacing.sm },
     commentInput: {
         flex: 1,
         backgroundColor: Colors.light.background,
-        borderRadius: Radii.full,
+        minHeight: 44,
+        maxHeight: 108,
+        borderRadius: 22,
         borderWidth: 0.5,
         borderColor: Colors.light.border,
         paddingHorizontal: 14,
@@ -895,6 +935,30 @@ function collectMentionUserIds(value: string, selectedMentionUserIds: Record<str
     });
 
     return Array.from(ids);
+}
+
+function buildOptimisticComment(params: {
+    postId: string;
+    body: string;
+    user: NonNullable<ReturnType<typeof useAuth>['user']>;
+    selectedMentionUserIds: Record<string, string>;
+}): api.Comment {
+    const mentionHandles = extractMentionHandles(params.body);
+
+    return {
+        id: `optimistic-${params.postId}-${Date.now()}`,
+        user_id: params.user.id,
+        username: params.user.username,
+        avatar_url: params.user.avatar_url,
+        body: params.body,
+        created_at: new Date().toISOString(),
+        mentions: mentionHandles
+            .map(handle => {
+                const userId = params.selectedMentionUserIds[handle];
+                return userId ? { user_id: userId, username: handle } : null;
+            })
+            .filter((mention): mention is api.CommentMention => !!mention),
+    };
 }
 
 function findActiveMention(value: string): ActiveMentionState | undefined {
