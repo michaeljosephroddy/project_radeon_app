@@ -607,7 +607,7 @@ const styles = StyleSheet.create({
         color: Colors.light.textSecondary,
         fontWeight: '500',
     },
-    messageComposerRow: { flexDirection: 'row', alignItems: 'flex-end', gap: Spacing.sm },
+    messageComposerRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
     messageInput: {
         flex: 1,
         backgroundColor: Colors.light.background,
@@ -624,6 +624,10 @@ const styles = StyleSheet.create({
     messageSendButton: {
         backgroundColor: Colors.success,
         borderRadius: Radii.full,
+        minWidth: 58,
+        minHeight: 44,
+        alignItems: 'center',
+        justifyContent: 'center',
         paddingHorizontal: Spacing.md,
         paddingVertical: 10,
     },
