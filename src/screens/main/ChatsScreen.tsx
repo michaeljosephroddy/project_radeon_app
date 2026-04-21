@@ -6,6 +6,7 @@ import {
 import { Swipeable } from 'react-native-gesture-handler';
 import { Avatar } from '../../components/Avatar';
 import * as api from '../../api/client';
+import { useAuth } from '../../hooks/useAuth';
 import { Colors, Typography, Spacing, Radii } from '../../utils/theme';
 import { formatUsername } from '../../utils/identity';
 
@@ -32,17 +33,33 @@ interface ChatsScreenProps {
 
 interface ChatItemProps {
     item: api.Chat;
+    currentUserId?: string;
     onOpenChat: (chat: api.Chat) => void;
     onDeleteChat: (chat: api.Chat) => void;
     actionPending?: boolean;
 }
 
+function getSupportPendingLabel(chat: api.Chat, currentUserId?: string): string | null {
+    const status = chat.support_context?.status;
+    if (!status || status === 'accepted') return null;
+
+    if (status === 'declined') return 'Declined';
+    if (status === 'closed') return 'Closed';
+
+    if (status === 'pending_requester_acceptance') {
+        return chat.support_context?.awaiting_user_id === currentUserId ? 'Waiting' : 'Pending';
+    }
+
+    return null;
+}
+
 // Renders a single row in the chats list.
-const ChatItem = React.memo(function ChatItem({ item, onOpenChat, onDeleteChat, actionPending = false }: ChatItemProps) {
+const ChatItem = React.memo(function ChatItem({ item, currentUserId, onOpenChat, onDeleteChat, actionPending = false }: ChatItemProps) {
     const displayName = item.is_group
         ? (item.name ?? 'Group')
         : formatUsername(item.username);
     const actionLabel = item.is_group ? 'Leave' : 'Delete';
+    const pendingLabel = getSupportPendingLabel(item, currentUserId);
     const handleDelete = useCallback(() => onDeleteChat(item), [item, onDeleteChat]);
     const handleOpen = useCallback(() => onOpenChat(item), [item, onOpenChat]);
     const renderRightActions = useCallback(() => (
@@ -80,6 +97,11 @@ const ChatItem = React.memo(function ChatItem({ item, onOpenChat, onDeleteChat, 
                                 <Text style={styles.groupPillText}>group</Text>
                             </View>
                         )}
+                        {pendingLabel ? (
+                            <View style={styles.pendingPill}>
+                                <Text style={styles.pendingPillText}>{pendingLabel}</Text>
+                            </View>
+                        ) : null}
                     </View>
                     {item.last_message && (
                         <Text style={styles.preview} numberOfLines={1}>{item.last_message}</Text>
@@ -93,6 +115,7 @@ const ChatItem = React.memo(function ChatItem({ item, onOpenChat, onDeleteChat, 
 
 // Renders the chats tab and refreshes chat summaries when needed.
 export function ChatsScreen({ isActive, refreshKey, onOpenChat }: ChatsScreenProps) {
+    const { user } = useAuth();
     const [chats, setChats] = useState<api.Chat[]>([]);
     const [loading, setLoading] = useState(isActive);
     const [refreshing, setRefreshing] = useState(false);
@@ -228,11 +251,12 @@ export function ChatsScreen({ isActive, refreshKey, onOpenChat }: ChatsScreenPro
     const renderItem = useCallback(({ item }: { item: api.Chat }) => (
         <ChatItem
             item={item}
+            currentUserId={user?.id}
             onOpenChat={onOpenChat}
             onDeleteChat={handleDeleteChat}
             actionPending={pendingDeleteIds.has(item.id)}
         />
-    ), [handleDeleteChat, onOpenChat, pendingDeleteIds]);
+    ), [handleDeleteChat, onOpenChat, pendingDeleteIds, user?.id]);
 
     if (loading) {
         return <View style={styles.center}><ActivityIndicator color={Colors.primary} /></View>;
@@ -287,6 +311,7 @@ export function ChatsScreen({ isActive, refreshKey, onOpenChat }: ChatsScreenPro
 
 function areChatItemPropsEqual(prev: ChatItemProps, next: ChatItemProps) {
     return prev.item === next.item
+        && prev.currentUserId === next.currentUserId
         && prev.onOpenChat === next.onOpenChat
         && prev.onDeleteChat === next.onDeleteChat
         && prev.actionPending === next.actionPending;
@@ -364,6 +389,13 @@ const styles = StyleSheet.create({
         paddingVertical: 1,
     },
     groupPillText: { fontSize: 9, color: Colors.info, fontWeight: '500' },
+    pendingPill: {
+        backgroundColor: Colors.primary,
+        borderRadius: Radii.full,
+        paddingHorizontal: 8,
+        paddingVertical: 3,
+    },
+    pendingPillText: { fontSize: Typography.sizes.xs, color: Colors.textOn.primary, fontWeight: '700' },
     preview: {
         fontSize: Typography.sizes.sm,
         color: Colors.light.textTertiary,
