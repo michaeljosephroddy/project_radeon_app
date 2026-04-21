@@ -25,7 +25,8 @@
         {
           "locationWhenInUsePermission": "SoberSpace uses your location to help you discover people nearby."
         }
-      ]
+      ],
+      "@react-native-community/datetimepicker"
     ]
   }
 }

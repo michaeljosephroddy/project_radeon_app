@@ -1,8 +1,9 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
     View, Text, FlatList, TouchableOpacity, TextInput,
-    StyleSheet, RefreshControl, ActivityIndicator, Alert, ScrollView,
+    StyleSheet, RefreshControl, ActivityIndicator, Alert, ScrollView, Platform,
 } from 'react-native';
+import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { Avatar } from '../../components/Avatar';
 import * as api from '../../api/client';
 import { Colors, Typography, Spacing, Radii } from '../../utils/theme';
@@ -12,13 +13,13 @@ type SupportType = api.SupportRequest['type'];
 type SupportAudience = api.SupportRequest['audience'];
 type SupportResponseType = api.SupportResponse['response_type'];
 type SupportSubView = 'open' | 'mine' | 'create';
-type CheckInTimeOption = '30_min' | '1_hour' | 'tonight' | 'tomorrow_morning';
+type SupportMode = SupportResponseType;
 
 interface PendingCheckInDraft {
     requestId: string;
     requesterName: string;
-    timeOption: CheckInTimeOption;
-    note: string;
+    scheduledFor: string;
+    pickerMode: 'date' | 'time' | null;
 }
 
 interface SupportScreenProps {
@@ -29,6 +30,8 @@ interface SupportScreenProps {
 
 interface SupportRequestCardProps {
     request: api.SupportRequest;
+    isAvailableToSupport: boolean;
+    supportModes: SupportMode[];
     responsePending: boolean;
     closingPending: boolean;
     responses?: api.SupportResponse[];
@@ -68,12 +71,7 @@ const SUPPORT_DURATION_OPTIONS = [
     { label: '12h', hours: 12 },
 ];
 
-const CHECK_IN_TIME_OPTIONS: { value: CheckInTimeOption; label: string; description: string }[] = [
-    { value: '30_min', label: 'In 30 min', description: 'Quick follow-up soon' },
-    { value: '1_hour', label: 'In 1 hour', description: 'A little later today' },
-    { value: 'tonight', label: 'Tonight', description: 'Later this evening' },
-    { value: 'tomorrow_morning', label: 'Tomorrow morning', description: 'Next-day check-in' },
-];
+const DEFAULT_SUPPORT_MODES: SupportMode[] = ['can_chat', 'check_in_later', 'nearby'];
 
 function timeAgo(dateStr: string): string {
     const diff = Date.now() - new Date(dateStr).getTime();
@@ -89,58 +87,28 @@ function expiryFromHours(hours: number): string {
     return new Date(Date.now() + hours * 60 * 60 * 1000).toISOString();
 }
 
-function formatCheckInTimeOption(value: CheckInTimeOption): string {
-    switch (value) {
-    case '30_min':
-        return 'in 30 minutes';
-    case '1_hour':
-        return 'in about 1 hour';
-    case 'tonight':
-        return 'tonight';
-    case 'tomorrow_morning':
-        return 'tomorrow morning';
-    default:
-        return 'later';
-    }
+function getDefaultCheckInDate(): Date {
+    return new Date();
 }
 
-function buildCheckInLaterMessage(timeOption: CheckInTimeOption, note: string): string {
-    const trimmedNote = note.trim();
-    const parts = [`Check-in planned ${formatCheckInTimeOption(timeOption)}.`];
-
-    if (trimmedNote) {
-        parts.push(trimmedNote);
-    }
-
-    return parts.join(' ');
+function getTodayStart(): Date {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return today;
 }
 
-function buildCheckInLaterScheduledFor(timeOption: CheckInTimeOption): string {
-    const scheduled = new Date();
+function formatScheduledForDisplay(scheduledFor: string): string {
+    return new Date(scheduledFor).toLocaleString([], {
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+    });
+}
 
-    switch (timeOption) {
-    case '30_min':
-        scheduled.setMinutes(scheduled.getMinutes() + 30);
-        break;
-    case '1_hour':
-        scheduled.setHours(scheduled.getHours() + 1);
-        break;
-    case 'tonight':
-        scheduled.setHours(20, 0, 0, 0);
-        if (scheduled.getTime() <= Date.now()) {
-            scheduled.setDate(scheduled.getDate() + 1);
-        }
-        break;
-    case 'tomorrow_morning':
-        scheduled.setDate(scheduled.getDate() + 1);
-        scheduled.setHours(9, 0, 0, 0);
-        break;
-    default:
-        scheduled.setHours(scheduled.getHours() + 1);
-        break;
-    }
-
-    return scheduled.toISOString();
+function buildCheckInLaterMessage(scheduledFor: string): string {
+    return `Busy at the moment but I can check in at ${formatScheduledForDisplay(scheduledFor)}.`;
 }
 
 function getSupportResponseSummary(responses?: api.SupportResponse[]): string | null {
@@ -172,8 +140,31 @@ function buildSupportChatContext(
     };
 }
 
+function normalizeSupportModes(modes?: string[] | null): SupportMode[] {
+    const validModes = (modes ?? []).filter((mode): mode is SupportMode => (
+        mode === 'can_chat' || mode === 'check_in_later' || mode === 'nearby'
+    ));
+
+    return validModes.length > 0 ? validModes : [...DEFAULT_SUPPORT_MODES];
+}
+
+function getSupportModeLabel(mode: SupportMode): string {
+    switch (mode) {
+    case 'can_chat':
+        return 'Can chat now';
+    case 'check_in_later':
+        return 'Check in later';
+    case 'nearby':
+        return 'Nearby';
+    default:
+        return mode;
+    }
+}
+
 function SupportRequestCard({
     request,
+    isAvailableToSupport,
+    supportModes,
     responsePending,
     closingPending,
     responses,
@@ -190,6 +181,10 @@ function SupportRequestCard({
     const isClosed = request.status !== 'open';
     const canOfferNearby = request.type === 'need_company' && !!request.city;
     const responseSummary = getSupportResponseSummary(responses);
+    const canRespond = isAvailableToSupport && !responsePending && !request.has_responded && !isClosed;
+    const canChatEnabled = supportModes.includes('can_chat');
+    const checkInLaterEnabled = supportModes.includes('check_in_later');
+    const nearbyEnabled = canOfferNearby && supportModes.includes('nearby');
 
     return (
         <View style={styles.card}>
@@ -246,29 +241,44 @@ function SupportRequestCard({
                 </View>
             ) : (
                 <View style={styles.actions}>
-                    <TouchableOpacity
-                        style={[styles.actionPrimary, (responsePending || request.has_responded || isClosed) && styles.actionDisabled]}
-                        onPress={() => onRespond(request, 'can_chat')}
-                        disabled={responsePending || request.has_responded || isClosed}
-                    >
-                        <Text style={styles.actionPrimaryText}>I can chat</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                        style={[styles.actionSecondary, (responsePending || request.has_responded || isClosed) && styles.actionDisabled]}
-                        onPress={() => onOpenCheckInLaterComposer?.(request)}
-                        disabled={responsePending || request.has_responded || isClosed}
-                    >
-                        <Text style={styles.actionSecondaryText}>Check in later</Text>
-                    </TouchableOpacity>
-                    {canOfferNearby ? (
+                    {!isAvailableToSupport ? (
                         <TouchableOpacity
-                            style={[styles.actionSecondary, (responsePending || request.has_responded || isClosed) && styles.actionDisabled]}
-                            onPress={() => onRespond(request, 'nearby')}
-                            disabled={responsePending || request.has_responded || isClosed}
+                            style={[styles.actionSecondary, styles.actionDisabled]}
+                            disabled
                         >
-                            <Text style={styles.actionSecondaryText}>Nearby</Text>
+                            <Text style={styles.actionSecondaryText}>Turn on availability to respond</Text>
                         </TouchableOpacity>
-                    ) : null}
+                    ) : (
+                        <>
+                            {canChatEnabled ? (
+                                <TouchableOpacity
+                                    style={[styles.actionPrimary, !canRespond && styles.actionDisabled]}
+                                    onPress={() => onRespond(request, 'can_chat')}
+                                    disabled={!canRespond}
+                                >
+                                    <Text style={styles.actionPrimaryText}>I can chat</Text>
+                                </TouchableOpacity>
+                            ) : null}
+                            {checkInLaterEnabled ? (
+                                <TouchableOpacity
+                                    style={[styles.actionSecondary, !canRespond && styles.actionDisabled]}
+                                    onPress={() => onOpenCheckInLaterComposer?.(request)}
+                                    disabled={!canRespond}
+                                >
+                                    <Text style={styles.actionSecondaryText}>Check in later</Text>
+                                </TouchableOpacity>
+                            ) : null}
+                            {nearbyEnabled ? (
+                                <TouchableOpacity
+                                    style={[styles.actionSecondary, !canRespond && styles.actionDisabled]}
+                                    onPress={() => onRespond(request, 'nearby')}
+                                    disabled={!canRespond}
+                                >
+                                    <Text style={styles.actionSecondaryText}>Nearby</Text>
+                                </TouchableOpacity>
+                            ) : null}
+                        </>
+                    )}
                 </View>
             )}
 
@@ -323,6 +333,7 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
     const [responseLoadingIds, setResponseLoadingIds] = useState<Set<string>>(new Set());
     const [responseChatPendingIds, setResponseChatPendingIds] = useState<Record<string, string | undefined>>({});
     const [isAvailableToSupport, setIsAvailableToSupport] = useState(false);
+    const [supportModes, setSupportModes] = useState<SupportMode[]>([...DEFAULT_SUPPORT_MODES]);
     const [openRequestCount, setOpenRequestCount] = useState(0);
     const [availableToSupportCount, setAvailableToSupportCount] = useState(0);
     const [loading, setLoading] = useState(isActive);
@@ -411,7 +422,10 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
         if (isFirstLoad) setLoading(true);
         Promise.all([
             loadOpen(undefined, true),
-            api.getMySupportProfile().then(profile => setIsAvailableToSupport(profile.is_available_to_support)).catch(() => { }),
+            api.getMySupportProfile().then(profile => {
+                setIsAvailableToSupport(profile.is_available_to_support);
+                setSupportModes(normalizeSupportModes(profile.support_modes));
+            }).catch(() => { }),
         ]).finally(() => {
             hasLoadedRef.current = true;
             if (isFirstLoad) setLoading(false);
@@ -555,8 +569,8 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
         setPendingCheckInDraft({
             requestId: request.id,
             requesterName: request.username,
-            timeOption: 'tonight',
-            note: '',
+            scheduledFor: getDefaultCheckInDate().toISOString(),
+            pickerMode: null,
         });
     }, []);
 
@@ -567,12 +581,10 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
     const handleRespond = async (request: api.SupportRequest, responseType: SupportResponseType) => {
         setResponsePendingIds(prev => new Set(prev).add(request.id));
         try {
-            const responseMessage = responseType === 'check_in_later' && pendingCheckInDraft?.requestId === request.id
-                ? buildCheckInLaterMessage(pendingCheckInDraft.timeOption, pendingCheckInDraft.note)
-                : undefined;
             const scheduledFor = responseType === 'check_in_later' && pendingCheckInDraft?.requestId === request.id
-                ? buildCheckInLaterScheduledFor(pendingCheckInDraft.timeOption)
+                ? pendingCheckInDraft.scheduledFor
                 : undefined;
+            const responseMessage = scheduledFor ? buildCheckInLaterMessage(scheduledFor) : undefined;
 
             const result = await api.createSupportResponse(request.id, {
                 response_type: responseType,
@@ -664,16 +676,54 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
 
     const handleToggleAvailability = async () => {
         const next = !isAvailableToSupport;
+        const previousModes = supportModes;
+        const nextModes = next ? normalizeSupportModes(supportModes) : supportModes;
         setIsAvailableToSupport(next);
+        setSupportModes(nextModes);
         setAvailabilityUpdating(true);
         try {
             const profile = await api.updateMySupportProfile({
                 is_available_to_support: next,
+                support_modes: nextModes,
             });
             setIsAvailableToSupport(profile.is_available_to_support);
+            setSupportModes(normalizeSupportModes(profile.support_modes));
         } catch (e: unknown) {
             setIsAvailableToSupport(!next);
+            setSupportModes(previousModes);
             Alert.alert('Could not update support availability', e instanceof Error ? e.message : 'Something went wrong.');
+        } finally {
+            setAvailabilityUpdating(false);
+        }
+    };
+
+    const handleToggleSupportMode = async (mode: SupportMode) => {
+        if (availabilityUpdating) return;
+
+        const isEnabled = supportModes.includes(mode);
+        if (isEnabled && supportModes.length === 1) {
+            Alert.alert('Keep one support option', 'Choose at least one way you are available to support before removing this option.');
+            return;
+        }
+
+        const previousModes = supportModes;
+        const nextModes = isEnabled
+            ? supportModes.filter((item) => item !== mode)
+            : [...supportModes, mode];
+        const normalizedNextModes = normalizeSupportModes(nextModes);
+
+        setSupportModes(normalizedNextModes);
+        setAvailabilityUpdating(true);
+        try {
+            const profile = await api.updateMySupportProfile({
+                is_available_to_support: isAvailableToSupport,
+                support_modes: normalizedNextModes,
+            });
+            setIsAvailableToSupport(profile.is_available_to_support);
+            setSupportModes(normalizeSupportModes(profile.support_modes));
+        } catch (e: unknown) {
+            setSupportModes(previousModes);
+            Alert.alert('Could not update support options', e instanceof Error ? e.message : 'Something went wrong.');
         } finally {
             setAvailabilityUpdating(false);
         }
@@ -703,28 +753,64 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
 
     const availabilityCard = (
         <View style={styles.availabilityCard}>
-            <View style={styles.availabilityBody}>
-                <Text style={styles.availabilityTitle}>Available to support</Text>
-                <Text style={styles.availabilityText}>
-                    Let people know you are open to chatting or showing up for someone today.
-                </Text>
+            <View style={styles.availabilityHeader}>
+                <View style={styles.availabilityBody}>
+                    <Text style={styles.availabilityTitle}>Available to support</Text>
+                    <Text style={styles.availabilityText}>
+                        Let people know you are open to chatting or showing up for someone today.
+                    </Text>
+                </View>
+                <TouchableOpacity
+                    style={[
+                        styles.availabilityToggle,
+                        isAvailableToSupport && styles.availabilityToggleActive,
+                        availabilityUpdating && styles.actionDisabled,
+                    ]}
+                    onPress={handleToggleAvailability}
+                    disabled={availabilityUpdating}
+                >
+                    <Text style={[
+                        styles.availabilityToggleText,
+                        isAvailableToSupport && styles.availabilityToggleTextActive,
+                    ]}>
+                        {availabilityUpdating ? 'Saving...' : isAvailableToSupport ? 'On' : 'Off'}
+                    </Text>
+                </TouchableOpacity>
             </View>
-            <TouchableOpacity
-                style={[
-                    styles.availabilityToggle,
-                    isAvailableToSupport && styles.availabilityToggleActive,
-                    availabilityUpdating && styles.actionDisabled,
-                ]}
-                onPress={handleToggleAvailability}
-                disabled={availabilityUpdating}
-            >
-                <Text style={[
-                    styles.availabilityToggleText,
-                    isAvailableToSupport && styles.availabilityToggleTextActive,
-                ]}>
-                    {availabilityUpdating ? 'Saving...' : isAvailableToSupport ? 'On' : 'Off'}
-                </Text>
-            </TouchableOpacity>
+            <Text style={styles.availabilityModesLabel}>How you can help</Text>
+            <View style={styles.selectorWrap}>
+                {DEFAULT_SUPPORT_MODES.map((mode) => {
+                    const enabled = supportModes.includes(mode);
+                    return (
+                        <TouchableOpacity
+                            key={mode}
+                            style={[
+                                styles.selectorChip,
+                                enabled && styles.selectorChipActive,
+                                availabilityUpdating && styles.actionDisabled,
+                                !isAvailableToSupport && styles.availabilityModeChipMuted,
+                            ]}
+                            onPress={() => handleToggleSupportMode(mode)}
+                            disabled={availabilityUpdating}
+                        >
+                            <Text
+                                style={[
+                                    styles.selectorChipText,
+                                    enabled && styles.selectorChipTextActive,
+                                    !enabled && !isAvailableToSupport && styles.availabilityModeChipTextMuted,
+                                ]}
+                            >
+                                {getSupportModeLabel(mode)}
+                            </Text>
+                        </TouchableOpacity>
+                    );
+                })}
+            </View>
+            <Text style={styles.availabilityModesHint}>
+                {isAvailableToSupport
+                    ? 'These options control which support responses you can send.'
+                    : 'Choose your support options now. They will be used the next time you turn availability on.'}
+            </Text>
         </View>
     );
 
@@ -734,6 +820,29 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
 
     if (pendingCheckInDraft) {
         const sendingCheckIn = responsePendingIds.has(pendingCheckInDraft.requestId);
+        const scheduledDate = new Date(pendingCheckInDraft.scheduledFor);
+        const minimumCheckInDate = getTodayStart();
+        const handleCheckInPickerChange = (event: DateTimePickerEvent, selectedDate?: Date) => {
+            if (Platform.OS === 'android') {
+                if (event.type === 'dismissed') {
+                    setPendingCheckInDraft((current) => current ? { ...current, pickerMode: null } : current);
+                    return;
+                }
+                setPendingCheckInDraft((current) => current ? {
+                    ...current,
+                    scheduledFor: (selectedDate ?? scheduledDate).toISOString(),
+                    pickerMode: null,
+                } : current);
+                return;
+            }
+
+            if (selectedDate) {
+                setPendingCheckInDraft((current) => current ? {
+                    ...current,
+                    scheduledFor: selectedDate.toISOString(),
+                } : current);
+            }
+        };
 
         return (
             <ScrollView contentContainerStyle={styles.list}>
@@ -752,48 +861,100 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
                         Follow up with {formatUsername(pendingCheckInDraft.requesterName)}
                     </Text>
                     <Text style={styles.heroText}>
-                        Set a rough time and a short note so they know what to expect from you.
+                        Choose the date and time and the app will send a formatted check-in message for you.
                     </Text>
                 </View>
 
-                <Text style={styles.formLabel}>When will you check in?</Text>
-                <View style={styles.selectorWrap}>
-                    {CHECK_IN_TIME_OPTIONS.map((option) => (
+                <Text style={styles.formLabel}>Choose date and time</Text>
+                <View style={styles.datePickerCard}>
+                    <View style={styles.dateTimeSummaryRow}>
                         <TouchableOpacity
-                            key={option.value}
-                            style={[
-                                styles.selectorChip,
-                                pendingCheckInDraft.timeOption === option.value && styles.selectorChipActive,
-                            ]}
-                            onPress={() => setPendingCheckInDraft((current) => current ? {
-                                ...current,
-                                timeOption: option.value,
-                            } : current)}
+                            style={styles.dateTimeSummaryCard}
+                            onPress={() => setPendingCheckInDraft((current) => current ? { ...current, pickerMode: 'date' } : current)}
                         >
-                            <Text
-                                style={[
-                                    styles.selectorChipText,
-                                    pendingCheckInDraft.timeOption === option.value && styles.selectorChipTextActive,
-                                ]}
-                            >
-                                {option.label}
+                            <Text style={styles.dateTimeSummaryLabel}>Date</Text>
+                            <Text style={styles.dateTimeSummaryValue}>
+                                {scheduledDate.toLocaleDateString([], {
+                                    weekday: 'short',
+                                    month: 'short',
+                                    day: 'numeric',
+                                })}
                             </Text>
                         </TouchableOpacity>
-                    ))}
-                </View>
+                        <TouchableOpacity
+                            style={styles.dateTimeSummaryCard}
+                            onPress={() => setPendingCheckInDraft((current) => current ? { ...current, pickerMode: 'time' } : current)}
+                        >
+                            <Text style={styles.dateTimeSummaryLabel}>Time</Text>
+                            <Text style={styles.dateTimeSummaryValue}>
+                                {scheduledDate.toLocaleTimeString([], {
+                                    hour: 'numeric',
+                                    minute: '2-digit',
+                                })}
+                            </Text>
+                        </TouchableOpacity>
+                    </View>
 
-                <TextInput
-                    style={[styles.input, styles.inputMultiline, styles.checkInInput]}
-                    value={pendingCheckInDraft.note}
-                    onChangeText={(note) => setPendingCheckInDraft((current) => current ? { ...current, note } : current)}
-                    placeholder="Optional note"
-                    placeholderTextColor={Colors.light.textTertiary}
-                    multiline
-                />
+                    {Platform.OS === 'ios' ? (
+                        <View style={styles.inlinePickerWrap}>
+                            <View style={styles.inlinePickerTabs}>
+                                <TouchableOpacity
+                                    style={[
+                                        styles.inlinePickerTab,
+                                        pendingCheckInDraft.pickerMode !== 'time' && styles.inlinePickerTabActive,
+                                    ]}
+                                    onPress={() => setPendingCheckInDraft((current) => current ? { ...current, pickerMode: 'date' } : current)}
+                                >
+                                    <Text
+                                        style={[
+                                            styles.inlinePickerTabText,
+                                            pendingCheckInDraft.pickerMode !== 'time' && styles.inlinePickerTabTextActive,
+                                        ]}
+                                    >
+                                        Date
+                                    </Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    style={[
+                                        styles.inlinePickerTab,
+                                        pendingCheckInDraft.pickerMode === 'time' && styles.inlinePickerTabActive,
+                                    ]}
+                                    onPress={() => setPendingCheckInDraft((current) => current ? { ...current, pickerMode: 'time' } : current)}
+                                >
+                                    <Text
+                                        style={[
+                                            styles.inlinePickerTabText,
+                                            pendingCheckInDraft.pickerMode === 'time' && styles.inlinePickerTabTextActive,
+                                        ]}
+                                    >
+                                        Time
+                                    </Text>
+                                </TouchableOpacity>
+                            </View>
+                            <DateTimePicker
+                                value={scheduledDate}
+                                mode={pendingCheckInDraft.pickerMode === 'time' ? 'time' : 'date'}
+                                display="spinner"
+                                minimumDate={pendingCheckInDraft.pickerMode === 'time' ? undefined : minimumCheckInDate}
+                                minuteInterval={30}
+                                onChange={handleCheckInPickerChange}
+                            />
+                        </View>
+                    ) : pendingCheckInDraft.pickerMode ? (
+                        <DateTimePicker
+                            value={scheduledDate}
+                            mode={pendingCheckInDraft.pickerMode}
+                            display="default"
+                            minimumDate={pendingCheckInDraft.pickerMode === 'date' ? minimumCheckInDate : undefined}
+                            is24Hour={false}
+                            onChange={handleCheckInPickerChange}
+                        />
+                    ) : null}
+                </View>
 
                 <Text style={styles.previewLabel}>They will see</Text>
                 <Text style={styles.previewText}>
-                    {buildCheckInLaterMessage(pendingCheckInDraft.timeOption, pendingCheckInDraft.note)}
+                    {buildCheckInLaterMessage(pendingCheckInDraft.scheduledFor)}
                 </Text>
 
                 <View style={styles.fullScreenActions}>
@@ -961,6 +1122,8 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
             renderItem={({ item }) => (
                 <SupportRequestCard
                     request={item}
+                    isAvailableToSupport={isAvailableToSupport}
+                    supportModes={supportModes}
                     responsePending={responsePendingIds.has(item.id)}
                     closingPending={closingIds.has(item.id)}
                     responses={isMineView ? requestResponsesById[item.id] : undefined}
@@ -1041,13 +1204,24 @@ const styles = StyleSheet.create({
         borderColor: Colors.light.border,
         padding: Spacing.md,
         marginBottom: Spacing.md,
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: Spacing.md,
     },
+    availabilityHeader: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
     availabilityBody: { flex: 1 },
     availabilityTitle: { fontSize: Typography.sizes.md, fontWeight: '600', color: Colors.light.textPrimary, marginBottom: 4 },
     availabilityText: { fontSize: Typography.sizes.sm, color: Colors.light.textSecondary, lineHeight: 19 },
+    availabilityModesLabel: {
+        fontSize: Typography.sizes.sm,
+        fontWeight: '600',
+        color: Colors.light.textSecondary,
+        marginTop: Spacing.md,
+        marginBottom: Spacing.sm,
+    },
+    availabilityModesHint: {
+        fontSize: Typography.sizes.sm,
+        color: Colors.light.textTertiary,
+        lineHeight: 18,
+        marginTop: Spacing.sm,
+    },
     availabilityToggle: {
         minWidth: 72,
         borderRadius: Radii.full,
@@ -1089,6 +1263,71 @@ const styles = StyleSheet.create({
     selectorChipActive: { backgroundColor: Colors.success, borderColor: Colors.success },
     selectorChipText: { fontSize: Typography.sizes.sm, color: Colors.light.textSecondary },
     selectorChipTextActive: { color: Colors.textOn.primary, fontWeight: '600' },
+    availabilityModeChipMuted: { opacity: 0.72 },
+    availabilityModeChipTextMuted: { color: Colors.light.textTertiary },
+    datePickerCard: {
+        borderWidth: 1,
+        borderColor: Colors.light.border,
+        borderRadius: Radii.lg,
+        backgroundColor: Colors.light.backgroundSecondary,
+        padding: Spacing.sm,
+        overflow: 'hidden',
+    },
+    dateTimeSummaryRow: {
+        flexDirection: 'row',
+        gap: Spacing.sm,
+    },
+    dateTimeSummaryCard: {
+        flex: 1,
+        borderWidth: 1,
+        borderColor: Colors.light.border,
+        borderRadius: Radii.md,
+        backgroundColor: Colors.light.background,
+        paddingHorizontal: Spacing.md,
+        paddingVertical: Spacing.sm,
+    },
+    dateTimeSummaryLabel: {
+        fontSize: Typography.sizes.xs,
+        color: Colors.light.textTertiary,
+        marginBottom: 4,
+    },
+    dateTimeSummaryValue: {
+        fontSize: Typography.sizes.sm,
+        fontWeight: '600',
+        color: Colors.light.textPrimary,
+    },
+    inlinePickerWrap: {
+        marginTop: Spacing.sm,
+        borderWidth: 1,
+        borderColor: Colors.light.border,
+        borderRadius: Radii.md,
+        backgroundColor: Colors.light.background,
+        overflow: 'hidden',
+    },
+    inlinePickerTabs: {
+        flexDirection: 'row',
+        padding: Spacing.xs,
+        gap: Spacing.xs,
+        borderBottomWidth: 1,
+        borderBottomColor: Colors.light.borderSecondary,
+    },
+    inlinePickerTab: {
+        flex: 1,
+        borderRadius: Radii.full,
+        paddingVertical: 8,
+        alignItems: 'center',
+    },
+    inlinePickerTabActive: {
+        backgroundColor: Colors.primary,
+    },
+    inlinePickerTabText: {
+        fontSize: Typography.sizes.sm,
+        fontWeight: '600',
+        color: Colors.light.textSecondary,
+    },
+    inlinePickerTabTextActive: {
+        color: Colors.textOn.primary,
+    },
     input: {
         backgroundColor: Colors.light.backgroundSecondary,
         borderRadius: Radii.md,
