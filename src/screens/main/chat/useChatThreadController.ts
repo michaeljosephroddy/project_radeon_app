@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, Keyboard } from 'react-native';
+import { Alert } from 'react-native';
 import * as api from '../../../api/client';
 
 export interface ChatThreadCurrentUser {
@@ -24,6 +24,7 @@ export function useChatThreadController({
 }: UseChatThreadControllerParams) {
     const [messages, setMessages] = useState<api.Message[]>([]);
     const [loading, setLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
     const [loadingOlder, setLoadingOlder] = useState(false);
     const [hasMore, setHasMore] = useState(false);
     const [nextBefore, setNextBefore] = useState<string | null>(null);
@@ -38,6 +39,7 @@ export function useChatThreadController({
     const loadInitialMessages = useCallback(async () => {
         const requestId = ++requestIdRef.current;
         setLoading(true);
+        setLoadError(null);
 
         try {
             const data = await api.getMessages(chatId, { limit: 50 });
@@ -51,6 +53,7 @@ export function useChatThreadController({
             setMessages([]);
             setHasMore(false);
             setNextBefore(null);
+            setLoadError('Could not load messages.');
             markMutation('replace');
         } finally {
             if (requestId === requestIdRef.current) setLoading(false);
@@ -79,7 +82,6 @@ export function useChatThreadController({
         };
 
         setSending(true);
-        Keyboard.dismiss();
         setMessages(current => [...current, optimisticMessage]);
         markMutation('append');
 
@@ -120,11 +122,13 @@ export function useChatThreadController({
     return {
         messages,
         loading,
+        loadError,
         loadingOlder,
         hasMore,
         sending,
         mutation,
         sendMessage,
         loadOlderMessages,
+        reloadMessages: loadInitialMessages,
     };
 }
