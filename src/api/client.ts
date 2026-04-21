@@ -205,7 +205,21 @@ export interface SupportResponse {
     city?: string | null;
     response_type: 'can_chat' | 'check_in_later' | 'nearby';
     message?: string | null;
+    scheduled_for?: string | null;
     created_at: string;
+    chat_id?: string | null;
+}
+
+export interface SupportChatContext {
+    support_request_id: string;
+    request_type: SupportRequest['type'];
+    request_message?: string | null;
+    requester_id: string;
+    requester_username: string;
+    responder_mode?: SupportResponse['response_type'];
+    latest_response_type?: SupportResponse['response_type'];
+    status?: 'pending_requester_acceptance' | 'accepted' | 'declined' | 'closed';
+    awaiting_user_id?: string | null;
 }
 
 export interface SupportRequestsPage extends CursorResponse<SupportRequest> {
@@ -216,12 +230,19 @@ export interface SupportRequestsPage extends CursorResponse<SupportRequest> {
 export interface Chat {
     id: string;
     is_group: boolean;
+    status?: 'request' | 'active' | 'declined';
     name?: string;
     username?: string;
     avatar_url?: string;
     created_at: string;
     last_message?: string;
     last_message_at?: string;
+    support_context?: SupportChatContext;
+}
+
+export interface CreateSupportResponseResult {
+    response: SupportResponse;
+    chat?: Chat;
 }
 
 interface RawChat extends Chat {
@@ -454,14 +475,30 @@ export async function updateSupportRequest(id: string, data: {
 // Creates a response to an open support request.
 export async function createSupportResponse(id: string, data: {
     response_type: SupportResponse['response_type'];
+    scheduled_for?: string | null;
     message?: string | null;
-}): Promise<SupportResponse> {
-    return request(`/support/requests/${id}/responses`, { method: 'POST', body: JSON.stringify(data) });
+}): Promise<CreateSupportResponseResult> {
+    const result = await request<CreateSupportResponseResult | SupportResponse>(`/support/requests/${id}/responses`, {
+        method: 'POST',
+        body: JSON.stringify(data),
+    });
+
+    if ('response' in result) {
+        return {
+            ...result,
+            chat: result.chat ? normalizeChat(result.chat as RawChat) : undefined,
+        };
+    }
+
+    return { response: result };
 }
 
 // Loads responses for a support request owned by the current user.
 export async function getSupportRequestResponses(id: string): Promise<SupportResponse[]> {
-    return request(`/support/requests/${id}/responses`);
+    const data = await request<SupportResponse[] | { items?: SupportResponse[] | null } | null>(`/support/requests/${id}/responses`);
+    if (Array.isArray(data)) return data;
+    if (data && Array.isArray(data.items)) return data.items;
+    return [];
 }
 
 // Toggles the current user's RSVP state for a meetup.
@@ -533,6 +570,22 @@ export async function getMessages(chatId: string, params?: { before?: string | n
 // Sends a new message into an existing chat thread.
 export async function sendMessage(chatId: string, body: string): Promise<{ id: string }> {
     return request(`/chats/${chatId}/messages`, { method: 'POST', body: JSON.stringify({ body }) });
+}
+
+export async function acceptSupportChat(chatId: string): Promise<Chat> {
+    const chat = await request<RawChat>(`/chats/${chatId}/status`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status: 'active' }),
+    });
+    return normalizeChat(chat);
+}
+
+export async function declineSupportChat(chatId: string): Promise<Chat> {
+    const chat = await request<RawChat>(`/chats/${chatId}/status`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status: 'declined' }),
+    });
+    return normalizeChat(chat);
 }
 
 // Deletes a direct chat or leaves a group chat for the current user.

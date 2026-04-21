@@ -12,11 +12,35 @@ type SupportType = api.SupportRequest['type'];
 type SupportAudience = api.SupportRequest['audience'];
 type SupportResponseType = api.SupportResponse['response_type'];
 type SupportSubView = 'open' | 'mine' | 'create';
+type CheckInTimeOption = '30_min' | '1_hour' | 'tonight' | 'tomorrow_morning';
+
+interface PendingCheckInDraft {
+    requestId: string;
+    requesterName: string;
+    timeOption: CheckInTimeOption;
+    note: string;
+}
 
 interface SupportScreenProps {
     isActive: boolean;
     onOpenChat: (chat: api.Chat) => void;
     onOpenUserProfile: (profile: { userId: string; username: string; avatarUrl?: string }) => void;
+}
+
+interface SupportRequestCardProps {
+    request: api.SupportRequest;
+    responsePending: boolean;
+    closingPending: boolean;
+    responses?: api.SupportResponse[];
+    responsesExpanded?: boolean;
+    responsesLoading?: boolean;
+    responseChatPendingId?: string;
+    onRespond: (request: api.SupportRequest, responseType: SupportResponseType) => void;
+    onOpenCheckInLaterComposer?: (request: api.SupportRequest) => void;
+    onClose: (request: api.SupportRequest) => void;
+    onToggleResponses?: (request: api.SupportRequest) => void;
+    onOpenResponseChat?: (request: api.SupportRequest, response: api.SupportResponse) => void;
+    onPressUser: () => void;
 }
 
 const SUPPORT_TYPE_LABELS: Record<SupportType, string> = {
@@ -32,10 +56,23 @@ const SUPPORT_AUDIENCE_LABELS: Record<SupportAudience, string> = {
     community: 'Community',
 };
 
+const SUPPORT_RESPONSE_LABELS: Record<SupportResponseType, string> = {
+    can_chat: 'Can chat now',
+    check_in_later: 'Check in later',
+    nearby: 'Nearby',
+};
+
 const SUPPORT_DURATION_OPTIONS = [
     { label: '2h', hours: 2 },
     { label: '6h', hours: 6 },
     { label: '12h', hours: 12 },
+];
+
+const CHECK_IN_TIME_OPTIONS: { value: CheckInTimeOption; label: string; description: string }[] = [
+    { value: '30_min', label: 'In 30 min', description: 'Quick follow-up soon' },
+    { value: '1_hour', label: 'In 1 hour', description: 'A little later today' },
+    { value: 'tonight', label: 'Tonight', description: 'Later this evening' },
+    { value: 'tomorrow_morning', label: 'Tomorrow morning', description: 'Next-day check-in' },
 ];
 
 function timeAgo(dateStr: string): string {
@@ -52,24 +89,107 @@ function expiryFromHours(hours: number): string {
     return new Date(Date.now() + hours * 60 * 60 * 1000).toISOString();
 }
 
-interface SupportRequestCardProps {
-    request: api.SupportRequest;
-    responsePending: boolean;
-    closingPending: boolean;
-    onRespond: (request: api.SupportRequest, responseType: SupportResponseType) => void;
-    onClose: (request: api.SupportRequest) => void;
-    onPressUser: () => void;
+function formatCheckInTimeOption(value: CheckInTimeOption): string {
+    switch (value) {
+    case '30_min':
+        return 'in 30 minutes';
+    case '1_hour':
+        return 'in about 1 hour';
+    case 'tonight':
+        return 'tonight';
+    case 'tomorrow_morning':
+        return 'tomorrow morning';
+    default:
+        return 'later';
+    }
+}
+
+function buildCheckInLaterMessage(timeOption: CheckInTimeOption, note: string): string {
+    const trimmedNote = note.trim();
+    const parts = [`Check-in planned ${formatCheckInTimeOption(timeOption)}.`];
+
+    if (trimmedNote) {
+        parts.push(trimmedNote);
+    }
+
+    return parts.join(' ');
+}
+
+function buildCheckInLaterScheduledFor(timeOption: CheckInTimeOption): string {
+    const scheduled = new Date();
+
+    switch (timeOption) {
+    case '30_min':
+        scheduled.setMinutes(scheduled.getMinutes() + 30);
+        break;
+    case '1_hour':
+        scheduled.setHours(scheduled.getHours() + 1);
+        break;
+    case 'tonight':
+        scheduled.setHours(20, 0, 0, 0);
+        if (scheduled.getTime() <= Date.now()) {
+            scheduled.setDate(scheduled.getDate() + 1);
+        }
+        break;
+    case 'tomorrow_morning':
+        scheduled.setDate(scheduled.getDate() + 1);
+        scheduled.setHours(9, 0, 0, 0);
+        break;
+    default:
+        scheduled.setHours(scheduled.getHours() + 1);
+        break;
+    }
+
+    return scheduled.toISOString();
+}
+
+function getSupportResponseSummary(responses?: api.SupportResponse[]): string | null {
+    if (!Array.isArray(responses) || responses.length === 0) return null;
+
+    const canChatCount = responses.filter(response => response.response_type === 'can_chat').length;
+    const checkInLaterCount = responses.filter(response => response.response_type === 'check_in_later').length;
+    const nearbyCount = responses.filter(response => response.response_type === 'nearby').length;
+    const parts: string[] = [];
+
+    if (canChatCount > 0) parts.push(`${canChatCount} can chat now`);
+    if (checkInLaterCount > 0) parts.push(`${checkInLaterCount} can check in later`);
+    if (nearbyCount > 0) parts.push(`${nearbyCount} nearby`);
+
+    return parts.length > 0 ? parts.join(' · ') : null;
+}
+
+function buildSupportChatContext(
+    request: api.SupportRequest,
+    responseType?: SupportResponseType,
+): api.SupportChatContext {
+    return {
+        support_request_id: request.id,
+        request_type: request.type,
+        request_message: request.message,
+        requester_id: request.requester_id,
+        requester_username: request.username,
+        responder_mode: responseType,
+    };
 }
 
 function SupportRequestCard({
     request,
     responsePending,
     closingPending,
+    responses,
+    responsesExpanded = false,
+    responsesLoading = false,
+    responseChatPendingId,
     onRespond,
+    onOpenCheckInLaterComposer,
     onClose,
+    onToggleResponses,
+    onOpenResponseChat,
     onPressUser,
 }: SupportRequestCardProps) {
     const isClosed = request.status !== 'open';
+    const canOfferNearby = request.type === 'need_company' && !!request.city;
+    const responseSummary = getSupportResponseSummary(responses);
 
     return (
         <View style={styles.card}>
@@ -101,8 +221,19 @@ function SupportRequestCard({
                 {isClosed ? ` · ${request.status}` : ''}
             </Text>
 
+            {responseSummary ? (
+                <Text style={styles.responseSummaryText}>{responseSummary}</Text>
+            ) : null}
+
             {request.is_own_request ? (
                 <View style={styles.actions}>
+                    {request.response_count > 0 && onToggleResponses ? (
+                        <TouchableOpacity style={styles.actionSecondary} onPress={() => onToggleResponses(request)}>
+                            <Text style={styles.actionSecondaryText}>
+                                {responsesExpanded ? 'Hide responses' : 'View responses'}
+                            </Text>
+                        </TouchableOpacity>
+                    ) : null}
                     <TouchableOpacity
                         style={[styles.actionSecondary, closingPending && styles.actionDisabled]}
                         onPress={() => onClose(request)}
@@ -122,8 +253,63 @@ function SupportRequestCard({
                     >
                         <Text style={styles.actionPrimaryText}>I can chat</Text>
                     </TouchableOpacity>
+                    <TouchableOpacity
+                        style={[styles.actionSecondary, (responsePending || request.has_responded || isClosed) && styles.actionDisabled]}
+                        onPress={() => onOpenCheckInLaterComposer?.(request)}
+                        disabled={responsePending || request.has_responded || isClosed}
+                    >
+                        <Text style={styles.actionSecondaryText}>Check in later</Text>
+                    </TouchableOpacity>
+                    {canOfferNearby ? (
+                        <TouchableOpacity
+                            style={[styles.actionSecondary, (responsePending || request.has_responded || isClosed) && styles.actionDisabled]}
+                            onPress={() => onRespond(request, 'nearby')}
+                            disabled={responsePending || request.has_responded || isClosed}
+                        >
+                            <Text style={styles.actionSecondaryText}>Nearby</Text>
+                        </TouchableOpacity>
+                    ) : null}
                 </View>
             )}
+
+            {request.is_own_request && responsesExpanded ? (
+                <View style={styles.responsesSection}>
+                    {responsesLoading ? (
+                        <ActivityIndicator color={Colors.primary} size="small" />
+                    ) : Array.isArray(responses) && responses.length > 0 ? (
+                        responses.map((response) => (
+                            <View key={response.id} style={styles.responseRow}>
+                                <Avatar username={response.username} avatarUrl={response.avatar_url ?? undefined} size={32} />
+                                <View style={styles.responseBody}>
+                                    <Text style={styles.responseName}>{formatUsername(response.username)}</Text>
+                                    <Text style={styles.responseMeta}>
+                                        {SUPPORT_RESPONSE_LABELS[response.response_type]} · {timeAgo(response.created_at)}
+                                    </Text>
+                                    {response.message ? (
+                                        <Text style={styles.responseMessage}>{response.message}</Text>
+                                    ) : null}
+                                </View>
+                                {onOpenResponseChat ? (
+                                    <TouchableOpacity
+                                        style={[
+                                            styles.responseChatButton,
+                                            responseChatPendingId === response.id && styles.actionDisabled,
+                                        ]}
+                                        onPress={() => onOpenResponseChat(request, response)}
+                                        disabled={responseChatPendingId === response.id}
+                                    >
+                                        <Text style={styles.responseChatButtonText}>
+                                            {responseChatPendingId === response.id ? 'Opening...' : 'Open chat'}
+                                        </Text>
+                                    </TouchableOpacity>
+                                ) : null}
+                            </View>
+                        ))
+                    ) : (
+                        <Text style={styles.responsesEmptyText}>No responses yet.</Text>
+                    )}
+                </View>
+            ) : null}
         </View>
     );
 }
@@ -132,6 +318,10 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
     const [subView, setSubView] = useState<SupportSubView>('open');
     const [requests, setRequests] = useState<api.SupportRequest[]>([]);
     const [myRequests, setMyRequests] = useState<api.SupportRequest[]>([]);
+    const [requestResponsesById, setRequestResponsesById] = useState<Record<string, api.SupportResponse[]>>({});
+    const [expandedResponseRequestIds, setExpandedResponseRequestIds] = useState<Set<string>>(new Set());
+    const [responseLoadingIds, setResponseLoadingIds] = useState<Set<string>>(new Set());
+    const [responseChatPendingIds, setResponseChatPendingIds] = useState<Record<string, string | undefined>>({});
     const [isAvailableToSupport, setIsAvailableToSupport] = useState(false);
     const [openRequestCount, setOpenRequestCount] = useState(0);
     const [availableToSupportCount, setAvailableToSupportCount] = useState(0);
@@ -148,6 +338,7 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
     const [availabilityUpdating, setAvailabilityUpdating] = useState(false);
     const [responsePendingIds, setResponsePendingIds] = useState<Set<string>>(new Set());
     const [closingIds, setClosingIds] = useState<Set<string>>(new Set());
+    const [pendingCheckInDraft, setPendingCheckInDraft] = useState<PendingCheckInDraft | null>(null);
     const [form, setForm] = useState({
         type: 'need_to_talk' as SupportType,
         message: '',
@@ -159,9 +350,7 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
     const openLoadRef = useRef<Promise<void> | null>(null);
     const myLoadRef = useRef<Promise<void> | null>(null);
 
-  // Loads visible community support requests plus the lightweight header
-  // counts so the tab can paginate cards without separate summary calls.
-  const loadOpen = useCallback(async (cursor?: string, replace = false) => {
+    const loadOpen = useCallback(async (cursor?: string, replace = false) => {
         if (openLoadRef.current) return openLoadRef.current;
         const request = (async () => {
             try {
@@ -189,9 +378,7 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
         }
     }, []);
 
-  // Loads the caller's own support requests lazily because that list is only
-  // needed after the user switches into the "My requests" subview.
-  const loadMine = useCallback(async (cursor?: string, replace = false) => {
+    const loadMine = useCallback(async (cursor?: string, replace = false) => {
         if (myLoadRef.current) return myLoadRef.current;
         const request = (async () => {
             try {
@@ -254,31 +441,159 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
         }
     };
 
-    const openChat = useCallback(async (request: api.SupportRequest) => {
-        try {
-            const chat = await api.createChat([request.requester_id]);
+    const openSupportChat = useCallback(async (
+        memberId: string,
+        username: string,
+        avatarUrl: string | undefined,
+        supportContext: api.SupportChatContext,
+        existingChat?: api.Chat,
+    ) => {
+        if (existingChat) {
             onOpenChat({
-                id: chat.id,
-                is_group: false,
-                username: request.username,
-                avatar_url: request.avatar_url ?? undefined,
-                created_at: new Date().toISOString(),
+                ...existingChat,
+                username: existingChat.username ?? username,
+                avatar_url: existingChat.avatar_url ?? avatarUrl,
+                support_context: {
+                    ...supportContext,
+                    ...existingChat.support_context,
+                },
             });
+            return;
+        }
+
+        const chat = await api.createChat([memberId]);
+        onOpenChat({
+            id: chat.id,
+            is_group: false,
+            username,
+            avatar_url: avatarUrl,
+            created_at: new Date().toISOString(),
+            support_context: supportContext,
+        });
+    }, [onOpenChat]);
+
+    const openChat = useCallback(async (
+        request: api.SupportRequest,
+        responseType?: SupportResponseType,
+        existingChat?: api.Chat,
+    ) => {
+        try {
+            await openSupportChat(
+                request.requester_id,
+                request.username,
+                request.avatar_url ?? undefined,
+                buildSupportChatContext(request, responseType),
+                existingChat,
+            );
         } catch (e: unknown) {
             Alert.alert('Could not open chat', e instanceof Error ? e.message : 'Something went wrong.');
         }
-    }, [onOpenChat]);
+    }, [openSupportChat]);
+
+    const loadResponses = useCallback(async (requestId: string) => {
+        setResponseLoadingIds(prev => new Set(prev).add(requestId));
+        try {
+            const responses = await api.getSupportRequestResponses(requestId);
+            setRequestResponsesById(prev => ({ ...prev, [requestId]: responses }));
+        } catch (e: unknown) {
+            Alert.alert('Could not load responses', e instanceof Error ? e.message : 'Something went wrong.');
+        } finally {
+            setResponseLoadingIds(prev => {
+                const next = new Set(prev);
+                next.delete(requestId);
+                return next;
+            });
+        }
+    }, []);
+
+    const toggleResponses = useCallback((request: api.SupportRequest) => {
+        setExpandedResponseRequestIds(prev => {
+            const next = new Set(prev);
+            if (next.has(request.id)) {
+                next.delete(request.id);
+            } else {
+                next.add(request.id);
+            }
+            return next;
+        });
+
+        if (!requestResponsesById[request.id]) {
+            void loadResponses(request.id);
+        }
+    }, [loadResponses, requestResponsesById]);
+
+    const handleOpenResponseChat = useCallback(async (
+        request: api.SupportRequest,
+        response: api.SupportResponse,
+    ) => {
+        setResponseChatPendingIds(prev => ({ ...prev, [request.id]: response.id }));
+        try {
+            const existingChat = response.chat_id ? {
+                id: response.chat_id,
+                is_group: false,
+                username: response.username,
+                avatar_url: response.avatar_url ?? undefined,
+                created_at: response.created_at,
+                support_context: buildSupportChatContext(request, response.response_type),
+            } satisfies api.Chat : undefined;
+
+            await openSupportChat(
+                response.responder_id,
+                response.username,
+                response.avatar_url ?? undefined,
+                buildSupportChatContext(request, response.response_type),
+                existingChat,
+            );
+        } catch (e: unknown) {
+            Alert.alert('Could not open chat', e instanceof Error ? e.message : 'Something went wrong.');
+        } finally {
+            setResponseChatPendingIds(prev => ({ ...prev, [request.id]: undefined }));
+        }
+    }, [openSupportChat]);
+
+    const openCheckInLaterComposer = useCallback((request: api.SupportRequest) => {
+        setPendingCheckInDraft({
+            requestId: request.id,
+            requesterName: request.username,
+            timeOption: 'tonight',
+            note: '',
+        });
+    }, []);
+
+    const closeCheckInLaterComposer = useCallback(() => {
+        setPendingCheckInDraft(null);
+    }, []);
 
     const handleRespond = async (request: api.SupportRequest, responseType: SupportResponseType) => {
         setResponsePendingIds(prev => new Set(prev).add(request.id));
         try {
-            await api.createSupportResponse(request.id, { response_type: responseType });
+            const responseMessage = responseType === 'check_in_later' && pendingCheckInDraft?.requestId === request.id
+                ? buildCheckInLaterMessage(pendingCheckInDraft.timeOption, pendingCheckInDraft.note)
+                : undefined;
+            const scheduledFor = responseType === 'check_in_later' && pendingCheckInDraft?.requestId === request.id
+                ? buildCheckInLaterScheduledFor(pendingCheckInDraft.timeOption)
+                : undefined;
+
+            const result = await api.createSupportResponse(request.id, {
+                response_type: responseType,
+                scheduled_for: scheduledFor,
+                message: responseMessage,
+            });
             setRequests(prev => prev.map(item => item.id === request.id ? {
                 ...item,
                 has_responded: true,
                 response_count: item.response_count + 1,
             } : item));
-            await openChat(request);
+
+            if (responseType === 'can_chat') {
+                await openChat(request, responseType, result.chat);
+            } else {
+                Alert.alert('Response sent', `${SUPPORT_RESPONSE_LABELS[responseType]} has been shared with ${formatUsername(request.username)}.`);
+            }
+
+            if (responseType === 'check_in_later') {
+                setPendingCheckInDraft(null);
+            }
         } catch (e: unknown) {
             Alert.alert('Could not respond', e instanceof Error ? e.message : 'Something went wrong.');
         } finally {
@@ -290,11 +605,28 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
         }
     };
 
+    const submitCheckInLater = useCallback(() => {
+        if (!pendingCheckInDraft) return;
+
+        const request = requests.find(item => item.id === pendingCheckInDraft.requestId);
+        if (!request) {
+            setPendingCheckInDraft(null);
+            return;
+        }
+
+        void handleRespond(request, 'check_in_later');
+    }, [handleRespond, pendingCheckInDraft, requests]);
+
     const handleClose = async (request: api.SupportRequest) => {
         setClosingIds(prev => new Set(prev).add(request.id));
         try {
             await api.updateSupportRequest(request.id, { status: 'closed' });
             setMyRequests(prev => prev.filter(item => item.id !== request.id));
+            setExpandedResponseRequestIds(prev => {
+                const next = new Set(prev);
+                next.delete(request.id);
+                return next;
+            });
         } catch (e: unknown) {
             Alert.alert('Could not close request', e instanceof Error ? e.message : 'Something went wrong.');
         } finally {
@@ -347,9 +679,7 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
         }
     };
 
-  // The open and mine subviews page independently so switching tabs does not
-  // reset or over-fetch the other support list.
-  const handleLoadMore = async () => {
+    const handleLoadMore = async () => {
         if (subView === 'create') return;
         if (subView === 'mine') {
             if (loadingMoreMine || myRefreshing || !myHasMore) return;
@@ -400,6 +730,88 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
 
     if (loading) {
         return <View style={styles.center}><ActivityIndicator color={Colors.primary} /></View>;
+    }
+
+    if (pendingCheckInDraft) {
+        const sendingCheckIn = responsePendingIds.has(pendingCheckInDraft.requestId);
+
+        return (
+            <ScrollView contentContainerStyle={styles.list}>
+                <View style={styles.segmentRow}>
+                    <TouchableOpacity style={styles.segmentButton} onPress={closeCheckInLaterComposer}>
+                        <Text style={styles.segmentLabel}>Back</Text>
+                    </TouchableOpacity>
+                    <View style={[styles.segmentButton, styles.segmentButtonActive, styles.fullWidthSegment]}>
+                        <Text style={[styles.segmentLabel, styles.segmentLabelActive]}>Check in later</Text>
+                    </View>
+                </View>
+
+                <View style={styles.heroCard}>
+                    <Text style={styles.heroEyebrow}>CHECK IN LATER</Text>
+                    <Text style={styles.heroTitle}>
+                        Follow up with {formatUsername(pendingCheckInDraft.requesterName)}
+                    </Text>
+                    <Text style={styles.heroText}>
+                        Set a rough time and a short note so they know what to expect from you.
+                    </Text>
+                </View>
+
+                <Text style={styles.formLabel}>When will you check in?</Text>
+                <View style={styles.selectorWrap}>
+                    {CHECK_IN_TIME_OPTIONS.map((option) => (
+                        <TouchableOpacity
+                            key={option.value}
+                            style={[
+                                styles.selectorChip,
+                                pendingCheckInDraft.timeOption === option.value && styles.selectorChipActive,
+                            ]}
+                            onPress={() => setPendingCheckInDraft((current) => current ? {
+                                ...current,
+                                timeOption: option.value,
+                            } : current)}
+                        >
+                            <Text
+                                style={[
+                                    styles.selectorChipText,
+                                    pendingCheckInDraft.timeOption === option.value && styles.selectorChipTextActive,
+                                ]}
+                            >
+                                {option.label}
+                            </Text>
+                        </TouchableOpacity>
+                    ))}
+                </View>
+
+                <TextInput
+                    style={[styles.input, styles.inputMultiline, styles.checkInInput]}
+                    value={pendingCheckInDraft.note}
+                    onChangeText={(note) => setPendingCheckInDraft((current) => current ? { ...current, note } : current)}
+                    placeholder="Optional note"
+                    placeholderTextColor={Colors.light.textTertiary}
+                    multiline
+                />
+
+                <Text style={styles.previewLabel}>They will see</Text>
+                <Text style={styles.previewText}>
+                    {buildCheckInLaterMessage(pendingCheckInDraft.timeOption, pendingCheckInDraft.note)}
+                </Text>
+
+                <View style={styles.fullScreenActions}>
+                    <TouchableOpacity style={styles.actionSecondary} onPress={closeCheckInLaterComposer}>
+                        <Text style={styles.actionSecondaryText}>Cancel</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                        style={[styles.actionPrimary, sendingCheckIn && styles.actionDisabled]}
+                        onPress={submitCheckInLater}
+                        disabled={sendingCheckIn}
+                    >
+                        <Text style={styles.actionPrimaryText}>
+                            {sendingCheckIn ? 'Sending...' : 'Send check-in plan'}
+                        </Text>
+                    </TouchableOpacity>
+                </View>
+            </ScrollView>
+        );
     }
 
     if (subView === 'create') {
@@ -520,7 +932,7 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
                         <Text style={styles.heroTitle}>{isMineView ? 'Requests you created.' : 'Open support requests from the community.'}</Text>
                         <Text style={styles.heroText}>
                             {isMineView
-                                ? 'Close requests once you are okay or once someone has connected with you.'
+                                ? 'See how people responded, open a chat that fits, and close the request once you are okay.'
                                 : 'Respond quickly when you can genuinely show up for someone.'}
                         </Text>
                     </View>
@@ -551,8 +963,15 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
                     request={item}
                     responsePending={responsePendingIds.has(item.id)}
                     closingPending={closingIds.has(item.id)}
+                    responses={isMineView ? requestResponsesById[item.id] : undefined}
+                    responsesExpanded={isMineView ? expandedResponseRequestIds.has(item.id) : undefined}
+                    responsesLoading={isMineView ? responseLoadingIds.has(item.id) : undefined}
+                    responseChatPendingId={isMineView ? responseChatPendingIds[item.id] : undefined}
                     onRespond={handleRespond}
+                    onOpenCheckInLaterComposer={openCheckInLaterComposer}
                     onClose={handleClose}
+                    onToggleResponses={isMineView ? toggleResponses : undefined}
+                    onOpenResponseChat={isMineView ? handleOpenResponseChat : undefined}
                     onPressUser={() => onOpenUserProfile({
                         userId: item.requester_id,
                         username: item.username,
@@ -578,6 +997,7 @@ const styles = StyleSheet.create({
         backgroundColor: Colors.light.backgroundSecondary,
     },
     segmentButtonActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
+    fullWidthSegment: { flex: 2 },
     segmentLabel: { fontSize: Typography.sizes.sm, fontWeight: '600', color: Colors.light.textSecondary },
     segmentLabelActive: { color: Colors.textOn.primary },
     heroCard: {
@@ -706,6 +1126,7 @@ const styles = StyleSheet.create({
     cardMeta: { fontSize: Typography.sizes.sm, color: Colors.light.textTertiary, marginTop: 4 },
     cardBody: { fontSize: Typography.sizes.base, lineHeight: 19, color: Colors.light.textSecondary, marginTop: Spacing.md },
     cardFooterText: { fontSize: Typography.sizes.sm, color: Colors.light.textTertiary, marginTop: Spacing.md },
+    responseSummaryText: { fontSize: Typography.sizes.sm, color: Colors.primary, marginTop: Spacing.sm, fontWeight: '500' },
     actions: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm, marginTop: Spacing.md },
     actionPrimary: { backgroundColor: Colors.success, borderRadius: Radii.full, paddingHorizontal: Spacing.md, paddingVertical: 10 },
     actionPrimaryText: { color: Colors.textOn.primary, fontSize: Typography.sizes.sm, fontWeight: '600' },
@@ -718,6 +1139,59 @@ const styles = StyleSheet.create({
         borderColor: Colors.light.border,
     },
     actionSecondaryText: { color: Colors.light.textSecondary, fontSize: Typography.sizes.sm, fontWeight: '600' },
+    responsesSection: {
+        marginTop: Spacing.md,
+        paddingTop: Spacing.md,
+        borderTopWidth: 1,
+        borderTopColor: Colors.light.border,
+        gap: Spacing.sm,
+    },
+    responseRow: {
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        gap: Spacing.sm,
+        backgroundColor: Colors.light.background,
+        borderRadius: Radii.md,
+        borderWidth: 1,
+        borderColor: Colors.light.border,
+        padding: Spacing.sm,
+    },
+    responseBody: { flex: 1 },
+    responseName: { fontSize: Typography.sizes.sm, fontWeight: '600', color: Colors.light.textPrimary },
+    responseMeta: { fontSize: Typography.sizes.sm, color: Colors.light.textTertiary, marginTop: 2 },
+    responseMessage: { fontSize: Typography.sizes.sm, color: Colors.light.textSecondary, lineHeight: 18, marginTop: 6 },
+    responseChatButton: {
+        backgroundColor: Colors.primary,
+        borderRadius: Radii.full,
+        paddingHorizontal: Spacing.md,
+        paddingVertical: 8,
+    },
+    responseChatButtonText: { color: Colors.textOn.primary, fontSize: Typography.sizes.sm, fontWeight: '600' },
+    responsesEmptyText: { fontSize: Typography.sizes.sm, color: Colors.light.textTertiary },
+    checkInInput: { minHeight: 92 },
+    previewLabel: {
+        fontSize: Typography.sizes.sm,
+        fontWeight: '600',
+        color: Colors.light.textSecondary,
+        marginTop: Spacing.md,
+    },
+    previewText: {
+        fontSize: Typography.sizes.sm,
+        color: Colors.light.textPrimary,
+        lineHeight: 19,
+        marginTop: Spacing.xs,
+        backgroundColor: Colors.light.backgroundSecondary,
+        borderRadius: Radii.md,
+        borderWidth: 1,
+        borderColor: Colors.light.border,
+        padding: Spacing.md,
+    },
+    fullScreenActions: {
+        flexDirection: 'row',
+        justifyContent: 'flex-end',
+        gap: Spacing.sm,
+        marginTop: Spacing.lg,
+    },
     actionDisabled: { opacity: 0.6 },
     empty: { alignItems: 'center', paddingTop: 60 },
     emptyText: { fontSize: Typography.sizes.lg, fontWeight: '500', color: Colors.light.textPrimary },
