@@ -103,9 +103,14 @@ export function ChatsScreen({ isActive, refreshKey, onOpenChat }: ChatsScreenPro
     const [hasMore, setHasMore] = useState(false);
     const [pendingDeleteIds, setPendingDeleteIds] = useState<Set<string>>(new Set());
     const hasLoadedRef = useRef(false);
+    const chatsRef = useRef<api.Chat[]>([]);
     const previousRefreshKeyRef = useRef(refreshKey);
     const previousQueryRef = useRef('');
     const loadRequestIdRef = useRef(0);
+
+    useEffect(() => {
+        chatsRef.current = chats;
+    }, [chats]);
 
     useEffect(() => {
         const timer = setTimeout(() => setDebouncedQuery(query.trim()), 250);
@@ -200,7 +205,7 @@ export function ChatsScreen({ isActive, refreshKey, onOpenChat }: ChatsScreenPro
                 style: 'destructive',
                 onPress: async () => {
                     setPendingDeleteIds(prev => new Set(prev).add(chat.id));
-                    const previousChats = chats;
+                    const previousChats = chatsRef.current;
                     setChats(prev => prev.filter(item => item.id !== chat.id));
 
                     try {
@@ -218,7 +223,7 @@ export function ChatsScreen({ isActive, refreshKey, onOpenChat }: ChatsScreenPro
                 },
             },
         ]);
-    }, [chats]);
+    }, []);
 
     const renderItem = useCallback(({ item }: { item: api.Chat }) => (
         <ChatItem
