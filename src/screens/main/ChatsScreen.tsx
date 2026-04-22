@@ -1,12 +1,15 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import {
     View, Text, FlatList, TouchableOpacity,
     StyleSheet, RefreshControl, ActivityIndicator, TextInput, Alert,
 } from 'react-native';
+import { InfiniteData, useQueryClient } from '@tanstack/react-query';
 import { Swipeable } from 'react-native-gesture-handler';
 import { Avatar } from '../../components/Avatar';
 import * as api from '../../api/client';
+import { useChats } from '../../hooks/queries/useChats';
 import { useAuth } from '../../hooks/useAuth';
+import { queryKeys } from '../../query/queryKeys';
 import { Colors, Typography, Spacing, Radii } from '../../utils/theme';
 import { formatUsername } from '../../utils/identity';
 
@@ -116,103 +119,41 @@ const ChatItem = React.memo(function ChatItem({ item, currentUserId, onOpenChat,
 // Renders the chats tab and refreshes chat summaries when needed.
 export function ChatsScreen({ isActive, refreshKey, onOpenChat }: ChatsScreenProps) {
     const { user } = useAuth();
-    const [chats, setChats] = useState<api.Chat[]>([]);
-    const [loading, setLoading] = useState(isActive);
-    const [refreshing, setRefreshing] = useState(false);
-    const [loadingMore, setLoadingMore] = useState(false);
+    const queryClient = useQueryClient();
     const [query, setQuery] = useState('');
     const [debouncedQuery, setDebouncedQuery] = useState('');
-    const [page, setPage] = useState(1);
-    const [hasMore, setHasMore] = useState(false);
     const [pendingDeleteIds, setPendingDeleteIds] = useState<Set<string>>(new Set());
-    const hasLoadedRef = useRef(false);
-    const chatsRef = useRef<api.Chat[]>([]);
-    const previousRefreshKeyRef = useRef(refreshKey);
-    const previousQueryRef = useRef('');
-    const loadRequestIdRef = useRef(0);
-
-    useEffect(() => {
-        chatsRef.current = chats;
-    }, [chats]);
+    const [lastRefreshKey, setLastRefreshKey] = useState(refreshKey);
+    const chatsQuery = useChats({ query: debouncedQuery, limit: 20 }, isActive);
+    const chats = useMemo(
+        () => chatsQuery.data?.pages.flatMap((page) => page.items ?? []) ?? [],
+        [chatsQuery.data],
+    );
 
     useEffect(() => {
         const timer = setTimeout(() => setDebouncedQuery(query.trim()), 250);
         return () => clearTimeout(timer);
     }, [query]);
 
-    // Chat list search and paging both happen on the backend so the client
-    // never needs to download the full inbox just to filter it locally.
-    const load = useCallback(async (nextPage: number, replace = false) => {
-        const requestId = ++loadRequestIdRef.current;
-
-        try {
-            const data = await api.getChats({ query: debouncedQuery, page: nextPage, limit: 20 });
-            if (requestId !== loadRequestIdRef.current) return;
-            setChats(prev => replace ? (data.items ?? []) : [...prev, ...(data.items ?? [])]);
-            setPage(data.page);
-            setHasMore(data.has_more);
-        } catch {
-            if (requestId !== loadRequestIdRef.current) return;
-            if (replace) {
-                setChats([]);
-                setPage(1);
-                setHasMore(false);
-            }
-        }
-    }, [debouncedQuery]);
-
     useEffect(() => {
-        if (!isActive) return;
-
-        const isFirstLoad = !hasLoadedRef.current;
-        if (isFirstLoad) setLoading(true);
-
-        load(1, true).finally(() => {
-            hasLoadedRef.current = true;
-            if (isFirstLoad) setLoading(false);
-        });
-    }, [isActive, load]);
-
-    useEffect(() => {
-        const queryChanged = debouncedQuery !== previousQueryRef.current;
-        previousQueryRef.current = debouncedQuery;
-        if (!isActive || !queryChanged) return;
-
-        const isFirstLoad = !hasLoadedRef.current;
-        if (isFirstLoad) setLoading(true);
-
-        load(1, true).finally(() => {
-            hasLoadedRef.current = true;
-            if (isFirstLoad) setLoading(false);
-        });
-    }, [debouncedQuery, isActive, load]);
-
-    useEffect(() => {
-        const refreshKeyChanged = refreshKey !== previousRefreshKeyRef.current;
-        previousRefreshKeyRef.current = refreshKey;
-
         // The parent increments refreshKey when a conversation closes so the chat
         // list can refresh previews without remounting the whole tab.
-        if (isActive && refreshKeyChanged) load(1, true);
-    }, [isActive, refreshKey, load]);
+        if (isActive && refreshKey !== lastRefreshKey) {
+            setLastRefreshKey(refreshKey);
+            void chatsQuery.refetch();
+        }
+    }, [chatsQuery, isActive, lastRefreshKey, refreshKey]);
 
     // Refreshes the chat list for pull-to-refresh.
     const onRefresh = async () => {
-        setRefreshing(true);
-        await load(1, true);
-        setRefreshing(false);
+        await chatsQuery.refetch();
     };
 
     // Continue from the current query/page pair instead of mixing pages from
     // different search terms into the same in-memory list.
     const onEndReached = async () => {
-        if (!isActive || loading || refreshing || loadingMore || !hasMore) return;
-        setLoadingMore(true);
-        try {
-            await load(page + 1);
-        } finally {
-            setLoadingMore(false);
-        }
+        if (!isActive || chatsQuery.isLoading || chatsQuery.isRefetching || chatsQuery.isFetchingNextPage || !chatsQuery.hasNextPage) return;
+        await chatsQuery.fetchNextPage();
     };
 
     const handleDeleteChat = useCallback((chat: api.Chat) => {
@@ -228,13 +169,26 @@ export function ChatsScreen({ isActive, refreshKey, onOpenChat }: ChatsScreenPro
                 style: 'destructive',
                 onPress: async () => {
                     setPendingDeleteIds(prev => new Set(prev).add(chat.id));
-                    const previousChats = chatsRef.current;
-                    setChats(prev => prev.filter(item => item.id !== chat.id));
+                    const chatQueryKey = queryKeys.chats({ query: debouncedQuery, limit: 20 });
+                    const previousChats = queryClient.getQueryData<InfiniteData<api.PaginatedResponse<api.Chat>>>(chatQueryKey);
+                    queryClient.setQueryData<InfiniteData<api.PaginatedResponse<api.Chat>>>(
+                        chatQueryKey,
+                        (current) => {
+                            if (!current) return current;
+                            return {
+                                ...current,
+                                pages: current.pages.map((page) => ({
+                                    ...page,
+                                    items: (page.items ?? []).filter((item) => item.id !== chat.id),
+                                })),
+                            };
+                        },
+                    );
 
                     try {
                         await api.deleteChat(chat.id);
                     } catch (e: unknown) {
-                        setChats(previousChats);
+                        queryClient.setQueryData(chatQueryKey, previousChats);
                         Alert.alert(chat.is_group ? 'Could not leave group' : 'Could not delete chat', e instanceof Error ? e.message : 'Something went wrong.');
                     } finally {
                         setPendingDeleteIds(prev => {
@@ -246,7 +200,7 @@ export function ChatsScreen({ isActive, refreshKey, onOpenChat }: ChatsScreenPro
                 },
             },
         ]);
-    }, []);
+    }, [debouncedQuery, queryClient]);
 
     const renderItem = useCallback(({ item }: { item: api.Chat }) => (
         <ChatItem
@@ -258,7 +212,7 @@ export function ChatsScreen({ isActive, refreshKey, onOpenChat }: ChatsScreenPro
         />
     ), [handleDeleteChat, onOpenChat, pendingDeleteIds, user?.id]);
 
-    if (loading) {
+    if (chatsQuery.isLoading && chats.length === 0) {
         return <View style={styles.center}><ActivityIndicator color={Colors.primary} /></View>;
     }
 
@@ -270,7 +224,13 @@ export function ChatsScreen({ isActive, refreshKey, onOpenChat }: ChatsScreenPro
             maxToRenderPerBatch={8}
             updateCellsBatchingPeriod={60}
             windowSize={8}
-            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
+            refreshControl={
+                <RefreshControl
+                    refreshing={chatsQuery.isRefetching && !chatsQuery.isFetchingNextPage}
+                    onRefresh={onRefresh}
+                    tintColor={Colors.primary}
+                />
+            }
             contentContainerStyle={styles.list}
             keyboardShouldPersistTaps="handled"
             onEndReached={onEndReached}
@@ -303,7 +263,7 @@ export function ChatsScreen({ isActive, refreshKey, onOpenChat }: ChatsScreenPro
                     </View>
                 ) : null
             }
-            ListFooterComponent={loadingMore ? <ActivityIndicator style={styles.footerLoader} color={Colors.primary} /> : null}
+            ListFooterComponent={chatsQuery.isFetchingNextPage ? <ActivityIndicator style={styles.footerLoader} color={Colors.primary} /> : null}
             renderItem={renderItem}
         />
     );

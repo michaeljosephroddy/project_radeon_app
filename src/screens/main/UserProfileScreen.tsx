@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useState } from 'react';
 import {
     View, Text, TouchableOpacity, StyleSheet, Image,
     FlatList, ActivityIndicator, RefreshControl,
@@ -7,6 +7,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Avatar } from '../../components/Avatar';
 import * as api from '../../api/client';
+import { useUserProfile } from '../../hooks/queries/useUserProfile';
+import { useUserPosts } from '../../hooks/queries/useUserPosts';
 import { Colors, Typography, Spacing, Radii } from '../../utils/theme';
 import { formatUsername } from '../../utils/identity';
 import { formatRecoveryDuration, formatSobrietyDate, getRecoveryMilestone } from '../../utils/date';
@@ -35,51 +37,25 @@ export function UserProfileScreen({
     userId, username, avatarUrl,
     onBack, onOpenChat,
 }: UserProfileScreenProps) {
-    const [profile, setProfile] = useState<api.User | null>(null);
-    const [posts, setPosts] = useState<api.Post[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [refreshing, setRefreshing] = useState(false);
-    const [loadingMorePosts, setLoadingMorePosts] = useState(false);
-    const postsCursorRef = useRef<string | undefined>(undefined);
-    const [postsHasMore, setPostsHasMore] = useState(false);
+    const profileQuery = useUserProfile(userId);
+    const userPostsQuery = useUserPosts(userId);
     const [friendActionLoading, setFriendActionLoading] = useState(false);
     const [dmLoading, setDmLoading] = useState(false);
+    const profile = profileQuery.data ?? null;
+    const posts = (userPostsQuery.data?.pages ?? []).flatMap(page => page.items ?? []);
+    const loading = (!profile && profileQuery.isLoading) || (posts.length === 0 && userPostsQuery.isLoading);
+    const refreshing = (profileQuery.isRefetching || userPostsQuery.isRefetching) && !userPostsQuery.isFetchingNextPage;
+    const loadingMorePosts = userPostsQuery.isFetchingNextPage;
+    const postsHasMore = userPostsQuery.hasNextPage ?? false;
     const friendshipStatus = profile?.friendship_status === 'self' ? 'friends' : (profile?.friendship_status ?? 'none');
     const formattedSobrietyDate = formatSobrietyDate(profile?.sober_since);
     const recoveryMilestone = getRecoveryMilestone(profile?.sober_since);
 
-    // Profile metadata and profile posts page separately so relationship state
-    // can refresh without replaying the full post timeline.
-    const loadProfile = useCallback(async () => {
-        try {
-            const profileData = await api.getUser(userId);
-            setProfile(profileData);
-        } catch { }
-    }, [userId]);
-
-    const loadPosts = useCallback(async (cursor?: string, replace = false) => {
-        try {
-            const postsData = await api.getUserPosts(userId, cursor, 20);
-            setPosts(current => replace ? (postsData.items ?? []) : [...current, ...(postsData.items ?? [])]);
-            postsCursorRef.current = postsData.next_cursor ?? undefined;
-            setPostsHasMore(postsData.has_more);
-        } catch {
-            if (replace) {
-                setPosts([]);
-                postsCursorRef.current = undefined;
-                setPostsHasMore(false);
-            }
-        }
-    }, [userId]);
-
-    useEffect(() => {
-        Promise.all([loadProfile(), loadPosts(undefined, true)]).finally(() => setLoading(false));
-    }, [loadProfile, loadPosts]);
-
     const onRefresh = async () => {
-        setRefreshing(true);
-        await Promise.all([loadProfile(), loadPosts(undefined, true)]);
-        setRefreshing(false);
+        await Promise.all([
+            profileQuery.refetch(),
+            userPostsQuery.refetch(),
+        ]);
     };
 
     const handleFriendAction = async () => {
@@ -87,7 +63,7 @@ export function UserProfileScreen({
             setFriendActionLoading(true);
             try {
                 await api.removeFriend(userId);
-                await loadProfile();
+                await profileQuery.refetch();
             } catch {
             } finally {
                 setFriendActionLoading(false);
@@ -104,7 +80,7 @@ export function UserProfileScreen({
             } else {
                 await api.sendFriendRequest(userId);
             }
-            await loadProfile();
+            await profileQuery.refetch();
         } catch {
         } finally {
             setFriendActionLoading(false);
@@ -142,12 +118,7 @@ export function UserProfileScreen({
     // keeps large author histories bounded on-device.
     const handleLoadMorePosts = async () => {
         if (loading || refreshing || loadingMorePosts || !postsHasMore) return;
-        setLoadingMorePosts(true);
-        try {
-            await loadPosts(postsCursorRef.current);
-        } finally {
-            setLoadingMorePosts(false);
-        }
+        await userPostsQuery.fetchNextPage();
     };
 
     const ProfileHeader = (

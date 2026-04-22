@@ -1,13 +1,15 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import {
     View, Text, FlatList, TouchableOpacity,
     StyleSheet, RefreshControl, ActivityIndicator, Alert,
     TextInput, KeyboardAvoidingView, Platform, ScrollView,
 } from 'react-native';
+import { InfiniteData, useQueryClient } from '@tanstack/react-query';
 import * as Location from 'expo-location';
 import * as api from '../../api/client';
 import { Avatar } from '../../components/Avatar';
 import { useAuth } from '../../hooks/useAuth';
+import { useMeetups, useMyMeetups } from '../../hooks/queries/useMeetups';
 import { Colors, Typography, Spacing, Radii } from '../../utils/theme';
 import { MeetupDetailScreen } from './MeetupDetailScreen';
 
@@ -199,27 +201,35 @@ interface MeetupsScreenProps {
     onOpenUserProfile: (profile: { userId: string; username: string; avatarUrl?: string }) => void;
 }
 
+function flattenMeetupPages(data?: InfiniteData<api.PaginatedResponse<api.Meetup>>): api.Meetup[] {
+    return data?.pages.flatMap((page) => page.items ?? []) ?? [];
+}
+
+function updateMeetupPages(
+    data: InfiniteData<api.PaginatedResponse<api.Meetup>> | undefined,
+    updater: (items: api.Meetup[]) => api.Meetup[],
+): InfiniteData<api.PaginatedResponse<api.Meetup>> | undefined {
+    if (!data) return data;
+
+    return {
+        ...data,
+        pages: data.pages.map((page, index) => ({
+            ...page,
+            items: index === 0 ? updater(page.items ?? []) : (page.items ?? []),
+        })),
+    };
+}
+
 // Renders the meetups tab and keeps RSVP state in sync with the list.
 export function MeetupsScreen({ isActive, onOpenUserProfile }: MeetupsScreenProps) {
     const { user } = useAuth();
+    const queryClient = useQueryClient();
     const [subView, setSubView] = useState<MeetupsSubView>('browse');
-    const [meetups, setMeetups] = useState<api.Meetup[]>([]);
-    const [myMeetups, setMyMeetups] = useState<api.Meetup[]>([]);
     const [selectedMeetupId, setSelectedMeetupId] = useState<string | null>(null);
     const [query, setQuery] = useState('');
     const [debouncedQuery, setDebouncedQuery] = useState('');
     const [cityFilter, setCityFilter] = useState(user?.city ?? '');
     const [cityHydrated, setCityHydrated] = useState(!!user?.city);
-    const [loading, setLoading] = useState(isActive);
-    const [refreshing, setRefreshing] = useState(false);
-    const [myMeetupsLoading, setMyMeetupsLoading] = useState(false);
-    const [myMeetupsRefreshing, setMyMeetupsRefreshing] = useState(false);
-    const [loadingMore, setLoadingMore] = useState(false);
-    const [loadingMoreMine, setLoadingMoreMine] = useState(false);
-    const [page, setPage] = useState(1);
-    const [myPage, setMyPage] = useState(1);
-    const [hasMore, setHasMore] = useState(false);
-    const [myHasMore, setMyHasMore] = useState(false);
     const [rsvpPendingIds, setRsvpPendingIds] = useState<Set<string>>(new Set());
     const [submitError, setSubmitError] = useState('');
     const [successMessage, setSuccessMessage] = useState('');
@@ -232,11 +242,20 @@ export function MeetupsScreen({ isActive, onOpenUserProfile }: MeetupsScreenProp
         startsAt: '',
         capacity: '',
     });
-    const hasLoadedRef = useRef(false);
-    const wasActiveRef = useRef(false);
-    const loadInFlightRef = useRef<Promise<void> | null>(null);
-    const myMeetupsLoadedRef = useRef(false);
-    const myMeetupsLoadInFlightRef = useRef<Promise<void> | null>(null);
+    const meetupsQuery = useMeetups({
+        q: debouncedQuery || undefined,
+        city: cityFilter.trim() || undefined,
+        limit: 20,
+    }, isActive && cityHydrated);
+    const myMeetupsQuery = useMyMeetups(20, isActive && subView === 'my');
+    const meetups = useMemo(
+        () => flattenMeetupPages(meetupsQuery.data),
+        [meetupsQuery.data],
+    );
+    const myMeetups = useMemo(
+        () => flattenMeetupPages(myMeetupsQuery.data),
+        [myMeetupsQuery.data],
+    );
     const selectedMeetup = meetups.find(item => item.id === selectedMeetupId)
         ?? myMeetups.find(item => item.id === selectedMeetupId)
         ?? null;
@@ -289,140 +308,27 @@ export function MeetupsScreen({ isActive, onOpenUserProfile }: MeetupsScreenProp
         if (successMessage) setSuccessMessage('');
     };
 
-    // Browse and host lists page independently so each meetup subview can grow
-    // without forcing the other list to stay resident or reload in lockstep.
-    const load = useCallback(async (nextPage = 1, replace = false) => {
-        if (loadInFlightRef.current) return loadInFlightRef.current;
-
-        // Reuse the same request for mount and pull-to-refresh callers that overlap.
-        const request = (async () => {
-            try {
-                const data = await api.getMeetups({
-                    q: debouncedQuery || undefined,
-                    city: cityFilter.trim() || undefined,
-                    page: nextPage,
-                    limit: 20,
-                });
-                setMeetups(prev => replace ? (data.items ?? []) : [...prev, ...(data.items ?? [])]);
-                setPage(data.page);
-                setHasMore(data.has_more);
-            } catch {
-                if (replace) {
-                    setMeetups([]);
-                    setPage(1);
-                    setHasMore(false);
-                }
-            }
-        })();
-
-        loadInFlightRef.current = request;
-
-        try {
-            await request;
-        } finally {
-            loadInFlightRef.current = null;
-        }
-    }, [cityFilter, debouncedQuery]);
-
-    // Loads the authenticated user's own created meetups.
-    const loadMyMeetups = useCallback(async (nextPage = 1, replace = false) => {
-        if (myMeetupsLoadInFlightRef.current) return myMeetupsLoadInFlightRef.current;
-
-        const request = (async () => {
-            try {
-                const data = await api.getMyMeetups(nextPage, 20);
-                setMyMeetups(prev => replace ? (data.items ?? []) : [...prev, ...(data.items ?? [])]);
-                setMyPage(data.page);
-                setMyHasMore(data.has_more);
-            } catch {
-                if (replace) {
-                    setMyMeetups([]);
-                    setMyPage(1);
-                    setMyHasMore(false);
-                }
-            }
-        })();
-
-        myMeetupsLoadInFlightRef.current = request;
-
-        try {
-            await request;
-        } finally {
-            myMeetupsLoadInFlightRef.current = null;
-        }
-    }, []);
-
-    useEffect(() => {
-        const becameActive = isActive && !wasActiveRef.current;
-        wasActiveRef.current = isActive;
-
-        if (!becameActive) return;
-
-        const isFirstLoad = !hasLoadedRef.current;
-        if (isFirstLoad) setLoading(true);
-
-        load(1, true).finally(() => {
-            hasLoadedRef.current = true;
-            if (isFirstLoad) setLoading(false);
-        });
-    }, [isActive, load]);
-
-    useEffect(() => {
-        if (!isActive || subView !== 'browse' || !hasLoadedRef.current) return;
-        load(1, true).catch(() => { });
-    }, [isActive, subView, debouncedQuery, cityFilter, load]);
-
-    useEffect(() => {
-        if (!isActive || subView !== 'my' || myMeetupsLoadedRef.current) return;
-
-        setMyMeetupsLoading(true);
-        loadMyMeetups(1, true).finally(() => {
-            myMeetupsLoadedRef.current = true;
-            setMyMeetupsLoading(false);
-        });
-    }, [isActive, subView, loadMyMeetups]);
-
     // Refreshes the meetup list for pull-to-refresh.
     const onRefresh = async () => {
-        setRefreshing(true);
-        try {
-            await load(1, true);
-        } finally {
-            setRefreshing(false);
-        }
+        await meetupsQuery.refetch();
     };
 
     // Refreshes the current user's meetup list.
     const onRefreshMyMeetups = async () => {
-        setMyMeetupsRefreshing(true);
-        try {
-            await loadMyMeetups(1, true);
-        } finally {
-            setMyMeetupsRefreshing(false);
-        }
+        await myMeetupsQuery.refetch();
     };
 
     // The active subview decides which meetup list advances when the user nears
     // the end of the current FlatList.
     const handleLoadMore = async () => {
         if (subView === 'my') {
-            if (loadingMoreMine || myMeetupsRefreshing || !myHasMore) return;
-            setLoadingMoreMine(true);
-            try {
-                await loadMyMeetups(myPage + 1);
-            } finally {
-                setLoadingMoreMine(false);
-            }
+            if (!isActive || myMeetupsQuery.isFetchingNextPage || myMeetupsQuery.isRefetching || !myMeetupsQuery.hasNextPage) return;
+            await myMeetupsQuery.fetchNextPage();
             return;
         }
 
-        if (loadingMore || refreshing || !hasMore) return;
-        setLoadingMore(true);
-        try {
-            await load(page + 1);
-        } finally {
-            setLoadingMore(false);
-        }
+        if (!isActive || meetupsQuery.isFetchingNextPage || meetupsQuery.isRefetching || !meetupsQuery.hasNextPage) return;
+        await meetupsQuery.fetchNextPage();
     };
 
     // Toggles the current user's RSVP state for a meetup.
@@ -430,20 +336,24 @@ export function MeetupsScreen({ isActive, onOpenUserProfile }: MeetupsScreenProp
         setRsvpPendingIds(prev => new Set(prev).add(id));
         try {
             const res = await api.rsvpMeetup(id);
-            // Adjust attendance counts locally so the button feels instant and the user
-            // sees the toggle reflected without waiting for another fetch.
-            const applyRsvp = (items: api.Meetup[]) =>
-                items.map(meetup => meetup.id === id
+            const applyRsvp = (items: api.Meetup[]) => items.map((meetup) => (
+                meetup.id === id
                     ? {
                         ...meetup,
                         is_attending: res.attending,
                         attendee_count: meetup.attendee_count + (res.attending ? 1 : -1),
                     }
                     : meetup
-                );
+            ));
 
-            setMeetups(prev => applyRsvp(prev));
-            setMyMeetups(prev => applyRsvp(prev));
+            queryClient.setQueriesData<InfiniteData<api.PaginatedResponse<api.Meetup>>>(
+                { queryKey: ['meetups'] },
+                (data) => updateMeetupPages(data, applyRsvp),
+            );
+            queryClient.setQueriesData<InfiniteData<api.PaginatedResponse<api.Meetup>>>(
+                { queryKey: ['my-meetups'] },
+                (data) => updateMeetupPages(data, applyRsvp),
+            );
         } catch (e: unknown) {
             Alert.alert('Error', e instanceof Error ? e.message : 'Something went wrong.');
         } finally {
@@ -470,9 +380,20 @@ export function MeetupsScreen({ isActive, onOpenUserProfile }: MeetupsScreenProp
 
         try {
             const createdMeetup = await api.createMeetup(result.values);
-            setMeetups(prev => [createdMeetup, ...prev.filter(item => item.id !== createdMeetup.id)]);
-            setMyMeetups(prev => [createdMeetup, ...prev.filter(item => item.id !== createdMeetup.id)]);
-            myMeetupsLoadedRef.current = true;
+            const prependMeetup = (items: api.Meetup[]) => [
+                createdMeetup,
+                ...items.filter((item) => item.id !== createdMeetup.id),
+            ];
+
+            queryClient.setQueriesData<InfiniteData<api.PaginatedResponse<api.Meetup>>>(
+                { queryKey: ['meetups'] },
+                (data) => updateMeetupPages(data, prependMeetup),
+            );
+            queryClient.setQueriesData<InfiniteData<api.PaginatedResponse<api.Meetup>>>(
+                { queryKey: ['my-meetups'] },
+                (data) => updateMeetupPages(data, prependMeetup),
+            );
+            void myMeetupsQuery.refetch();
             setForm({
                 title: '',
                 description: '',
@@ -503,8 +424,12 @@ export function MeetupsScreen({ isActive, onOpenUserProfile }: MeetupsScreenProp
             setSubView('browse');
             return;
         }
-        load(1, true).catch(() => { });
-    }, [load, subView]);
+        void meetupsQuery.refetch();
+    }, [meetupsQuery, subView]);
+
+    const loading = (!cityHydrated && meetups.length === 0)
+        || (meetups.length === 0 && !meetupsQuery.data && meetupsQuery.isLoading);
+    const myMeetupsLoading = subView === 'my' && myMeetupsQuery.isLoading && myMeetups.length === 0;
 
     if (loading) {
         return <View style={styles.center}><ActivityIndicator color={Colors.primary} /></View>;
@@ -637,7 +562,13 @@ export function MeetupsScreen({ isActive, onOpenUserProfile }: MeetupsScreenProp
                 keyExtractor={meetup => meetup.id}
                 onEndReached={handleLoadMore}
                 onEndReachedThreshold={0.4}
-                refreshControl={<RefreshControl refreshing={myMeetupsRefreshing} onRefresh={onRefreshMyMeetups} tintColor={Colors.primary} />}
+                refreshControl={
+                    <RefreshControl
+                        refreshing={myMeetupsQuery.isRefetching && !myMeetupsQuery.isFetchingNextPage}
+                        onRefresh={onRefreshMyMeetups}
+                        tintColor={Colors.primary}
+                    />
+                }
                 contentContainerStyle={styles.list}
                 ListHeaderComponent={
                     <>
@@ -685,7 +616,7 @@ export function MeetupsScreen({ isActive, onOpenUserProfile }: MeetupsScreenProp
                         actionLabel={item.is_attending ? 'Hosting ✓' : 'RSVP'}
                     />
                 )}
-                ListFooterComponent={loadingMoreMine ? <ActivityIndicator style={styles.footerLoader} color={Colors.primary} /> : null}
+                ListFooterComponent={myMeetupsQuery.isFetchingNextPage ? <ActivityIndicator style={styles.footerLoader} color={Colors.primary} /> : null}
             />
         );
     }
@@ -696,7 +627,13 @@ export function MeetupsScreen({ isActive, onOpenUserProfile }: MeetupsScreenProp
             keyExtractor={meetup => meetup.id}
             onEndReached={handleLoadMore}
             onEndReachedThreshold={0.4}
-            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
+            refreshControl={
+                <RefreshControl
+                    refreshing={meetupsQuery.isRefetching && !meetupsQuery.isFetchingNextPage}
+                    onRefresh={onRefresh}
+                    tintColor={Colors.primary}
+                />
+            }
             contentContainerStyle={styles.list}
             ListHeaderComponent={
                 <>
@@ -760,7 +697,7 @@ export function MeetupsScreen({ isActive, onOpenUserProfile }: MeetupsScreenProp
                     rsvpPending={rsvpPendingIds.has(item.id)}
                 />
             )}
-            ListFooterComponent={loadingMore ? <ActivityIndicator style={styles.footerLoader} color={Colors.primary} /> : null}
+            ListFooterComponent={meetupsQuery.isFetchingNextPage ? <ActivityIndicator style={styles.footerLoader} color={Colors.primary} /> : null}
         />
     );
 }

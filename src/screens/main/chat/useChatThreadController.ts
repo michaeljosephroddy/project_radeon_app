@@ -1,6 +1,9 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { InfiniteData, useQueryClient } from '@tanstack/react-query';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert } from 'react-native';
 import * as api from '../../../api/client';
+import { useChatMessages } from '../../../hooks/queries/useChatMessages';
+import { queryKeys } from '../../../query/queryKeys';
 
 export interface ChatThreadCurrentUser {
     id: string;
@@ -18,19 +21,44 @@ interface UseChatThreadControllerParams {
     currentUser?: ChatThreadCurrentUser;
 }
 
+function flattenMessages(data?: InfiniteData<api.MessagePage>): api.Message[] {
+    const pages = data?.pages ?? [];
+    return [...pages]
+        .reverse()
+        .flatMap((page) => page.items ?? []);
+}
+
+function updateMessagePages(
+    data: InfiniteData<api.MessagePage> | undefined,
+    updater: (messages: api.Message[]) => api.Message[],
+): InfiniteData<api.MessagePage> | undefined {
+    if (!data) return data;
+
+    const flattened = updater(flattenMessages(data));
+    const firstPage = data.pages[0];
+    if (!firstPage) return data;
+
+    return {
+        ...data,
+        pages: [
+            { ...firstPage, items: flattened },
+            ...data.pages.slice(1).map((page) => ({ ...page, items: [] })),
+        ],
+    };
+}
+
 export function useChatThreadController({
     chatId,
     currentUser,
 }: UseChatThreadControllerParams) {
-    const [messages, setMessages] = useState<api.Message[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [loadError, setLoadError] = useState<string | null>(null);
-    const [loadingOlder, setLoadingOlder] = useState(false);
-    const [hasMore, setHasMore] = useState(false);
-    const [nextBefore, setNextBefore] = useState<string | null>(null);
+    const queryClient = useQueryClient();
     const [sending, setSending] = useState(false);
     const [mutation, setMutation] = useState<MessageMutation>({ kind: 'replace', version: 0 });
-    const requestIdRef = useRef(0);
+    const messagesQuery = useChatMessages(chatId, 50, Boolean(chatId));
+    const messages = useMemo(
+        () => flattenMessages(messagesQuery.data),
+        [messagesQuery.data],
+    );
 
     const syncReadState = useCallback(async (lastReadMessageId?: string) => {
         try {
@@ -41,42 +69,28 @@ export function useChatThreadController({
     }, [chatId]);
 
     const markMutation = useCallback((kind: MessageMutation['kind']) => {
-        setMutation(prev => ({ kind, version: prev.version + 1 }));
+        setMutation((prev) => ({ kind, version: prev.version + 1 }));
     }, []);
 
-    const loadInitialMessages = useCallback(async () => {
-        const requestId = ++requestIdRef.current;
-        setLoading(true);
-        setLoadError(null);
-
-        try {
-            const data = await api.getMessages(chatId, { limit: 50 });
-            if (requestId !== requestIdRef.current) return;
-            setMessages(data.items ?? []);
-            setHasMore(data.has_more);
-            setNextBefore(data.next_before ?? null);
-            markMutation('replace');
-            const latestMessage = (data.items ?? [])[data.items.length - 1];
-            void syncReadState(latestMessage?.id);
-        } catch {
-            if (requestId !== requestIdRef.current) return;
-            setMessages([]);
-            setHasMore(false);
-            setNextBefore(null);
-            setLoadError('Could not load messages.');
-            markMutation('replace');
-        } finally {
-            if (requestId === requestIdRef.current) setLoading(false);
-        }
-    }, [chatId, markMutation, syncReadState]);
+    useEffect(() => {
+        setMutation({ kind: 'replace', version: 0 });
+    }, [chatId]);
 
     useEffect(() => {
-        setMessages([]);
-        setHasMore(false);
-        setNextBefore(null);
-        setMutation({ kind: 'replace', version: 0 });
-        loadInitialMessages();
-    }, [chatId, loadInitialMessages]);
+        if (messages.length === 0) return;
+        void syncReadState(messages[messages.length - 1]?.id);
+    }, [messages, syncReadState]);
+
+    const updateCachedMessages = useCallback((
+        updater: (current: api.Message[]) => api.Message[],
+        kind: MessageMutation['kind'],
+    ) => {
+        queryClient.setQueryData<InfiniteData<api.MessagePage>>(
+            queryKeys.chatMessages(chatId),
+            (current) => updateMessagePages(current, updater),
+        );
+        markMutation(kind);
+    }, [chatId, markMutation, queryClient]);
 
     const sendMessage = useCallback(async (rawBody: string) => {
         const body = rawBody.trim();
@@ -92,54 +106,54 @@ export function useChatThreadController({
         };
 
         setSending(true);
-        setMessages(current => [...current, optimisticMessage]);
-        markMutation('append');
+        updateCachedMessages(
+            (current) => [...current, optimisticMessage],
+            'append',
+        );
 
         try {
             const { id } = await api.sendMessage(chatId, body);
-            setMessages(current => current.map(message => (
-                message.id === optimisticMessage.id
-                    ? { ...optimisticMessage, id }
-                    : message
-            )));
+            updateCachedMessages(
+                (current) => current.map((message) => (
+                    message.id === optimisticMessage.id
+                        ? { ...optimisticMessage, id }
+                        : message
+                )),
+                'replace',
+            );
             void syncReadState(id);
         } catch {
-            setMessages(current => current.filter(message => message.id !== optimisticMessage.id));
-            markMutation('remove');
+            updateCachedMessages(
+                (current) => current.filter((message) => message.id !== optimisticMessage.id),
+                'remove',
+            );
             Alert.alert('Message failed', 'Your message could not be sent.');
         } finally {
             setSending(false);
         }
-    }, [chatId, currentUser, markMutation, syncReadState]);
+    }, [chatId, currentUser, syncReadState, updateCachedMessages]);
 
     const loadOlderMessages = useCallback(async () => {
-        if (!nextBefore || loadingOlder) return;
-        const requestId = requestIdRef.current;
+        if (!messagesQuery.hasNextPage || messagesQuery.isFetchingNextPage) return;
+        await messagesQuery.fetchNextPage();
+        markMutation('prepend');
+    }, [markMutation, messagesQuery]);
 
-        setLoadingOlder(true);
-
-        try {
-            const page = await api.getMessages(chatId, { before: nextBefore, limit: 50 });
-            if (requestId !== requestIdRef.current) return;
-            setMessages(current => [...(page.items ?? []), ...current]);
-            setHasMore(page.has_more);
-            setNextBefore(page.next_before ?? null);
-            markMutation('prepend');
-        } finally {
-            if (requestId === requestIdRef.current) setLoadingOlder(false);
-        }
-    }, [chatId, loadingOlder, markMutation, nextBefore]);
+    const reloadMessages = useCallback(async () => {
+        await messagesQuery.refetch();
+        markMutation('replace');
+    }, [markMutation, messagesQuery]);
 
     return {
         messages,
-        loading,
-        loadError,
-        loadingOlder,
-        hasMore,
+        loading: messagesQuery.isLoading,
+        loadError: messagesQuery.isError ? 'Could not load messages.' : null,
+        loadingOlder: messagesQuery.isFetchingNextPage,
+        hasMore: messagesQuery.hasNextPage ?? false,
         sending,
         mutation,
         sendMessage,
         loadOlderMessages,
-        reloadMessages: loadInitialMessages,
+        reloadMessages,
     };
 }

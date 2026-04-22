@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import {
     View,
     Text,
@@ -9,9 +9,12 @@ import {
     RefreshControl,
     ActivityIndicator,
 } from 'react-native';
+import { InfiniteData, useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 import { Avatar } from '../../components/Avatar';
 import * as api from '../../api/client';
+import { useDiscover } from '../../hooks/queries/useDiscover';
+import { queryKeys } from '../../query/queryKeys';
 import { Colors, Typography, Spacing, Radii } from '../../utils/theme';
 import { formatUsername } from '../../utils/identity';
 
@@ -20,24 +23,38 @@ interface DiscoverScreenProps {
     onOpenUserProfile: (profile: { userId: string; username: string; avatarUrl?: string }) => void;
 }
 
+function updateDiscoverUsers(
+    data: InfiniteData<api.PaginatedResponse<api.User>> | undefined,
+    userId: string,
+    friendshipStatus: api.User['friendship_status'],
+): InfiniteData<api.PaginatedResponse<api.User>> | undefined {
+    if (!data) return data;
+
+    return {
+        ...data,
+        pages: data.pages.map((page) => ({
+            ...page,
+            items: (page.items ?? []).map((item) => (
+                item.id === userId ? { ...item, friendship_status: friendshipStatus } : item
+            )),
+        })),
+    };
+}
+
 // Renders the discover tab with debounced user search and friendship actions.
 export function DiscoverScreen({
     isActive,
     onOpenUserProfile,
 }: DiscoverScreenProps) {
-    const [users, setUsers] = useState<api.User[]>([]);
-    const [loading, setLoading] = useState(isActive);
-    const [refreshing, setRefreshing] = useState(false);
-    const [loadingMore, setLoadingMore] = useState(false);
+    const queryClient = useQueryClient();
     const [query, setQuery] = useState('');
     const [debouncedQuery, setDebouncedQuery] = useState('');
-    const [page, setPage] = useState(1);
-    const [hasMore, setHasMore] = useState(false);
     const [pendingFriendActions, setPendingFriendActions] = useState<Set<string>>(new Set());
-    const hasLoadedRef = useRef(false);
-    const wasActiveRef = useRef(false);
-    const previousQueryRef = useRef('');
-    const loadRequestIdRef = useRef(0);
+    const discoverQuery = useDiscover({ query: debouncedQuery, limit: 20 }, isActive);
+    const users = useMemo(
+        () => discoverQuery.data?.pages.flatMap((page) => page.items ?? []) ?? [],
+        [discoverQuery.data],
+    );
 
     useEffect(() => {
         // Debounce typing so search stays responsive without issuing a request on
@@ -46,71 +63,11 @@ export function DiscoverScreen({
         return () => clearTimeout(timer);
     }, [query]);
 
-    // Search uses server-side paging so the discover grid never depends on an
-    // unbounded "all users" payload when the community grows.
-    const loadPage = useCallback(async (searchQuery: string, nextPage: number, replace = false) => {
-        const requestId = ++loadRequestIdRef.current;
-
-        try {
-            const discoverData = await api.discoverUsers({ query: searchQuery, page: nextPage, limit: 20 });
-            if (requestId !== loadRequestIdRef.current) return;
-            setUsers(prev => replace ? (discoverData.items ?? []) : [...prev, ...(discoverData.items ?? [])]);
-            setPage(discoverData.page);
-            setHasMore(discoverData.has_more);
-        } catch {
-            if (requestId !== loadRequestIdRef.current) return;
-            if (replace) {
-                setUsers([]);
-                setPage(1);
-                setHasMore(false);
-            }
-        }
-    }, []);
-
-    useEffect(() => {
-        const becameActive = isActive && !wasActiveRef.current;
-        wasActiveRef.current = isActive;
-
-        if (!becameActive) return;
-
-        const isFirstLoad = !hasLoadedRef.current;
-        if (isFirstLoad) setLoading(true);
-
-        loadPage(debouncedQuery, 1, true).finally(() => {
-            hasLoadedRef.current = true;
-            if (isFirstLoad) setLoading(false);
-        });
-    }, [isActive, debouncedQuery, loadPage]);
-
-    useEffect(() => {
-        const queryChanged = debouncedQuery !== previousQueryRef.current;
-        previousQueryRef.current = debouncedQuery;
-
-        // Separate the "tab became visible" and "search changed" effects so we can
-        // avoid refetching unnecessarily when the screen is hidden.
-        if (!queryChanged || !isActive) return;
-
-        const isFirstLoad = !hasLoadedRef.current;
-        if (isFirstLoad) setLoading(true);
-
-        loadPage(debouncedQuery, 1, true).finally(() => {
-            hasLoadedRef.current = true;
-            if (isFirstLoad) setLoading(false);
-        });
-    }, [debouncedQuery, isActive, loadPage]);
-
     const onRefresh = async () => {
-        setRefreshing(true);
-        try {
-            await loadPage(debouncedQuery, 1, true);
-        } catch {
-            setUsers([]);
-        } finally {
-            setRefreshing(false);
-        }
+        await discoverQuery.refetch();
     };
 
-    const handleFriendAction = async (user: api.User) => {
+    const handleFriendAction = useCallback(async (user: api.User) => {
         const current = user.friendship_status;
         if (current === 'friends') return;
 
@@ -119,16 +76,28 @@ export function DiscoverScreen({
         try {
             if (current === 'incoming') {
                 await api.updateFriendRequest(user.id, 'accept');
-                setUsers(prev => prev.map(item => item.id === user.id ? { ...item, friendship_status: 'friends' } : item));
+                queryClient.setQueryData<InfiniteData<api.PaginatedResponse<api.User>>>(
+                    queryKeys.discover({ query: debouncedQuery, limit: 20 }),
+                    (data) => updateDiscoverUsers(data, user.id, 'friends'),
+                );
             } else if (current === 'outgoing') {
                 await api.cancelFriendRequest(user.id);
-                setUsers(prev => prev.map(item => item.id === user.id ? { ...item, friendship_status: 'none' } : item));
+                queryClient.setQueryData<InfiniteData<api.PaginatedResponse<api.User>>>(
+                    queryKeys.discover({ query: debouncedQuery, limit: 20 }),
+                    (data) => updateDiscoverUsers(data, user.id, 'none'),
+                );
             } else {
                 await api.sendFriendRequest(user.id);
-                setUsers(prev => prev.map(item => item.id === user.id ? { ...item, friendship_status: 'outgoing' } : item));
+                queryClient.setQueryData<InfiniteData<api.PaginatedResponse<api.User>>>(
+                    queryKeys.discover({ query: debouncedQuery, limit: 20 }),
+                    (data) => updateDiscoverUsers(data, user.id, 'outgoing'),
+                );
             }
         } catch {
-            setUsers(prev => prev.map(item => item.id === user.id ? { ...item, friendship_status: current } : item));
+            queryClient.setQueryData<InfiniteData<api.PaginatedResponse<api.User>>>(
+                queryKeys.discover({ query: debouncedQuery, limit: 20 }),
+                (data) => updateDiscoverUsers(data, user.id, current),
+            );
         } finally {
             setPendingFriendActions(prev => {
                 const updated = new Set(prev);
@@ -136,18 +105,13 @@ export function DiscoverScreen({
                 return updated;
             });
         }
-    };
+    }, [debouncedQuery, queryClient]);
 
     // Infinite scroll only asks for the next discover page for the active
     // query, keeping paging and search state tied together.
     const handleLoadMore = async () => {
-        if (!isActive || loadingMore || refreshing || loading || !hasMore) return;
-        setLoadingMore(true);
-        try {
-            await loadPage(debouncedQuery, page + 1);
-        } finally {
-            setLoadingMore(false);
-        }
+        if (!isActive || discoverQuery.isFetchingNextPage || discoverQuery.isRefetching || discoverQuery.isLoading || !discoverQuery.hasNextPage) return;
+        await discoverQuery.fetchNextPage();
     };
 
     // Builds the small result-count label shown above the grid.
@@ -158,7 +122,7 @@ export function DiscoverScreen({
         return users.length === 1 ? '1 person' : `${users.length} people`;
     })();
 
-    if (loading) {
+    if (discoverQuery.isLoading && users.length === 0) {
         return (
             <View style={styles.center}>
                 <ActivityIndicator color={Colors.primary} />
@@ -173,7 +137,13 @@ export function DiscoverScreen({
             numColumns={2}
             columnWrapperStyle={styles.gridRow}
             contentContainerStyle={styles.list}
-            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
+            refreshControl={
+                <RefreshControl
+                    refreshing={discoverQuery.isRefetching && !discoverQuery.isFetchingNextPage}
+                    onRefresh={onRefresh}
+                    tintColor={Colors.primary}
+                />
+            }
             keyboardShouldPersistTaps="handled"
             onEndReached={handleLoadMore}
             onEndReachedThreshold={0.4}
@@ -218,7 +188,7 @@ export function DiscoverScreen({
                     </Text>
                 </View>
             }
-            ListFooterComponent={loadingMore ? <ActivityIndicator style={styles.footerLoader} color={Colors.primary} /> : null}
+            ListFooterComponent={discoverQuery.isFetchingNextPage ? <ActivityIndicator style={styles.footerLoader} color={Colors.primary} /> : null}
             renderItem={({ item }) => {
                 const friendshipStatus = item.friendship_status;
                 const pending = pendingFriendActions.has(item.id);

@@ -1,11 +1,14 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import {
     View, Text, FlatList, TouchableOpacity, TextInput,
     StyleSheet, RefreshControl, ActivityIndicator, Alert, ScrollView, Platform,
 } from 'react-native';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
+import { useQueryClient } from '@tanstack/react-query';
 import { Avatar } from '../../components/Avatar';
 import * as api from '../../api/client';
+import { useMySupportRequests, useSupportProfile, useSupportRequests } from '../../hooks/queries/useSupport';
+import { queryKeys } from '../../query/queryKeys';
 import { Colors, Typography, Spacing, Radii } from '../../utils/theme';
 import { formatUsername } from '../../utils/identity';
 
@@ -159,6 +162,16 @@ function getSupportModeLabel(mode: SupportMode): string {
     default:
         return mode;
     }
+}
+
+function haveSameRequestIds(left: api.SupportRequest[], right: api.SupportRequest[]): boolean {
+    if (left.length !== right.length) return false;
+    return left.every((item, index) => item.id === right[index]?.id);
+}
+
+function haveSameModes(left: SupportMode[], right: SupportMode[]): boolean {
+    if (left.length !== right.length) return false;
+    return left.every((item, index) => item === right[index]);
 }
 
 function SupportRequestCard({
@@ -325,6 +338,7 @@ function SupportRequestCard({
 }
 
 export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: SupportScreenProps) {
+    const queryClient = useQueryClient();
     const [subView, setSubView] = useState<SupportSubView>('open');
     const [requests, setRequests] = useState<api.SupportRequest[]>([]);
     const [myRequests, setMyRequests] = useState<api.SupportRequest[]>([]);
@@ -336,13 +350,6 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
     const [supportModes, setSupportModes] = useState<SupportMode[]>([...DEFAULT_SUPPORT_MODES]);
     const [openRequestCount, setOpenRequestCount] = useState(0);
     const [availableToSupportCount, setAvailableToSupportCount] = useState(0);
-    const [loading, setLoading] = useState(isActive);
-    const [refreshing, setRefreshing] = useState(false);
-    const [myRefreshing, setMyRefreshing] = useState(false);
-    const [loadingMoreOpen, setLoadingMoreOpen] = useState(false);
-    const [loadingMoreMine, setLoadingMoreMine] = useState(false);
-    const openCursorRef = useRef<string | undefined>(undefined);
-    const myCursorRef = useRef<string | undefined>(undefined);
     const [openHasMore, setOpenHasMore] = useState(false);
     const [myHasMore, setMyHasMore] = useState(false);
     const [submitting, setSubmitting] = useState(false);
@@ -356,103 +363,60 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
         audience: 'community' as SupportAudience,
         durationHours: 6,
     });
-    const hasLoadedRef = useRef(false);
-    const wasActiveRef = useRef(false);
-    const openLoadRef = useRef<Promise<void> | null>(null);
-    const myLoadRef = useRef<Promise<void> | null>(null);
-
-    const loadOpen = useCallback(async (cursor?: string, replace = false) => {
-        if (openLoadRef.current) return openLoadRef.current;
-        const request = (async () => {
-            try {
-                const data = await api.getSupportRequests(cursor, 20);
-                setRequests(prev => replace ? (data.items ?? []) : [...prev, ...(data.items ?? [])]);
-                openCursorRef.current = data.next_cursor ?? undefined;
-                setOpenHasMore(data.has_more);
-                setOpenRequestCount(data.open_request_count ?? 0);
-                setAvailableToSupportCount(data.available_to_support_count ?? 0);
-            } catch {
-                if (replace) {
-                    setRequests([]);
-                    openCursorRef.current = undefined;
-                    setOpenHasMore(false);
-                    setOpenRequestCount(0);
-                    setAvailableToSupportCount(0);
-                }
-            }
-        })();
-        openLoadRef.current = request;
-        try {
-            await request;
-        } finally {
-            openLoadRef.current = null;
-        }
-    }, []);
-
-    const loadMine = useCallback(async (cursor?: string, replace = false) => {
-        if (myLoadRef.current) return myLoadRef.current;
-        const request = (async () => {
-            try {
-                const data = await api.getMySupportRequests(cursor, 20);
-                setMyRequests(prev => replace ? (data.items ?? []) : [...prev, ...(data.items ?? [])]);
-                myCursorRef.current = data.next_cursor ?? undefined;
-                setMyHasMore(data.has_more);
-            } catch {
-                if (replace) {
-                    setMyRequests([]);
-                    myCursorRef.current = undefined;
-                    setMyHasMore(false);
-                }
-            }
-        })();
-        myLoadRef.current = request;
-        try {
-            await request;
-        } finally {
-            myLoadRef.current = null;
-        }
-    }, []);
+    const supportProfileQuery = useSupportProfile(isActive);
+    const openRequestsQuery = useSupportRequests(20, isActive);
+    const myRequestsQuery = useMySupportRequests(20, isActive && subView === 'mine');
+    const openRequestItems = useMemo(
+        () => openRequestsQuery.data?.pages.flatMap((page) => page.items ?? []) ?? [],
+        [openRequestsQuery.data],
+    );
+    const myRequestItems = useMemo(
+        () => myRequestsQuery.data?.pages.flatMap((page) => page.items ?? []) ?? [],
+        [myRequestsQuery.data],
+    );
 
     useEffect(() => {
-        const becameActive = isActive && !wasActiveRef.current;
-        wasActiveRef.current = isActive;
-        if (!becameActive) return;
-
-        const isFirstLoad = !hasLoadedRef.current;
-        if (isFirstLoad) setLoading(true);
-        Promise.all([
-            loadOpen(undefined, true),
-            api.getMySupportProfile().then(profile => {
-                setIsAvailableToSupport(profile.is_available_to_support);
-                setSupportModes(normalizeSupportModes(profile.support_modes));
-            }).catch(() => { }),
-        ]).finally(() => {
-            hasLoadedRef.current = true;
-            if (isFirstLoad) setLoading(false);
+        setRequests((current) => haveSameRequestIds(current, openRequestItems) ? current : openRequestItems);
+        setOpenHasMore((current) => {
+            const next = openRequestsQuery.hasNextPage ?? false;
+            return current === next ? current : next;
         });
-    }, [isActive, loadOpen]);
+        setOpenRequestCount((current) => {
+            const next = openRequestsQuery.data?.pages[0]?.open_request_count ?? 0;
+            return current === next ? current : next;
+        });
+        setAvailableToSupportCount((current) => {
+            const next = openRequestsQuery.data?.pages[0]?.available_to_support_count ?? 0;
+            return current === next ? current : next;
+        });
+    }, [openRequestItems, openRequestsQuery.data, openRequestsQuery.hasNextPage]);
 
     useEffect(() => {
-        if (!isActive || subView !== 'mine' || myRequests.length > 0) return;
-        loadMine(undefined, true).catch(() => { });
-    }, [isActive, myRequests.length, subView, loadMine]);
+        setMyRequests((current) => haveSameRequestIds(current, myRequestItems) ? current : myRequestItems);
+        setMyHasMore((current) => {
+            const next = myRequestsQuery.hasNextPage ?? false;
+            return current === next ? current : next;
+        });
+    }, [myRequestItems, myRequestsQuery.hasNextPage]);
+
+    useEffect(() => {
+        if (!supportProfileQuery.data) return;
+        setIsAvailableToSupport((current) => {
+            const next = supportProfileQuery.data.is_available_to_support;
+            return current === next ? current : next;
+        });
+        setSupportModes((current) => {
+            const next = normalizeSupportModes(supportProfileQuery.data.support_modes);
+            return haveSameModes(current, next) ? current : next;
+        });
+    }, [supportProfileQuery.data]);
 
     const refreshOpen = async () => {
-        setRefreshing(true);
-        try {
-            await loadOpen(undefined, true);
-        } finally {
-            setRefreshing(false);
-        }
+        await openRequestsQuery.refetch();
     };
 
     const refreshMine = async () => {
-        setMyRefreshing(true);
-        try {
-            await loadMine(undefined, true);
-        } finally {
-            setMyRefreshing(false);
-        }
+        await myRequestsQuery.refetch();
     };
 
     const openSupportChat = useCallback(async (
@@ -606,6 +570,7 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
             if (responseType === 'check_in_later') {
                 setPendingCheckInDraft(null);
             }
+            void queryClient.invalidateQueries({ queryKey: ['support-requests'] });
         } catch (e: unknown) {
             Alert.alert('Could not respond', e instanceof Error ? e.message : 'Something went wrong.');
         } finally {
@@ -639,6 +604,7 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
                 next.delete(request.id);
                 return next;
             });
+            void queryClient.invalidateQueries({ queryKey: ['support-requests'] });
         } catch (e: unknown) {
             Alert.alert('Could not close request', e instanceof Error ? e.message : 'Something went wrong.');
         } finally {
@@ -667,6 +633,7 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
                 audience: 'community',
                 durationHours: 6,
             });
+            void queryClient.invalidateQueries({ queryKey: ['support-requests'] });
         } catch (e: unknown) {
             Alert.alert('Could not create support request', e instanceof Error ? e.message : 'Something went wrong.');
         } finally {
@@ -688,6 +655,7 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
             });
             setIsAvailableToSupport(profile.is_available_to_support);
             setSupportModes(normalizeSupportModes(profile.support_modes));
+            queryClient.setQueryData(queryKeys.supportProfile(), profile);
         } catch (e: unknown) {
             setIsAvailableToSupport(!next);
             setSupportModes(previousModes);
@@ -721,6 +689,7 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
             });
             setIsAvailableToSupport(profile.is_available_to_support);
             setSupportModes(normalizeSupportModes(profile.support_modes));
+            queryClient.setQueryData(queryKeys.supportProfile(), profile);
         } catch (e: unknown) {
             setSupportModes(previousModes);
             Alert.alert('Could not update support options', e instanceof Error ? e.message : 'Something went wrong.');
@@ -732,23 +701,13 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
     const handleLoadMore = async () => {
         if (subView === 'create') return;
         if (subView === 'mine') {
-            if (loadingMoreMine || myRefreshing || !myHasMore) return;
-            setLoadingMoreMine(true);
-            try {
-                await loadMine(myCursorRef.current);
-            } finally {
-                setLoadingMoreMine(false);
-            }
+            if (myRequestsQuery.isFetchingNextPage || myRequestsQuery.isRefetching || !myHasMore) return;
+            await myRequestsQuery.fetchNextPage();
             return;
         }
 
-        if (loadingMoreOpen || refreshing || !openHasMore) return;
-        setLoadingMoreOpen(true);
-        try {
-            await loadOpen(openCursorRef.current);
-        } finally {
-            setLoadingMoreOpen(false);
-        }
+        if (openRequestsQuery.isFetchingNextPage || openRequestsQuery.isRefetching || !openHasMore) return;
+        await openRequestsQuery.fetchNextPage();
     };
 
     const availabilityCard = (
@@ -812,6 +771,9 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
             </Text>
         </View>
     );
+
+    const loading = (openRequestsQuery.isLoading && requests.length === 0)
+        || (supportProfileQuery.isLoading && !supportProfileQuery.data);
 
     if (loading) {
         return <View style={styles.center}><ActivityIndicator color={Colors.primary} /></View>;
@@ -1067,7 +1029,9 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
             onEndReachedThreshold={0.4}
             refreshControl={
                 <RefreshControl
-                    refreshing={isMineView ? myRefreshing : refreshing}
+                    refreshing={isMineView
+                        ? (myRequestsQuery.isRefetching && !myRequestsQuery.isFetchingNextPage)
+                        : (openRequestsQuery.isRefetching && !openRequestsQuery.isFetchingNextPage)}
                     onRefresh={isMineView ? refreshMine : refreshOpen}
                     tintColor={Colors.primary}
                 />
@@ -1117,7 +1081,7 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
                     <Text style={styles.emptySubtext}>{isMineView ? 'Create one when you need the community.' : 'Check back later or turn on availability in your profile.'}</Text>
                 </View>
             }
-            ListFooterComponent={(isMineView ? loadingMoreMine : loadingMoreOpen) ? <ActivityIndicator style={styles.footerLoader} color={Colors.primary} /> : null}
+            ListFooterComponent={(isMineView ? myRequestsQuery.isFetchingNextPage : openRequestsQuery.isFetchingNextPage) ? <ActivityIndicator style={styles.footerLoader} color={Colors.primary} /> : null}
             renderItem={({ item }) => (
                 <SupportRequestCard
                     request={item}

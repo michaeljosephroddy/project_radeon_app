@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import {
     View, Text, FlatList, TouchableOpacity, TextInput, Image,
     StyleSheet, RefreshControl, ActivityIndicator, Alert,
@@ -9,6 +9,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import { Avatar } from '../../components/Avatar';
 import * as api from '../../api/client';
+import { useCreatePostMutation } from '../../hooks/queries/useCreatePostMutation';
+import { useFeed } from '../../hooks/queries/useFeed';
 import { useAuth } from '../../hooks/useAuth';
 import { Colors, Typography, Spacing, Radii } from '../../utils/theme';
 import { formatUsername } from '../../utils/identity';
@@ -61,6 +63,15 @@ interface ComposerImageState {
     status: 'uploading' | 'uploaded' | 'failed';
     uploadToken: number;
     uploadedImage?: api.PostImage;
+}
+
+function dedupePostsById(posts: api.Post[]): api.Post[] {
+    const seen = new Set<string>();
+    return posts.filter((post) => {
+        if (seen.has(post.id)) return false;
+        seen.add(post.id);
+        return true;
+    });
 }
 
 interface PreviewCacheEntry {
@@ -268,11 +279,13 @@ export function FeedScreen({
 }: FeedScreenProps) {
     const ScreenContainer = Platform.OS === 'ios' ? KeyboardAvoidingView : View;
     const { user } = useAuth();
+    const createPostMutation = useCreatePostMutation();
+    const feedQuery = useFeed(20, isActive);
+    const feedPosts = useMemo(
+        () => (feedQuery.data?.pages ?? []).flatMap((page: api.CursorResponse<api.Post>) => page.items ?? []),
+        [feedQuery.data],
+    );
     const [posts, setPosts] = useState<api.Post[]>([]);
-    const [loading, setLoading] = useState(isActive);
-    const [refreshing, setRefreshing] = useState(false);
-    const [loadingMore, setLoadingMore] = useState(false);
-    const [hasMore, setHasMore] = useState(false);
     const [composing, setComposing] = useState(false);
     const [draft, setDraft] = useState('');
     const [selectedImage, setSelectedImage] = useState<ComposerImageState | null>(null);
@@ -287,10 +300,7 @@ export function FeedScreen({
     const [activeMentionSuggestions, setActiveMentionSuggestions] = useState<api.User[]>(EMPTY_USERS);
     const [isMentionSearching, setIsMentionSearching] = useState(false);
     const hasLoadedRef = useRef(false);
-    const wasActiveRef = useRef(false);
     const postsRef = useRef<api.Post[]>([]);
-    const loadInFlightRef = useRef<Promise<void> | null>(null);
-    const nextCursorRef = useRef<string | undefined>(undefined);
     const loadedCommentPostIdsRef = useRef<Set<string>>(new Set());
     const commentCursorRef = useRef<Record<string, string | undefined>>({});
     const commentLoadingMoreRef = useRef<Set<string>>(new Set());
@@ -306,6 +316,7 @@ export function FeedScreen({
     // Keeps optimistic post images on the local file URI until the uploaded
     // remote image has been prefetched and is safe to swap in.
     const previewCacheRef = useRef<Record<string, PreviewCacheEntry>>({});
+    const localManagedPostIdsRef = useRef<Set<string>>(new Set());
     const insets = useSafeAreaInsets();
     const [activeCommentPostId, setActiveCommentPostId] = useState<string | null>(null);
     const [keyboardHeight, setKeyboardHeight] = useState(0);
@@ -321,48 +332,29 @@ export function FeedScreen({
         if (mentionSearchTimerRef.current) clearTimeout(mentionSearchTimerRef.current);
     }, []);
 
-    const load = useCallback(async (cursor?: string, replace = false) => {
-        if (loadInFlightRef.current) return loadInFlightRef.current;
-
-        const request = (async () => {
-            try {
-                const feedData = await api.getFeed(cursor, 20);
-                setPosts(current => {
-                    const nextPosts = replace ? (feedData.items ?? []) : [...current, ...(feedData.items ?? [])];
-                    postsRef.current = nextPosts;
-                    return nextPosts;
-                });
-                nextCursorRef.current = feedData.next_cursor ?? undefined;
-                setHasMore(feedData.has_more);
-            } catch { }
-        })();
-
-        loadInFlightRef.current = request;
-
-        try {
-            await request;
-        } finally {
-            loadInFlightRef.current = null;
-        }
-    }, []);
-
     useEffect(() => {
         postsRef.current = posts;
     }, [posts]);
 
     useEffect(() => {
-        const becameActive = isActive && !wasActiveRef.current;
-        wasActiveRef.current = isActive;
-        if (!becameActive) return;
-
-        const isFirstLoad = !hasLoadedRef.current;
-        if (isFirstLoad) setLoading(true);
-
-        load(undefined, true).finally(() => {
-            hasLoadedRef.current = true;
-            if (isFirstLoad) setLoading(false);
+        const serverPostIds = new Set(feedPosts.map(post => post.id));
+        setPosts(current => {
+            const preservedLocalPosts = current.filter(post =>
+                localManagedPostIdsRef.current.has(post.id) && !serverPostIds.has(post.id)
+            );
+            localManagedPostIdsRef.current.forEach(postId => {
+                if (serverPostIds.has(postId)) {
+                    localManagedPostIdsRef.current.delete(postId);
+                }
+            });
+            const nextPosts = dedupePostsById([...preservedLocalPosts, ...feedPosts]);
+            postsRef.current = nextPosts;
+            return nextPosts;
         });
-    }, [isActive, load]);
+        if (feedPosts.length > 0) {
+            hasLoadedRef.current = true;
+        }
+    }, [feedPosts]);
 
     useEffect(() => () => {
         if (mentionSearchTimerRef.current) clearTimeout(mentionSearchTimerRef.current);
@@ -391,14 +383,9 @@ export function FeedScreen({
         };
     }, [activeCommentPostId, closeActiveCommentComposer]);
 
-    const onRefresh = async () => {
-        setRefreshing(true);
-        try {
-            await load(undefined, true);
-        } finally {
-            setRefreshing(false);
-        }
-    };
+    const onRefresh = useCallback(async () => {
+        await feedQuery.refetch();
+    }, [feedQuery]);
 
     const beginImageUpload = useCallback((image: SelectedPostImage, uploadToken: number): Promise<api.PostImage> => {
         const uploadPromise = api.uploadPostImage({
@@ -486,6 +473,7 @@ export function FeedScreen({
             postsRef.current = nextPosts;
             return nextPosts;
         });
+        localManagedPostIdsRef.current.add(optimisticPostId);
         setDraft('');
         removeSelectedImage();
         setComposing(false);
@@ -506,9 +494,10 @@ export function FeedScreen({
                     }
                 }
 
-                const createdPost = await api.createPost({
+                const createdPost = await createPostMutation.mutateAsync({
                     body: body || undefined,
                     images: uploadedImages,
+                    currentUserId: user.id,
                 });
                 if (selectedImageState?.localImage.uri && uploadedImages[0]?.image_url) {
                     previewCacheRef.current[createdPost.id] = {
@@ -527,12 +516,15 @@ export function FeedScreen({
                     postsRef.current = nextPosts;
                     return nextPosts;
                 });
+                localManagedPostIdsRef.current.delete(optimisticPostId);
+                localManagedPostIdsRef.current.add(createdPost.id);
             } catch (e: unknown) {
                 setPosts(current => {
                     const nextPosts = current.filter(post => post.id !== optimisticPostId);
                     postsRef.current = nextPosts;
                     return nextPosts;
                 });
+                localManagedPostIdsRef.current.delete(optimisticPostId);
                 Alert.alert('Error', e instanceof Error ? e.message : 'Something went wrong.');
             }
         })();
@@ -575,15 +567,10 @@ export function FeedScreen({
         }
     };
 
-    const handleLoadMore = async () => {
-        if (!isActive || loading || refreshing || loadingMore || !hasMore) return;
-        setLoadingMore(true);
-        try {
-            await load(nextCursorRef.current);
-        } finally {
-            setLoadingMore(false);
-        }
-    };
+    const handleLoadMore = useCallback(async () => {
+        if (!isActive || !feedQuery.hasNextPage || feedQuery.isFetchingNextPage) return;
+        await feedQuery.fetchNextPage();
+    }, [feedQuery, isActive]);
 
     const loadComments = useCallback(async (postId: string) => {
         setCommentLoadingIds(prev => new Set(prev).add(postId));
@@ -652,14 +639,14 @@ export function FeedScreen({
 
         void (async () => {
             if (!postsRef.current.some(post => post.id === focusRequest.postId)) {
-                await load(undefined, true);
+                await feedQuery.refetch();
             }
 
             const post = postsRef.current.find(item => item.id === focusRequest.postId);
             if (!post) return;
             handleStartComment(post);
         })();
-    }, [focusRequest, handleStartComment, isActive, load]);
+    }, [feedQuery, focusRequest, handleStartComment, isActive]);
 
     useEffect(() => {
         if (!activeCommentPostId) return;
@@ -850,7 +837,10 @@ export function FeedScreen({
         onOpenUserProfile, activeCommentPostId,
     ]);
 
-    if (loading) {
+    const isInitialLoading = posts.length === 0 && feedQuery.isLoading;
+    const isRefreshing = feedQuery.isRefetching && !feedQuery.isFetchingNextPage;
+
+    if (isInitialLoading) {
         return <View style={styles.center}><ActivityIndicator color={Colors.primary} /></View>;
     }
 
@@ -869,7 +859,7 @@ export function FeedScreen({
                 windowSize={5}
                 keyboardShouldPersistTaps="handled"
                 keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
-                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
+                refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
                 onEndReached={handleLoadMore}
                 onEndReachedThreshold={0.4}
                 onScrollToIndexFailed={({ index, averageItemLength }) => {
@@ -938,7 +928,7 @@ export function FeedScreen({
                     </View>
                 }
                 renderItem={renderItem}
-                ListFooterComponent={loadingMore ? <ActivityIndicator style={styles.footerLoader} color={Colors.primary} /> : null}
+                ListFooterComponent={feedQuery.isFetchingNextPage ? <ActivityIndicator style={styles.footerLoader} color={Colors.primary} /> : null}
                 contentContainerStyle={[
                     styles.list,
                     {

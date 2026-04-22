@@ -9,6 +9,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { Avatar } from '../../components/Avatar';
 import { SettingsScreen } from './SettingsScreen';
 import * as api from '../../api/client';
+import { useInterests } from '../../hooks/queries/useInterests';
 import { useAuth } from '../../hooks/useAuth';
 import { Colors, Typography, Spacing, Radii } from '../../utils/theme';
 import { formatUsername } from '../../utils/identity';
@@ -36,7 +37,6 @@ export function ProfileTabScreen({ isActive, onOpenUserProfile, onBack }: Profil
     const [country, setCountry]       = useState(user?.country ?? '');
     const [bio, setBio]               = useState(user?.bio ?? '');
     const [selectedInterests, setSelectedInterests] = useState<string[]>(user?.interests ?? []);
-    const [availableInterests, setAvailableInterests] = useState<string[]>([]);
     const [soberSince, setSoberSince] = useState(user?.sober_since ?? '');
     const [showSoberSincePicker, setShowSoberSincePicker] = useState(false);
     const [editingSection, setEditingSection] = useState<EditableSection>(null);
@@ -57,6 +57,8 @@ export function ProfileTabScreen({ isActive, onOpenUserProfile, onBack }: Profil
     const [loadingMoreIncoming, setLoadingMoreIncoming] = useState(false);
     const [loadingMoreOutgoing, setLoadingMoreOutgoing] = useState(false);
     const [pendingActionIds, setPendingActionIds] = useState<Set<string>>(new Set());
+    const interestsQuery = useInterests(isActive);
+    const availableInterests = interestsQuery.data ?? [];
     const formattedSobrietyDate = formatSobrietyDate(soberSince);
     const recoveryMilestone = getRecoveryMilestone(soberSince);
     const sobrietyFieldValue = formattedSobrietyDate || soberSince || 'Not set';
@@ -122,7 +124,6 @@ export function ProfileTabScreen({ isActive, onOpenUserProfile, onBack }: Profil
         if (isActive) {
             refreshUser().catch(() => {});
             loadFriendSummary();
-            api.getInterests().then(setAvailableInterests).catch(() => {});
         }
     }, [isActive, loadFriendSummary, refreshUser]);
 
