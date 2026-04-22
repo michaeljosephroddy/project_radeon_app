@@ -5,6 +5,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider, useAuth } from './src/hooks/useAuth';
 import { AuthNavigator } from './src/navigation/AuthNavigator';
 import { AppNavigator } from './src/navigation/AppNavigator';
+import { NotificationProvider } from './src/notifications/NotificationProvider';
 import { Colors } from './src/utils/theme';
 import { StatusBar } from 'expo-status-bar';
 
@@ -22,7 +23,11 @@ function RootNavigator() {
         );
     }
 
-    return isAuthenticated ? <AppNavigator /> : <AuthNavigator />;
+    return isAuthenticated ? (
+        <NotificationProvider>
+            <AppNavigator />
+        </NotificationProvider>
+    ) : <AuthNavigator />;
 }
 
 // Mounts the global providers required by every screen in the app.

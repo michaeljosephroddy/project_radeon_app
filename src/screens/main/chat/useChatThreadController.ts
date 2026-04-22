@@ -32,6 +32,14 @@ export function useChatThreadController({
     const [mutation, setMutation] = useState<MessageMutation>({ kind: 'replace', version: 0 });
     const requestIdRef = useRef(0);
 
+    const syncReadState = useCallback(async (lastReadMessageId?: string) => {
+        try {
+            await api.markChatRead(chatId, lastReadMessageId);
+        } catch {
+            // Read-state sync is best-effort and should not interrupt the thread UI.
+        }
+    }, [chatId]);
+
     const markMutation = useCallback((kind: MessageMutation['kind']) => {
         setMutation(prev => ({ kind, version: prev.version + 1 }));
     }, []);
@@ -48,6 +56,8 @@ export function useChatThreadController({
             setHasMore(data.has_more);
             setNextBefore(data.next_before ?? null);
             markMutation('replace');
+            const latestMessage = (data.items ?? [])[data.items.length - 1];
+            void syncReadState(latestMessage?.id);
         } catch {
             if (requestId !== requestIdRef.current) return;
             setMessages([]);
@@ -58,7 +68,7 @@ export function useChatThreadController({
         } finally {
             if (requestId === requestIdRef.current) setLoading(false);
         }
-    }, [chatId, markMutation]);
+    }, [chatId, markMutation, syncReadState]);
 
     useEffect(() => {
         setMessages([]);
@@ -92,6 +102,7 @@ export function useChatThreadController({
                     ? { ...optimisticMessage, id }
                     : message
             )));
+            void syncReadState(id);
         } catch {
             setMessages(current => current.filter(message => message.id !== optimisticMessage.id));
             markMutation('remove');
@@ -99,7 +110,7 @@ export function useChatThreadController({
         } finally {
             setSending(false);
         }
-    }, [chatId, currentUser, markMutation]);
+    }, [chatId, currentUser, markMutation, syncReadState]);
 
     const loadOlderMessages = useCallback(async () => {
         if (!nextBefore || loadingOlder) return;

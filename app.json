@@ -13,13 +13,19 @@
       "bundleIdentifier": "com.projectradeon.app"
     },
     "android": {
+      "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "backgroundColor": "#7F77DD"
       },
-      "package": "com.projectradeon.app"
+      "package": "com.projectradeon.app",
+      "permissions": [
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION"
+      ]
     },
     "plugins": [
       "expo-secure-store",
+      "expo-notifications",
       [
         "expo-location",
         {
@@ -27,6 +33,12 @@
         }
       ],
       "@react-native-community/datetimepicker"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "1d07416b-46eb-442f-8081-e2c0bf508347"
+      }
+    },
+    "owner": "michaelroddy04"
   }
 }

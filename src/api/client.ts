@@ -237,6 +237,7 @@ export interface Chat {
     created_at: string;
     last_message?: string;
     last_message_at?: string;
+    unread_count?: number;
     support_context?: SupportChatContext;
 }
 
@@ -271,6 +272,25 @@ export interface MessagePage {
     limit: number;
     has_more: boolean;
     next_before?: string | null;
+}
+
+export interface AppNotification {
+    id: string;
+    user_id: string;
+    type: 'chat.message' | 'comment.mention';
+    actor_id?: string;
+    resource_type: 'chat' | 'comment';
+    resource_id?: string;
+    title: string;
+    body: string;
+    payload: Record<string, string>;
+    created_at: string;
+    read_at?: string;
+}
+
+export interface NotificationPreferences {
+    chat_messages: boolean;
+    comment_mentions: boolean;
 }
 
 // ── Auth ───────────────────────────────────────────────────────────────────
@@ -553,6 +573,11 @@ export async function getChats(params?: { query?: string; page?: number; limit?:
     };
 }
 
+export async function getChat(chatId: string): Promise<Chat> {
+    const chat = await request<RawChat>(`/chats/${chatId}`);
+    return normalizeChat(chat);
+}
+
 // Creates a direct or group chat and returns its id.
 export async function createChat(memberIds: string[], name?: string): Promise<{ id: string }> {
     return request('/chats', { method: 'POST', body: JSON.stringify({ member_ids: memberIds, name }) });
@@ -570,6 +595,13 @@ export async function getMessages(chatId: string, params?: { before?: string | n
 // Sends a new message into an existing chat thread.
 export async function sendMessage(chatId: string, body: string): Promise<{ id: string }> {
     return request(`/chats/${chatId}/messages`, { method: 'POST', body: JSON.stringify({ body }) });
+}
+
+export async function markChatRead(chatId: string, lastReadMessageId?: string): Promise<void> {
+    await request(`/chats/${chatId}/read`, {
+        method: 'POST',
+        body: JSON.stringify(lastReadMessageId ? { last_read_message_id: lastReadMessageId } : {}),
+    });
 }
 
 export async function acceptSupportChat(chatId: string): Promise<Chat> {
@@ -591,6 +623,33 @@ export async function declineSupportChat(chatId: string): Promise<Chat> {
 // Deletes a direct chat or leaves a group chat for the current user.
 export async function deleteChat(chatId: string): Promise<{ action: 'deleted' | 'left' }> {
     return request(`/chats/${chatId}`, { method: 'DELETE' });
+}
+
+export async function registerPushDevice(data: {
+    push_token: string;
+    platform: 'ios' | 'android';
+    device_name?: string;
+    app_version?: string;
+}): Promise<{ id: string }> {
+    return request('/notifications/devices', { method: 'POST', body: JSON.stringify(data) });
+}
+
+export async function getNotifications(cursor?: string, limit = 20): Promise<CursorResponse<AppNotification>> {
+    const search = new URLSearchParams({ limit: String(limit) });
+    if (cursor) search.set('before', cursor);
+    return request(`/notifications?${search.toString()}`);
+}
+
+export async function markNotificationRead(id: string): Promise<void> {
+    await request(`/notifications/${id}/read`, { method: 'POST' });
+}
+
+export async function getNotificationPreferences(): Promise<NotificationPreferences> {
+    return request('/notifications/preferences');
+}
+
+export async function updateNotificationPreferences(data: Partial<NotificationPreferences>): Promise<NotificationPreferences> {
+    return request('/notifications/preferences', { method: 'PATCH', body: JSON.stringify(data) });
 }
 
 // ── Friends ────────────────────────────────────────────────────────────────

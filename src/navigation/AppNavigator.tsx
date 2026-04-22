@@ -14,8 +14,10 @@ import { ProfileTabScreen } from '../screens/main/ProfileTabScreen';
 import { ChatScreen } from '../screens/main/ChatScreen';
 import { UserProfileScreen } from '../screens/main/UserProfileScreen';
 import { Avatar } from '../components/Avatar';
+import * as api from '../api/client';
 import { Colors, Typography, Spacing } from '../utils/theme';
 import { useAuth } from '../hooks/useAuth';
+import { useNotificationIntent } from '../notifications/NotificationProvider';
 import type { Chat } from '../api/client';
 
 interface OpenUserProfile {
@@ -36,10 +38,6 @@ const TABS: { key: Tab; label: string; icon: keyof typeof Ionicons.glyphMap; ico
 
 // Each tab is its own memoized component so React skips reconciliation for the
 // three tabs that didn't change when the active tab switches.
-const FeedTab = React.memo(function FeedTab({ isActive, onOpenUserProfile }: { isActive: boolean; onOpenUserProfile: (p: OpenUserProfile) => void }) {
-    return <View style={isActive ? styles.tabVisible : styles.tabHidden}><FeedScreen isActive={isActive} onOpenUserProfile={onOpenUserProfile} /></View>;
-});
-
 const DiscoverTab = React.memo(function DiscoverTab({ isActive, onOpenUserProfile }: { isActive: boolean; onOpenUserProfile: (p: OpenUserProfile) => void }) {
     return <View style={isActive ? styles.tabVisible : styles.tabHidden}><DiscoverScreen isActive={isActive} onOpenUserProfile={onOpenUserProfile} /></View>;
 });
@@ -58,12 +56,14 @@ const ChatsTab = React.memo(function ChatsTab({ isActive, refreshKey, onOpenChat
 
 export function AppNavigator() {
     const { user } = useAuth();
+    const { intent, consumeIntent } = useNotificationIntent();
     const [activeTab, setActiveTab] = useState<Tab>('community');
     const [openChat, setOpenChat] = useState<Chat | null>(null);
     const [openUserProfile, setOpenUserProfile] = useState<OpenUserProfile | null>(null);
     const [ownProfileOpen, setOwnProfileOpen] = useState(false);
     const [chatsRefreshKey, setChatsRefreshKey] = useState(0);
     const [keyboardVisible, setKeyboardVisible] = useState(false);
+    const [feedFocusRequest, setFeedFocusRequest] = useState<{ postId: string; commentId?: string; nonce: number } | null>(null);
     const insets = useSafeAreaInsets();
 
     const inChat = openChat !== null;
@@ -112,6 +112,40 @@ export function AppNavigator() {
             hideSub.remove();
         };
     }, []);
+
+    React.useEffect(() => {
+        if (!intent) return;
+
+        if (intent.kind === 'chat') {
+            let cancelled = false;
+            void (async () => {
+                try {
+                    const chat = await api.getChat(intent.chatId);
+                    if (cancelled) return;
+                    setActiveTab('chats');
+                    setOwnProfileOpen(false);
+                    setOpenUserProfile(null);
+                    setOpenChat(chat);
+                } finally {
+                    if (!cancelled) consumeIntent();
+                }
+            })();
+            return () => {
+                cancelled = true;
+            };
+        }
+
+        setActiveTab('community');
+        setOpenChat(null);
+        setOpenUserProfile(null);
+        setOwnProfileOpen(false);
+        setFeedFocusRequest({
+            postId: intent.postId,
+            commentId: intent.commentId,
+            nonce: Date.now(),
+        });
+        consumeIntent();
+    }, [consumeIntent, intent]);
 
     const header = useMemo(() => {
         if (inChat || inUserProfile || inOwnProfile) return null;
@@ -186,7 +220,13 @@ export function AppNavigator() {
             <SafeAreaView style={styles.container} edges={['top']}>
                 {header}
                 <View style={styles.content}>
-                    <FeedTab isActive={activeTab === 'community'} onOpenUserProfile={handleOpenUserProfile} />
+                    <View style={activeTab === 'community' ? styles.tabVisible : styles.tabHidden}>
+                        <FeedScreen
+                            isActive={activeTab === 'community'}
+                            onOpenUserProfile={handleOpenUserProfile}
+                            focusRequest={feedFocusRequest}
+                        />
+                    </View>
                     <DiscoverTab isActive={activeTab === 'discover'} onOpenUserProfile={handleOpenUserProfile} />
                     <SupportTab isActive={activeTab === 'support'} onOpenChat={setOpenChat} onOpenUserProfile={handleOpenUserProfile} />
                     <MeetupsTab isActive={activeTab === 'meetups'} onOpenUserProfile={handleOpenUserProfile} />

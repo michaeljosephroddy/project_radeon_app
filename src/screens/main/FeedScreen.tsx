@@ -193,11 +193,13 @@ const PostCard = React.memo(function PostCard({
 interface FeedScreenProps {
     isActive: boolean;
     onOpenUserProfile: (profile: { userId: string; username: string; avatarUrl?: string }) => void;
+    focusRequest?: { postId: string; commentId?: string; nonce: number } | null;
 }
 
 export function FeedScreen({
     isActive,
     onOpenUserProfile,
+    focusRequest,
 }: FeedScreenProps) {
     const ScreenContainer = Platform.OS === 'ios' ? KeyboardAvoidingView : View;
     const { user } = useAuth();
@@ -221,6 +223,7 @@ export function FeedScreen({
     const [isMentionSearching, setIsMentionSearching] = useState(false);
     const hasLoadedRef = useRef(false);
     const wasActiveRef = useRef(false);
+    const postsRef = useRef<api.Post[]>([]);
     const loadInFlightRef = useRef<Promise<void> | null>(null);
     const nextCursorRef = useRef<string | undefined>(undefined);
     const loadedCommentPostIdsRef = useRef<Set<string>>(new Set());
@@ -254,7 +257,11 @@ export function FeedScreen({
         const request = (async () => {
             try {
                 const feedData = await api.getFeed(cursor, 20);
-                setPosts(current => replace ? (feedData.items ?? []) : [...current, ...(feedData.items ?? [])]);
+                setPosts(current => {
+                    const nextPosts = replace ? (feedData.items ?? []) : [...current, ...(feedData.items ?? [])];
+                    postsRef.current = nextPosts;
+                    return nextPosts;
+                });
                 nextCursorRef.current = feedData.next_cursor ?? undefined;
                 setHasMore(feedData.has_more);
             } catch { }
@@ -268,6 +275,10 @@ export function FeedScreen({
             loadInFlightRef.current = null;
         }
     }, []);
+
+    useEffect(() => {
+        postsRef.current = posts;
+    }, [posts]);
 
     useEffect(() => {
         const becameActive = isActive && !wasActiveRef.current;
@@ -405,6 +416,20 @@ export function FeedScreen({
         setIsMentionSearching(false);
         setActiveCommentPostId(post.id);
     }, [loadComments, posts]);
+
+    useEffect(() => {
+        if (!isActive || !focusRequest) return;
+
+        void (async () => {
+            if (!postsRef.current.some(post => post.id === focusRequest.postId)) {
+                await load(undefined, true);
+            }
+
+            const post = postsRef.current.find(item => item.id === focusRequest.postId);
+            if (!post) return;
+            handleStartComment(post);
+        })();
+    }, [focusRequest, handleStartComment, isActive, load]);
 
     useEffect(() => {
         if (!activeCommentPostId) return;
