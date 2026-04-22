@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
     View, Text, TextInput, TouchableOpacity,
-    StyleSheet, ScrollView, FlatList, ActivityIndicator, Alert,
+    StyleSheet, ScrollView, FlatList, ActivityIndicator, Alert, Platform,
 } from 'react-native';
+import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import { Avatar } from '../../components/Avatar';
@@ -15,6 +16,9 @@ import { formatRecoveryDuration, formatSobrietyDate, getRecoveryMilestone } from
 
 type SubView = 'profile' | 'friends' | 'requests' | 'settings';
 type RequestsSubView = 'incoming' | 'outgoing';
+type EditableSection = 'bio' | 'location' | 'interests' | 'sobriety' | null;
+const MAX_BIO_LENGTH = 160;
+const MAX_INTERESTS = 5;
 
 interface ProfileTabScreenProps {
     isActive: boolean;
@@ -28,13 +32,15 @@ export function ProfileTabScreen({ isActive, onOpenUserProfile, onBack }: Profil
     const [subView, setSubView] = useState<SubView>('profile');
     const [requestsSubView, setRequestsSubView] = useState<RequestsSubView>('incoming');
 
-    const [username, setUsername]     = useState(user?.username ?? '');
     const [city, setCity]             = useState(user?.city ?? '');
     const [country, setCountry]       = useState(user?.country ?? '');
+    const [bio, setBio]               = useState(user?.bio ?? '');
+    const [selectedInterests, setSelectedInterests] = useState<string[]>(user?.interests ?? []);
+    const [availableInterests, setAvailableInterests] = useState<string[]>([]);
     const [soberSince, setSoberSince] = useState(user?.sober_since ?? '');
-    const [isEditingSoberSince, setIsEditingSoberSince] = useState(false);
-    const [saving, setSaving]           = useState(false);
-    const [dirty, setDirty]             = useState(false);
+    const [showSoberSincePicker, setShowSoberSincePicker] = useState(false);
+    const [editingSection, setEditingSection] = useState<EditableSection>(null);
+    const [savingSection, setSavingSection] = useState<EditableSection>(null);
     const [uploadingAvatar, setUploadingAvatar] = useState(false);
     const [localAvatarUrl, setLocalAvatarUrl]   = useState(user?.avatar_url);
 
@@ -53,7 +59,24 @@ export function ProfileTabScreen({ isActive, onOpenUserProfile, onBack }: Profil
     const [pendingActionIds, setPendingActionIds] = useState<Set<string>>(new Set());
     const formattedSobrietyDate = formatSobrietyDate(soberSince);
     const recoveryMilestone = getRecoveryMilestone(soberSince);
-    const sobrietyFieldValue = isEditingSoberSince ? soberSince : (formattedSobrietyDate || soberSince);
+    const sobrietyFieldValue = formattedSobrietyDate || soberSince || 'Not set';
+    const bioCharactersRemaining = MAX_BIO_LENGTH - bio.length;
+    const allInterestOptions = Array.from(new Set([...availableInterests, ...selectedInterests])).sort((a, b) => a.localeCompare(b));
+    const soberSincePickerValue = soberSince ? new Date(`${soberSince}T12:00:00Z`) : new Date();
+    const savedLocation = user?.city ? `${user.city}${user.country ? `, ${user.country}` : ''}` : 'Add your location';
+    const savedBio = user?.bio?.trim() ? user.bio : 'Add a short bio';
+
+    useEffect(() => {
+        if (!user) return;
+        setCity(user.city ?? '');
+        setCountry(user.country ?? '');
+        setBio(user.bio ?? '');
+        setSelectedInterests(user.interests ?? []);
+        setSoberSince(user.sober_since ?? '');
+        setEditingSection(null);
+        setSavingSection(null);
+        setShowSoberSincePicker(false);
+    }, [user]);
 
     // Loads one page of accepted friends for the current account.
     const loadFriends = useCallback(async (cursor?: string, replace = true) => {
@@ -99,16 +122,9 @@ export function ProfileTabScreen({ isActive, onOpenUserProfile, onBack }: Profil
         if (isActive) {
             refreshUser().catch(() => {});
             loadFriendSummary();
+            api.getInterests().then(setAvailableInterests).catch(() => {});
         }
     }, [isActive, loadFriendSummary, refreshUser]);
-
-    // Marks the profile form as dirty when a field changes.
-    const mark = (setter: (v: string) => void) => (v: string) => {
-        setter(v);
-        // Track whether profile fields diverged from the last saved snapshot so the
-        // save CTA only appears when there is something to persist.
-        setDirty(true);
-    };
 
     // Opens the media picker and uploads a replacement avatar.
     const handlePickAvatar = async () => {
@@ -138,23 +154,99 @@ export function ProfileTabScreen({ isActive, onOpenUserProfile, onBack }: Profil
         }
     };
 
-    // Persists the editable profile fields back to the API.
-    const handleSave = async () => {
-        setSaving(true);
+    const saveSection = async (section: Exclude<EditableSection, null>, payload: api.UpdateMeInput) => {
+        setSavingSection(section);
         try {
-            await api.updateMe({
-                username: username.trim(),
-                city: city.trim() || undefined,
-                country: country.trim() || undefined,
-                sober_since: soberSince.trim() || undefined,
-            });
+            await api.updateMe(payload);
             await refreshUser();
-            setDirty(false);
         } catch (e: unknown) {
             Alert.alert('Error', e instanceof Error ? e.message : 'Something went wrong.');
         } finally {
-            setSaving(false);
+            setSavingSection(null);
         }
+    };
+
+    const handleToggleInterest = (interest: string) => {
+        const isSelected = selectedInterests.includes(interest);
+        if (!isSelected && selectedInterests.length >= MAX_INTERESTS) {
+            Alert.alert('Interest limit', `Pick up to ${MAX_INTERESTS} interests.`);
+            return;
+        }
+
+        setSelectedInterests(current => {
+            const next = isSelected
+                ? current.filter(item => item !== interest)
+                : [...current, interest].sort((a, b) => a.localeCompare(b));
+            return next;
+        });
+    };
+
+    const handleSoberSinceChange = (event: DateTimePickerEvent, selectedDate?: Date) => {
+        if (Platform.OS === 'android') {
+            setShowSoberSincePicker(false);
+            if (event.type === 'dismissed' || !selectedDate) return;
+        }
+
+        if (!selectedDate) return;
+
+        const nextDate = [
+            selectedDate.getFullYear(),
+            String(selectedDate.getMonth() + 1).padStart(2, '0'),
+            String(selectedDate.getDate()).padStart(2, '0'),
+        ].join('-');
+
+        setSoberSince(nextDate);
+    };
+
+    const handleStartEditSection = (section: Exclude<EditableSection, null>) => {
+        if (!user) return;
+        setEditingSection(section);
+        if (section === 'bio') setBio(user.bio ?? '');
+        if (section === 'location') {
+            setCity(user.city ?? '');
+            setCountry(user.country ?? '');
+        }
+        if (section === 'interests') setSelectedInterests(user.interests ?? []);
+        if (section === 'sobriety') {
+            setSoberSince(user.sober_since ?? '');
+            setShowSoberSincePicker(Platform.OS === 'ios');
+        } else {
+            setShowSoberSincePicker(false);
+        }
+    };
+
+    const handleCancelEditSection = () => {
+        if (!user) return;
+        setBio(user.bio ?? '');
+        setCity(user.city ?? '');
+        setCountry(user.country ?? '');
+        setSelectedInterests(user.interests ?? []);
+        setSoberSince(user.sober_since ?? '');
+        setShowSoberSincePicker(false);
+        setEditingSection(null);
+    };
+
+    const handleSaveBio = async () => {
+        if (bio.length > MAX_BIO_LENGTH) {
+            Alert.alert('Bio too long', `Keep your bio under ${MAX_BIO_LENGTH} characters.`);
+            return;
+        }
+        await saveSection('bio', { bio: bio.trim() || null });
+    };
+
+    const handleSaveLocation = async () => {
+        await saveSection('location', {
+            city: city.trim() || undefined,
+            country: country.trim() || undefined,
+        });
+    };
+
+    const handleSaveInterests = async () => {
+        await saveSection('interests', { interests: selectedInterests });
+    };
+
+    const handleSaveSobriety = async () => {
+        await saveSection('sobriety', { sober_since: soberSince || '' });
     };
 
     // Optimistically removes an accepted friend.
@@ -389,7 +481,7 @@ export function ProfileTabScreen({ isActive, onOpenUserProfile, onBack }: Profil
                     <View style={styles.avatarSection}>
                         <TouchableOpacity onPress={handlePickAvatar} disabled={uploadingAvatar} style={styles.avatarWrap}>
                             <Avatar
-                                username={username || user.username}
+                                username={user.username}
                                 avatarUrl={localAvatarUrl}
                                 size={80}
                                 fontSize={28}
@@ -401,8 +493,8 @@ export function ProfileTabScreen({ isActive, onOpenUserProfile, onBack }: Profil
                                 }
                             </View>
                         </TouchableOpacity>
-                        <Text style={styles.avatarName}>{formatUsername(username || user.username)}</Text>
-                        {city ? <Text style={styles.avatarSub}>{city}{country ? `, ${country}` : ''}</Text> : null}
+                        <Text style={styles.avatarName}>{formatUsername(user.username)}</Text>
+                        {user.city ? <Text style={styles.avatarSub}>{user.city}{user.country ? `, ${user.country}` : ''}</Text> : null}
                     </View>
 
                     <View style={styles.statsRow}>
@@ -417,25 +509,149 @@ export function ProfileTabScreen({ isActive, onOpenUserProfile, onBack }: Profil
                         </TouchableOpacity>
                     </View>
 
-                    <Text style={styles.sectionLabel}>USERNAME</Text>
+                    <Text style={styles.sectionLabel}>BIO</Text>
                     <View style={styles.fieldGroup}>
-                        <View style={styles.fieldRow}>
-                            <Text style={styles.fieldLabel}>Username</Text>
-                            <TextInput style={styles.fieldInput} value={username} onChangeText={mark(setUsername)} placeholder="username" placeholderTextColor={Colors.light.textTertiary} autoCapitalize="none" autoCorrect={false} />
+                        <View style={styles.sectionCardHeader}>
+                            <Text style={styles.sectionCardTitle}>Short bio</Text>
+                            {editingSection === 'bio' ? (
+                                <Text style={[styles.bioCounter, bioCharactersRemaining < 0 && styles.bioCounterOver]}>
+                                    {bio.length}/{MAX_BIO_LENGTH}
+                                </Text>
+                            ) : (
+                                <TouchableOpacity onPress={() => handleStartEditSection('bio')}>
+                                    <Text style={styles.sectionActionText}>Edit</Text>
+                                </TouchableOpacity>
+                            )}
                         </View>
+                        {editingSection === 'bio' ? (
+                            <>
+                                <TextInput
+                                    style={styles.bioInput}
+                                    value={bio}
+                                    onChangeText={setBio}
+                                    placeholder="A little about you, what you enjoy, or the kind of people you'd like to meet."
+                                    placeholderTextColor={Colors.light.textTertiary}
+                                    multiline
+                                    maxLength={MAX_BIO_LENGTH}
+                                    textAlignVertical="top"
+                                />
+                                <View style={styles.sectionActions}>
+                                    <TouchableOpacity style={styles.sectionSecondaryButton} onPress={handleCancelEditSection}>
+                                        <Text style={styles.sectionSecondaryButtonText}>Cancel</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity
+                                        style={[styles.sectionPrimaryButton, savingSection === 'bio' && styles.saveBtnDisabled]}
+                                        onPress={handleSaveBio}
+                                        disabled={savingSection === 'bio' || bio.length > MAX_BIO_LENGTH}
+                                    >
+                                        {savingSection === 'bio'
+                                            ? <ActivityIndicator size="small" color={Colors.textOn.primary} />
+                                            : <Text style={styles.sectionPrimaryButtonText}>Save</Text>}
+                                    </TouchableOpacity>
+                                </View>
+                            </>
+                        ) : (
+                            <Text style={[styles.sectionValueText, !user.bio && styles.sectionValuePlaceholder]}>{savedBio}</Text>
+                        )}
                     </View>
 
                     <Text style={styles.sectionLabel}>LOCATION</Text>
                     <View style={styles.fieldGroup}>
-                        <View style={styles.fieldRow}>
-                            <Text style={styles.fieldLabel}>City</Text>
-                            <TextInput style={styles.fieldInput} value={city} onChangeText={mark(setCity)} placeholder="City" placeholderTextColor={Colors.light.textTertiary} />
+                        <View style={styles.sectionCardHeader}>
+                            <Text style={styles.sectionCardTitle}>Location</Text>
+                            {editingSection === 'location' ? null : (
+                                <TouchableOpacity onPress={() => handleStartEditSection('location')}>
+                                    <Text style={styles.sectionActionText}>Edit</Text>
+                                </TouchableOpacity>
+                            )}
                         </View>
-                        <View style={styles.fieldDivider} />
-                        <View style={styles.fieldRow}>
-                            <Text style={styles.fieldLabel}>Country</Text>
-                            <TextInput style={styles.fieldInput} value={country} onChangeText={mark(setCountry)} placeholder="Country" placeholderTextColor={Colors.light.textTertiary} />
+                        {editingSection === 'location' ? (
+                            <>
+                                <View style={styles.fieldRow}>
+                                    <Text style={styles.fieldLabel}>City</Text>
+                                    <TextInput style={styles.fieldInput} value={city} onChangeText={setCity} placeholder="City" placeholderTextColor={Colors.light.textTertiary} />
+                                </View>
+                                <View style={styles.fieldDivider} />
+                                <View style={styles.fieldRow}>
+                                    <Text style={styles.fieldLabel}>Country</Text>
+                                    <TextInput style={styles.fieldInput} value={country} onChangeText={setCountry} placeholder="Country" placeholderTextColor={Colors.light.textTertiary} />
+                                </View>
+                                <View style={styles.sectionActions}>
+                                    <TouchableOpacity style={styles.sectionSecondaryButton} onPress={handleCancelEditSection}>
+                                        <Text style={styles.sectionSecondaryButtonText}>Cancel</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity
+                                        style={[styles.sectionPrimaryButton, savingSection === 'location' && styles.saveBtnDisabled]}
+                                        onPress={handleSaveLocation}
+                                        disabled={savingSection === 'location'}
+                                    >
+                                        {savingSection === 'location'
+                                            ? <ActivityIndicator size="small" color={Colors.textOn.primary} />
+                                            : <Text style={styles.sectionPrimaryButtonText}>Save</Text>}
+                                    </TouchableOpacity>
+                                </View>
+                            </>
+                        ) : (
+                            <Text style={[styles.sectionValueText, !user.city && styles.sectionValuePlaceholder]}>{savedLocation}</Text>
+                        )}
+                    </View>
+
+                    <Text style={styles.sectionLabel}>INTERESTS</Text>
+                    <View style={styles.fieldGroup}>
+                        <View style={styles.sectionCardHeader}>
+                            <Text style={styles.sectionCardTitle}>Interests</Text>
+                            {editingSection === 'interests' ? (
+                                <Text style={styles.interestsCount}>{selectedInterests.length}/{MAX_INTERESTS}</Text>
+                            ) : (
+                                <TouchableOpacity onPress={() => handleStartEditSection('interests')}>
+                                    <Text style={styles.sectionActionText}>Edit</Text>
+                                </TouchableOpacity>
+                            )}
                         </View>
+                        {editingSection === 'interests' ? (
+                            <>
+                                <View style={styles.interestsWrap}>
+                                    {allInterestOptions.map((interest) => {
+                                        const isSelected = selectedInterests.includes(interest);
+                                        return (
+                                            <TouchableOpacity
+                                                key={interest}
+                                                style={[styles.interestChip, isSelected && styles.interestChipActive]}
+                                                onPress={() => handleToggleInterest(interest)}
+                                            >
+                                                <Text style={[styles.interestChipText, isSelected && styles.interestChipTextActive]}>
+                                                    {interest}
+                                                </Text>
+                                            </TouchableOpacity>
+                                        );
+                                    })}
+                                </View>
+                                <View style={styles.sectionActions}>
+                                    <TouchableOpacity style={styles.sectionSecondaryButton} onPress={handleCancelEditSection}>
+                                        <Text style={styles.sectionSecondaryButtonText}>Cancel</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity
+                                        style={[styles.sectionPrimaryButton, savingSection === 'interests' && styles.saveBtnDisabled]}
+                                        onPress={handleSaveInterests}
+                                        disabled={savingSection === 'interests'}
+                                    >
+                                        {savingSection === 'interests'
+                                            ? <ActivityIndicator size="small" color={Colors.textOn.primary} />
+                                            : <Text style={styles.sectionPrimaryButtonText}>Save</Text>}
+                                    </TouchableOpacity>
+                                </View>
+                            </>
+                        ) : user.interests.length > 0 ? (
+                            <View style={styles.interestsWrap}>
+                                {user.interests.map((interest) => (
+                                    <View key={interest} style={styles.interestChip}>
+                                        <Text style={styles.interestChipText}>{interest}</Text>
+                                    </View>
+                                ))}
+                            </View>
+                        ) : (
+                            <Text style={[styles.sectionValueText, styles.sectionValuePlaceholder]}>Pick a few interests to help people get to know you.</Text>
+                        )}
                     </View>
 
                     <Text style={styles.sectionLabel}>SOBRIETY</Text>
@@ -461,32 +677,66 @@ export function ProfileTabScreen({ isActive, onOpenUserProfile, onBack }: Profil
                                 <View style={styles.fieldDivider} />
                             </>
                         )}
-                        <View style={styles.fieldRow}>
-                            <Text style={styles.fieldLabel}>Sober since</Text>
-                            <TextInput
-                                style={styles.fieldInput}
-                                value={sobrietyFieldValue}
-                                onChangeText={mark(setSoberSince)}
-                                onFocus={() => setIsEditingSoberSince(true)}
-                                onBlur={() => setIsEditingSoberSince(false)}
-                                placeholder="YYYY-MM-DD"
-                                placeholderTextColor={Colors.light.textTertiary}
-                            />
+                        <View style={styles.sectionCardHeader}>
+                            <Text style={styles.sectionCardTitle}>Sober since</Text>
+                            {editingSection === 'sobriety' ? null : (
+                                <TouchableOpacity onPress={() => handleStartEditSection('sobriety')}>
+                                    <Text style={styles.sectionActionText}>Edit</Text>
+                                </TouchableOpacity>
+                            )}
                         </View>
+                        <View style={styles.fieldRow}>
+                            <Text style={styles.fieldLabel}>Date</Text>
+                            <TouchableOpacity
+                                style={styles.dateFieldButton}
+                                onPress={() => {
+                                    if (editingSection === 'sobriety') setShowSoberSincePicker(true);
+                                }}
+                                disabled={editingSection !== 'sobriety'}
+                            >
+                                <Text style={[styles.dateFieldText, !soberSince && styles.dateFieldPlaceholder]}>
+                                    {sobrietyFieldValue}
+                                </Text>
+                            </TouchableOpacity>
+                        </View>
+                        {editingSection === 'sobriety' ? (
+                            <>
+                                {Platform.OS === 'ios' ? (
+                                    <View style={styles.inlineDatePickerWrap}>
+                                        <DateTimePicker
+                                            value={soberSincePickerValue}
+                                            mode="date"
+                                            display="spinner"
+                                            maximumDate={new Date()}
+                                            onChange={handleSoberSinceChange}
+                                        />
+                                    </View>
+                                ) : showSoberSincePicker ? (
+                                    <DateTimePicker
+                                        value={soberSincePickerValue}
+                                        mode="date"
+                                        display="default"
+                                        maximumDate={new Date()}
+                                        onChange={handleSoberSinceChange}
+                                    />
+                                ) : null}
+                                <View style={styles.sectionActions}>
+                                    <TouchableOpacity style={styles.sectionSecondaryButton} onPress={handleCancelEditSection}>
+                                        <Text style={styles.sectionSecondaryButtonText}>Cancel</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity
+                                        style={[styles.sectionPrimaryButton, savingSection === 'sobriety' && styles.saveBtnDisabled]}
+                                        onPress={handleSaveSobriety}
+                                        disabled={savingSection === 'sobriety'}
+                                    >
+                                        {savingSection === 'sobriety'
+                                            ? <ActivityIndicator size="small" color={Colors.textOn.primary} />
+                                            : <Text style={styles.sectionPrimaryButtonText}>Save</Text>}
+                                    </TouchableOpacity>
+                                </View>
+                            </>
+                        ) : null}
                     </View>
-
-                    {dirty && (
-                        <TouchableOpacity
-                            style={[styles.saveBtn, saving && { opacity: 0.6 }]}
-                            onPress={handleSave}
-                            disabled={saving}
-                        >
-                            {saving
-                                ? <ActivityIndicator size="small" color={Colors.textOn.primary} />
-                                : <Text style={styles.saveBtnText}>Save changes</Text>
-                            }
-                        </TouchableOpacity>
-                    )}
                 </View>
 
             </ScrollView>
@@ -653,10 +903,143 @@ const styles = StyleSheet.create({
         marginTop: Spacing.md,
     },
     fieldGroup: { backgroundColor: Colors.light.backgroundSecondary, borderRadius: Radii.md, overflow: 'hidden' },
+    sectionCardHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingHorizontal: Spacing.md,
+        paddingTop: Spacing.md,
+        paddingBottom: Spacing.sm,
+    },
+    sectionCardTitle: {
+        fontSize: Typography.sizes.base,
+        fontWeight: '600',
+        color: Colors.light.textPrimary,
+    },
+    sectionActionText: {
+        fontSize: Typography.sizes.sm,
+        fontWeight: '600',
+        color: Colors.primary,
+    },
+    sectionValueText: {
+        paddingHorizontal: Spacing.md,
+        paddingBottom: Spacing.md,
+        fontSize: Typography.sizes.base,
+        lineHeight: 20,
+        color: Colors.light.textPrimary,
+    },
+    sectionValuePlaceholder: {
+        color: Colors.light.textTertiary,
+    },
     fieldRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: Spacing.md, paddingVertical: 13, gap: Spacing.sm },
     fieldDivider: { height: 0.5, backgroundColor: Colors.light.border, marginLeft: Spacing.md },
     fieldLabel: { width: 90, fontSize: Typography.sizes.sm, color: Colors.light.textTertiary },
     fieldInput: { flex: 1, fontSize: Typography.sizes.base, color: Colors.light.textPrimary, textAlign: 'right', padding: 0 },
+    dateFieldButton: {
+        flex: 1,
+        alignItems: 'flex-end',
+    },
+    dateFieldText: {
+        fontSize: Typography.sizes.base,
+        color: Colors.light.textPrimary,
+        textAlign: 'right',
+    },
+    dateFieldPlaceholder: {
+        color: Colors.light.textTertiary,
+    },
+    inlineDatePickerWrap: {
+        borderTopWidth: 0.5,
+        borderTopColor: Colors.light.border,
+        paddingHorizontal: Spacing.sm,
+        paddingBottom: Spacing.sm,
+    },
+    bioCounter: {
+        fontSize: Typography.sizes.sm,
+        color: Colors.light.textTertiary,
+    },
+    bioCounterOver: {
+        color: Colors.danger,
+    },
+    bioInput: {
+        minHeight: 96,
+        marginHorizontal: Spacing.md,
+        marginBottom: Spacing.md,
+        borderRadius: Radii.md,
+        borderWidth: 1,
+        borderColor: Colors.light.border,
+        backgroundColor: Colors.light.background,
+        paddingHorizontal: Spacing.md,
+        paddingVertical: Spacing.md,
+        fontSize: Typography.sizes.base,
+        lineHeight: 20,
+        color: Colors.light.textPrimary,
+    },
+    interestsCount: {
+        fontSize: Typography.sizes.sm,
+        color: Colors.light.textTertiary,
+    },
+    interestsWrap: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: Spacing.sm,
+        paddingHorizontal: Spacing.md,
+        paddingTop: Spacing.sm,
+        paddingBottom: Spacing.md,
+    },
+    interestChip: {
+        borderRadius: Radii.full,
+        borderWidth: 1,
+        borderColor: Colors.light.border,
+        backgroundColor: Colors.light.background,
+        paddingHorizontal: Spacing.md,
+        paddingVertical: 10,
+    },
+    interestChipActive: {
+        backgroundColor: Colors.primary,
+        borderColor: Colors.primary,
+    },
+    interestChipText: {
+        fontSize: Typography.sizes.sm,
+        color: Colors.light.textSecondary,
+        fontWeight: '500',
+    },
+    interestChipTextActive: {
+        color: Colors.textOn.primary,
+        fontWeight: '600',
+    },
+    sectionActions: {
+        flexDirection: 'row',
+        justifyContent: 'flex-end',
+        gap: Spacing.sm,
+        paddingHorizontal: Spacing.md,
+        paddingBottom: Spacing.md,
+    },
+    sectionSecondaryButton: {
+        borderWidth: 1,
+        borderColor: Colors.light.border,
+        borderRadius: Radii.md,
+        paddingHorizontal: Spacing.md,
+        paddingVertical: 10,
+        backgroundColor: Colors.light.background,
+    },
+    sectionSecondaryButtonText: {
+        fontSize: Typography.sizes.sm,
+        fontWeight: '600',
+        color: Colors.light.textSecondary,
+    },
+    sectionPrimaryButton: {
+        borderRadius: Radii.md,
+        paddingHorizontal: Spacing.md,
+        paddingVertical: 10,
+        backgroundColor: Colors.primary,
+        minWidth: 82,
+        alignItems: 'center',
+    },
+    sectionPrimaryButtonText: {
+        fontSize: Typography.sizes.sm,
+        fontWeight: '600',
+        color: Colors.textOn.primary,
+    },
     sobrietySummary: {
         paddingHorizontal: Spacing.md,
         paddingVertical: Spacing.md,
@@ -694,13 +1077,7 @@ const styles = StyleSheet.create({
         fontWeight: '700',
         color: Colors.textOn.primary,
     },
-
-    saveBtn: {
-        backgroundColor: Colors.primary,
-        borderRadius: Radii.md,
-        paddingVertical: 14,
-        alignItems: 'center',
-        marginTop: Spacing.lg,
+    saveBtnDisabled: {
+        opacity: 0.6,
     },
-    saveBtnText: { fontSize: Typography.sizes.base, fontWeight: '600', color: Colors.textOn.primary },
 });

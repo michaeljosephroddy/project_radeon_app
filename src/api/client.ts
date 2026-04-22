@@ -88,6 +88,8 @@ export interface User {
     avatar_url?: string;
     city?: string;
     country?: string;
+    bio?: string | null;
+    interests: string[];
     sober_since?: string;
     created_at: string;
     friendship_status: 'self' | 'none' | 'incoming' | 'outgoing' | 'friends';
@@ -293,6 +295,15 @@ export interface NotificationPreferences {
     comment_mentions: boolean;
 }
 
+export interface UpdateMeInput {
+    username?: string;
+    city?: string;
+    country?: string;
+    bio?: string | null;
+    interests?: string[];
+    sober_since?: string;
+}
+
 // ── Auth ───────────────────────────────────────────────────────────────────
 
 // Creates a new user account and returns the initial auth payload.
@@ -325,7 +336,7 @@ export async function getMe(): Promise<User> {
 }
 
 // Updates the current user's editable profile fields.
-export async function updateMe(data: Partial<User>): Promise<User> {
+export async function updateMe(data: UpdateMeInput): Promise<User> {
     return request('/users/me', { method: 'PATCH', body: JSON.stringify(data) });
 }
 
@@ -345,6 +356,12 @@ export async function uploadAvatar(uri: string): Promise<{ avatar_url: string }>
 // Fetches a public profile for another user by id.
 export async function getUser(id: string): Promise<User> {
     return request(`/users/${id}`);
+}
+
+// Loads the curated interest catalog used in profile editing.
+export async function getInterests(): Promise<string[]> {
+    const response = await request<{ items: string[] }>('/interests', {}, false);
+    return response.items ?? [];
 }
 
 // Queries discover results using optional search filters.

@@ -787,17 +787,16 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
                             style={[
                                 styles.selectorChip,
                                 enabled && styles.selectorChipActive,
-                                availabilityUpdating && styles.actionDisabled,
                                 !isAvailableToSupport && styles.availabilityModeChipMuted,
                             ]}
                             onPress={() => handleToggleSupportMode(mode)}
-                            disabled={availabilityUpdating}
+                            disabled={availabilityUpdating || !isAvailableToSupport}
                         >
                             <Text
                                 style={[
                                     styles.selectorChipText,
                                     enabled && styles.selectorChipTextActive,
-                                    !enabled && !isAvailableToSupport && styles.availabilityModeChipTextMuted,
+                                    !isAvailableToSupport && styles.availabilityModeChipTextMuted,
                                 ]}
                             >
                                 {getSupportModeLabel(mode)}
@@ -1263,7 +1262,7 @@ const styles = StyleSheet.create({
     selectorChipActive: { backgroundColor: Colors.success, borderColor: Colors.success },
     selectorChipText: { fontSize: Typography.sizes.sm, color: Colors.light.textSecondary },
     selectorChipTextActive: { color: Colors.textOn.primary, fontWeight: '600' },
-    availabilityModeChipMuted: { opacity: 0.72 },
+    availabilityModeChipMuted: { opacity: 0.6 },
     availabilityModeChipTextMuted: { color: Colors.light.textTertiary },
     datePickerCard: {
         borderWidth: 1,

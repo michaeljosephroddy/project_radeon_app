@@ -164,9 +164,21 @@ export function UserProfileScreen({
                 <ActivityIndicator color={Colors.primary} style={{ marginTop: Spacing.sm }} />
             ) : (
                 <>
+                    {profile?.bio ? (
+                        <Text style={styles.bio}>{profile.bio}</Text>
+                    ) : null}
                     {profile?.city && (
                         <Text style={styles.meta}>{profile.city}{profile.country ? `, ${profile.country}` : ''}</Text>
                     )}
+                    {profile?.interests?.length ? (
+                        <View style={styles.interestsWrap}>
+                            {profile.interests.map((interest) => (
+                                <View key={interest} style={styles.interestChip}>
+                                    <Text style={styles.interestChipText}>{interest}</Text>
+                                </View>
+                            ))}
+                        </View>
+                    ) : null}
                     {formattedSobrietyDate && (
                         <Text style={styles.meta}>Sober since {formattedSobrietyDate}</Text>
                     )}
@@ -311,6 +323,34 @@ const styles = StyleSheet.create({
     meta: {
         fontSize: Typography.sizes.sm,
         color: Colors.light.textTertiary,
+    },
+    bio: {
+        fontSize: Typography.sizes.base,
+        color: Colors.light.textSecondary,
+        textAlign: 'center',
+        lineHeight: 20,
+        marginTop: Spacing.sm,
+    },
+    interestsWrap: {
+        width: '100%',
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        justifyContent: 'center',
+        gap: Spacing.sm,
+        marginTop: Spacing.sm,
+    },
+    interestChip: {
+        borderRadius: Radii.full,
+        borderWidth: 1,
+        borderColor: Colors.light.border,
+        backgroundColor: Colors.light.backgroundSecondary,
+        paddingHorizontal: Spacing.md,
+        paddingVertical: 8,
+    },
+    interestChipText: {
+        fontSize: Typography.sizes.sm,
+        fontWeight: '500',
+        color: Colors.light.textSecondary,
     },
     milestoneCard: {
         width: '100%',
