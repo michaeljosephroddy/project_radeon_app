@@ -7,6 +7,8 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
+import * as ImageManipulator from 'expo-image-manipulator';
+import * as MediaLibrary from 'expo-media-library';
 import { Avatar } from '../../components/Avatar';
 import * as api from '../../api/client';
 import { useAuth } from '../../hooks/useAuth';
@@ -16,6 +18,9 @@ import { formatReadableTimestamp } from '../../utils/date';
 
 const EMPTY_COMMENTS: api.Comment[] = [];
 const EMPTY_USERS: api.User[] = [];
+const POST_IMAGE_ASPECT = [6, 5] as const;
+const POST_IMAGE_MAX_WIDTH = 1800;
+const POST_IMAGE_DISPLAY_QUALITY = 0.92;
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
     UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -49,6 +54,16 @@ interface CommentItemProps {
     onPressUser: (profile: { userId: string; username: string; avatarUrl?: string }) => void;
 }
 
+interface SelectedPostImage {
+    previewUri: string;
+    displayUri: string;
+    displayMimeType: string;
+    displayFileName: string;
+    originalUri?: string;
+    originalMimeType?: string;
+    originalFileName?: string;
+}
+
 const CommentItem = React.memo(function CommentItem({ comment, onPressUser }: CommentItemProps) {
     return (
         <View style={styles.commentRow}>
@@ -67,6 +82,68 @@ const CommentItem = React.memo(function CommentItem({ comment, onPressUser }: Co
         </View>
     );
 });
+
+function inferMimeType(uri: string | undefined, fallback = 'image/jpeg'): string {
+    if (!uri) return fallback;
+    const normalizedUri = uri.toLowerCase();
+    if (normalizedUri.endsWith('.png')) return 'image/png';
+    if (normalizedUri.endsWith('.jpg') || normalizedUri.endsWith('.jpeg')) return 'image/jpeg';
+    return fallback;
+}
+
+function inferFileName(uri: string | undefined, fallback: string): string {
+    if (!uri) return fallback;
+    const path = uri.split('/').pop();
+    return path && path.includes('.') ? path : fallback;
+}
+
+async function buildSelectedPostImage(asset: ImagePicker.ImagePickerAsset): Promise<SelectedPostImage> {
+    const resizeWidth = asset.width && asset.width > POST_IMAGE_MAX_WIDTH
+        ? POST_IMAGE_MAX_WIDTH
+        : asset.width;
+    const manipulatedDisplay = await ImageManipulator.manipulateAsync(
+        asset.uri,
+        resizeWidth ? [{ resize: { width: resizeWidth } }] : [],
+        {
+            compress: POST_IMAGE_DISPLAY_QUALITY,
+            format: ImageManipulator.SaveFormat.JPEG,
+        }
+    );
+
+    const selectedImage: SelectedPostImage = {
+        previewUri: manipulatedDisplay.uri,
+        displayUri: manipulatedDisplay.uri,
+        displayMimeType: 'image/jpeg',
+        displayFileName: 'post-display.jpg',
+    };
+
+    if (!asset.assetId) {
+        return {
+            ...selectedImage,
+            originalUri: asset.uri,
+            originalMimeType: asset.mimeType ?? inferMimeType(asset.uri),
+            originalFileName: asset.fileName ?? inferFileName(asset.uri, 'post-original.jpg'),
+        };
+    }
+
+    try {
+        const assetInfo = await MediaLibrary.getAssetInfoAsync(asset.assetId);
+        const originalUri = assetInfo.localUri ?? assetInfo.uri ?? asset.uri;
+        return {
+            ...selectedImage,
+            originalUri,
+            originalMimeType: asset.mimeType ?? inferMimeType(originalUri),
+            originalFileName: asset.fileName ?? inferFileName(originalUri, 'post-original.jpg'),
+        };
+    } catch {
+        return {
+            ...selectedImage,
+            originalUri: asset.uri,
+            originalMimeType: asset.mimeType ?? inferMimeType(asset.uri),
+            originalFileName: asset.fileName ?? inferFileName(asset.uri, 'post-original.jpg'),
+        };
+    }
+}
 
 const PostCard = React.memo(function PostCard({
     post,
@@ -218,7 +295,7 @@ export function FeedScreen({
     const [hasMore, setHasMore] = useState(false);
     const [composing, setComposing] = useState(false);
     const [draft, setDraft] = useState('');
-    const [selectedImageUri, setSelectedImageUri] = useState<string | null>(null);
+    const [selectedImage, setSelectedImage] = useState<SelectedPostImage | null>(null);
     const [posting, setPosting] = useState(false);
     const [expandedCommentIds, setExpandedCommentIds] = useState<Set<string>>(new Set());
     const [commentLoadingIds, setCommentLoadingIds] = useState<Set<string>>(new Set());
@@ -340,18 +417,25 @@ export function FeedScreen({
     };
 
     const handlePost = async () => {
-        if (!draft.trim() && !selectedImageUri) return;
+        if (!draft.trim() && !selectedImage) return;
         setPosting(true);
         try {
-            const uploadedImages = selectedImageUri
-                ? [await api.uploadPostImage(selectedImageUri)]
+            const uploadedImages = selectedImage
+                ? [await api.uploadPostImage({
+                    displayUri: selectedImage.displayUri,
+                    displayMimeType: selectedImage.displayMimeType,
+                    displayFileName: selectedImage.displayFileName,
+                    originalUri: selectedImage.originalUri,
+                    originalMimeType: selectedImage.originalMimeType,
+                    originalFileName: selectedImage.originalFileName,
+                })]
                 : [];
             await api.createPost({
                 body: draft.trim() || undefined,
                 images: uploadedImages,
             });
             setDraft('');
-            setSelectedImageUri(null);
+            setSelectedImage(null);
             setComposing(false);
             await load(undefined, true);
         } catch (e: unknown) {
@@ -371,12 +455,18 @@ export function FeedScreen({
         const result = await ImagePicker.launchImageLibraryAsync({
             mediaTypes: ImagePicker.MediaTypeOptions.Images,
             allowsEditing: true,
-            quality: 0.8,
+            aspect: [...POST_IMAGE_ASPECT],
+            quality: 1,
         });
         if (result.canceled) return;
 
-        setSelectedImageUri(result.assets[0].uri);
-        setComposing(true);
+        try {
+            const nextSelectedImage = await buildSelectedPostImage(result.assets[0]);
+            setSelectedImage(nextSelectedImage);
+            setComposing(true);
+        } catch {
+            Alert.alert('Error', 'Could not prepare that image. Please try a different photo.');
+        }
     };
 
     const handleLoadMore = async () => {
@@ -692,12 +782,12 @@ export function FeedScreen({
                                     value={draft}
                                     onChangeText={setDraft}
                                     multiline
-                                    autoFocus={!selectedImageUri}
+                                    autoFocus={!selectedImage}
                                 />
-                                {selectedImageUri ? (
+                                {selectedImage ? (
                                     <View style={styles.composeImagePreviewWrap}>
-                                        <Image source={{ uri: selectedImageUri }} style={styles.composeImagePreview} resizeMode="cover" />
-                                        <TouchableOpacity style={styles.removeImageButton} onPress={() => setSelectedImageUri(null)}>
+                                        <Image source={{ uri: selectedImage.previewUri }} style={styles.composeImagePreview} resizeMode="cover" />
+                                        <TouchableOpacity style={styles.removeImageButton} onPress={() => setSelectedImage(null)}>
                                             <Ionicons name="close" size={14} color={Colors.textOn.primary} />
                                         </TouchableOpacity>
                                     </View>

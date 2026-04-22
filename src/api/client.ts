@@ -125,12 +125,24 @@ export interface Post {
 }
 
 interface RawPost extends Omit<Post, 'images'> {
-    images?: PostImage[] | null;
+    images?: RawPostImage[] | null;
 }
 
 export interface PostImage {
     id: string;
     image_url: string;
+    original_image_url: string;
+    display_image_url: string;
+    width: number;
+    height: number;
+    sort_order?: number;
+}
+
+interface RawPostImage {
+    id: string;
+    image_url?: string | null;
+    original_image_url?: string | null;
+    display_image_url?: string | null;
     width: number;
     height: number;
     sort_order?: number;
@@ -393,7 +405,21 @@ export async function discoverUsers(params?: { query?: string; city?: string; pa
 function normalizePost(post: RawPost): Post {
     return {
         ...post,
-        images: post.images ?? [],
+        images: (post.images ?? []).map(normalizePostImage),
+    };
+}
+
+function normalizePostImage(image: RawPostImage): PostImage {
+    const displayImageUrl = image.display_image_url ?? image.image_url ?? '';
+    const originalImageUrl = image.original_image_url ?? displayImageUrl;
+    return {
+        id: image.id,
+        image_url: displayImageUrl,
+        original_image_url: originalImageUrl,
+        display_image_url: displayImageUrl,
+        width: image.width,
+        height: image.height,
+        sort_order: image.sort_order,
     };
 }
 
@@ -420,16 +446,35 @@ export async function getUserPosts(userId: string, cursor?: string, limit = 20):
 }
 
 // Uploads a post image using multipart form data instead of JSON.
-export async function uploadPostImage(uri: string): Promise<PostImage> {
+export async function uploadPostImage(input: {
+    displayUri: string;
+    displayMimeType?: string;
+    displayFileName?: string;
+    originalUri?: string;
+    originalMimeType?: string;
+    originalFileName?: string;
+}): Promise<PostImage> {
     const token = await getToken();
     const form = new FormData();
-    form.append('image', { uri, name: 'post.jpg', type: 'image/jpeg' } as unknown as Blob);
+    form.append('display', {
+        uri: input.displayUri,
+        name: input.displayFileName ?? 'post-display.jpg',
+        type: input.displayMimeType ?? 'image/jpeg',
+    } as unknown as Blob);
+    if (input.originalUri) {
+        form.append('original', {
+            uri: input.originalUri,
+            name: input.originalFileName ?? 'post-original.jpg',
+            type: input.originalMimeType ?? 'image/jpeg',
+        } as unknown as Blob);
+    }
     const res = await fetch(`${BASE_URL}/posts/images`, {
         method: 'POST',
         headers: token ? { Authorization: `Bearer ${token}` } : {},
         body: form,
     });
-    return parseDataResponse<PostImage>(res);
+    const image = await parseDataResponse<RawPostImage>(res);
+    return normalizePostImage(image);
 }
 
 // Creates a new feed post from the supplied text body and optional images.
