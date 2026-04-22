@@ -121,6 +121,19 @@ export interface Post {
     created_at: string;
     comment_count: number;
     like_count: number;
+    images: PostImage[];
+}
+
+interface RawPost extends Omit<Post, 'images'> {
+    images?: PostImage[] | null;
+}
+
+export interface PostImage {
+    id: string;
+    image_url: string;
+    width: number;
+    height: number;
+    sort_order?: number;
 }
 
 export interface Comment {
@@ -377,23 +390,51 @@ export async function discoverUsers(params?: { query?: string; city?: string; pa
 
 // ── Feed & Posts ───────────────────────────────────────────────────────────
 
+function normalizePost(post: RawPost): Post {
+    return {
+        ...post,
+        images: post.images ?? [],
+    };
+}
+
 // Loads the feed page used on the community tab.
 export async function getFeed(cursor?: string, limit = 20): Promise<CursorResponse<Post>> {
     const search = new URLSearchParams({ limit: String(limit) });
     if (cursor) search.set('before', cursor);
-    return request(`/feed?${search.toString()}`);
+    const page = await request<CursorResponse<RawPost>>(`/feed?${search.toString()}`);
+    return {
+        ...page,
+        items: (page.items ?? []).map(normalizePost),
+    };
 }
 
 // Loads all posts authored by a specific user.
 export async function getUserPosts(userId: string, cursor?: string, limit = 20): Promise<CursorResponse<Post>> {
     const search = new URLSearchParams({ limit: String(limit) });
     if (cursor) search.set('before', cursor);
-    return request(`/users/${userId}/posts?${search.toString()}`);
+    const page = await request<CursorResponse<RawPost>>(`/users/${userId}/posts?${search.toString()}`);
+    return {
+        ...page,
+        items: (page.items ?? []).map(normalizePost),
+    };
 }
 
-// Creates a new feed post from the supplied text body.
-export async function createPost(body: string): Promise<{ id: string }> {
-    return request('/posts', { method: 'POST', body: JSON.stringify({ body }) });
+// Uploads a post image using multipart form data instead of JSON.
+export async function uploadPostImage(uri: string): Promise<PostImage> {
+    const token = await getToken();
+    const form = new FormData();
+    form.append('image', { uri, name: 'post.jpg', type: 'image/jpeg' } as unknown as Blob);
+    const res = await fetch(`${BASE_URL}/posts/images`, {
+        method: 'POST',
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        body: form,
+    });
+    return parseDataResponse<PostImage>(res);
+}
+
+// Creates a new feed post from the supplied text body and optional images.
+export async function createPost(data: { body?: string; images?: PostImage[] }): Promise<{ id: string }> {
+    return request('/posts', { method: 'POST', body: JSON.stringify(data) });
 }
 
 // Deletes a post by id.

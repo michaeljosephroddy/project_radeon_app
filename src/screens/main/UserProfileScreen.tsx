@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
-    View, Text, TouchableOpacity, StyleSheet,
+    View, Text, TouchableOpacity, StyleSheet, Image,
     FlatList, ActivityIndicator, RefreshControl,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -258,7 +258,14 @@ export function UserProfileScreen({
                                 <Text style={styles.postMeta}>{timeAgo(item.created_at)}</Text>
                             </View>
                         </View>
-                        <Text style={styles.postBody}>{item.body}</Text>
+                        {!!item.body && <Text style={styles.postBody}>{item.body}</Text>}
+                        {item.images[0] ? (
+                            <Image
+                                source={{ uri: item.images[0].image_url }}
+                                style={styles.postImage}
+                                resizeMode="cover"
+                            />
+                        ) : null}
                         <View style={styles.postFoot}>
                             <View style={styles.postAction}>
                                 <Ionicons name="heart-outline" size={16} color={Colors.light.textTertiary} />
@@ -452,6 +459,11 @@ const styles = StyleSheet.create({
         lineHeight: 19,
         paddingHorizontal: Spacing.md,
         paddingBottom: Spacing.md,
+    },
+    postImage: {
+        width: '100%',
+        aspectRatio: 1.2,
+        backgroundColor: Colors.light.backgroundSecondary,
     },
     postFoot: {
         flexDirection: 'row',

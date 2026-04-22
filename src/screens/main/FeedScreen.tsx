@@ -1,11 +1,12 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
-    View, Text, FlatList, TouchableOpacity, TextInput,
+    View, Text, FlatList, TouchableOpacity, TextInput, Image,
     StyleSheet, RefreshControl, ActivityIndicator, Alert,
     Platform, KeyboardAvoidingView, Keyboard, BackHandler, LayoutAnimation, UIManager,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as ImagePicker from 'expo-image-picker';
 import { Avatar } from '../../components/Avatar';
 import * as api from '../../api/client';
 import { useAuth } from '../../hooks/useAuth';
@@ -118,7 +119,14 @@ const PostCard = React.memo(function PostCard({
                 </View>
             </View>
             <View style={styles.postContent}>
-                <Text style={styles.postBody}>{post.body}</Text>
+                {!!post.body && <Text style={styles.postBody}>{post.body}</Text>}
+                {post.images[0] ? (
+                    <Image
+                        source={{ uri: post.images[0].image_url }}
+                        style={styles.postImage}
+                        resizeMode="cover"
+                    />
+                ) : null}
             </View>
             <View style={styles.postFoot}>
                 <TouchableOpacity style={styles.postAction} onPress={handleReact}>
@@ -210,6 +218,7 @@ export function FeedScreen({
     const [hasMore, setHasMore] = useState(false);
     const [composing, setComposing] = useState(false);
     const [draft, setDraft] = useState('');
+    const [selectedImageUri, setSelectedImageUri] = useState<string | null>(null);
     const [posting, setPosting] = useState(false);
     const [expandedCommentIds, setExpandedCommentIds] = useState<Set<string>>(new Set());
     const [commentLoadingIds, setCommentLoadingIds] = useState<Set<string>>(new Set());
@@ -331,11 +340,18 @@ export function FeedScreen({
     };
 
     const handlePost = async () => {
-        if (!draft.trim()) return;
+        if (!draft.trim() && !selectedImageUri) return;
         setPosting(true);
         try {
-            await api.createPost(draft.trim());
+            const uploadedImages = selectedImageUri
+                ? [await api.uploadPostImage(selectedImageUri)]
+                : [];
+            await api.createPost({
+                body: draft.trim() || undefined,
+                images: uploadedImages,
+            });
             setDraft('');
+            setSelectedImageUri(null);
             setComposing(false);
             await load(undefined, true);
         } catch (e: unknown) {
@@ -343,6 +359,24 @@ export function FeedScreen({
         } finally {
             setPosting(false);
         }
+    };
+
+    const handlePickPostImage = async () => {
+        const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (!perm.granted) {
+            Alert.alert('Permission required', 'Allow access to your photo library to attach a post image.');
+            return;
+        }
+
+        const result = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            allowsEditing: true,
+            quality: 0.8,
+        });
+        if (result.canceled) return;
+
+        setSelectedImageUri(result.assets[0].uri);
+        setComposing(true);
     };
 
     const handleLoadMore = async () => {
@@ -650,20 +684,37 @@ export function FeedScreen({
                     <View style={styles.composeBar}>
                         {user && <Avatar username={user.username} avatarUrl={user.avatar_url} size={28} />}
                         {composing ? (
-                            <TextInput
-                                style={styles.composeInput}
-                                placeholder="What's on your mind?"
-                                placeholderTextColor={Colors.light.textTertiary}
-                                value={draft}
-                                onChangeText={setDraft}
-                                multiline
-                                autoFocus
-                            />
+                            <View style={styles.composeExpanded}>
+                                <TextInput
+                                    style={styles.composeInput}
+                                    placeholder="What's on your mind?"
+                                    placeholderTextColor={Colors.light.textTertiary}
+                                    value={draft}
+                                    onChangeText={setDraft}
+                                    multiline
+                                    autoFocus={!selectedImageUri}
+                                />
+                                {selectedImageUri ? (
+                                    <View style={styles.composeImagePreviewWrap}>
+                                        <Image source={{ uri: selectedImageUri }} style={styles.composeImagePreview} resizeMode="cover" />
+                                        <TouchableOpacity style={styles.removeImageButton} onPress={() => setSelectedImageUri(null)}>
+                                            <Ionicons name="close" size={14} color={Colors.textOn.primary} />
+                                        </TouchableOpacity>
+                                    </View>
+                                ) : null}
+                            </View>
                         ) : (
                             <TouchableOpacity style={{ flex: 1 }} onPress={() => setComposing(true)}>
                                 <Text style={styles.composePlaceholder}>What's on your mind?</Text>
                             </TouchableOpacity>
                         )}
+                        <TouchableOpacity
+                            style={[styles.attachImageButton, posting && styles.attachImageButtonDisabled]}
+                            onPress={handlePickPostImage}
+                            disabled={posting}
+                        >
+                            <Ionicons name="image-outline" size={18} color={Colors.primary} />
+                        </TouchableOpacity>
                         {composing && (
                             <TouchableOpacity
                                 style={[styles.postBtn, posting && { opacity: 0.6 }]}
@@ -779,12 +830,46 @@ const styles = StyleSheet.create({
         borderRadius: Radii.md,
         padding: Spacing.md,
         flexDirection: 'row',
-        alignItems: 'center',
+        alignItems: 'flex-end',
         gap: Spacing.sm,
         marginBottom: Spacing.md,
     },
+    composeExpanded: { flex: 1, gap: Spacing.sm },
     composeInput: { flex: 1, fontSize: Typography.sizes.base, color: Colors.light.textPrimary, maxHeight: 100 },
     composePlaceholder: { flex: 1, fontSize: Typography.sizes.base, color: Colors.light.textTertiary, textAlignVertical: 'center' },
+    attachImageButton: {
+        width: 34,
+        height: 34,
+        borderRadius: 17,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: Colors.light.background,
+        borderWidth: 0.5,
+        borderColor: Colors.light.border,
+    },
+    attachImageButtonDisabled: { opacity: 0.6 },
+    composeImagePreviewWrap: {
+        position: 'relative',
+        width: 104,
+        height: 104,
+    },
+    composeImagePreview: {
+        width: 104,
+        height: 104,
+        borderRadius: Radii.md,
+        backgroundColor: Colors.light.background,
+    },
+    removeImageButton: {
+        position: 'absolute',
+        top: 6,
+        right: 6,
+        width: 22,
+        height: 22,
+        borderRadius: 11,
+        backgroundColor: Colors.primary,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
     postBtn: { backgroundColor: Colors.success, borderRadius: Radii.sm, paddingHorizontal: Spacing.md, paddingVertical: 6 },
     postBtnText: { color: Colors.textOn.primary, fontSize: Typography.sizes.sm, fontWeight: '600' },
     postCard: {
@@ -802,6 +887,13 @@ const styles = StyleSheet.create({
     postContent: { paddingHorizontal: Spacing.md, paddingBottom: Spacing.sm },
     postMeta: { fontSize: Typography.sizes.xs, color: Colors.light.textTertiary },
     postBody: { fontSize: Typography.sizes.base, color: Colors.light.textSecondary, lineHeight: 19 },
+    postImage: {
+        width: '100%',
+        aspectRatio: 1.2,
+        borderRadius: Radii.md,
+        marginTop: Spacing.sm,
+        backgroundColor: Colors.light.backgroundSecondary,
+    },
     postFoot: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: Spacing.md, paddingVertical: 10, borderTopWidth: 0.5, borderTopColor: Colors.light.border },
     postAction: { flexDirection: 'row', alignItems: 'center', gap: 4 },
     postActionText: { fontSize: Typography.sizes.sm, color: Colors.light.textTertiary },
