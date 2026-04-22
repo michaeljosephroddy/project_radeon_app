@@ -7,8 +7,6 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
-import * as ImageManipulator from 'expo-image-manipulator';
-import * as MediaLibrary from 'expo-media-library';
 import { Avatar } from '../../components/Avatar';
 import * as api from '../../api/client';
 import { useAuth } from '../../hooks/useAuth';
@@ -18,9 +16,6 @@ import { formatReadableTimestamp } from '../../utils/date';
 
 const EMPTY_COMMENTS: api.Comment[] = [];
 const EMPTY_USERS: api.User[] = [];
-const POST_IMAGE_ASPECT = [6, 5] as const;
-const POST_IMAGE_MAX_WIDTH = 1800;
-const POST_IMAGE_DISPLAY_QUALITY = 0.92;
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
     UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -34,6 +29,7 @@ interface ActiveMentionState {
 
 interface PostCardProps {
     post: api.Post;
+    resolvedImageSource: string | null;
     displayedCommentCount: number;
     currentUserId: string;
     comments: api.Comment[];
@@ -55,13 +51,22 @@ interface CommentItemProps {
 }
 
 interface SelectedPostImage {
-    previewUri: string;
-    displayUri: string;
-    displayMimeType: string;
-    displayFileName: string;
-    originalUri?: string;
-    originalMimeType?: string;
-    originalFileName?: string;
+    uri: string;
+    mimeType: string;
+    fileName: string;
+}
+
+interface ComposerImageState {
+    localImage: SelectedPostImage;
+    status: 'uploading' | 'uploaded' | 'failed';
+    uploadToken: number;
+    uploadedImage?: api.PostImage;
+}
+
+interface PreviewCacheEntry {
+    localUri: string;
+    remoteUri: string;
+    isRemoteReady: boolean;
 }
 
 const CommentItem = React.memo(function CommentItem({ comment, onPressUser }: CommentItemProps) {
@@ -98,55 +103,30 @@ function inferFileName(uri: string | undefined, fallback: string): string {
 }
 
 async function buildSelectedPostImage(asset: ImagePicker.ImagePickerAsset): Promise<SelectedPostImage> {
-    const resizeWidth = asset.width && asset.width > POST_IMAGE_MAX_WIDTH
-        ? POST_IMAGE_MAX_WIDTH
-        : asset.width;
-    const manipulatedDisplay = await ImageManipulator.manipulateAsync(
-        asset.uri,
-        resizeWidth ? [{ resize: { width: resizeWidth } }] : [],
-        {
-            compress: POST_IMAGE_DISPLAY_QUALITY,
-            format: ImageManipulator.SaveFormat.JPEG,
-        }
-    );
-
-    const selectedImage: SelectedPostImage = {
-        previewUri: manipulatedDisplay.uri,
-        displayUri: manipulatedDisplay.uri,
-        displayMimeType: 'image/jpeg',
-        displayFileName: 'post-display.jpg',
+    return {
+        uri: asset.uri,
+        mimeType: asset.mimeType ?? inferMimeType(asset.uri),
+        fileName: asset.fileName ?? inferFileName(asset.uri, 'post.jpg'),
     };
+}
 
-    if (!asset.assetId) {
-        return {
-            ...selectedImage,
-            originalUri: asset.uri,
-            originalMimeType: asset.mimeType ?? inferMimeType(asset.uri),
-            originalFileName: asset.fileName ?? inferFileName(asset.uri, 'post-original.jpg'),
-        };
-    }
-
-    try {
-        const assetInfo = await MediaLibrary.getAssetInfoAsync(asset.assetId);
-        const originalUri = assetInfo.localUri ?? assetInfo.uri ?? asset.uri;
-        return {
-            ...selectedImage,
-            originalUri,
-            originalMimeType: asset.mimeType ?? inferMimeType(originalUri),
-            originalFileName: asset.fileName ?? inferFileName(originalUri, 'post-original.jpg'),
-        };
-    } catch {
-        return {
-            ...selectedImage,
-            originalUri: asset.uri,
-            originalMimeType: asset.mimeType ?? inferMimeType(asset.uri),
-            originalFileName: asset.fileName ?? inferFileName(asset.uri, 'post-original.jpg'),
-        };
-    }
+function createOptimisticPost(user: api.User, postId: string, body: string, images: api.PostImage[]): api.Post {
+    return {
+        id: postId,
+        user_id: user.id,
+        username: user.username,
+        avatar_url: user.avatar_url,
+        body,
+        created_at: new Date().toISOString(),
+        comment_count: 0,
+        like_count: 0,
+        images,
+    };
 }
 
 const PostCard = React.memo(function PostCard({
     post,
+    resolvedImageSource,
     displayedCommentCount,
     currentUserId,
     comments,
@@ -197,9 +177,9 @@ const PostCard = React.memo(function PostCard({
             </View>
             <View style={styles.postContent}>
                 {!!post.body && <Text style={styles.postBody}>{post.body}</Text>}
-                {post.images[0] ? (
+                {resolvedImageSource ? (
                     <Image
-                        source={{ uri: post.images[0].image_url }}
+                        source={{ uri: resolvedImageSource }}
                         style={styles.postImage}
                         resizeMode="cover"
                     />
@@ -295,8 +275,7 @@ export function FeedScreen({
     const [hasMore, setHasMore] = useState(false);
     const [composing, setComposing] = useState(false);
     const [draft, setDraft] = useState('');
-    const [selectedImage, setSelectedImage] = useState<SelectedPostImage | null>(null);
-    const [posting, setPosting] = useState(false);
+    const [selectedImage, setSelectedImage] = useState<ComposerImageState | null>(null);
     const [expandedCommentIds, setExpandedCommentIds] = useState<Set<string>>(new Set());
     const [commentLoadingIds, setCommentLoadingIds] = useState<Set<string>>(new Set());
     const [commentLoadingMoreIds, setCommentLoadingMoreIds] = useState<Set<string>>(new Set());
@@ -322,6 +301,11 @@ export function FeedScreen({
     const flatListRef = useRef<FlatList>(null);
     const commentInputRef = useRef<TextInput>(null);
     const canCloseComposerOnKeyboardHideRef = useRef(false);
+    const imageUploadPromiseRef = useRef<Promise<api.PostImage> | null>(null);
+    const imageUploadTokenRef = useRef(0);
+    // Keeps optimistic post images on the local file URI until the uploaded
+    // remote image has been prefetched and is safe to swap in.
+    const previewCacheRef = useRef<Record<string, PreviewCacheEntry>>({});
     const insets = useSafeAreaInsets();
     const [activeCommentPostId, setActiveCommentPostId] = useState<string | null>(null);
     const [keyboardHeight, setKeyboardHeight] = useState(0);
@@ -416,33 +400,142 @@ export function FeedScreen({
         }
     };
 
-    const handlePost = async () => {
-        if (!draft.trim() && !selectedImage) return;
-        setPosting(true);
-        try {
-            const uploadedImages = selectedImage
-                ? [await api.uploadPostImage({
-                    displayUri: selectedImage.displayUri,
-                    displayMimeType: selectedImage.displayMimeType,
-                    displayFileName: selectedImage.displayFileName,
-                    originalUri: selectedImage.originalUri,
-                    originalMimeType: selectedImage.originalMimeType,
-                    originalFileName: selectedImage.originalFileName,
-                })]
-                : [];
-            await api.createPost({
-                body: draft.trim() || undefined,
-                images: uploadedImages,
+    const beginImageUpload = useCallback((image: SelectedPostImage, uploadToken: number): Promise<api.PostImage> => {
+        const uploadPromise = api.uploadPostImage({
+            uri: image.uri,
+            mimeType: image.mimeType,
+            fileName: image.fileName,
+        });
+        imageUploadPromiseRef.current = uploadPromise;
+
+        void uploadPromise.then(uploadedImage => {
+            setSelectedImage(current => {
+                if (!current || current.uploadToken !== uploadToken) return current;
+                return {
+                    ...current,
+                    status: 'uploaded',
+                    uploadedImage,
+                };
             });
-            setDraft('');
-            setSelectedImage(null);
-            setComposing(false);
-            await load(undefined, true);
-        } catch (e: unknown) {
-            Alert.alert('Error', e instanceof Error ? e.message : 'Something went wrong.');
-        } finally {
-            setPosting(false);
+        }).catch(() => {
+            setSelectedImage(current => {
+                if (!current || current.uploadToken !== uploadToken) return current;
+                return {
+                    ...current,
+                    status: 'failed',
+                };
+            });
+        }).finally(() => {
+            if (imageUploadTokenRef.current === uploadToken) {
+                imageUploadPromiseRef.current = null;
+            }
+        });
+
+        return uploadPromise;
+    }, []);
+
+    const removeSelectedImage = useCallback(() => {
+        imageUploadTokenRef.current += 1;
+        imageUploadPromiseRef.current = null;
+        setSelectedImage(null);
+    }, []);
+
+    const resolvePostImageSource = useCallback((post: api.Post): string | null => {
+        const image = post.images[0];
+        if (!image) return null;
+        const cachedPreview = previewCacheRef.current[post.id];
+        if (cachedPreview && cachedPreview.remoteUri === image.image_url && !cachedPreview.isRemoteReady) {
+            return cachedPreview.localUri;
         }
+        return image.image_url;
+    }, []);
+
+    const warmRemotePostImage = useCallback((postId: string, remoteUri: string) => {
+        const cachedPreview = previewCacheRef.current[postId];
+        if (!cachedPreview || cachedPreview.remoteUri !== remoteUri || cachedPreview.isRemoteReady) return;
+
+        void Image.prefetch(remoteUri).finally(() => {
+            const latestPreview = previewCacheRef.current[postId];
+            if (!latestPreview || latestPreview.remoteUri !== remoteUri) return;
+            previewCacheRef.current[postId] = {
+                ...latestPreview,
+                isRemoteReady: true,
+            };
+            setPosts(current => [...current]);
+        });
+    }, []);
+
+    const handlePost = () => {
+        if (!draft.trim() && !selectedImage) return;
+        if (!user) return;
+        const body = draft.trim();
+        const selectedImageState = selectedImage;
+        const optimisticPostId = `temp-${Date.now()}`;
+        const optimisticImages = selectedImageState
+            ? [selectedImageState.uploadedImage ?? {
+                id: `temp-image-${Date.now()}`,
+                image_url: selectedImageState.localImage.uri,
+                width: 0,
+                height: 0,
+                sort_order: 0,
+            }]
+            : [];
+
+        setPosts(current => {
+            const nextPosts = [createOptimisticPost(user, optimisticPostId, body, optimisticImages), ...current];
+            postsRef.current = nextPosts;
+            return nextPosts;
+        });
+        setDraft('');
+        removeSelectedImage();
+        setComposing(false);
+
+        // Post creation intentionally continues in the background so the
+        // composer can clear and the optimistic post can appear immediately.
+        void (async () => {
+            try {
+                let uploadedImages: api.PostImage[] = [];
+                if (selectedImageState) {
+                    if (selectedImageState.uploadedImage) {
+                        uploadedImages = [selectedImageState.uploadedImage];
+                    } else if (selectedImageState.status === 'uploading' && imageUploadPromiseRef.current) {
+                        uploadedImages = [await imageUploadPromiseRef.current];
+                    } else {
+                        const uploadToken = ++imageUploadTokenRef.current;
+                        uploadedImages = [await beginImageUpload(selectedImageState.localImage, uploadToken)];
+                    }
+                }
+
+                const createdPost = await api.createPost({
+                    body: body || undefined,
+                    images: uploadedImages,
+                });
+                if (selectedImageState?.localImage.uri && uploadedImages[0]?.image_url) {
+                    previewCacheRef.current[createdPost.id] = {
+                        localUri: selectedImageState.localImage.uri,
+                        remoteUri: uploadedImages[0].image_url,
+                        isRemoteReady: false,
+                    };
+                    warmRemotePostImage(createdPost.id, uploadedImages[0].image_url);
+                }
+                setPosts(current => {
+                    const nextPosts = current.map(post =>
+                        post.id === optimisticPostId
+                        ? createOptimisticPost(user, createdPost.id, body, optimisticImages)
+                        : post
+                    );
+                    postsRef.current = nextPosts;
+                    return nextPosts;
+                });
+            } catch (e: unknown) {
+                setPosts(current => {
+                    const nextPosts = current.filter(post => post.id !== optimisticPostId);
+                    postsRef.current = nextPosts;
+                    return nextPosts;
+                });
+                Alert.alert('Error', e instanceof Error ? e.message : 'Something went wrong.');
+            }
+        })();
     };
 
     const handlePickPostImage = async () => {
@@ -455,15 +548,28 @@ export function FeedScreen({
         const result = await ImagePicker.launchImageLibraryAsync({
             mediaTypes: ImagePicker.MediaTypeOptions.Images,
             allowsEditing: true,
-            aspect: [...POST_IMAGE_ASPECT],
+            aspect: [6, 5],
             quality: 1,
+            ...(Platform.OS === 'ios'
+                ? {
+                    preferredAssetRepresentationMode:
+                        ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Current,
+                }
+                : {}),
         });
         if (result.canceled) return;
 
         try {
             const nextSelectedImage = await buildSelectedPostImage(result.assets[0]);
-            setSelectedImage(nextSelectedImage);
+            const uploadToken = ++imageUploadTokenRef.current;
+            const nextComposerImage: ComposerImageState = {
+                localImage: nextSelectedImage,
+                status: 'uploading',
+                uploadToken,
+            };
+            setSelectedImage(nextComposerImage);
             setComposing(true);
+            beginImageUpload(nextSelectedImage, uploadToken).catch(() => {});
         } catch {
             Alert.alert('Error', 'Could not prepare that image. Please try a different photo.');
         }
@@ -721,6 +827,7 @@ export function FeedScreen({
     const renderItem = useCallback(({ item }: { item: api.Post }) => (
         <PostCard
             post={item}
+            resolvedImageSource={resolvePostImageSource(item)}
             displayedCommentCount={item.comment_count}
             currentUserId={currentUserId}
             comments={commentsByPostId[item.id] ?? EMPTY_COMMENTS}
@@ -736,6 +843,7 @@ export function FeedScreen({
             isCommentComposerActive={activeCommentPostId === item.id}
         />
     ), [
+        resolvePostImageSource,
         currentUserId, commentsByPostId, expandedCommentIds, commentLoadingIds,
         commentLoadingMoreIds, commentHasMoreByPostId, commentSubmittingIds,
         handleToggleComments, handleStartComment, loadMoreComments,
@@ -786,10 +894,19 @@ export function FeedScreen({
                                 />
                                 {selectedImage ? (
                                     <View style={styles.composeImagePreviewWrap}>
-                                        <Image source={{ uri: selectedImage.previewUri }} style={styles.composeImagePreview} resizeMode="cover" />
-                                        <TouchableOpacity style={styles.removeImageButton} onPress={() => setSelectedImage(null)}>
+                                        <Image source={{ uri: selectedImage.localImage.uri }} style={styles.composeImagePreview} resizeMode="cover" />
+                                        <TouchableOpacity style={styles.removeImageButton} onPress={removeSelectedImage}>
                                             <Ionicons name="close" size={14} color={Colors.textOn.primary} />
                                         </TouchableOpacity>
+                                        <View style={styles.composeImageStatusBadge}>
+                                            <Text style={styles.composeImageStatusText}>
+                                                {selectedImage.status === 'uploading'
+                                                    ? 'Uploading...'
+                                                    : selectedImage.status === 'uploaded'
+                                                        ? 'Ready'
+                                                        : 'Retry on post'}
+                                            </Text>
+                                        </View>
                                     </View>
                                 ) : null}
                             </View>
@@ -799,17 +916,15 @@ export function FeedScreen({
                             </TouchableOpacity>
                         )}
                         <TouchableOpacity
-                            style={[styles.attachImageButton, posting && styles.attachImageButtonDisabled]}
+                            style={styles.attachImageButton}
                             onPress={handlePickPostImage}
-                            disabled={posting}
                         >
                             <Ionicons name="image-outline" size={18} color={Colors.primary} />
                         </TouchableOpacity>
                         {composing && (
                             <TouchableOpacity
-                                style={[styles.postBtn, posting && { opacity: 0.6 }]}
+                                style={styles.postBtn}
                                 onPress={handlePost}
-                                disabled={posting}
                             >
                                 <Text style={styles.postBtnText}>Post</Text>
                             </TouchableOpacity>
@@ -900,6 +1015,7 @@ export function FeedScreen({
 
 function arePostCardPropsEqual(prev: PostCardProps, next: PostCardProps) {
     return prev.post === next.post
+        && prev.resolvedImageSource === next.resolvedImageSource
         && prev.displayedCommentCount === next.displayedCommentCount
         && prev.currentUserId === next.currentUserId
         && prev.comments === next.comments
@@ -937,7 +1053,6 @@ const styles = StyleSheet.create({
         borderWidth: 0.5,
         borderColor: Colors.light.border,
     },
-    attachImageButtonDisabled: { opacity: 0.6 },
     composeImagePreviewWrap: {
         position: 'relative',
         width: 104,
@@ -948,6 +1063,20 @@ const styles = StyleSheet.create({
         height: 104,
         borderRadius: Radii.md,
         backgroundColor: Colors.light.background,
+    },
+    composeImageStatusBadge: {
+        position: 'absolute',
+        left: 6,
+        bottom: 6,
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: Radii.full,
+        backgroundColor: 'rgba(15, 23, 42, 0.72)',
+    },
+    composeImageStatusText: {
+        fontSize: Typography.sizes.xs,
+        color: Colors.textOn.primary,
+        fontWeight: '600',
     },
     removeImageButton: {
         position: 'absolute',
