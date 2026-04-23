@@ -237,6 +237,7 @@ export function MeetupsScreen({ isActive, onOpenUserProfile }: MeetupsScreenProp
     const [query, setQuery] = useState('');
     const [debouncedQuery, setDebouncedQuery] = useState('');
     const [cityFilter, setCityFilter] = useState(user?.city ?? '');
+    const [debouncedCityFilter, setDebouncedCityFilter] = useState((user?.city ?? '').trim());
     const [cityHydrated, setCityHydrated] = useState(!!user?.city);
     const [rsvpPendingIds, setRsvpPendingIds] = useState<Set<string>>(new Set());
     const [submitError, setSubmitError] = useState('');
@@ -259,7 +260,7 @@ export function MeetupsScreen({ isActive, onOpenUserProfile }: MeetupsScreenProp
     const meetupsListProps = getListPerformanceProps('detailList');
     const meetupsQuery = useMeetups({
         q: debouncedQuery || undefined,
-        city: cityFilter.trim() || undefined,
+        city: debouncedCityFilter || undefined,
         limit: 20,
     }, hasActivatedBrowse && cityHydrated);
     const myMeetupsQuery = useMyMeetups(20, hasActivatedMyMeetups);
@@ -283,8 +284,14 @@ export function MeetupsScreen({ isActive, onOpenUserProfile }: MeetupsScreenProp
     }, [query]);
 
     useEffect(() => {
+        const timer = setTimeout(() => setDebouncedCityFilter(cityFilter.trim()), 250);
+        return () => clearTimeout(timer);
+    }, [cityFilter]);
+
+    useEffect(() => {
         if (user?.city && !cityHydrated) {
             setCityFilter(user.city);
+            setDebouncedCityFilter(user.city.trim());
             setCityHydrated(true);
         }
     }, [user?.city, cityHydrated]);
@@ -306,6 +313,7 @@ export function MeetupsScreen({ isActive, onOpenUserProfile }: MeetupsScreenProp
                 const nextCity = place?.city ?? place?.subregion ?? place?.district ?? '';
                 if (active) {
                     setCityFilter(nextCity);
+                    setDebouncedCityFilter(nextCity.trim());
                     setCityHydrated(true);
                 }
             } catch {
@@ -329,7 +337,7 @@ export function MeetupsScreen({ isActive, onOpenUserProfile }: MeetupsScreenProp
     const onRefresh = async () => {
         resetInfiniteQueryToFirstPage(queryClient, queryKeys.meetups({
             q: debouncedQuery || undefined,
-            city: cityFilter.trim() || undefined,
+            city: debouncedCityFilter || undefined,
             limit: 20,
         }));
         await meetupsQuery.refetch();
@@ -444,15 +452,17 @@ export function MeetupsScreen({ isActive, onOpenUserProfile }: MeetupsScreenProp
     }, []);
 
     const handleApplySearch = useCallback(() => {
+        setDebouncedQuery(query.trim());
+        setDebouncedCityFilter(cityFilter.trim());
+
         if (subView !== 'browse') {
             setSubView('browse');
             return;
         }
         void meetupsQuery.refetch();
-    }, [meetupsQuery, subView]);
+    }, [cityFilter, meetupsQuery, query, subView]);
 
-    const loading = (!cityHydrated && meetups.length === 0)
-        || (meetups.length === 0 && !meetupsQuery.data && meetupsQuery.isLoading);
+    const loading = !cityHydrated && meetups.length === 0;
     const myMeetupsLoading = subView === 'my' && myMeetupsQuery.isLoading && myMeetups.length === 0;
 
     if (loading) {
@@ -667,6 +677,7 @@ export function MeetupsScreen({ isActive, onOpenUserProfile }: MeetupsScreenProp
                 />
             }
             contentContainerStyle={styles.list}
+            keyboardShouldPersistTaps="handled"
             ListHeaderComponent={
                 <>
                     <View style={styles.segmentRow}>
@@ -716,10 +727,16 @@ export function MeetupsScreen({ isActive, onOpenUserProfile }: MeetupsScreenProp
                 </>
             }
             ListEmptyComponent={
-                <View style={styles.empty}>
-                    <Text style={styles.emptyText}>No upcoming meetups.</Text>
-                    <Text style={styles.emptySubtext}>Be the first to create one in your city.</Text>
-                </View>
+                meetupsQuery.isLoading || meetupsQuery.isFetching ? (
+                    <View style={styles.center}>
+                        <ActivityIndicator color={Colors.primary} />
+                    </View>
+                ) : (
+                    <View style={styles.empty}>
+                        <Text style={styles.emptyText}>No upcoming meetups.</Text>
+                        <Text style={styles.emptySubtext}>Be the first to create one in your city.</Text>
+                    </View>
+                )
             }
             renderItem={({ item }) => (
                 <MeetupCard
