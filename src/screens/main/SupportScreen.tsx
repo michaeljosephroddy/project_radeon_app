@@ -10,11 +10,13 @@ import { EmptyState } from '../../components/ui/EmptyState';
 import { HeroCard } from '../../components/ui/HeroCard';
 import { PrimaryButton } from '../../components/ui/PrimaryButton';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
+import { ScrollToTopButton } from '../../components/ui/ScrollToTopButton';
 import { TextField } from '../../components/ui/TextField';
 import * as api from '../../api/client';
 import { useGuardedEndReached } from '../../hooks/useGuardedEndReached';
 import { useLazyActivation } from '../../hooks/useLazyActivation';
 import { useRefetchOnActiveIfStale } from '../../hooks/useRefetchOnActiveIfStale';
+import { useScrollToTopButton } from '../../hooks/useScrollToTopButton';
 import { useMySupportRequests, useSupportProfile, useSupportRequests } from '../../hooks/queries/useSupport';
 import { resetInfiniteQueryToFirstPage } from '../../query/infiniteQueryPolicy';
 import { queryKeys } from '../../query/queryKeys';
@@ -388,6 +390,7 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
     useRefetchOnActiveIfStale(isActive, supportProfileQuery);
     useRefetchOnActiveIfStale(isActive && subView === 'open', openRequestsQuery);
     useRefetchOnActiveIfStale(isActive && subView === 'mine', myRequestsQuery);
+    const supportScrollToTop = useScrollToTopButton({ threshold: 320 });
     const openRequestItems = useMemo(
         () => openRequestsQuery.data?.pages.flatMap((page) => page.items ?? []) ?? [],
         [openRequestsQuery.data],
@@ -1049,7 +1052,8 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
     const data = isMineView ? myRequests : requests;
 
     return (
-        <FlatList
+        <View style={styles.container}>
+            <FlatList
             ref={flatListRef}
             data={data}
             keyExtractor={item => item.id}
@@ -1058,6 +1062,8 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
             onEndReachedThreshold={0.4}
             onMomentumScrollBegin={supportListPagination.onMomentumScrollBegin}
             onScrollBeginDrag={supportListPagination.onScrollBeginDrag}
+            onScroll={supportScrollToTop.onScroll}
+            scrollEventThrottle={16}
             refreshControl={
                 <RefreshControl
                     refreshing={isMineView
@@ -1133,11 +1139,16 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
                     })}
                 />
             )}
-        />
+            />
+            {supportScrollToTop.isVisible ? (
+                <ScrollToTopButton onPress={() => flatListRef.current?.scrollToOffset({ offset: 0, animated: true })} />
+            ) : null}
+        </View>
     );
 }
 
 const styles = StyleSheet.create({
+    container: { flex: 1, backgroundColor: Colors.light.background },
     center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.light.background },
     list: { padding: Spacing.md, paddingBottom: 32 },
     headerCard: { marginBottom: Spacing.md },

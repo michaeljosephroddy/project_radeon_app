@@ -10,12 +10,14 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import { Avatar } from '../../components/Avatar';
 import { EmptyState } from '../../components/ui/EmptyState';
+import { ScrollToTopButton } from '../../components/ui/ScrollToTopButton';
 import * as api from '../../api/client';
 import { useCreatePostMutation } from '../../hooks/queries/useCreatePostMutation';
 import { useFeed } from '../../hooks/queries/useFeed';
 import { useGuardedEndReached } from '../../hooks/useGuardedEndReached';
 import { useLazyActivation } from '../../hooks/useLazyActivation';
 import { useRefetchOnActiveIfStale } from '../../hooks/useRefetchOnActiveIfStale';
+import { useScrollToTopButton } from '../../hooks/useScrollToTopButton';
 import { useAuth } from '../../hooks/useAuth';
 import { resetInfiniteQueryToFirstPage } from '../../query/infiniteQueryPolicy';
 import { queryKeys } from '../../query/queryKeys';
@@ -297,6 +299,7 @@ export function FeedScreen({
         () => (feedQuery.data?.pages ?? []).flatMap((page: api.CursorResponse<api.Post>) => page.items ?? []),
         [feedQuery.data],
     );
+    const feedScrollToTop = useScrollToTopButton({ threshold: 520 });
     const [posts, setPosts] = useState<api.Post[]>([]);
     const [composing, setComposing] = useState(false);
     const [draft, setDraft] = useState('');
@@ -875,6 +878,8 @@ export function FeedScreen({
                 onEndReachedThreshold={0.4}
                 onMomentumScrollBegin={feedListPagination.onMomentumScrollBegin}
                 onScrollBeginDrag={feedListPagination.onScrollBeginDrag}
+                onScroll={feedScrollToTop.onScroll}
+                scrollEventThrottle={16}
                 onScrollToIndexFailed={({ index, averageItemLength }) => {
                     flatListRef.current?.scrollToOffset({
                         offset: Math.max(index * averageItemLength - 120, 0),
@@ -949,6 +954,9 @@ export function FeedScreen({
                     },
                 ]}
             />
+            {feedScrollToTop.isVisible && !activeCommentPost ? (
+                <ScrollToTopButton onPress={() => flatListRef.current?.scrollToOffset({ offset: 0, animated: true })} />
+            ) : null}
 
             {activeCommentPost && (
                 <View

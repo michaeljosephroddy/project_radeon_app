@@ -7,10 +7,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Avatar } from '../../components/Avatar';
 import { EmptyState } from '../../components/ui/EmptyState';
+import { ScrollToTopButton } from '../../components/ui/ScrollToTopButton';
 import * as api from '../../api/client';
 import { useGuardedEndReached } from '../../hooks/useGuardedEndReached';
 import { useUserProfile } from '../../hooks/queries/useUserProfile';
 import { useUserPosts } from '../../hooks/queries/useUserPosts';
+import { useScrollToTopButton } from '../../hooks/useScrollToTopButton';
 import { useQueryClient } from '@tanstack/react-query';
 import { resetInfiniteQueryToFirstPage } from '../../query/infiniteQueryPolicy';
 import { queryKeys } from '../../query/queryKeys';
@@ -48,6 +50,7 @@ export function UserProfileScreen({
     const profileQuery = useUserProfile(userId);
     const userPostsQuery = useUserPosts(userId);
     const userPostsListProps = getListPerformanceProps('detailList');
+    const userPostsScrollToTop = useScrollToTopButton({ threshold: 320 });
     const [friendActionLoading, setFriendActionLoading] = useState(false);
     const [dmLoading, setDmLoading] = useState(false);
     const profile = profileQuery.data ?? null;
@@ -225,6 +228,8 @@ export function UserProfileScreen({
                 onEndReachedThreshold={0.4}
                 onMomentumScrollBegin={userPostsPagination.onMomentumScrollBegin}
                 onScrollBeginDrag={userPostsPagination.onScrollBeginDrag}
+                onScroll={userPostsScrollToTop.onScroll}
+                scrollEventThrottle={16}
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
                 ListHeaderComponent={ProfileHeader}
                 contentContainerStyle={styles.list}
@@ -272,6 +277,9 @@ export function UserProfileScreen({
                 )}
                 ListFooterComponent={loadingMorePosts ? <ActivityIndicator style={styles.footerLoader} color={Colors.primary} /> : null}
             />
+            {userPostsScrollToTop.isVisible ? (
+                <ScrollToTopButton onPress={() => flatListRef.current?.scrollToOffset({ offset: 0, animated: true })} />
+            ) : null}
         </SafeAreaView>
     );
 }

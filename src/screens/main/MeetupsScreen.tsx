@@ -13,10 +13,12 @@ import { HeroCard } from '../../components/ui/HeroCard';
 import { PrimaryButton } from '../../components/ui/PrimaryButton';
 import { SearchBar } from '../../components/ui/SearchBar';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
+import { ScrollToTopButton } from '../../components/ui/ScrollToTopButton';
 import { TextField } from '../../components/ui/TextField';
 import { useGuardedEndReached } from '../../hooks/useGuardedEndReached';
 import { useLazyActivation } from '../../hooks/useLazyActivation';
 import { useRefetchOnActiveIfStale } from '../../hooks/useRefetchOnActiveIfStale';
+import { useScrollToTopButton } from '../../hooks/useScrollToTopButton';
 import { useAuth } from '../../hooks/useAuth';
 import { useMeetups, useMyMeetups } from '../../hooks/queries/useMeetups';
 import { resetInfiniteQueryToFirstPage } from '../../query/infiniteQueryPolicy';
@@ -272,6 +274,7 @@ export function MeetupsScreen({ isActive, onOpenUserProfile }: MeetupsScreenProp
     const myMeetupsQuery = useMyMeetups(20, hasActivatedMyMeetups);
     useRefetchOnActiveIfStale(isActive && subView === 'browse', meetupsQuery);
     useRefetchOnActiveIfStale(isActive && subView === 'my', myMeetupsQuery);
+    const meetupsScrollToTop = useScrollToTopButton({ threshold: 320 });
     const meetups = useMemo(
         () => flattenMeetupPages(meetupsQuery.data),
         [meetupsQuery.data],
@@ -582,7 +585,8 @@ export function MeetupsScreen({ isActive, onOpenUserProfile }: MeetupsScreenProp
 
     if (subView === 'my') {
         return (
-            <FlatList
+            <View style={styles.container}>
+                <FlatList
                 ref={flatListRef}
                 data={myMeetups}
                 keyExtractor={meetup => meetup.id}
@@ -591,6 +595,8 @@ export function MeetupsScreen({ isActive, onOpenUserProfile }: MeetupsScreenProp
                 onEndReachedThreshold={0.4}
                 onMomentumScrollBegin={meetupsListPagination.onMomentumScrollBegin}
                 onScrollBeginDrag={meetupsListPagination.onScrollBeginDrag}
+                onScroll={meetupsScrollToTop.onScroll}
+                scrollEventThrottle={16}
                 refreshControl={
                     <RefreshControl
                         refreshing={myMeetupsQuery.isRefetching && !myMeetupsQuery.isFetchingNextPage}
@@ -643,12 +649,17 @@ export function MeetupsScreen({ isActive, onOpenUserProfile }: MeetupsScreenProp
                     />
                 )}
                 ListFooterComponent={myMeetupsQuery.isFetchingNextPage ? <ActivityIndicator style={styles.footerLoader} color={Colors.primary} /> : null}
-            />
+                />
+                {meetupsScrollToTop.isVisible ? (
+                    <ScrollToTopButton onPress={() => flatListRef.current?.scrollToOffset({ offset: 0, animated: true })} />
+                ) : null}
+            </View>
         );
     }
 
     return (
-        <FlatList
+        <View style={styles.container}>
+            <FlatList
             ref={flatListRef}
             data={meetups}
             keyExtractor={meetup => meetup.id}
@@ -657,6 +668,8 @@ export function MeetupsScreen({ isActive, onOpenUserProfile }: MeetupsScreenProp
             onEndReachedThreshold={0.4}
             onMomentumScrollBegin={meetupsListPagination.onMomentumScrollBegin}
             onScrollBeginDrag={meetupsListPagination.onScrollBeginDrag}
+            onScroll={meetupsScrollToTop.onScroll}
+            scrollEventThrottle={16}
             refreshControl={
                 <RefreshControl
                     refreshing={meetupsQuery.isRefetching && !meetupsQuery.isFetchingNextPage}
@@ -730,7 +743,11 @@ export function MeetupsScreen({ isActive, onOpenUserProfile }: MeetupsScreenProp
                 />
             )}
             ListFooterComponent={meetupsQuery.isFetchingNextPage ? <ActivityIndicator style={styles.footerLoader} color={Colors.primary} /> : null}
-        />
+            />
+            {meetupsScrollToTop.isVisible ? (
+                <ScrollToTopButton onPress={() => flatListRef.current?.scrollToOffset({ offset: 0, animated: true })} />
+            ) : null}
+        </View>
     );
 }
 

@@ -14,11 +14,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { Avatar } from '../../components/Avatar';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { HeroCard } from '../../components/ui/HeroCard';
+import { ScrollToTopButton } from '../../components/ui/ScrollToTopButton';
 import { SearchBar } from '../../components/ui/SearchBar';
 import * as api from '../../api/client';
 import { useGuardedEndReached } from '../../hooks/useGuardedEndReached';
 import { useLazyActivation } from '../../hooks/useLazyActivation';
 import { useRefetchOnActiveIfStale } from '../../hooks/useRefetchOnActiveIfStale';
+import { useScrollToTopButton } from '../../hooks/useScrollToTopButton';
 import { useDiscover } from '../../hooks/queries/useDiscover';
 import { resetInfiniteQueryToFirstPage } from '../../query/infiniteQueryPolicy';
 import { queryKeys } from '../../query/queryKeys';
@@ -63,6 +65,7 @@ export function DiscoverScreen({
     const discoverListProps = getListPerformanceProps('twoColumnGrid');
     const discoverQuery = useDiscover({ query: debouncedQuery, limit: 20 }, hasActivated);
     useRefetchOnActiveIfStale(isActive, discoverQuery);
+    const discoverScrollToTop = useScrollToTopButton({ threshold: 360 });
     const users = useMemo(
         () => discoverQuery.data?.pages.flatMap((page) => page.items ?? []) ?? [],
         [discoverQuery.data],
@@ -145,7 +148,8 @@ export function DiscoverScreen({
     }
 
     return (
-        <FlatList
+        <View style={styles.container}>
+            <FlatList
             ref={flatListRef}
             data={users}
             keyExtractor={item => item.id}
@@ -165,6 +169,8 @@ export function DiscoverScreen({
             onEndReachedThreshold={0.4}
             onMomentumScrollBegin={discoverListPagination.onMomentumScrollBegin}
             onScrollBeginDrag={discoverListPagination.onScrollBeginDrag}
+            onScroll={discoverScrollToTop.onScroll}
+            scrollEventThrottle={16}
             ListHeaderComponent={
                 <View style={styles.headerBlock}>
                     <HeroCard
@@ -261,11 +267,16 @@ export function DiscoverScreen({
                     </View>
                 );
             }}
-        />
+            />
+            {discoverScrollToTop.isVisible ? (
+                <ScrollToTopButton onPress={() => flatListRef.current?.scrollToOffset({ offset: 0, animated: true })} />
+            ) : null}
+        </View>
     );
 }
 
 const styles = StyleSheet.create({
+    container: { flex: 1, backgroundColor: Colors.light.background },
     center: {
         flex: 1,
         alignItems: 'center',

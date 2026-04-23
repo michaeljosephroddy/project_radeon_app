@@ -8,10 +8,12 @@ import { Swipeable } from 'react-native-gesture-handler';
 import { Avatar } from '../../components/Avatar';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { SearchBar } from '../../components/ui/SearchBar';
+import { ScrollToTopButton } from '../../components/ui/ScrollToTopButton';
 import * as api from '../../api/client';
 import { useGuardedEndReached } from '../../hooks/useGuardedEndReached';
 import { useLazyActivation } from '../../hooks/useLazyActivation';
 import { useRefetchOnActiveIfStale } from '../../hooks/useRefetchOnActiveIfStale';
+import { useScrollToTopButton } from '../../hooks/useScrollToTopButton';
 import { useChats } from '../../hooks/queries/useChats';
 import { useAuth } from '../../hooks/useAuth';
 import { resetInfiniteQueryToFirstPage } from '../../query/infiniteQueryPolicy';
@@ -134,6 +136,7 @@ export function ChatsScreen({ isActive, onOpenChat }: ChatsScreenProps) {
     const chatsListProps = getListPerformanceProps('chatList');
     const chatsQuery = useChats({ query: debouncedQuery, limit: 20 }, hasActivated);
     useRefetchOnActiveIfStale(isActive, chatsQuery);
+    const chatsScrollToTop = useScrollToTopButton({ threshold: 260 });
     const chats = useMemo(
         () => chatsQuery.data?.pages.flatMap((page) => page.items ?? []) ?? [],
         [chatsQuery.data],
@@ -219,7 +222,8 @@ export function ChatsScreen({ isActive, onOpenChat }: ChatsScreenProps) {
     }
 
     return (
-        <FlatList
+        <View style={styles.container}>
+            <FlatList
             ref={flatListRef}
             data={chats}
             keyExtractor={chat => chat.id}
@@ -237,6 +241,8 @@ export function ChatsScreen({ isActive, onOpenChat }: ChatsScreenProps) {
             onEndReachedThreshold={0.4}
             onMomentumScrollBegin={chatsListPagination.onMomentumScrollBegin}
             onScrollBeginDrag={chatsListPagination.onScrollBeginDrag}
+            onScroll={chatsScrollToTop.onScroll}
+            scrollEventThrottle={16}
             ListHeaderComponent={
                 <>
                     <SearchBar
@@ -266,7 +272,11 @@ export function ChatsScreen({ isActive, onOpenChat }: ChatsScreenProps) {
             }
             ListFooterComponent={chatsQuery.isFetchingNextPage ? <ActivityIndicator style={styles.footerLoader} color={Colors.primary} /> : null}
             renderItem={renderItem}
-        />
+            />
+            {chatsScrollToTop.isVisible ? (
+                <ScrollToTopButton onPress={() => flatListRef.current?.scrollToOffset({ offset: 0, animated: true })} />
+            ) : null}
+        </View>
     );
 }
 
@@ -279,6 +289,7 @@ function areChatItemPropsEqual(prev: ChatItemProps, next: ChatItemProps) {
 }
 
 const styles = StyleSheet.create({
+    container: { flex: 1, backgroundColor: Colors.light.background },
     center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
     list: { padding: Spacing.md, paddingBottom: 32 },
 
