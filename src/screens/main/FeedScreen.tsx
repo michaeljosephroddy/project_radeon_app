@@ -4,6 +4,7 @@ import {
     StyleSheet, RefreshControl, ActivityIndicator, Alert,
     Platform, KeyboardAvoidingView, Keyboard, BackHandler, LayoutAnimation, UIManager,
 } from 'react-native';
+import { useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
@@ -11,7 +12,13 @@ import { Avatar } from '../../components/Avatar';
 import * as api from '../../api/client';
 import { useCreatePostMutation } from '../../hooks/queries/useCreatePostMutation';
 import { useFeed } from '../../hooks/queries/useFeed';
+import { useGuardedEndReached } from '../../hooks/useGuardedEndReached';
+import { useLazyActivation } from '../../hooks/useLazyActivation';
+import { useRefetchOnActiveIfStale } from '../../hooks/useRefetchOnActiveIfStale';
 import { useAuth } from '../../hooks/useAuth';
+import { resetInfiniteQueryToFirstPage } from '../../query/infiniteQueryPolicy';
+import { queryKeys } from '../../query/queryKeys';
+import { getListPerformanceProps } from '../../utils/listPerformance';
 import { Colors, Typography, Spacing, Radii } from '../../utils/theme';
 import { formatUsername } from '../../utils/identity';
 import { formatReadableTimestamp } from '../../utils/date';
@@ -280,7 +287,11 @@ export function FeedScreen({
     const ScreenContainer = Platform.OS === 'ios' ? KeyboardAvoidingView : View;
     const { user } = useAuth();
     const createPostMutation = useCreatePostMutation();
-    const feedQuery = useFeed(20, isActive);
+    const queryClient = useQueryClient();
+    const hasActivated = useLazyActivation(isActive);
+    const feedListProps = getListPerformanceProps('denseFeed');
+    const feedQuery = useFeed(20, hasActivated);
+    useRefetchOnActiveIfStale(isActive, feedQuery);
     const feedPosts = useMemo(
         () => (feedQuery.data?.pages ?? []).flatMap((page: api.CursorResponse<api.Post>) => page.items ?? []),
         [feedQuery.data],
@@ -384,8 +395,9 @@ export function FeedScreen({
     }, [activeCommentPostId, closeActiveCommentComposer]);
 
     const onRefresh = useCallback(async () => {
+        resetInfiniteQueryToFirstPage(queryClient, queryKeys.feed(20));
         await feedQuery.refetch();
-    }, [feedQuery]);
+    }, [feedQuery, queryClient]);
 
     const beginImageUpload = useCallback((image: SelectedPostImage, uploadToken: number): Promise<api.PostImage> => {
         const uploadPromise = api.uploadPostImage({
@@ -571,6 +583,7 @@ export function FeedScreen({
         if (!isActive || !feedQuery.hasNextPage || feedQuery.isFetchingNextPage) return;
         await feedQuery.fetchNextPage();
     }, [feedQuery, isActive]);
+    const feedListPagination = useGuardedEndReached(handleLoadMore);
 
     const loadComments = useCallback(async (postId: string) => {
         setCommentLoadingIds(prev => new Set(prev).add(postId));
@@ -853,15 +866,14 @@ export function FeedScreen({
                 ref={flatListRef}
                 data={posts}
                 keyExtractor={p => p.id}
-                initialNumToRender={6}
-                maxToRenderPerBatch={4}
-                updateCellsBatchingPeriod={80}
-                windowSize={5}
+                {...feedListProps}
                 keyboardShouldPersistTaps="handled"
                 keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
                 refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
-                onEndReached={handleLoadMore}
+                onEndReached={feedListPagination.onEndReached}
                 onEndReachedThreshold={0.4}
+                onMomentumScrollBegin={feedListPagination.onMomentumScrollBegin}
+                onScrollBeginDrag={feedListPagination.onScrollBeginDrag}
                 onScrollToIndexFailed={({ index, averageItemLength }) => {
                     flatListRef.current?.scrollToOffset({
                         offset: Math.max(index * averageItemLength - 120, 0),

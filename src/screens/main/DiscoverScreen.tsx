@@ -1,10 +1,11 @@
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import {
     View,
     Text,
     TouchableOpacity,
     StyleSheet,
     FlatList,
+    ListRenderItemInfo,
     TextInput,
     RefreshControl,
     ActivityIndicator,
@@ -13,8 +14,13 @@ import { InfiniteData, useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 import { Avatar } from '../../components/Avatar';
 import * as api from '../../api/client';
+import { useGuardedEndReached } from '../../hooks/useGuardedEndReached';
+import { useLazyActivation } from '../../hooks/useLazyActivation';
+import { useRefetchOnActiveIfStale } from '../../hooks/useRefetchOnActiveIfStale';
 import { useDiscover } from '../../hooks/queries/useDiscover';
+import { resetInfiniteQueryToFirstPage } from '../../query/infiniteQueryPolicy';
 import { queryKeys } from '../../query/queryKeys';
+import { getListPerformanceProps } from '../../utils/listPerformance';
 import { Colors, Typography, Spacing, Radii } from '../../utils/theme';
 import { formatUsername } from '../../utils/identity';
 
@@ -47,10 +53,14 @@ export function DiscoverScreen({
     onOpenUserProfile,
 }: DiscoverScreenProps) {
     const queryClient = useQueryClient();
+    const flatListRef = useRef<FlatList<api.User> | null>(null);
+    const hasActivated = useLazyActivation(isActive);
     const [query, setQuery] = useState('');
     const [debouncedQuery, setDebouncedQuery] = useState('');
     const [pendingFriendActions, setPendingFriendActions] = useState<Set<string>>(new Set());
-    const discoverQuery = useDiscover({ query: debouncedQuery, limit: 20 }, isActive);
+    const discoverListProps = getListPerformanceProps('twoColumnGrid');
+    const discoverQuery = useDiscover({ query: debouncedQuery, limit: 20 }, hasActivated);
+    useRefetchOnActiveIfStale(isActive, discoverQuery);
     const users = useMemo(
         () => discoverQuery.data?.pages.flatMap((page) => page.items ?? []) ?? [],
         [discoverQuery.data],
@@ -64,6 +74,7 @@ export function DiscoverScreen({
     }, [query]);
 
     const onRefresh = async () => {
+        resetInfiniteQueryToFirstPage(queryClient, queryKeys.discover({ query: debouncedQuery, limit: 20 }));
         await discoverQuery.refetch();
     };
 
@@ -113,6 +124,7 @@ export function DiscoverScreen({
         if (!isActive || discoverQuery.isFetchingNextPage || discoverQuery.isRefetching || discoverQuery.isLoading || !discoverQuery.hasNextPage) return;
         await discoverQuery.fetchNextPage();
     };
+    const discoverListPagination = useGuardedEndReached(handleLoadMore);
 
     // Builds the small result-count label shown above the grid.
     const resultLabel = (() => {
@@ -132,8 +144,10 @@ export function DiscoverScreen({
 
     return (
         <FlatList
+            ref={flatListRef}
             data={users}
             keyExtractor={item => item.id}
+            {...discoverListProps}
             numColumns={2}
             columnWrapperStyle={styles.gridRow}
             contentContainerStyle={styles.list}
@@ -145,8 +159,10 @@ export function DiscoverScreen({
                 />
             }
             keyboardShouldPersistTaps="handled"
-            onEndReached={handleLoadMore}
+            onEndReached={discoverListPagination.onEndReached}
             onEndReachedThreshold={0.4}
+            onMomentumScrollBegin={discoverListPagination.onMomentumScrollBegin}
+            onScrollBeginDrag={discoverListPagination.onScrollBeginDrag}
             ListHeaderComponent={
                 <View style={styles.headerBlock}>
                     <View style={styles.heroCard}>
@@ -189,7 +205,7 @@ export function DiscoverScreen({
                 </View>
             }
             ListFooterComponent={discoverQuery.isFetchingNextPage ? <ActivityIndicator style={styles.footerLoader} color={Colors.primary} /> : null}
-            renderItem={({ item }) => {
+            renderItem={({ item }: ListRenderItemInfo<api.User>) => {
                 const friendshipStatus = item.friendship_status;
                 const pending = pendingFriendActions.has(item.id);
                 const buttonLabel = friendshipStatus === 'friends'

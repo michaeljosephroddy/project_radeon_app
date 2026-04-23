@@ -1,13 +1,17 @@
 import { useInfiniteQuery } from '@tanstack/react-query';
 import * as api from '../../api/client';
+import { getInfiniteQueryPolicy } from '../../query/queryPolicies';
 import { queryKeys } from '../../query/queryKeys';
 
-const DISCOVER_STALE_TIME = 1000 * 60 * 2;
+const DISCOVER_STALE_TIME = 1000 * 60;
 
 export function useDiscover(params: { query?: string; city?: string; limit?: number }, enabled = true) {
     const limit = params.limit ?? 20;
+    const queryKey = queryKeys.discover({ query: params.query, city: params.city, limit });
+    const policy = getInfiniteQueryPolicy(queryKey);
+
     return useInfiniteQuery({
-        queryKey: queryKeys.discover({ query: params.query, city: params.city, limit }),
+        queryKey,
         queryFn: ({ pageParam }) => api.discoverUsers({
             query: params.query,
             city: params.city,
@@ -17,6 +21,7 @@ export function useDiscover(params: { query?: string; city?: string; limit?: num
         initialPageParam: 1,
         getNextPageParam: (lastPage) => lastPage.has_more ? lastPage.page + 1 : undefined,
         staleTime: DISCOVER_STALE_TIME,
+        refetchOnMount: policy?.refetchOnMount,
         enabled,
     });
 }

@@ -21,6 +21,45 @@ interface UseChatThreadControllerParams {
     currentUser?: ChatThreadCurrentUser;
 }
 
+const lastSyncedReadMessageIds = new Map<string, string>();
+
+function updateChatsQueryData(
+    data: InfiniteData<api.PaginatedResponse<api.Chat>> | undefined,
+    chatId: string,
+    updater: (chat: api.Chat) => api.Chat,
+    moveToFront: boolean,
+): InfiniteData<api.PaginatedResponse<api.Chat>> | undefined {
+    if (!data) return data;
+
+    const flattened = data.pages.flatMap((page) => page.items ?? []);
+    const chatIndex = flattened.findIndex((chat) => chat.id === chatId);
+    if (chatIndex === -1) return data;
+
+    const nextChats = [...flattened];
+    const updatedChat = updater(nextChats[chatIndex]);
+    nextChats[chatIndex] = updatedChat;
+
+    if (moveToFront) {
+        nextChats.splice(chatIndex, 1);
+        nextChats.unshift(updatedChat);
+    }
+
+    let cursor = 0;
+    return {
+        ...data,
+        pages: data.pages.map((page) => {
+            const count = page.items?.length ?? 0;
+            const items = nextChats.slice(cursor, cursor + count);
+            cursor += count;
+
+            return {
+                ...page,
+                items,
+            };
+        }),
+    };
+}
+
 function flattenMessages(data?: InfiniteData<api.MessagePage>): api.Message[] {
     const pages = data?.pages ?? [];
     return [...pages]
@@ -60,13 +99,33 @@ export function useChatThreadController({
         [messagesQuery.data],
     );
 
+    const updateChatListEntry = useCallback((
+        updater: (chat: api.Chat) => api.Chat,
+        moveToFront = false,
+    ) => {
+        queryClient.setQueriesData<InfiniteData<api.PaginatedResponse<api.Chat>>>(
+            { queryKey: ['chats'] },
+            (current) => updateChatsQueryData(current, chatId, updater, moveToFront),
+        );
+    }, [chatId, queryClient]);
+
     const syncReadState = useCallback(async (lastReadMessageId?: string) => {
+        if (!lastReadMessageId) return;
+        if (lastSyncedReadMessageIds.get(chatId) === lastReadMessageId) return;
+
         try {
             await api.markChatRead(chatId, lastReadMessageId);
+            lastSyncedReadMessageIds.set(chatId, lastReadMessageId);
+            updateChatListEntry(
+                (chat) => ({
+                    ...chat,
+                    unread_count: 0,
+                }),
+            );
         } catch {
             // Read-state sync is best-effort and should not interrupt the thread UI.
         }
-    }, [chatId]);
+    }, [chatId, updateChatListEntry]);
 
     const markMutation = useCallback((kind: MessageMutation['kind']) => {
         setMutation((prev) => ({ kind, version: prev.version + 1 }));
@@ -106,6 +165,15 @@ export function useChatThreadController({
         };
 
         setSending(true);
+        updateChatListEntry(
+            (chat) => ({
+                ...chat,
+                last_message: body,
+                last_message_at: optimisticMessage.sent_at,
+                unread_count: 0,
+            }),
+            true,
+        );
         updateCachedMessages(
             (current) => [...current, optimisticMessage],
             'append',
@@ -131,7 +199,7 @@ export function useChatThreadController({
         } finally {
             setSending(false);
         }
-    }, [chatId, currentUser, syncReadState, updateCachedMessages]);
+    }, [chatId, currentUser, syncReadState, updateCachedMessages, updateChatListEntry]);
 
     const loadOlderMessages = useCallback(async () => {
         if (!messagesQuery.hasNextPage || messagesQuery.isFetchingNextPage) return;

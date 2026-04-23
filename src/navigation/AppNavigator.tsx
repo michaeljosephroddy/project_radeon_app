@@ -50,8 +50,8 @@ const MeetupsTab = React.memo(function MeetupsTab({ isActive, onOpenUserProfile 
     return <View style={isActive ? styles.tabVisible : styles.tabHidden}><MeetupsScreen isActive={isActive} onOpenUserProfile={onOpenUserProfile} /></View>;
 });
 
-const ChatsTab = React.memo(function ChatsTab({ isActive, refreshKey, onOpenChat }: { isActive: boolean; refreshKey: number; onOpenChat: (c: Chat) => void }) {
-    return <View style={isActive ? styles.tabVisible : styles.tabHidden}><ChatsScreen isActive={isActive} refreshKey={refreshKey} onOpenChat={onOpenChat} /></View>;
+const ChatsTab = React.memo(function ChatsTab({ isActive, onOpenChat }: { isActive: boolean; onOpenChat: (c: Chat) => void }) {
+    return <View style={isActive ? styles.tabVisible : styles.tabHidden}><ChatsScreen isActive={isActive} onOpenChat={onOpenChat} /></View>;
 });
 
 export function AppNavigator() {
@@ -61,7 +61,6 @@ export function AppNavigator() {
     const [openChat, setOpenChat] = useState<Chat | null>(null);
     const [openUserProfile, setOpenUserProfile] = useState<OpenUserProfile | null>(null);
     const [ownProfileOpen, setOwnProfileOpen] = useState(false);
-    const [chatsRefreshKey, setChatsRefreshKey] = useState(0);
     const [keyboardVisible, setKeyboardVisible] = useState(false);
     const [feedFocusRequest, setFeedFocusRequest] = useState<{ postId: string; commentId?: string; nonce: number } | null>(null);
     const insets = useSafeAreaInsets();
@@ -78,7 +77,6 @@ export function AppNavigator() {
 
     const handleCloseChat = useCallback(() => {
         setOpenChat(null);
-        setChatsRefreshKey(current => current + 1);
     }, []);
 
     const closeUserProfile = useCallback(() => {
@@ -230,7 +228,7 @@ export function AppNavigator() {
                     <DiscoverTab isActive={activeTab === 'discover'} onOpenUserProfile={handleOpenUserProfile} />
                     <SupportTab isActive={activeTab === 'support'} onOpenChat={setOpenChat} onOpenUserProfile={handleOpenUserProfile} />
                     <MeetupsTab isActive={activeTab === 'meetups'} onOpenUserProfile={handleOpenUserProfile} />
-                    <ChatsTab isActive={activeTab === 'chats'} refreshKey={chatsRefreshKey} onOpenChat={setOpenChat} />
+                    <ChatsTab isActive={activeTab === 'chats'} onOpenChat={setOpenChat} />
                     {overlays}
                 </View>
 

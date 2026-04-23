@@ -9,6 +9,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { Avatar } from '../../components/Avatar';
 import { SettingsScreen } from './SettingsScreen';
 import * as api from '../../api/client';
+import { useGuardedEndReached } from '../../hooks/useGuardedEndReached';
 import { useInterests } from '../../hooks/queries/useInterests';
 import { useAuth } from '../../hooks/useAuth';
 import { Colors, Typography, Spacing, Radii } from '../../utils/theme';
@@ -346,6 +347,8 @@ export function ProfileTabScreen({ isActive, onOpenUserProfile, onBack }: Profil
             setLoadingMoreOutgoing(false);
         }
     };
+    const friendsListPagination = useGuardedEndReached(handleLoadMoreFriends);
+    const requestsListPagination = useGuardedEndReached(handleLoadMoreRequests);
 
     if (!user) return null;
 
@@ -366,8 +369,10 @@ export function ProfileTabScreen({ isActive, onOpenUserProfile, onBack }: Profil
                 <FlatList
                     data={friends}
                     keyExtractor={item => item.user_id}
-                    onEndReached={handleLoadMoreFriends}
+                    onEndReached={friendsListPagination.onEndReached}
                     onEndReachedThreshold={0.4}
+                    onMomentumScrollBegin={friendsListPagination.onMomentumScrollBegin}
+                    onScrollBeginDrag={friendsListPagination.onScrollBeginDrag}
                     contentContainerStyle={styles.listContent}
                     renderItem={({ item }) => (
                         <View style={styles.row}>
@@ -424,8 +429,10 @@ export function ProfileTabScreen({ isActive, onOpenUserProfile, onBack }: Profil
                     data={requestsSubView === 'incoming' ? incomingRequests : outgoingRequests}
                     key={requestsSubView}
                     keyExtractor={item => `${requestsSubView}-${item.user_id}`}
-                    onEndReached={handleLoadMoreRequests}
+                    onEndReached={requestsListPagination.onEndReached}
                     onEndReachedThreshold={0.4}
+                    onMomentumScrollBegin={requestsListPagination.onMomentumScrollBegin}
+                    onScrollBeginDrag={requestsListPagination.onScrollBeginDrag}
                     contentContainerStyle={styles.listContent}
                     renderItem={({ item }) => {
                         return (

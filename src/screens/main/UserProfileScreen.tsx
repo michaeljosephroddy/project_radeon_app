@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
     View, Text, TouchableOpacity, StyleSheet, Image,
     FlatList, ActivityIndicator, RefreshControl,
@@ -7,8 +7,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Avatar } from '../../components/Avatar';
 import * as api from '../../api/client';
+import { useGuardedEndReached } from '../../hooks/useGuardedEndReached';
 import { useUserProfile } from '../../hooks/queries/useUserProfile';
 import { useUserPosts } from '../../hooks/queries/useUserPosts';
+import { useQueryClient } from '@tanstack/react-query';
+import { resetInfiniteQueryToFirstPage } from '../../query/infiniteQueryPolicy';
+import { queryKeys } from '../../query/queryKeys';
+import { getListPerformanceProps } from '../../utils/listPerformance';
 import { Colors, Typography, Spacing, Radii } from '../../utils/theme';
 import { formatUsername } from '../../utils/identity';
 import { formatRecoveryDuration, formatSobrietyDate, getRecoveryMilestone } from '../../utils/date';
@@ -37,8 +42,11 @@ export function UserProfileScreen({
     userId, username, avatarUrl,
     onBack, onOpenChat,
 }: UserProfileScreenProps) {
+    const flatListRef = useRef<FlatList<api.Post> | null>(null);
+    const queryClient = useQueryClient();
     const profileQuery = useUserProfile(userId);
     const userPostsQuery = useUserPosts(userId);
+    const userPostsListProps = getListPerformanceProps('detailList');
     const [friendActionLoading, setFriendActionLoading] = useState(false);
     const [dmLoading, setDmLoading] = useState(false);
     const profile = profileQuery.data ?? null;
@@ -52,6 +60,7 @@ export function UserProfileScreen({
     const recoveryMilestone = getRecoveryMilestone(profile?.sober_since);
 
     const onRefresh = async () => {
+        resetInfiniteQueryToFirstPage(queryClient, queryKeys.userPosts(userId, 20));
         await Promise.all([
             profileQuery.refetch(),
             userPostsQuery.refetch(),
@@ -120,6 +129,7 @@ export function UserProfileScreen({
         if (loading || refreshing || loadingMorePosts || !postsHasMore) return;
         await userPostsQuery.fetchNextPage();
     };
+    const userPostsPagination = useGuardedEndReached(handleLoadMorePosts);
 
     const ProfileHeader = (
         <View style={styles.profileHeader}>
@@ -206,10 +216,14 @@ export function UserProfileScreen({
             </View>
 
             <FlatList
+                ref={flatListRef}
                 data={posts}
                 keyExtractor={p => p.id}
-                onEndReached={handleLoadMorePosts}
+                {...userPostsListProps}
+                onEndReached={userPostsPagination.onEndReached}
                 onEndReachedThreshold={0.4}
+                onMomentumScrollBegin={userPostsPagination.onMomentumScrollBegin}
+                onScrollBeginDrag={userPostsPagination.onScrollBeginDrag}
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
                 ListHeaderComponent={ProfileHeader}
                 contentContainerStyle={styles.list}

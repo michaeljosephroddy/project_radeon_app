@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import {
     View, Text, FlatList, TouchableOpacity, TextInput,
     StyleSheet, RefreshControl, ActivityIndicator, Alert, ScrollView, Platform,
@@ -7,8 +7,13 @@ import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/dat
 import { useQueryClient } from '@tanstack/react-query';
 import { Avatar } from '../../components/Avatar';
 import * as api from '../../api/client';
+import { useGuardedEndReached } from '../../hooks/useGuardedEndReached';
+import { useLazyActivation } from '../../hooks/useLazyActivation';
+import { useRefetchOnActiveIfStale } from '../../hooks/useRefetchOnActiveIfStale';
 import { useMySupportRequests, useSupportProfile, useSupportRequests } from '../../hooks/queries/useSupport';
+import { resetInfiniteQueryToFirstPage } from '../../query/infiniteQueryPolicy';
 import { queryKeys } from '../../query/queryKeys';
+import { getListPerformanceProps } from '../../utils/listPerformance';
 import { Colors, Typography, Spacing, Radii } from '../../utils/theme';
 import { formatUsername } from '../../utils/identity';
 
@@ -339,6 +344,8 @@ function SupportRequestCard({
 
 export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: SupportScreenProps) {
     const queryClient = useQueryClient();
+    const flatListRef = useRef<FlatList<api.SupportRequest> | null>(null);
+    const hasActivatedOpen = useLazyActivation(isActive);
     const [subView, setSubView] = useState<SupportSubView>('open');
     const [requests, setRequests] = useState<api.SupportRequest[]>([]);
     const [myRequests, setMyRequests] = useState<api.SupportRequest[]>([]);
@@ -363,9 +370,19 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
         audience: 'community' as SupportAudience,
         durationHours: 6,
     });
-    const supportProfileQuery = useSupportProfile(isActive);
-    const openRequestsQuery = useSupportRequests(20, isActive);
-    const myRequestsQuery = useMySupportRequests(20, isActive && subView === 'mine');
+    const [hasActivatedMine, setHasActivatedMine] = useState(false);
+    useEffect(() => {
+        if (isActive && subView === 'mine') {
+            setHasActivatedMine(true);
+        }
+    }, [isActive, subView]);
+    const supportProfileQuery = useSupportProfile(hasActivatedOpen);
+    const supportListProps = getListPerformanceProps('detailList');
+    const openRequestsQuery = useSupportRequests(20, hasActivatedOpen);
+    const myRequestsQuery = useMySupportRequests(20, hasActivatedMine);
+    useRefetchOnActiveIfStale(isActive, supportProfileQuery);
+    useRefetchOnActiveIfStale(isActive && subView === 'open', openRequestsQuery);
+    useRefetchOnActiveIfStale(isActive && subView === 'mine', myRequestsQuery);
     const openRequestItems = useMemo(
         () => openRequestsQuery.data?.pages.flatMap((page) => page.items ?? []) ?? [],
         [openRequestsQuery.data],
@@ -412,10 +429,12 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
     }, [supportProfileQuery.data]);
 
     const refreshOpen = async () => {
+        resetInfiniteQueryToFirstPage(queryClient, queryKeys.supportRequests({ scope: 'open', limit: 20 }));
         await openRequestsQuery.refetch();
     };
 
     const refreshMine = async () => {
+        resetInfiniteQueryToFirstPage(queryClient, queryKeys.supportRequests({ scope: 'mine', limit: 20 }));
         await myRequestsQuery.refetch();
     };
 
@@ -709,6 +728,7 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
         if (openRequestsQuery.isFetchingNextPage || openRequestsQuery.isRefetching || !openHasMore) return;
         await openRequestsQuery.fetchNextPage();
     };
+    const supportListPagination = useGuardedEndReached(handleLoadMore);
 
     const availabilityCard = (
         <View style={styles.availabilityCard}>
@@ -1023,10 +1043,14 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
 
     return (
         <FlatList
+            ref={flatListRef}
             data={data}
             keyExtractor={item => item.id}
-            onEndReached={handleLoadMore}
+            {...supportListProps}
+            onEndReached={supportListPagination.onEndReached}
             onEndReachedThreshold={0.4}
+            onMomentumScrollBegin={supportListPagination.onMomentumScrollBegin}
+            onScrollBeginDrag={supportListPagination.onScrollBeginDrag}
             refreshControl={
                 <RefreshControl
                     refreshing={isMineView

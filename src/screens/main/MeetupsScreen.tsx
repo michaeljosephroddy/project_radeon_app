@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import {
     View, Text, FlatList, TouchableOpacity,
     StyleSheet, RefreshControl, ActivityIndicator, Alert,
@@ -8,8 +8,14 @@ import { InfiniteData, useQueryClient } from '@tanstack/react-query';
 import * as Location from 'expo-location';
 import * as api from '../../api/client';
 import { Avatar } from '../../components/Avatar';
+import { useGuardedEndReached } from '../../hooks/useGuardedEndReached';
+import { useLazyActivation } from '../../hooks/useLazyActivation';
+import { useRefetchOnActiveIfStale } from '../../hooks/useRefetchOnActiveIfStale';
 import { useAuth } from '../../hooks/useAuth';
 import { useMeetups, useMyMeetups } from '../../hooks/queries/useMeetups';
+import { resetInfiniteQueryToFirstPage } from '../../query/infiniteQueryPolicy';
+import { queryKeys } from '../../query/queryKeys';
+import { getListPerformanceProps } from '../../utils/listPerformance';
 import { Colors, Typography, Spacing, Radii } from '../../utils/theme';
 import { MeetupDetailScreen } from './MeetupDetailScreen';
 
@@ -224,6 +230,8 @@ function updateMeetupPages(
 export function MeetupsScreen({ isActive, onOpenUserProfile }: MeetupsScreenProps) {
     const { user } = useAuth();
     const queryClient = useQueryClient();
+    const flatListRef = useRef<FlatList<api.Meetup> | null>(null);
+    const hasActivatedBrowse = useLazyActivation(isActive);
     const [subView, setSubView] = useState<MeetupsSubView>('browse');
     const [selectedMeetupId, setSelectedMeetupId] = useState<string | null>(null);
     const [query, setQuery] = useState('');
@@ -242,12 +250,21 @@ export function MeetupsScreen({ isActive, onOpenUserProfile }: MeetupsScreenProp
         startsAt: '',
         capacity: '',
     });
+    const [hasActivatedMyMeetups, setHasActivatedMyMeetups] = useState(false);
+    useEffect(() => {
+        if (isActive && subView === 'my') {
+            setHasActivatedMyMeetups(true);
+        }
+    }, [isActive, subView]);
+    const meetupsListProps = getListPerformanceProps('detailList');
     const meetupsQuery = useMeetups({
         q: debouncedQuery || undefined,
         city: cityFilter.trim() || undefined,
         limit: 20,
-    }, isActive && cityHydrated);
-    const myMeetupsQuery = useMyMeetups(20, isActive && subView === 'my');
+    }, hasActivatedBrowse && cityHydrated);
+    const myMeetupsQuery = useMyMeetups(20, hasActivatedMyMeetups);
+    useRefetchOnActiveIfStale(isActive && subView === 'browse', meetupsQuery);
+    useRefetchOnActiveIfStale(isActive && subView === 'my', myMeetupsQuery);
     const meetups = useMemo(
         () => flattenMeetupPages(meetupsQuery.data),
         [meetupsQuery.data],
@@ -310,11 +327,17 @@ export function MeetupsScreen({ isActive, onOpenUserProfile }: MeetupsScreenProp
 
     // Refreshes the meetup list for pull-to-refresh.
     const onRefresh = async () => {
+        resetInfiniteQueryToFirstPage(queryClient, queryKeys.meetups({
+            q: debouncedQuery || undefined,
+            city: cityFilter.trim() || undefined,
+            limit: 20,
+        }));
         await meetupsQuery.refetch();
     };
 
     // Refreshes the current user's meetup list.
     const onRefreshMyMeetups = async () => {
+        resetInfiniteQueryToFirstPage(queryClient, queryKeys.myMeetups({ limit: 20 }));
         await myMeetupsQuery.refetch();
     };
 
@@ -330,6 +353,7 @@ export function MeetupsScreen({ isActive, onOpenUserProfile }: MeetupsScreenProp
         if (!isActive || meetupsQuery.isFetchingNextPage || meetupsQuery.isRefetching || !meetupsQuery.hasNextPage) return;
         await meetupsQuery.fetchNextPage();
     };
+    const meetupsListPagination = useGuardedEndReached(handleLoadMore);
 
     // Toggles the current user's RSVP state for a meetup.
     const handleRSVP = async (id: string) => {
@@ -558,10 +582,14 @@ export function MeetupsScreen({ isActive, onOpenUserProfile }: MeetupsScreenProp
     if (subView === 'my') {
         return (
             <FlatList
+                ref={flatListRef}
                 data={myMeetups}
                 keyExtractor={meetup => meetup.id}
-                onEndReached={handleLoadMore}
+                {...meetupsListProps}
+                onEndReached={meetupsListPagination.onEndReached}
                 onEndReachedThreshold={0.4}
+                onMomentumScrollBegin={meetupsListPagination.onMomentumScrollBegin}
+                onScrollBeginDrag={meetupsListPagination.onScrollBeginDrag}
                 refreshControl={
                     <RefreshControl
                         refreshing={myMeetupsQuery.isRefetching && !myMeetupsQuery.isFetchingNextPage}
@@ -623,10 +651,14 @@ export function MeetupsScreen({ isActive, onOpenUserProfile }: MeetupsScreenProp
 
     return (
         <FlatList
+            ref={flatListRef}
             data={meetups}
             keyExtractor={meetup => meetup.id}
-            onEndReached={handleLoadMore}
+            {...meetupsListProps}
+            onEndReached={meetupsListPagination.onEndReached}
             onEndReachedThreshold={0.4}
+            onMomentumScrollBegin={meetupsListPagination.onMomentumScrollBegin}
+            onScrollBeginDrag={meetupsListPagination.onScrollBeginDrag}
             refreshControl={
                 <RefreshControl
                     refreshing={meetupsQuery.isRefetching && !meetupsQuery.isFetchingNextPage}

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import {
     View, Text, FlatList, TouchableOpacity,
     StyleSheet, RefreshControl, ActivityIndicator, TextInput, Alert,
@@ -7,9 +7,14 @@ import { InfiniteData, useQueryClient } from '@tanstack/react-query';
 import { Swipeable } from 'react-native-gesture-handler';
 import { Avatar } from '../../components/Avatar';
 import * as api from '../../api/client';
+import { useGuardedEndReached } from '../../hooks/useGuardedEndReached';
+import { useLazyActivation } from '../../hooks/useLazyActivation';
+import { useRefetchOnActiveIfStale } from '../../hooks/useRefetchOnActiveIfStale';
 import { useChats } from '../../hooks/queries/useChats';
 import { useAuth } from '../../hooks/useAuth';
+import { resetInfiniteQueryToFirstPage } from '../../query/infiniteQueryPolicy';
 import { queryKeys } from '../../query/queryKeys';
+import { getListPerformanceProps } from '../../utils/listPerformance';
 import { Colors, Typography, Spacing, Radii } from '../../utils/theme';
 import { formatUsername } from '../../utils/identity';
 
@@ -30,7 +35,6 @@ function timeLabel(dateStr?: string): string {
 
 interface ChatsScreenProps {
     isActive: boolean;
-    refreshKey: number;
     onOpenChat: (chat: api.Chat) => void;
 }
 
@@ -117,14 +121,17 @@ const ChatItem = React.memo(function ChatItem({ item, currentUserId, onOpenChat,
 }, areChatItemPropsEqual);
 
 // Renders the chats tab and refreshes chat summaries when needed.
-export function ChatsScreen({ isActive, refreshKey, onOpenChat }: ChatsScreenProps) {
+export function ChatsScreen({ isActive, onOpenChat }: ChatsScreenProps) {
     const { user } = useAuth();
     const queryClient = useQueryClient();
+    const flatListRef = useRef<FlatList<api.Chat> | null>(null);
+    const hasActivated = useLazyActivation(isActive);
     const [query, setQuery] = useState('');
     const [debouncedQuery, setDebouncedQuery] = useState('');
     const [pendingDeleteIds, setPendingDeleteIds] = useState<Set<string>>(new Set());
-    const [lastRefreshKey, setLastRefreshKey] = useState(refreshKey);
-    const chatsQuery = useChats({ query: debouncedQuery, limit: 20 }, isActive);
+    const chatsListProps = getListPerformanceProps('chatList');
+    const chatsQuery = useChats({ query: debouncedQuery, limit: 20 }, hasActivated);
+    useRefetchOnActiveIfStale(isActive, chatsQuery);
     const chats = useMemo(
         () => chatsQuery.data?.pages.flatMap((page) => page.items ?? []) ?? [],
         [chatsQuery.data],
@@ -135,17 +142,9 @@ export function ChatsScreen({ isActive, refreshKey, onOpenChat }: ChatsScreenPro
         return () => clearTimeout(timer);
     }, [query]);
 
-    useEffect(() => {
-        // The parent increments refreshKey when a conversation closes so the chat
-        // list can refresh previews without remounting the whole tab.
-        if (isActive && refreshKey !== lastRefreshKey) {
-            setLastRefreshKey(refreshKey);
-            void chatsQuery.refetch();
-        }
-    }, [chatsQuery, isActive, lastRefreshKey, refreshKey]);
-
     // Refreshes the chat list for pull-to-refresh.
     const onRefresh = async () => {
+        resetInfiniteQueryToFirstPage(queryClient, queryKeys.chats({ query: debouncedQuery, limit: 20 }));
         await chatsQuery.refetch();
     };
 
@@ -155,6 +154,7 @@ export function ChatsScreen({ isActive, refreshKey, onOpenChat }: ChatsScreenPro
         if (!isActive || chatsQuery.isLoading || chatsQuery.isRefetching || chatsQuery.isFetchingNextPage || !chatsQuery.hasNextPage) return;
         await chatsQuery.fetchNextPage();
     };
+    const chatsListPagination = useGuardedEndReached(onEndReached);
 
     const handleDeleteChat = useCallback((chat: api.Chat) => {
         const title = chat.is_group ? 'Leave this group?' : 'Delete this chat?';
@@ -218,12 +218,10 @@ export function ChatsScreen({ isActive, refreshKey, onOpenChat }: ChatsScreenPro
 
     return (
         <FlatList
+            ref={flatListRef}
             data={chats}
             keyExtractor={chat => chat.id}
-            initialNumToRender={10}
-            maxToRenderPerBatch={8}
-            updateCellsBatchingPeriod={60}
-            windowSize={8}
+            {...chatsListProps}
             refreshControl={
                 <RefreshControl
                     refreshing={chatsQuery.isRefetching && !chatsQuery.isFetchingNextPage}
@@ -233,8 +231,10 @@ export function ChatsScreen({ isActive, refreshKey, onOpenChat }: ChatsScreenPro
             }
             contentContainerStyle={styles.list}
             keyboardShouldPersistTaps="handled"
-            onEndReached={onEndReached}
+            onEndReached={chatsListPagination.onEndReached}
             onEndReachedThreshold={0.4}
+            onMomentumScrollBegin={chatsListPagination.onMomentumScrollBegin}
+            onScrollBeginDrag={chatsListPagination.onScrollBeginDrag}
             ListHeaderComponent={
                 <>
                     <View style={styles.searchBar}>
