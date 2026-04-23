@@ -2,12 +2,18 @@ import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import {
     View, Text, FlatList, TouchableOpacity,
     StyleSheet, RefreshControl, ActivityIndicator, Alert,
-    TextInput, KeyboardAvoidingView, Platform, ScrollView,
+    KeyboardAvoidingView, Platform, ScrollView,
 } from 'react-native';
 import { InfiniteData, useQueryClient } from '@tanstack/react-query';
 import * as Location from 'expo-location';
 import * as api from '../../api/client';
 import { Avatar } from '../../components/Avatar';
+import { EmptyState } from '../../components/ui/EmptyState';
+import { HeroCard } from '../../components/ui/HeroCard';
+import { PrimaryButton } from '../../components/ui/PrimaryButton';
+import { SearchBar } from '../../components/ui/SearchBar';
+import { SegmentedControl } from '../../components/ui/SegmentedControl';
+import { TextField } from '../../components/ui/TextField';
 import { useGuardedEndReached } from '../../hooks/useGuardedEndReached';
 import { useLazyActivation } from '../../hooks/useLazyActivation';
 import { useRefetchOnActiveIfStale } from '../../hooks/useRefetchOnActiveIfStale';
@@ -489,101 +495,86 @@ export function MeetupsScreen({ isActive, onOpenUserProfile }: MeetupsScreenProp
                 behavior={Platform.OS === 'ios' ? 'padding' : undefined}
             >
                 <ScrollView contentContainerStyle={styles.formContent} keyboardShouldPersistTaps="handled">
-                    <View style={styles.segmentRow}>
-                        <TouchableOpacity style={styles.segmentButton} onPress={() => setSubView('browse')}>
-                            <Text style={styles.segmentLabel}>Browse</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity style={styles.segmentButton} onPress={() => setSubView('my')}>
-                            <Text style={styles.segmentLabel}>My Meetups</Text>
-                        </TouchableOpacity>
-                        <View style={[styles.segmentButton, styles.segmentButtonActive]}>
-                            <Text style={[styles.segmentLabel, styles.segmentLabelActive]}>Create</Text>
-                        </View>
-                    </View>
+                    <SegmentedControl
+                        activeKey="create"
+                        onChange={(key) => setSubView(key as MeetupsSubView)}
+                        items={[
+                            { key: 'browse', label: 'Browse' },
+                            { key: 'my', label: 'My Meetups' },
+                            { key: 'create', label: 'Create' },
+                        ]}
+                    />
 
-                    <View style={styles.heroCard}>
-                        <Text style={styles.heroEyebrow}>CREATE</Text>
-                        <Text style={styles.heroTitle}>Start a meetup in your city.</Text>
-                        <Text style={styles.heroText}>
-                            Add the essentials so people know what to expect.
-                        </Text>
-                    </View>
+                    <HeroCard
+                        eyebrow="CREATE"
+                        title="Start a meetup in your city."
+                        description="Add the essentials so people know what to expect."
+                        style={styles.headerCard}
+                    />
 
                     <Text style={styles.label}>Title</Text>
-                    <TextInput
-                        style={styles.input}
+                    <TextField
                         value={form.title}
                         onChangeText={setField('title')}
                         placeholder="Friday coffee meetup"
-                        placeholderTextColor={Colors.light.textTertiary}
                     />
 
                     <Text style={styles.label}>Description</Text>
-                    <TextInput
-                        style={[styles.input, styles.inputMultiline]}
+                    <TextField
+                        style={styles.inputMultiline}
                         value={form.description}
                         onChangeText={setField('description')}
                         placeholder="Optional details about the meetup"
-                        placeholderTextColor={Colors.light.textTertiary}
                         multiline
                     />
 
                     <Text style={styles.label}>City</Text>
-                    <TextInput
-                        style={styles.input}
+                    <TextField
                         value={form.city}
                         onChangeText={setField('city')}
                         placeholder="Dublin"
-                        placeholderTextColor={Colors.light.textTertiary}
                     />
 
                     <Text style={styles.label}>Starts</Text>
                     <View style={styles.dateTimeRow}>
                         <View style={styles.dateTimeField}>
                             <Text style={styles.fieldHint}>Date</Text>
-                            <TextInput
-                                style={styles.input}
+                            <TextField
                                 value={form.startsOn}
                                 onChangeText={setField('startsOn')}
                                 placeholder="2026-05-01"
-                                placeholderTextColor={Colors.light.textTertiary}
                                 keyboardType="numbers-and-punctuation"
                             />
                         </View>
                         <View style={styles.dateTimeField}>
                             <Text style={styles.fieldHint}>Time (24hr local time)</Text>
-                            <TextInput
-                                style={styles.input}
+                            <TextField
                                 value={form.startsAt}
                                 onChangeText={setField('startsAt')}
                                 placeholder="19:30"
-                                placeholderTextColor={Colors.light.textTertiary}
                                 keyboardType="numbers-and-punctuation"
                             />
                         </View>
                     </View>
                     <Text style={styles.label}>Capacity</Text>
-                    <TextInput
-                        style={styles.input}
+                    <TextField
                         value={form.capacity}
                         onChangeText={setField('capacity')}
                         placeholder="Optional"
-                        placeholderTextColor={Colors.light.textTertiary}
                         keyboardType="number-pad"
                     />
 
                     {!!submitError && <Text style={styles.errorText}>{submitError}</Text>}
                     {!!successMessage && <Text style={styles.successText}>{successMessage}</Text>}
 
-                    <TouchableOpacity
-                        style={[styles.primaryButton, submitting && styles.buttonDisabled]}
+                    <PrimaryButton
+                        label="Create Meetup"
                         onPress={handleCreateMeetup}
                         disabled={submitting}
-                    >
-                        {submitting
-                            ? <ActivityIndicator color={Colors.textOn.primary} />
-                            : <Text style={styles.primaryButtonText}>Create Meetup</Text>}
-                    </TouchableOpacity>
+                        loading={submitting}
+                        variant="success"
+                        style={styles.primaryButton}
+                    />
                 </ScrollView>
             </KeyboardAvoidingView>
         );
@@ -610,25 +601,22 @@ export function MeetupsScreen({ isActive, onOpenUserProfile }: MeetupsScreenProp
                 contentContainerStyle={styles.list}
                 ListHeaderComponent={
                     <>
-                        <View style={styles.segmentRow}>
-                            <TouchableOpacity style={styles.segmentButton} onPress={() => setSubView('browse')}>
-                                <Text style={styles.segmentLabel}>Browse</Text>
-                            </TouchableOpacity>
-                            <View style={[styles.segmentButton, styles.segmentButtonActive]}>
-                                <Text style={[styles.segmentLabel, styles.segmentLabelActive]}>My Meetups</Text>
-                            </View>
-                            <TouchableOpacity style={styles.segmentButton} onPress={() => setSubView('create')}>
-                                <Text style={styles.segmentLabel}>Create</Text>
-                            </TouchableOpacity>
-                        </View>
+                        <SegmentedControl
+                            activeKey="my"
+                            onChange={(key) => setSubView(key as MeetupsSubView)}
+                            items={[
+                                { key: 'browse', label: 'Browse' },
+                                { key: 'my', label: 'My Meetups' },
+                                { key: 'create', label: 'Create' },
+                            ]}
+                        />
 
-                        <View style={styles.heroCard}>
-                            <Text style={styles.heroEyebrow}>HOSTING</Text>
-                            <Text style={styles.heroTitle}>Meetups you've created.</Text>
-                            <Text style={styles.heroText}>
-                                New meetups appear here immediately after creation and stay in sync with the public list.
-                            </Text>
-                        </View>
+                        <HeroCard
+                            eyebrow="HOSTING"
+                            title="Meetups you've created."
+                            description="New meetups appear here immediately after creation and stay in sync with the public list."
+                            style={styles.headerCard}
+                        />
 
                         {!!successMessage && <Text style={styles.successTextInline}>{successMessage}</Text>}
                     </>
@@ -639,10 +627,10 @@ export function MeetupsScreen({ isActive, onOpenUserProfile }: MeetupsScreenProp
                             <ActivityIndicator color={Colors.primary} />
                         </View>
                     ) : (
-                        <View style={styles.empty}>
-                            <Text style={styles.emptyText}>No meetups created yet.</Text>
-                            <Text style={styles.emptySubtext}>Create one to see it here right away.</Text>
-                        </View>
+                        <EmptyState
+                            title="No meetups created yet."
+                            description="Create one to see it here right away."
+                        />
                     )
                 }
                 renderItem={({ item }) => (
@@ -680,50 +668,45 @@ export function MeetupsScreen({ isActive, onOpenUserProfile }: MeetupsScreenProp
             keyboardShouldPersistTaps="handled"
             ListHeaderComponent={
                 <>
-                    <View style={styles.segmentRow}>
-                        <View style={[styles.segmentButton, styles.segmentButtonActive]}>
-                            <Text style={[styles.segmentLabel, styles.segmentLabelActive]}>Browse</Text>
-                        </View>
-                        <TouchableOpacity style={styles.segmentButton} onPress={() => setSubView('my')}>
-                            <Text style={styles.segmentLabel}>My Meetups</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity style={styles.segmentButton} onPress={() => setSubView('create')}>
-                            <Text style={styles.segmentLabel}>Create</Text>
-                        </TouchableOpacity>
-                    </View>
+                    <SegmentedControl
+                        activeKey="browse"
+                        onChange={(key) => setSubView(key as MeetupsSubView)}
+                        items={[
+                            { key: 'browse', label: 'Browse' },
+                            { key: 'my', label: 'My Meetups' },
+                            { key: 'create', label: 'Create' },
+                        ]}
+                    />
 
-                    <View style={styles.heroCard}>
-                        <Text style={styles.heroEyebrow}>MEETUPS</Text>
-                        <Text style={styles.heroTitle}>Find local sober events.</Text>
-                        <Text style={styles.heroText}>
-                            Browse public meetups, RSVP from the list, or create your own.
-                        </Text>
-                    </View>
+                    <HeroCard
+                        eyebrow="MEETUPS"
+                        title="Find local sober events."
+                        description="Browse public meetups, RSVP from the list, or create your own."
+                        style={styles.headerCard}
+                    />
 
-                    <View style={styles.searchBar}>
-                        <TextInput
-                            style={styles.searchInput}
-                            value={query}
-                            onChangeText={setQuery}
-                            placeholder="Search events..."
-                            placeholderTextColor={Colors.light.textTertiary}
-                            returnKeyType="search"
-                            onSubmitEditing={handleApplySearch}
-                        />
-                        <View style={styles.searchDivider} />
-                        <TextInput
-                            style={styles.locationInput}
-                            value={cityFilter}
-                            onChangeText={setCityFilter}
-                            placeholder="Your town"
-                            placeholderTextColor={Colors.light.textTertiary}
-                            returnKeyType="search"
-                            onSubmitEditing={handleApplySearch}
-                        />
-                        <TouchableOpacity style={styles.searchButton} onPress={handleApplySearch}>
-                            <Text style={styles.searchButtonIcon}>⌕</Text>
-                        </TouchableOpacity>
-                    </View>
+                    <SearchBar
+                        style={styles.searchBar}
+                        variant="pill"
+                        primaryField={{
+                            value: query,
+                            onChangeText: setQuery,
+                            placeholder: 'Search events...',
+                            returnKeyType: 'search',
+                            onSubmitEditing: handleApplySearch,
+                            flex: 1.2,
+                        }}
+                        secondaryField={{
+                            value: cityFilter,
+                            onChangeText: setCityFilter,
+                            placeholder: 'Your town',
+                            returnKeyType: 'search',
+                            onSubmitEditing: handleApplySearch,
+                            flex: 1,
+                        }}
+                        actionLabel="⌕"
+                        onActionPress={handleApplySearch}
+                    />
                 </>
             }
             ListEmptyComponent={
@@ -732,10 +715,10 @@ export function MeetupsScreen({ isActive, onOpenUserProfile }: MeetupsScreenProp
                         <ActivityIndicator color={Colors.primary} />
                     </View>
                 ) : (
-                    <View style={styles.empty}>
-                        <Text style={styles.emptyText}>No upcoming meetups.</Text>
-                        <Text style={styles.emptySubtext}>Be the first to create one in your city.</Text>
-                    </View>
+                    <EmptyState
+                        title="No upcoming meetups."
+                        description="Be the first to create one in your city."
+                    />
                 )
             }
             renderItem={({ item }) => (
@@ -757,100 +740,9 @@ const styles = StyleSheet.create({
     list: { padding: Spacing.md, paddingBottom: 32 },
     footerLoader: { paddingVertical: Spacing.md },
     formContent: { padding: Spacing.md, paddingBottom: 40 },
-
-    segmentRow: {
-        flexDirection: 'row',
-        gap: Spacing.sm,
-        marginBottom: Spacing.md,
-    },
-    segmentButton: {
-        flex: 1,
-        borderWidth: 1,
-        borderColor: Colors.light.border,
-        borderRadius: Radii.full,
-        paddingVertical: 10,
-        alignItems: 'center',
-        backgroundColor: Colors.light.backgroundSecondary,
-    },
-    segmentButtonActive: {
-        backgroundColor: Colors.primary,
-        borderColor: Colors.primary,
-    },
-    segmentLabel: {
-        fontSize: Typography.sizes.sm,
-        fontWeight: '600',
-        color: Colors.light.textSecondary,
-    },
-    segmentLabelActive: { color: Colors.textOn.primary },
+    headerCard: { marginBottom: Spacing.md },
     searchBar: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: Colors.light.background,
-        borderRadius: Radii.full,
-        borderWidth: 1,
-        borderColor: Colors.light.border,
-        paddingLeft: Spacing.md,
-        paddingRight: 6,
-        paddingVertical: 6,
         marginBottom: Spacing.md,
-    },
-    searchInput: {
-        flex: 1.2,
-        fontSize: Typography.sizes.sm,
-        color: Colors.light.textPrimary,
-        paddingVertical: 6,
-    },
-    searchDivider: {
-        width: 1,
-        alignSelf: 'stretch',
-        backgroundColor: Colors.light.border,
-        marginHorizontal: Spacing.sm,
-    },
-    locationInput: {
-        flex: 1,
-        fontSize: Typography.sizes.sm,
-        color: Colors.light.textPrimary,
-        paddingVertical: 6,
-    },
-    searchButton: {
-        width: 38,
-        height: 38,
-        borderRadius: 19,
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: Colors.light.textPrimary,
-        marginLeft: Spacing.sm,
-    },
-    searchButtonIcon: {
-        fontSize: 18,
-        color: Colors.light.background,
-    },
-
-    heroCard: {
-        backgroundColor: Colors.light.backgroundSecondary,
-        borderRadius: Radii.lg,
-        borderWidth: 1,
-        borderColor: Colors.light.border,
-        padding: Spacing.lg,
-        marginBottom: Spacing.md,
-    },
-    heroEyebrow: {
-        fontSize: Typography.sizes.xs,
-        fontWeight: '700',
-        color: Colors.primary,
-        letterSpacing: 0.8,
-        marginBottom: 6,
-    },
-    heroTitle: {
-        fontSize: Typography.sizes.xl,
-        fontWeight: '600',
-        color: Colors.light.textPrimary,
-    },
-    heroText: {
-        fontSize: Typography.sizes.sm,
-        color: Colors.light.textSecondary,
-        lineHeight: 19,
-        marginTop: Spacing.sm,
     },
 
     cardBody: { flex: 1 },
@@ -944,16 +836,6 @@ const styles = StyleSheet.create({
         color: Colors.light.textTertiary,
         marginBottom: 6,
     },
-    input: {
-        backgroundColor: Colors.light.backgroundSecondary,
-        borderRadius: Radii.md,
-        paddingHorizontal: Spacing.md,
-        paddingVertical: 13,
-        fontSize: Typography.sizes.md,
-        color: Colors.light.textPrimary,
-        borderWidth: 0.5,
-        borderColor: Colors.light.border,
-    },
     inputMultiline: {
         minHeight: 110,
         textAlignVertical: 'top',
@@ -978,21 +860,5 @@ const styles = StyleSheet.create({
         fontSize: Typography.sizes.sm,
         marginBottom: Spacing.md,
     },
-    primaryButton: {
-        backgroundColor: Colors.success,
-        borderRadius: Radii.md,
-        paddingVertical: 14,
-        alignItems: 'center',
-        marginTop: Spacing.lg,
-    },
-    primaryButtonText: {
-        color: Colors.textOn.primary,
-        fontWeight: '600',
-        fontSize: Typography.sizes.md,
-    },
-    buttonDisabled: { opacity: 0.6 },
-
-    empty: { alignItems: 'center', paddingTop: 60 },
-    emptyText: { fontSize: Typography.sizes.lg, fontWeight: '500', color: Colors.light.textPrimary },
-    emptySubtext: { fontSize: Typography.sizes.base, color: Colors.light.textTertiary, marginTop: Spacing.sm, textAlign: 'center' },
+    primaryButton: { marginTop: Spacing.lg },
 });

@@ -5,6 +5,9 @@ import {
 } from 'react-native';
 import * as api from '../../api/client';
 import { Avatar } from '../../components/Avatar';
+import { HeroCard } from '../../components/ui/HeroCard';
+import { PrimaryButton } from '../../components/ui/PrimaryButton';
+import { SurfaceCard } from '../../components/ui/SurfaceCard';
 import { Colors, Typography, Spacing, Radii } from '../../utils/theme';
 
 function formatMeetupDate(dateStr: string) {
@@ -84,37 +87,39 @@ export function MeetupDetailScreen({
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.heroCard}>
-          <Text style={styles.eyebrow}>EVENT</Text>
-          <Text style={styles.title}>{meetup.title}</Text>
+        <HeroCard
+          eyebrow="EVENT"
+          title={meetup.title}
+          description=""
+          style={styles.heroCard}
+          titleStyle={styles.title}
+        />
+        <View style={styles.heroMetaBlock}>
           <Text style={styles.meta}>{weekday}, {fullDate}</Text>
           <Text style={styles.meta}>{time} · {meetup.city}</Text>
           <Text style={styles.meta}>
             {meetup.capacity ? `${meetup.attendee_count}/${meetup.capacity} going` : `${meetup.attendee_count} going`}
             {meetup.is_attending ? ' · You are attending' : ''}
           </Text>
-
-          <TouchableOpacity
+          <PrimaryButton
+            label={rsvpPending ? 'Updating...' : buttonLabel}
+            onPress={() => onToggleRSVP(meetup.id)}
+            disabled={rsvpPending}
             style={[
               styles.primaryButton,
               meetup.is_attending && styles.primaryButtonActive,
               rsvpPending && styles.primaryButtonDisabled,
             ]}
-            onPress={() => onToggleRSVP(meetup.id)}
-            disabled={rsvpPending}
-          >
-            <Text style={[styles.primaryButtonText, meetup.is_attending && styles.primaryButtonTextActive]}>
-              {rsvpPending ? 'Updating...' : buttonLabel}
-            </Text>
-          </TouchableOpacity>
+            textStyle={meetup.is_attending ? styles.primaryButtonTextActive : undefined}
+          />
         </View>
 
         {!!meetup.description && (
           <>
             <Text style={styles.sectionLabel}>ABOUT</Text>
-            <View style={styles.sectionCard}>
+            <SurfaceCard style={styles.sectionCard}>
               <Text style={styles.bodyText}>{meetup.description}</Text>
-            </View>
+            </SurfaceCard>
           </>
         )}
 
@@ -133,7 +138,7 @@ export function MeetupDetailScreen({
             </TouchableOpacity>
           )}
         </View>
-        <View style={styles.sectionCard}>
+        <SurfaceCard style={styles.sectionCard}>
           {loadingAttendees ? (
             <ActivityIndicator color={Colors.primary} />
           ) : attendeesError ? (
@@ -225,7 +230,7 @@ export function MeetupDetailScreen({
               )}
             </>
           )}
-        </View>
+        </SurfaceCard>
       </ScrollView>
     </View>
   );
@@ -253,24 +258,21 @@ const styles = StyleSheet.create({
     padding: Spacing.md,
     paddingBottom: 40,
   },
-  heroCard: {
-    backgroundColor: Colors.light.backgroundSecondary,
-    borderRadius: Radii.lg,
-    borderWidth: 1,
-    borderColor: Colors.light.border,
-    padding: Spacing.lg,
-  },
-  eyebrow: {
-    fontSize: Typography.sizes.xs,
-    fontWeight: '700',
-    color: Colors.primary,
-    letterSpacing: 0.8,
-    marginBottom: 6,
-  },
+  heroCard: { marginBottom: 0 },
   title: {
     fontSize: Typography.sizes.xl,
     fontWeight: '700',
     color: Colors.light.textPrimary,
+  },
+  heroMetaBlock: {
+    backgroundColor: Colors.light.backgroundSecondary,
+    borderBottomLeftRadius: Radii.lg,
+    borderBottomRightRadius: Radii.lg,
+    borderWidth: 1,
+    borderTopWidth: 0,
+    borderColor: Colors.light.border,
+    paddingHorizontal: Spacing.lg,
+    paddingBottom: Spacing.lg,
   },
   meta: {
     fontSize: Typography.sizes.sm,
@@ -290,11 +292,6 @@ const styles = StyleSheet.create({
     borderColor: Colors.success,
   },
   primaryButtonDisabled: { opacity: 0.6 },
-  primaryButtonText: {
-    fontSize: Typography.sizes.base,
-    fontWeight: '600',
-    color: Colors.textOn.primary,
-  },
   primaryButtonTextActive: {
     color: Colors.success,
   },
@@ -311,13 +308,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: Colors.light.textPrimary,
   },
-  sectionCard: {
-    backgroundColor: Colors.light.backgroundSecondary,
-    borderRadius: Radii.md,
-    borderWidth: 1,
-    borderColor: Colors.light.border,
-    padding: Spacing.md,
-  },
+  sectionCard: { padding: Spacing.md },
   bodyText: {
     fontSize: Typography.sizes.base,
     lineHeight: 22,

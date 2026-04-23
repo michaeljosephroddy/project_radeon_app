@@ -6,6 +6,11 @@ import {
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { useQueryClient } from '@tanstack/react-query';
 import { Avatar } from '../../components/Avatar';
+import { EmptyState } from '../../components/ui/EmptyState';
+import { HeroCard } from '../../components/ui/HeroCard';
+import { PrimaryButton } from '../../components/ui/PrimaryButton';
+import { SegmentedControl } from '../../components/ui/SegmentedControl';
+import { TextField } from '../../components/ui/TextField';
 import * as api from '../../api/client';
 import { useGuardedEndReached } from '../../hooks/useGuardedEndReached';
 import { useLazyActivation } from '../../hooks/useLazyActivation';
@@ -827,24 +832,23 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
 
         return (
             <ScrollView contentContainerStyle={styles.list}>
-                <View style={styles.segmentRow}>
-                    <TouchableOpacity style={styles.segmentButton} onPress={closeCheckInLaterComposer}>
-                        <Text style={styles.segmentLabel}>Back</Text>
-                    </TouchableOpacity>
-                    <View style={[styles.segmentButton, styles.segmentButtonActive, styles.fullWidthSegment]}>
-                        <Text style={[styles.segmentLabel, styles.segmentLabelActive]}>Check in later</Text>
-                    </View>
-                </View>
+                <SegmentedControl
+                    activeKey="check-in"
+                    onChange={(key) => {
+                        if (key === 'back') closeCheckInLaterComposer();
+                    }}
+                    items={[
+                        { key: 'back', label: 'Back' },
+                        { key: 'check-in', label: 'Check in later', flex: 2 },
+                    ]}
+                />
 
-                <View style={styles.heroCard}>
-                    <Text style={styles.heroEyebrow}>CHECK IN LATER</Text>
-                    <Text style={styles.heroTitle}>
-                        Follow up with {formatUsername(pendingCheckInDraft.requesterName)}
-                    </Text>
-                    <Text style={styles.heroText}>
-                        Choose the date and time and the app will send a formatted check-in message for you.
-                    </Text>
-                </View>
+                <HeroCard
+                    eyebrow="CHECK IN LATER"
+                    title={`Follow up with ${formatUsername(pendingCheckInDraft.requesterName)}`}
+                    description="Choose the date and time and the app will send a formatted check-in message for you."
+                    style={styles.headerCard}
+                />
 
                 <Text style={styles.formLabel}>Choose date and time</Text>
                 <View style={styles.datePickerCard}>
@@ -959,23 +963,22 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
     if (subView === 'create') {
         return (
             <ScrollView contentContainerStyle={styles.list}>
-                <View style={styles.segmentRow}>
-                    <TouchableOpacity style={styles.segmentButton} onPress={() => setSubView('open')}>
-                        <Text style={styles.segmentLabel}>Open</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={styles.segmentButton} onPress={() => setSubView('mine')}>
-                        <Text style={styles.segmentLabel}>My requests</Text>
-                    </TouchableOpacity>
-                    <View style={[styles.segmentButton, styles.segmentButtonActive]}>
-                        <Text style={[styles.segmentLabel, styles.segmentLabelActive]}>Create</Text>
-                    </View>
-                </View>
+                <SegmentedControl
+                    activeKey="create"
+                    onChange={(key) => setSubView(key as SupportSubView)}
+                    items={[
+                        { key: 'open', label: 'Open' },
+                        { key: 'mine', label: 'My requests' },
+                        { key: 'create', label: 'Create' },
+                    ]}
+                />
 
-                <View style={styles.heroCard}>
-                    <Text style={styles.heroEyebrow}>SUPPORT</Text>
-                    <Text style={styles.heroTitle}>Ask the community for support.</Text>
-                    <Text style={styles.heroText}>Keep it short so people know how to show up for you.</Text>
-                </View>
+                <HeroCard
+                    eyebrow="SUPPORT"
+                    title="Ask the community for support."
+                    description="Keep it short so people know how to show up for you."
+                    style={styles.headerCard}
+                />
 
                 <Text style={styles.formLabel}>What do you need?</Text>
                 <View style={styles.selectorWrap}>
@@ -992,12 +995,11 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
                     ))}
                 </View>
 
-                <TextInput
-                    style={[styles.input, styles.inputMultiline]}
+                <TextField
+                    style={[styles.formInput, styles.inputMultiline]}
                     value={form.message}
                     onChangeText={message => setForm(prev => ({ ...prev, message }))}
                     placeholder="Optional note"
-                    placeholderTextColor={Colors.light.textTertiary}
                     multiline
                 />
 
@@ -1031,9 +1033,14 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
                     ))}
                 </View>
 
-                <TouchableOpacity style={[styles.submitButton, submitting && styles.actionDisabled]} onPress={handleCreate} disabled={submitting}>
-                    {submitting ? <ActivityIndicator color={Colors.textOn.primary} /> : <Text style={styles.submitButtonText}>Post support request</Text>}
-                </TouchableOpacity>
+                <PrimaryButton
+                    label="Post support request"
+                    onPress={handleCreate}
+                    disabled={submitting}
+                    loading={submitting}
+                    variant="success"
+                    style={styles.submitButton}
+                />
             </ScrollView>
         );
     }
@@ -1063,27 +1070,24 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
             contentContainerStyle={styles.list}
             ListHeaderComponent={
                 <>
-                    <View style={styles.segmentRow}>
-                        <TouchableOpacity style={[styles.segmentButton, !isMineView && styles.segmentButtonActive]} onPress={() => setSubView('open')}>
-                            <Text style={[styles.segmentLabel, !isMineView && styles.segmentLabelActive]}>Open</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity style={[styles.segmentButton, isMineView && styles.segmentButtonActive]} onPress={() => setSubView('mine')}>
-                            <Text style={[styles.segmentLabel, isMineView && styles.segmentLabelActive]}>My requests</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity style={styles.segmentButton} onPress={() => setSubView('create')}>
-                            <Text style={styles.segmentLabel}>Create</Text>
-                        </TouchableOpacity>
-                    </View>
+                    <SegmentedControl
+                        activeKey={isMineView ? 'mine' : 'open'}
+                        onChange={(key) => setSubView(key as SupportSubView)}
+                        items={[
+                            { key: 'open', label: 'Open' },
+                            { key: 'mine', label: 'My requests' },
+                            { key: 'create', label: 'Create' },
+                        ]}
+                    />
 
-                    <View style={styles.heroCard}>
-                        <Text style={styles.heroEyebrow}>SUPPORT</Text>
-                        <Text style={styles.heroTitle}>{isMineView ? 'Requests you created.' : 'Open support requests from the community.'}</Text>
-                        <Text style={styles.heroText}>
-                            {isMineView
-                                ? 'See how people responded, open a chat that fits, and close the request once you are okay.'
-                                : 'Respond quickly when you can genuinely show up for someone.'}
-                        </Text>
-                    </View>
+                    <HeroCard
+                        eyebrow="SUPPORT"
+                        title={isMineView ? 'Requests you created.' : 'Open support requests from the community.'}
+                        description={isMineView
+                            ? 'See how people responded, open a chat that fits, and close the request once you are okay.'
+                            : 'Respond quickly when you can genuinely show up for someone.'}
+                        style={styles.headerCard}
+                    />
                     {!isMineView ? (
                         <View style={styles.statsRow}>
                             <View style={styles.statCard}>
@@ -1100,10 +1104,10 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
                 </>
             }
             ListEmptyComponent={
-                <View style={styles.empty}>
-                    <Text style={styles.emptyText}>{isMineView ? 'No support requests yet.' : 'No open requests right now.'}</Text>
-                    <Text style={styles.emptySubtext}>{isMineView ? 'Create one when you need the community.' : 'Check back later or turn on availability in your profile.'}</Text>
-                </View>
+                <EmptyState
+                    title={isMineView ? 'No support requests yet.' : 'No open requests right now.'}
+                    description={isMineView ? 'Create one when you need the community.' : 'Check back later or turn on availability in your profile.'}
+                />
             }
             ListFooterComponent={(isMineView ? myRequestsQuery.isFetchingNextPage : openRequestsQuery.isFetchingNextPage) ? <ActivityIndicator style={styles.footerLoader} color={Colors.primary} /> : null}
             renderItem={({ item }) => (
@@ -1136,31 +1140,7 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
 const styles = StyleSheet.create({
     center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.light.background },
     list: { padding: Spacing.md, paddingBottom: 32 },
-    segmentRow: { flexDirection: 'row', gap: Spacing.sm, marginBottom: Spacing.md },
-    segmentButton: {
-        flex: 1,
-        borderWidth: 1,
-        borderColor: Colors.light.border,
-        borderRadius: Radii.full,
-        paddingVertical: 10,
-        alignItems: 'center',
-        backgroundColor: Colors.light.backgroundSecondary,
-    },
-    segmentButtonActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
-    fullWidthSegment: { flex: 2 },
-    segmentLabel: { fontSize: Typography.sizes.sm, fontWeight: '600', color: Colors.light.textSecondary },
-    segmentLabelActive: { color: Colors.textOn.primary },
-    heroCard: {
-        backgroundColor: Colors.light.backgroundSecondary,
-        borderRadius: Radii.lg,
-        borderWidth: 1,
-        borderColor: Colors.light.border,
-        padding: Spacing.lg,
-        marginBottom: Spacing.md,
-    },
-    heroEyebrow: { fontSize: Typography.sizes.xs, fontWeight: '700', color: Colors.primary, letterSpacing: 0.8, marginBottom: 6 },
-    heroTitle: { fontSize: Typography.sizes.xl, fontWeight: '600', color: Colors.light.textPrimary },
-    heroText: { fontSize: Typography.sizes.sm, color: Colors.light.textSecondary, lineHeight: 19, marginTop: Spacing.sm },
+    headerCard: { marginBottom: Spacing.md },
     statsRow: {
         flexDirection: 'row',
         gap: Spacing.sm,
@@ -1315,26 +1295,9 @@ const styles = StyleSheet.create({
     inlinePickerTabTextActive: {
         color: Colors.textOn.primary,
     },
-    input: {
-        backgroundColor: Colors.light.backgroundSecondary,
-        borderRadius: Radii.md,
-        paddingHorizontal: Spacing.md,
-        paddingVertical: 13,
-        fontSize: Typography.sizes.md,
-        color: Colors.light.textPrimary,
-        borderWidth: 0.5,
-        borderColor: Colors.light.border,
-        marginTop: Spacing.md,
-    },
+    formInput: { marginTop: Spacing.md },
     inputMultiline: { minHeight: 110, textAlignVertical: 'top' },
-    submitButton: {
-        backgroundColor: Colors.success,
-        borderRadius: Radii.md,
-        paddingVertical: 14,
-        alignItems: 'center',
-        marginTop: Spacing.lg,
-    },
-    submitButtonText: { color: Colors.textOn.primary, fontWeight: '600', fontSize: Typography.sizes.md },
+    submitButton: { marginTop: Spacing.lg },
     card: {
         backgroundColor: Colors.light.backgroundSecondary,
         borderRadius: Radii.lg,
@@ -1419,8 +1382,5 @@ const styles = StyleSheet.create({
         marginTop: Spacing.lg,
     },
     actionDisabled: { opacity: 0.6 },
-    empty: { alignItems: 'center', paddingTop: 60 },
-    emptyText: { fontSize: Typography.sizes.lg, fontWeight: '500', color: Colors.light.textPrimary },
-    emptySubtext: { fontSize: Typography.sizes.base, color: Colors.light.textTertiary, marginTop: Spacing.sm, textAlign: 'center' },
     footerLoader: { paddingVertical: Spacing.md },
 });

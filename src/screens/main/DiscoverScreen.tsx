@@ -6,13 +6,15 @@ import {
     StyleSheet,
     FlatList,
     ListRenderItemInfo,
-    TextInput,
     RefreshControl,
     ActivityIndicator,
 } from 'react-native';
 import { InfiniteData, useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 import { Avatar } from '../../components/Avatar';
+import { EmptyState } from '../../components/ui/EmptyState';
+import { HeroCard } from '../../components/ui/HeroCard';
+import { SearchBar } from '../../components/ui/SearchBar';
 import * as api from '../../api/client';
 import { useGuardedEndReached } from '../../hooks/useGuardedEndReached';
 import { useLazyActivation } from '../../hooks/useLazyActivation';
@@ -21,7 +23,7 @@ import { useDiscover } from '../../hooks/queries/useDiscover';
 import { resetInfiniteQueryToFirstPage } from '../../query/infiniteQueryPolicy';
 import { queryKeys } from '../../query/queryKeys';
 import { getListPerformanceProps } from '../../utils/listPerformance';
-import { Colors, Typography, Spacing, Radii } from '../../utils/theme';
+import { Colors, Typography, Spacing } from '../../utils/theme';
 import { formatUsername } from '../../utils/identity';
 
 interface DiscoverScreenProps {
@@ -165,26 +167,22 @@ export function DiscoverScreen({
             onScrollBeginDrag={discoverListPagination.onScrollBeginDrag}
             ListHeaderComponent={
                 <View style={styles.headerBlock}>
-                    <View style={styles.heroCard}>
-                        <Text style={styles.heroEyebrow}>DISCOVER</Text>
-                        <Text style={styles.heroTitle}>Find people in the community.</Text>
-                        <Text style={styles.heroText}>
-                            Search by username now.
-                        </Text>
-                    </View>
+                    <HeroCard
+                        eyebrow="DISCOVER"
+                        title="Find people in the community."
+                        description="Search by username now."
+                    />
 
-                    <View style={styles.searchShell}>
-                        <Ionicons name="search" size={18} color={Colors.light.textTertiary} />
-                        <TextInput
-                            value={query}
-                            onChangeText={setQuery}
-                            placeholder="Search by username"
-                            placeholderTextColor={Colors.light.textTertiary}
-                            style={styles.searchInput}
-                            autoCapitalize="none"
-                            autoCorrect={false}
-                        />
-                    </View>
+                    <SearchBar
+                        leading={<Ionicons name="search" size={18} color={Colors.light.textTertiary} />}
+                        primaryField={{
+                            value: query,
+                            onChangeText: setQuery,
+                            placeholder: 'Search by username',
+                            autoCapitalize: 'none',
+                            autoCorrect: false,
+                        }}
+                    />
 
                     <View style={styles.resultsRow}>
                         <Text style={styles.resultsLabel}>{resultLabel}</Text>
@@ -197,12 +195,13 @@ export function DiscoverScreen({
                 </View>
             }
             ListEmptyComponent={
-                <View style={styles.empty}>
-                    <Text style={styles.emptyTitle}>No people found.</Text>
-                    <Text style={styles.emptyText}>
-                        Try a different username search. Suggestions can become smarter once ranking logic is added.
-                    </Text>
-                </View>
+                <EmptyState
+                    title="No people found."
+                    description="Try a different username search. Suggestions can become smarter once ranking logic is added."
+                    style={styles.empty}
+                    titleStyle={styles.emptyTitle}
+                    descriptionStyle={styles.emptyText}
+                />
             }
             ListFooterComponent={discoverQuery.isFetchingNextPage ? <ActivityIndicator style={styles.footerLoader} color={Colors.primary} /> : null}
             renderItem={({ item }: ListRenderItemInfo<api.User>) => {
@@ -281,48 +280,6 @@ const styles = StyleSheet.create({
         paddingTop: Spacing.sm,
         paddingBottom: Spacing.md,
         gap: Spacing.md,
-    },
-    heroCard: {
-        backgroundColor: Colors.light.backgroundSecondary,
-        borderRadius: Radii.lg,
-        padding: Spacing.lg,
-        borderWidth: 1,
-        borderColor: Colors.light.border,
-    },
-    heroEyebrow: {
-        fontSize: Typography.sizes.xs,
-        fontWeight: '700',
-        color: Colors.primary,
-        letterSpacing: 0.8,
-        marginBottom: 6,
-    },
-    heroTitle: {
-        fontSize: Typography.sizes.xl,
-        fontWeight: '600',
-        color: Colors.light.textPrimary,
-    },
-    heroText: {
-        fontSize: Typography.sizes.sm,
-        color: Colors.light.textSecondary,
-        lineHeight: 19,
-        marginTop: Spacing.sm,
-    },
-    searchShell: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: Spacing.sm,
-        backgroundColor: Colors.light.backgroundSecondary,
-        borderRadius: Radii.md,
-        borderWidth: 1,
-        borderColor: Colors.light.border,
-        paddingHorizontal: Spacing.md,
-        paddingVertical: 12,
-    },
-    searchInput: {
-        flex: 1,
-        fontSize: Typography.sizes.base,
-        color: Colors.light.textPrimary,
-        padding: 0,
     },
     resultsRow: {
         flexDirection: 'row',
@@ -404,23 +361,9 @@ const styles = StyleSheet.create({
     followingButtonText: {
         color: Colors.light.textSecondary,
     },
-    empty: {
-        alignItems: 'center',
-        paddingTop: 72,
-        paddingHorizontal: Spacing.lg,
-    },
-    emptyTitle: {
-        fontSize: Typography.sizes.lg,
-        fontWeight: '600',
-        color: Colors.light.textPrimary,
-    },
-    emptyText: {
-        fontSize: Typography.sizes.base,
-        color: Colors.light.textTertiary,
-        textAlign: 'center',
-        lineHeight: 20,
-        marginTop: Spacing.sm,
-    },
+    empty: { paddingTop: 72 },
+    emptyTitle: { fontWeight: '600' },
+    emptyText: { lineHeight: 20 },
     footerLoader: {
         paddingVertical: Spacing.md,
     },

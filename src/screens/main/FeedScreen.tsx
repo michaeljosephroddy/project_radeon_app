@@ -9,6 +9,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import { Avatar } from '../../components/Avatar';
+import { EmptyState } from '../../components/ui/EmptyState';
 import * as api from '../../api/client';
 import { useCreatePostMutation } from '../../hooks/queries/useCreatePostMutation';
 import { useFeed } from '../../hooks/queries/useFeed';
@@ -934,10 +935,10 @@ export function FeedScreen({
                     </View>
                 }
                 ListEmptyComponent={
-                    <View style={styles.empty}>
-                        <Text style={styles.emptyText}>No posts yet.</Text>
-                        <Text style={styles.emptySubtext}>Community posts will show up here as people share.</Text>
-                    </View>
+                    <EmptyState
+                        title="No posts yet."
+                        description="Community posts will show up here as people share."
+                    />
                 }
                 renderItem={renderItem}
                 ListFooterComponent={feedQuery.isFetchingNextPage ? <ActivityIndicator style={styles.footerLoader} color={Colors.primary} /> : null}
@@ -1257,9 +1258,6 @@ const styles = StyleSheet.create({
         paddingHorizontal: Spacing.sm,
         paddingVertical: 8,
     },
-    empty: { alignItems: 'center', paddingTop: 60 },
-    emptyText: { fontSize: Typography.sizes.lg, fontWeight: '500', color: Colors.light.textPrimary },
-    emptySubtext: { fontSize: Typography.sizes.base, color: Colors.light.textTertiary, marginTop: Spacing.sm, textAlign: 'center' },
     footerLoader: { paddingVertical: Spacing.md },
 });
 

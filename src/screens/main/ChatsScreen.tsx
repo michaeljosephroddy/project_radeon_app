@@ -1,11 +1,13 @@
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import {
     View, Text, FlatList, TouchableOpacity,
-    StyleSheet, RefreshControl, ActivityIndicator, TextInput, Alert,
+    StyleSheet, RefreshControl, ActivityIndicator, Alert,
 } from 'react-native';
 import { InfiniteData, useQueryClient } from '@tanstack/react-query';
 import { Swipeable } from 'react-native-gesture-handler';
 import { Avatar } from '../../components/Avatar';
+import { EmptyState } from '../../components/ui/EmptyState';
+import { SearchBar } from '../../components/ui/SearchBar';
 import * as api from '../../api/client';
 import { useGuardedEndReached } from '../../hooks/useGuardedEndReached';
 import { useLazyActivation } from '../../hooks/useLazyActivation';
@@ -237,18 +239,17 @@ export function ChatsScreen({ isActive, onOpenChat }: ChatsScreenProps) {
             onScrollBeginDrag={chatsListPagination.onScrollBeginDrag}
             ListHeaderComponent={
                 <>
-                    <View style={styles.searchBar}>
-                        <Text style={styles.searchIcon}>⌕</Text>
-                        <TextInput
-                            value={query}
-                            onChangeText={setQuery}
-                            style={styles.searchInput}
-                            placeholder="Search chats"
-                            placeholderTextColor={Colors.light.textTertiary}
-                            autoCapitalize="none"
-                            autoCorrect={false}
-                        />
-                    </View>
+                    <SearchBar
+                        style={styles.searchBar}
+                        leading={<Text style={styles.searchIcon}>⌕</Text>}
+                        primaryField={{
+                            value: query,
+                            onChangeText: setQuery,
+                            placeholder: 'Search chats',
+                            autoCapitalize: 'none',
+                            autoCorrect: false,
+                        }}
+                    />
 
                     {chats.length > 0 && (
                         <Text style={styles.sectionLabel}>CHATS</Text>
@@ -257,10 +258,10 @@ export function ChatsScreen({ isActive, onOpenChat }: ChatsScreenProps) {
             }
             ListEmptyComponent={
                 chats.length === 0 ? (
-                    <View style={styles.empty}>
-                        <Text style={styles.emptyText}>No chats yet.</Text>
-                        <Text style={styles.emptySubtext}>Connect with people to start chatting.</Text>
-                    </View>
+                    <EmptyState
+                        title="No chats yet."
+                        description="Connect with people to start chatting."
+                    />
                 ) : null
             }
             ListFooterComponent={chatsQuery.isFetchingNextPage ? <ActivityIndicator style={styles.footerLoader} color={Colors.primary} /> : null}
@@ -282,17 +283,9 @@ const styles = StyleSheet.create({
     list: { padding: Spacing.md, paddingBottom: 32 },
 
     searchBar: {
-        backgroundColor: Colors.light.backgroundSecondary,
-        borderRadius: Radii.md,
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingHorizontal: Spacing.md,
-        paddingVertical: 9,
-        gap: Spacing.sm,
         marginBottom: Spacing.md,
     },
     searchIcon: { fontSize: 14, color: Colors.light.textTertiary },
-    searchInput: { flex: 1, fontSize: Typography.sizes.base, color: Colors.light.textPrimary },
 
     sectionLabel: {
         fontSize: Typography.sizes.xs,
@@ -362,9 +355,5 @@ const styles = StyleSheet.create({
         marginTop: 1,
     },
     time: { fontSize: Typography.sizes.xs, color: Colors.light.textTertiary },
-
-    empty: { alignItems: 'center', paddingTop: 60 },
-    emptyText: { fontSize: Typography.sizes.lg, fontWeight: '500', color: Colors.light.textPrimary },
-    emptySubtext: { fontSize: Typography.sizes.base, color: Colors.light.textTertiary, marginTop: Spacing.sm, textAlign: 'center' },
     footerLoader: { paddingVertical: Spacing.md },
 });

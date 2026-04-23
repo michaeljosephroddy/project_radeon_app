@@ -6,6 +6,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Avatar } from '../../components/Avatar';
+import { EmptyState } from '../../components/ui/EmptyState';
 import * as api from '../../api/client';
 import { useGuardedEndReached } from '../../hooks/useGuardedEndReached';
 import { useUserProfile } from '../../hooks/queries/useUserProfile';
@@ -229,9 +230,11 @@ export function UserProfileScreen({
                 contentContainerStyle={styles.list}
                 ListEmptyComponent={
                     !loading ? (
-                        <View style={styles.empty}>
-                            <Text style={styles.emptyText}>No posts yet.</Text>
-                        </View>
+                        <EmptyState
+                            title="No posts yet."
+                            compact
+                            titleStyle={styles.emptyText}
+                        />
                     ) : null
                 }
                 renderItem={({ item }) => (
@@ -461,7 +464,5 @@ const styles = StyleSheet.create({
     },
     postAction: { flexDirection: 'row', alignItems: 'center', gap: 4 },
     postActionText: { fontSize: Typography.sizes.sm, color: Colors.light.textTertiary },
-
-    empty: { alignItems: 'center', paddingTop: 40 },
     emptyText: { fontSize: Typography.sizes.base, color: Colors.light.textTertiary },
 });

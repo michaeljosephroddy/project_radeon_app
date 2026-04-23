@@ -13,9 +13,12 @@ The goal is not to introduce Tailwind, Bootstrap, Material, or any third-party d
 - [x] (2026-04-23 14:25Z) Audited the current styling direction and repeated patterns across `FeedScreen`, `DiscoverScreen`, `ChatsScreen`, `MeetupsScreen`, `SupportScreen`, `UserProfileScreen`, and `MeetupDetailScreen`.
 - [x] (2026-04-23 14:25Z) Confirmed the current token entry point is `src/utils/theme.ts`, which is acting as a compatibility shim over `src/theme`.
 - [x] (2026-04-23 14:25Z) Identified the first centralization targets: segmented tab controls, hero cards, search bars, empty states, form inputs, and primary action buttons.
-- [ ] Create a stable shared styling layer under `src/components/ui/` and `src/styles/` without changing screen behavior.
-- [ ] Migrate the main screens to the shared primitives in small batches and verify there is no visual regression.
-- [ ] Remove obsolete per-screen duplicated style blocks once each screen is fully migrated.
+- [x] (2026-04-23 14:42Z) Created the first shared styling layer under `src/components/ui/` and `src/styles/` with `SurfaceCard`, `HeroCard`, `EmptyState`, `PrimaryButton`, `TextField`, `SegmentedControl`, and `commonStyles`.
+- [x] (2026-04-23 14:42Z) Migrated `DiscoverScreen`, `ChatsScreen`, `MeetupsScreen`, and `SupportScreen` to the new shared primitives and removed the duplicated local hero-card, segmented-control, empty-state, and form-input styles those screens no longer need.
+- [x] (2026-04-23 15:02Z) Added `SearchBar` and migrated the remaining search-row variants in `DiscoverScreen`, `ChatsScreen`, and `MeetupsScreen`.
+- [x] (2026-04-23 15:02Z) Migrated `FeedScreen` and `UserProfileScreen` empty states to `EmptyState`.
+- [x] (2026-04-23 15:02Z) Migrated `MeetupDetailScreen` to reuse `HeroCard`, `PrimaryButton`, and `SurfaceCard` for the repeated hero/button/card patterns.
+- [ ] Decide whether the remaining profile/post card styles should stay screen-local or be extracted into additional shared surfaces.
 
 ## Surprises & Discoveries
 
@@ -27,6 +30,12 @@ The goal is not to introduce Tailwind, Bootstrap, Material, or any third-party d
 
 - Observation: the repo standard of keeping `StyleSheet.create` blocks at the bottom of each file is still workable if shared primitives own the repeated styles.
     Evidence: screen files already centralize styles locally; the maintainability issue is repetition, not an inability to express styles with `StyleSheet.create`.
+
+- Observation: the first migration batch did not need a generic shared search-bar component yet.
+    Evidence: discover, chats, and meetups each still have materially different search row behavior, while hero cards, segmented controls, empty states, and text inputs were straightforward to centralize without adding awkward boolean props.
+
+- Observation: a shared `SearchBar` became reasonable only after the first migration batch clarified the true variation points.
+    Evidence: the final shared component only needed two variants, `compact` and `pill`, plus an optional second field and action trigger. That covered the existing search rows without introducing screen-specific prop sprawl.
 
 ## Decision Log
 
@@ -44,7 +53,9 @@ The goal is not to introduce Tailwind, Bootstrap, Material, or any third-party d
 
 ## Outcomes & Retrospective
 
-This plan has not been implemented yet. The outcome of this planning pass is a phased refactor path that preserves the current visual design while reducing styling duplication. The main lesson from the audit is that the app does not need a large design-system rewrite; it needs a restrained internal UI layer that codifies the patterns already present.
+The first and second styling refactor batches are implemented. The app now has a real shared UI layer for hero cards, empty states, segmented controls, primary buttons, text inputs, search bars, and common card surfaces. The highest-duplication screens are consuming those primitives, and the result preserves the current visual language while reducing repeated styling code substantially.
+
+What remains is a narrower decision about whether more content-specific surfaces, such as profile cards or feed/post cards, should be extracted or remain local. The main lesson from the full pass is that the app benefits from narrow semantic components more than from a single highly generic style helper for everything.
 
 ## Context and Orientation
 
@@ -220,3 +231,7 @@ At the end of the second implementation milestone, these files should also exist
 Each shared component must accept typed props with explicit interfaces. Keep them narrow. For example, `PrimaryButton` should expose a clear interface for label, press handler, disabled state, loading state, and optional variant, rather than becoming a generic catch-all wrapper over every possible button style in the app.
 
 Revision note: created on 2026-04-23 to give the styling refactor a phased, repo-specific path after auditing repeated patterns in the current frontend.
+
+Revision note: updated on 2026-04-23 after implementing the first shared styling batch and migrating discover, chats, meetups, and support to the new internal UI primitives.
+
+Revision note: updated on 2026-04-23 after the second shared styling batch added `SearchBar` and migrated the remaining target screens in this plan.
