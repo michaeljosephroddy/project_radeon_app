@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
+import React, { useEffect, useState, useMemo, useRef } from 'react';
 import {
     View,
     Text,
@@ -9,7 +9,7 @@ import {
     RefreshControl,
     ActivityIndicator,
 } from 'react-native';
-import { InfiniteData, useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 import { Avatar } from '../../components/Avatar';
 import { EmptyState } from '../../components/ui/EmptyState';
@@ -33,25 +33,7 @@ interface DiscoverScreenProps {
     onOpenUserProfile: (profile: { userId: string; username: string; avatarUrl?: string }) => void;
 }
 
-function updateDiscoverUsers(
-    data: InfiniteData<api.PaginatedResponse<api.User>> | undefined,
-    userId: string,
-    friendshipStatus: api.User['friendship_status'],
-): InfiniteData<api.PaginatedResponse<api.User>> | undefined {
-    if (!data) return data;
-
-    return {
-        ...data,
-        pages: data.pages.map((page) => ({
-            ...page,
-            items: (page.items ?? []).map((item) => (
-                item.id === userId ? { ...item, friendship_status: friendshipStatus } : item
-            )),
-        })),
-    };
-}
-
-// Renders the discover tab with debounced user search and friendship actions.
+// Renders the discover tab with debounced user search and profile-first cards.
 export function DiscoverScreen({
     isActive,
     onOpenUserProfile,
@@ -61,7 +43,6 @@ export function DiscoverScreen({
     const hasActivated = useLazyActivation(isActive);
     const [query, setQuery] = useState('');
     const [debouncedQuery, setDebouncedQuery] = useState('');
-    const [pendingFriendActions, setPendingFriendActions] = useState<Set<string>>(new Set());
     const discoverListProps = getListPerformanceProps('twoColumnGrid');
     const discoverQuery = useDiscover({ query: debouncedQuery, limit: 20 }, hasActivated);
     useRefetchOnActiveIfStale(isActive, discoverQuery);
@@ -82,46 +63,6 @@ export function DiscoverScreen({
         resetInfiniteQueryToFirstPage(queryClient, queryKeys.discover({ query: debouncedQuery, limit: 20 }));
         await discoverQuery.refetch();
     };
-
-    const handleFriendAction = useCallback(async (user: api.User) => {
-        const current = user.friendship_status;
-        if (current === 'friends') return;
-
-        setPendingFriendActions(prev => new Set(prev).add(user.id));
-
-        try {
-            if (current === 'incoming') {
-                await api.updateFriendRequest(user.id, 'accept');
-                queryClient.setQueryData<InfiniteData<api.PaginatedResponse<api.User>>>(
-                    queryKeys.discover({ query: debouncedQuery, limit: 20 }),
-                    (data) => updateDiscoverUsers(data, user.id, 'friends'),
-                );
-            } else if (current === 'outgoing') {
-                await api.cancelFriendRequest(user.id);
-                queryClient.setQueryData<InfiniteData<api.PaginatedResponse<api.User>>>(
-                    queryKeys.discover({ query: debouncedQuery, limit: 20 }),
-                    (data) => updateDiscoverUsers(data, user.id, 'none'),
-                );
-            } else {
-                await api.sendFriendRequest(user.id);
-                queryClient.setQueryData<InfiniteData<api.PaginatedResponse<api.User>>>(
-                    queryKeys.discover({ query: debouncedQuery, limit: 20 }),
-                    (data) => updateDiscoverUsers(data, user.id, 'outgoing'),
-                );
-            }
-        } catch {
-            queryClient.setQueryData<InfiniteData<api.PaginatedResponse<api.User>>>(
-                queryKeys.discover({ query: debouncedQuery, limit: 20 }),
-                (data) => updateDiscoverUsers(data, user.id, current),
-            );
-        } finally {
-            setPendingFriendActions(prev => {
-                const updated = new Set(prev);
-                updated.delete(user.id);
-                return updated;
-            });
-        }
-    }, [debouncedQuery, queryClient]);
 
     // Infinite scroll only asks for the next discover page for the active
     // query, keeping paging and search state tied together.
@@ -210,63 +151,36 @@ export function DiscoverScreen({
                 />
             }
             ListFooterComponent={discoverQuery.isFetchingNextPage ? <ActivityIndicator style={styles.footerLoader} color={Colors.primary} /> : null}
-            renderItem={({ item }: ListRenderItemInfo<api.User>) => {
-                const friendshipStatus = item.friendship_status;
-                const pending = pendingFriendActions.has(item.id);
-                const buttonLabel = friendshipStatus === 'friends'
-                    ? 'Friends'
-                    : friendshipStatus === 'incoming'
-                        ? 'Accept'
-                        : friendshipStatus === 'outgoing'
-                            ? 'Requested'
-                            : '+ Friend';
-
-                return (
-                    <View style={styles.cardWrap}>
-                        <View style={styles.card}>
-                            <TouchableOpacity
-                                activeOpacity={0.9}
-                                style={styles.cardPress}
-                                onPress={() => onOpenUserProfile({
-                                    userId: item.id,
-                                    username: item.username,
-                                    avatarUrl: item.avatar_url,
-                                })}
-                            >
-                                <View style={styles.avatarStage}>
-                                    <Avatar
-                                        username={item.username}
-                                        avatarUrl={item.avatar_url}
-                                        size={92}
-                                        fontSize={28}
-                                    />
-                                </View>
-                                <Text style={styles.cardName} numberOfLines={1}>
-                                    {formatUsername(item.username)}
-                                </Text>
-                                <Text style={styles.cardMeta} numberOfLines={1}>
-                                    {item.city ? `${item.city}${item.country ? `, ${item.country}` : ''}` : 'Community member'}
-                                </Text>
-                            </TouchableOpacity>
-
-                            <TouchableOpacity
-                                style={[
-                                    styles.followButton,
-                                    friendshipStatus === 'outgoing' && styles.requestedButton,
-                                    friendshipStatus === 'friends' && styles.followingButton,
-                                    pending && styles.buttonDisabled,
-                                ]}
-                                onPress={() => handleFriendAction(item)}
-                                disabled={pending || friendshipStatus === 'friends'}
-                            >
-                                <Text style={[styles.followButtonText, friendshipStatus === 'friends' && styles.followingButtonText]}>
-                                    {buttonLabel}
-                                </Text>
-                            </TouchableOpacity>
+            renderItem={({ item }: ListRenderItemInfo<api.User>) => (
+                <View style={styles.cardWrap}>
+                    <TouchableOpacity
+                        activeOpacity={0.9}
+                        style={styles.card}
+                        onPress={() => onOpenUserProfile({
+                            userId: item.id,
+                            username: item.username,
+                            avatarUrl: item.avatar_url,
+                        })}
+                    >
+                        <View style={styles.cardPress}>
+                            <View style={styles.avatarStage}>
+                                <Avatar
+                                    username={item.username}
+                                    avatarUrl={item.avatar_url}
+                                    size={92}
+                                    fontSize={28}
+                                />
+                            </View>
+                            <Text style={styles.cardName} numberOfLines={1}>
+                                {formatUsername(item.username)}
+                            </Text>
+                            <Text style={styles.cardMeta} numberOfLines={1}>
+                                {item.city ? `${item.city}${item.country ? `, ${item.country}` : ''}` : 'Community member'}
+                            </Text>
                         </View>
-                    </View>
-                );
-            }}
+                    </TouchableOpacity>
+                </View>
+            )}
             />
             {discoverScrollToTop.isVisible ? (
                 <ScrollToTopButton onPress={() => flatListRef.current?.scrollToOffset({ offset: 0, animated: true })} />
@@ -323,10 +237,9 @@ const styles = StyleSheet.create({
         overflow: 'hidden',
     },
     cardPress: {
-        flex: 1,
         paddingHorizontal: Spacing.md,
         paddingTop: Spacing.lg,
-        paddingBottom: Spacing.md,
+        paddingBottom: Spacing.lg,
     },
     avatarStage: {
         alignItems: 'center',
@@ -346,31 +259,6 @@ const styles = StyleSheet.create({
         textAlign: 'center',
         marginTop: 4,
         minHeight: 18,
-    },
-    followButton: {
-        backgroundColor: Colors.primary,
-        alignItems: 'center',
-        justifyContent: 'center',
-        paddingVertical: 12,
-        borderTopWidth: 1,
-        borderTopColor: Colors.light.border,
-    },
-    requestedButton: {
-        backgroundColor: Colors.success,
-    },
-    followingButton: {
-        backgroundColor: Colors.light.background,
-    },
-    buttonDisabled: {
-        opacity: 0.6,
-    },
-    followButtonText: {
-        fontSize: Typography.sizes.sm,
-        fontWeight: '700',
-        color: Colors.textOn.primary,
-    },
-    followingButtonText: {
-        color: Colors.light.textSecondary,
     },
     empty: { paddingTop: 72 },
     emptyTitle: { fontWeight: '600' },

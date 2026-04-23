@@ -295,6 +295,7 @@ export interface MessagePage {
     limit: number;
     has_more: boolean;
     next_before?: string | null;
+    other_user_last_read_message_id?: string | null;
 }
 
 export interface AppNotification {

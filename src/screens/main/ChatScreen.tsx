@@ -59,6 +59,7 @@ export function ChatScreen({ chat, onBack }: ChatScreenProps) {
 
     const {
         messages,
+        otherUserLastReadMessageId,
         loading,
         loadError,
         loadingOlder,
@@ -73,8 +74,8 @@ export function ChatScreen({ chat, onBack }: ChatScreenProps) {
     });
 
     const giftedMessages = useMemo(
-        () => toGiftedChatMessages(messages),
-        [messages],
+        () => toGiftedChatMessages(messages, currentUser?.id, otherUserLastReadMessageId),
+        [currentUser?.id, messages, otherUserLastReadMessageId],
     );
     const supportContext = supportChat.support_context;
     const supportStatus = supportContext?.status;

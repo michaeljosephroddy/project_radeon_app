@@ -4,6 +4,7 @@ import {
     StyleSheet, RefreshControl, ActivityIndicator, Alert,
     KeyboardAvoidingView, Platform, ScrollView,
 } from 'react-native';
+import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { InfiniteData, useQueryClient } from '@tanstack/react-query';
 import * as Location from 'expo-location';
 import * as api from '../../api/client';
@@ -28,6 +29,7 @@ import { Colors, Typography, Spacing, Radii } from '../../utils/theme';
 import { MeetupDetailScreen } from './MeetupDetailScreen';
 
 type MeetupsSubView = 'browse' | 'my' | 'create';
+type MeetupFieldKey = 'title' | 'description' | 'city' | 'capacity';
 
 // Splits a meetup start date into compact parts used by the list badge.
 function formatMeetupDate(dateStr: string) {
@@ -46,39 +48,88 @@ function formatMeetupDate(dateStr: string) {
     };
 }
 
-// Combines separate local date/time inputs into the RFC3339 value expected by the backend.
-function toStartsAtValue(dateInput: string, timeInput: string): string | null {
+function parseMeetupDateInput(dateInput: string): { year: number; month: number; day: number } | null {
     const date = dateInput.trim();
-    const time = timeInput.trim();
-    if (!date || !time) return null;
+    if (!date) return null;
 
     const dateMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
-    const timeMatch = /^(\d{1,2}):(\d{2})$/.exec(time);
-    if (!dateMatch || !timeMatch) return null;
+    if (!dateMatch) return null;
 
     const year = Number(dateMatch[1]);
     const month = Number(dateMatch[2]);
     const day = Number(dateMatch[3]);
+
+    if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+
+    return { year, month, day };
+}
+
+function parseMeetupTimeInput(timeInput: string): { hours: number; minutes: number } | null {
+    const time = timeInput.trim();
+    if (!time) return null;
+
+    const timeMatch = /^(\d{1,2}):(\d{2})$/.exec(time);
+    if (!timeMatch) return null;
+
     const hours = Number(timeMatch[1]);
     const minutes = Number(timeMatch[2]);
+    if (hours > 23 || minutes > 59) return null;
 
-    if (month < 1 || month > 12 || day < 1 || day > 31 || hours > 23 || minutes > 59) {
-        return null;
-    }
+    return { hours, minutes };
+}
 
-    const parsed = new Date(year, month - 1, day, hours, minutes);
+function buildMeetupStartsAtDate(dateInput: string, timeInput: string): Date | null {
+    const dateParts = parseMeetupDateInput(dateInput);
+    const timeParts = parseMeetupTimeInput(timeInput);
+    if (!dateParts || !timeParts) return null;
+
+    const parsed = new Date(
+        dateParts.year,
+        dateParts.month - 1,
+        dateParts.day,
+        timeParts.hours,
+        timeParts.minutes,
+    );
+
     if (Number.isNaN(parsed.getTime())) return null;
     if (
-        parsed.getFullYear() !== year ||
-        parsed.getMonth() !== month - 1 ||
-        parsed.getDate() !== day ||
-        parsed.getHours() !== hours ||
-        parsed.getMinutes() !== minutes
+        parsed.getFullYear() !== dateParts.year ||
+        parsed.getMonth() !== dateParts.month - 1 ||
+        parsed.getDate() !== dateParts.day ||
+        parsed.getHours() !== timeParts.hours ||
+        parsed.getMinutes() !== timeParts.minutes
     ) {
         return null;
     }
 
-    return parsed.toISOString();
+    return parsed;
+}
+
+// Combines separate local date/time inputs into the RFC3339 value expected by the backend.
+function toStartsAtValue(dateInput: string, timeInput: string): string | null {
+    return buildMeetupStartsAtDate(dateInput, timeInput)?.toISOString() ?? null;
+}
+
+function formatMeetupDateInput(date: Date): string {
+    const year = date.getFullYear();
+    const month = `${date.getMonth() + 1}`.padStart(2, '0');
+    const day = `${date.getDate()}`.padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
+
+function formatMeetupTimeInput(date: Date): string {
+    const hours = `${date.getHours()}`.padStart(2, '0');
+    const minutes = `${date.getMinutes()}`.padStart(2, '0');
+    return `${hours}:${minutes}`;
+}
+
+function getMeetupPickerValue(dateInput: string, timeInput: string): Date {
+    const parsed = buildMeetupStartsAtDate(dateInput, timeInput);
+    if (parsed) return parsed;
+
+    const next = new Date();
+    next.setMinutes(Math.ceil(next.getMinutes() / 15) * 15, 0, 0);
+    return next;
 }
 
 // Validates the create meetup form and returns normalized values when valid.
@@ -239,6 +290,8 @@ export function MeetupsScreen({ isActive, onOpenUserProfile }: MeetupsScreenProp
     const { user } = useAuth();
     const queryClient = useQueryClient();
     const flatListRef = useRef<FlatList<api.Meetup> | null>(null);
+    const createFormRef = useRef<ScrollView | null>(null);
+    const createFieldPositionsRef = useRef<Partial<Record<MeetupFieldKey, number>>>({});
     const hasActivatedBrowse = useLazyActivation(isActive);
     const [subView, setSubView] = useState<MeetupsSubView>('browse');
     const [selectedMeetupId, setSelectedMeetupId] = useState<string | null>(null);
@@ -251,6 +304,7 @@ export function MeetupsScreen({ isActive, onOpenUserProfile }: MeetupsScreenProp
     const [submitError, setSubmitError] = useState('');
     const [successMessage, setSuccessMessage] = useState('');
     const [submitting, setSubmitting] = useState(false);
+    const [createPickerMode, setCreatePickerMode] = useState<'date' | 'time' | null>(null);
     const [form, setForm] = useState({
         title: '',
         description: '',
@@ -341,6 +395,42 @@ export function MeetupsScreen({ isActive, onOpenUserProfile }: MeetupsScreenProp
         setSubmitError('');
         if (successMessage) setSuccessMessage('');
     };
+
+    const handleCreateFieldLayout = useCallback((field: MeetupFieldKey, y: number) => {
+        createFieldPositionsRef.current[field] = y;
+    }, []);
+
+    const handleCreateFieldFocus = useCallback((field: MeetupFieldKey) => {
+        const y = createFieldPositionsRef.current[field];
+        if (typeof y !== 'number') return;
+
+        requestAnimationFrame(() => {
+            createFormRef.current?.scrollTo({
+                y: Math.max(y - 24, 0),
+                animated: true,
+            });
+        });
+    }, []);
+
+    const handleCreatePickerChange = useCallback((event: DateTimePickerEvent, selectedDate?: Date) => {
+        if (Platform.OS === 'android') {
+            if (event.type === 'dismissed') {
+                setCreatePickerMode(null);
+                return;
+            }
+            setCreatePickerMode(null);
+        }
+
+        if (!selectedDate) return;
+
+        setForm(prev => ({
+            ...prev,
+            startsOn: createPickerMode === 'time' ? prev.startsOn : formatMeetupDateInput(selectedDate),
+            startsAt: createPickerMode === 'time' ? formatMeetupTimeInput(selectedDate) : prev.startsAt,
+        }));
+        setSubmitError('');
+        if (successMessage) setSuccessMessage('');
+    }, [createPickerMode, successMessage]);
 
     // Refreshes the meetup list for pull-to-refresh.
     const onRefresh = async () => {
@@ -443,6 +533,7 @@ export function MeetupsScreen({ isActive, onOpenUserProfile }: MeetupsScreenProp
                 startsAt: '',
                 capacity: '',
             });
+            setCreatePickerMode(null);
             setSuccessMessage('Meetup created successfully.');
             setSubView('my');
         } catch (e: unknown) {
@@ -492,12 +583,19 @@ export function MeetupsScreen({ isActive, onOpenUserProfile }: MeetupsScreenProp
     }
 
     if (subView === 'create') {
+        const createPickerValue = getMeetupPickerValue(form.startsOn, form.startsAt);
+
         return (
             <KeyboardAvoidingView
                 style={styles.container}
-                behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
             >
-                <ScrollView contentContainerStyle={styles.formContent} keyboardShouldPersistTaps="handled">
+                <ScrollView
+                    ref={createFormRef}
+                    contentContainerStyle={styles.formContent}
+                    keyboardShouldPersistTaps="handled"
+                    keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+                >
                     <SegmentedControl
                         activeKey="create"
                         onChange={(key) => setSubView(key as MeetupsSubView)}
@@ -516,56 +614,134 @@ export function MeetupsScreen({ isActive, onOpenUserProfile }: MeetupsScreenProp
                     />
 
                     <Text style={styles.label}>Title</Text>
-                    <TextField
-                        value={form.title}
-                        onChangeText={setField('title')}
-                        placeholder="Friday coffee meetup"
-                    />
+                    <View onLayout={(event) => handleCreateFieldLayout('title', event.nativeEvent.layout.y)}>
+                        <TextField
+                            value={form.title}
+                            onChangeText={setField('title')}
+                            placeholder="Friday coffee meetup"
+                            onFocus={() => handleCreateFieldFocus('title')}
+                            returnKeyType="next"
+                        />
+                    </View>
 
                     <Text style={styles.label}>Description</Text>
-                    <TextField
-                        style={styles.inputMultiline}
-                        value={form.description}
-                        onChangeText={setField('description')}
-                        placeholder="Optional details about the meetup"
-                        multiline
-                    />
+                    <View onLayout={(event) => handleCreateFieldLayout('description', event.nativeEvent.layout.y)}>
+                        <TextField
+                            style={styles.inputMultiline}
+                            value={form.description}
+                            onChangeText={setField('description')}
+                            placeholder="Optional details about the meetup"
+                            multiline
+                            onFocus={() => handleCreateFieldFocus('description')}
+                        />
+                    </View>
 
                     <Text style={styles.label}>City</Text>
-                    <TextField
-                        value={form.city}
-                        onChangeText={setField('city')}
-                        placeholder="Dublin"
-                    />
+                    <View onLayout={(event) => handleCreateFieldLayout('city', event.nativeEvent.layout.y)}>
+                        <TextField
+                            value={form.city}
+                            onChangeText={setField('city')}
+                            placeholder="Dublin"
+                            onFocus={() => handleCreateFieldFocus('city')}
+                            returnKeyType="next"
+                        />
+                    </View>
 
                     <Text style={styles.label}>Starts</Text>
                     <View style={styles.dateTimeRow}>
                         <View style={styles.dateTimeField}>
                             <Text style={styles.fieldHint}>Date</Text>
-                            <TextField
-                                value={form.startsOn}
-                                onChangeText={setField('startsOn')}
-                                placeholder="2026-05-01"
-                                keyboardType="numbers-and-punctuation"
-                            />
+                            <TouchableOpacity
+                                style={styles.dateFieldButton}
+                                onPress={() => setCreatePickerMode('date')}
+                                activeOpacity={0.85}
+                            >
+                                <Text style={[styles.dateFieldText, !form.startsOn && styles.dateFieldPlaceholder]}>
+                                    {form.startsOn || 'Pick a date'}
+                                </Text>
+                            </TouchableOpacity>
                         </View>
                         <View style={styles.dateTimeField}>
                             <Text style={styles.fieldHint}>Time (24hr local time)</Text>
-                            <TextField
-                                value={form.startsAt}
-                                onChangeText={setField('startsAt')}
-                                placeholder="19:30"
-                                keyboardType="numbers-and-punctuation"
-                            />
+                            <TouchableOpacity
+                                style={styles.dateFieldButton}
+                                onPress={() => setCreatePickerMode('time')}
+                                activeOpacity={0.85}
+                            >
+                                <Text style={[styles.dateFieldText, !form.startsAt && styles.dateFieldPlaceholder]}>
+                                    {form.startsAt || 'Pick a time'}
+                                </Text>
+                            </TouchableOpacity>
                         </View>
                     </View>
+                    {Platform.OS === 'ios' ? (
+                        createPickerMode ? (
+                            <View style={styles.inlinePickerWrap}>
+                                <View style={styles.inlinePickerTabs}>
+                                    <TouchableOpacity
+                                        style={[
+                                            styles.inlinePickerTab,
+                                            createPickerMode === 'date' && styles.inlinePickerTabActive,
+                                        ]}
+                                        onPress={() => setCreatePickerMode('date')}
+                                    >
+                                        <Text
+                                            style={[
+                                                styles.inlinePickerTabText,
+                                                createPickerMode === 'date' && styles.inlinePickerTabTextActive,
+                                            ]}
+                                        >
+                                            Date
+                                        </Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity
+                                        style={[
+                                            styles.inlinePickerTab,
+                                            createPickerMode === 'time' && styles.inlinePickerTabActive,
+                                        ]}
+                                        onPress={() => setCreatePickerMode('time')}
+                                    >
+                                        <Text
+                                            style={[
+                                                styles.inlinePickerTabText,
+                                                createPickerMode === 'time' && styles.inlinePickerTabTextActive,
+                                            ]}
+                                        >
+                                            Time
+                                        </Text>
+                                    </TouchableOpacity>
+                                </View>
+                                <DateTimePicker
+                                    value={createPickerValue}
+                                    mode={createPickerMode}
+                                    display="spinner"
+                                    minuteInterval={15}
+                                    is24Hour
+                                    onChange={handleCreatePickerChange}
+                                />
+                            </View>
+                        ) : null
+                    ) : createPickerMode ? (
+                        <DateTimePicker
+                            value={createPickerValue}
+                            mode={createPickerMode}
+                            display="default"
+                            minuteInterval={15}
+                            is24Hour
+                            onChange={handleCreatePickerChange}
+                        />
+                    ) : null}
                     <Text style={styles.label}>Capacity</Text>
-                    <TextField
-                        value={form.capacity}
-                        onChangeText={setField('capacity')}
-                        placeholder="Optional"
-                        keyboardType="number-pad"
-                    />
+                    <View onLayout={(event) => handleCreateFieldLayout('capacity', event.nativeEvent.layout.y)}>
+                        <TextField
+                            value={form.capacity}
+                            onChangeText={setField('capacity')}
+                            placeholder="Optional"
+                            keyboardType="number-pad"
+                            onFocus={() => handleCreateFieldFocus('capacity')}
+                            returnKeyType="done"
+                        />
+                    </View>
 
                     {!!submitError && <Text style={styles.errorText}>{submitError}</Text>}
                     {!!successMessage && <Text style={styles.successText}>{successMessage}</Text>}
@@ -852,6 +1028,53 @@ const styles = StyleSheet.create({
         fontSize: Typography.sizes.xs,
         color: Colors.light.textTertiary,
         marginBottom: 6,
+    },
+    dateFieldButton: {
+        backgroundColor: Colors.light.backgroundSecondary,
+        borderRadius: Radii.md,
+        paddingHorizontal: Spacing.md,
+        paddingVertical: 13,
+        borderWidth: 0.5,
+        borderColor: Colors.light.border,
+    },
+    dateFieldText: {
+        fontSize: Typography.sizes.md,
+        color: Colors.light.textPrimary,
+    },
+    dateFieldPlaceholder: {
+        color: Colors.light.textTertiary,
+    },
+    inlinePickerWrap: {
+        marginTop: Spacing.sm,
+        borderWidth: 1,
+        borderColor: Colors.light.border,
+        borderRadius: Radii.md,
+        backgroundColor: Colors.light.backgroundSecondary,
+        overflow: 'hidden',
+    },
+    inlinePickerTabs: {
+        flexDirection: 'row',
+        padding: Spacing.xs,
+        gap: Spacing.xs,
+        borderBottomWidth: 1,
+        borderBottomColor: Colors.light.border,
+    },
+    inlinePickerTab: {
+        flex: 1,
+        borderRadius: Radii.full,
+        paddingVertical: 8,
+        alignItems: 'center',
+    },
+    inlinePickerTabActive: {
+        backgroundColor: Colors.primary,
+    },
+    inlinePickerTabText: {
+        fontSize: Typography.sizes.sm,
+        fontWeight: '600',
+        color: Colors.light.textSecondary,
+    },
+    inlinePickerTabTextActive: {
+        color: Colors.textOn.primary,
     },
     inputMultiline: {
         minHeight: 110,

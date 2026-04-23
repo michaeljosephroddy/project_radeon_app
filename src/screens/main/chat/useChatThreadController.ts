@@ -22,6 +22,32 @@ interface UseChatThreadControllerParams {
 }
 
 const lastSyncedReadMessageIds = new Map<string, string>();
+const lastSeenMessageIds = new Map<string, string>();
+
+function resolveLatestSeenMessageId(
+    chatId: string,
+    incomingMessageId: string | null,
+    messages: api.Message[],
+): string | null {
+    const currentMessageId = lastSeenMessageIds.get(chatId) ?? null;
+    if (!incomingMessageId) return currentMessageId;
+    if (!currentMessageId) return incomingMessageId;
+    if (incomingMessageId === currentMessageId) return currentMessageId;
+
+    const messageIndexes = new Map(
+        messages.map((message, index) => [message.id, index]),
+    );
+    const incomingIndex = messageIndexes.get(incomingMessageId);
+    const currentIndex = messageIndexes.get(currentMessageId);
+
+    if (typeof incomingIndex === 'number' && typeof currentIndex === 'number') {
+        return incomingIndex >= currentIndex ? incomingMessageId : currentMessageId;
+    }
+
+    if (typeof incomingIndex === 'number') return incomingMessageId;
+    if (typeof currentIndex === 'number') return currentMessageId;
+    return incomingMessageId;
+}
 
 function updateChatsQueryData(
     data: InfiniteData<api.PaginatedResponse<api.Chat>> | undefined,
@@ -98,6 +124,11 @@ export function useChatThreadController({
         () => flattenMessages(messagesQuery.data),
         [messagesQuery.data],
     );
+    const incomingOtherUserLastReadMessageId = messagesQuery.data?.pages[0]?.other_user_last_read_message_id ?? null;
+    const otherUserLastReadMessageId = useMemo(
+        () => resolveLatestSeenMessageId(chatId, incomingOtherUserLastReadMessageId, messages),
+        [chatId, incomingOtherUserLastReadMessageId, messages],
+    );
 
     const updateChatListEntry = useCallback((
         updater: (chat: api.Chat) => api.Chat,
@@ -134,6 +165,11 @@ export function useChatThreadController({
     useEffect(() => {
         setMutation({ kind: 'replace', version: 0 });
     }, [chatId]);
+
+    useEffect(() => {
+        if (!otherUserLastReadMessageId) return;
+        lastSeenMessageIds.set(chatId, otherUserLastReadMessageId);
+    }, [chatId, otherUserLastReadMessageId]);
 
     useEffect(() => {
         if (messages.length === 0) return;
@@ -214,6 +250,7 @@ export function useChatThreadController({
 
     return {
         messages,
+        otherUserLastReadMessageId,
         loading: messagesQuery.isLoading,
         loadError: messagesQuery.isError ? 'Could not load messages.' : null,
         loadingOlder: messagesQuery.isFetchingNextPage,

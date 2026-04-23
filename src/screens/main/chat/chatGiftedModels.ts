@@ -14,9 +14,24 @@ export interface ChatGiftedMessage extends GiftedChatMessage {
     apiMessage: api.Message;
 }
 
-export function toGiftedChatMessages(messages: api.Message[]): ChatGiftedMessage[] {
-    return [...messages].reverse().map((message): ChatGiftedMessage => {
+export function toGiftedChatMessages(
+    messages: api.Message[],
+    currentUserId?: string,
+    otherUserLastReadMessageId?: string | null,
+): ChatGiftedMessage[] {
+    const orderedMessages = [...messages];
+    const messageIndexes = new Map(
+        orderedMessages.map((message, index) => [message.id, index]),
+    );
+    const lastReadIndex = otherUserLastReadMessageId
+        ? (messageIndexes.get(otherUserLastReadMessageId) ?? -1)
+        : -1;
+
+    return orderedMessages.reverse().map((message): ChatGiftedMessage => {
         const pending = message.id.startsWith('optimistic-');
+        const messageIndex = messageIndexes.get(message.id) ?? -1;
+        const isOutgoing = message.sender_id === currentUserId;
+        const isSeen = isOutgoing && lastReadIndex >= 0 && messageIndex >= 0 && messageIndex <= lastReadIndex;
 
         return {
             _id: message.id,
@@ -28,7 +43,7 @@ export function toGiftedChatMessages(messages: api.Message[]): ChatGiftedMessage
                 avatar: message.avatar_url,
             },
             sent: !pending,
-            received: !pending,
+            received: !pending && isSeen,
             pending,
             apiMessage: message,
         };

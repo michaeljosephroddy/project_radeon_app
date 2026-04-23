@@ -1,5 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import * as api from '../api/client';
+import { queryClient } from '../query/queryClient';
 
 interface AuthContextType {
     user: api.User | null;
@@ -22,7 +23,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     useEffect(() => {
         // Any 401 received after startup clears the session and forces re-login.
-        api.setUnauthorizedHandler(() => setUserRef.current(null));
+        api.setUnauthorizedHandler(() => {
+            queryClient.clear();
+            setUserRef.current(null);
+        });
     }, []);
 
     useEffect(() => {
@@ -47,6 +51,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const login = useCallback(async (email: string, password: string) => {
         const { token } = await api.login(email, password);
         await api.setToken(token);
+        queryClient.clear();
         // Always fetch /me after auth so React state reflects canonical server data
         // instead of the partial fields returned by auth endpoints.
         const me = await api.getMe();
@@ -57,6 +62,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const register = useCallback(async (data: Parameters<typeof api.register>[0]) => {
         const { token } = await api.register(data);
         await api.setToken(token);
+        queryClient.clear();
         const me = await api.getMe();
         setUser(me);
     }, []);
@@ -64,6 +70,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Clears local auth state and removes the current user from context.
     const logout = useCallback(async () => {
         await api.logout();
+        queryClient.clear();
         setUser(null);
     }, []);
 

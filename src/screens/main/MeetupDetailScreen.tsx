@@ -5,7 +5,6 @@ import {
 } from 'react-native';
 import * as api from '../../api/client';
 import { Avatar } from '../../components/Avatar';
-import { HeroCard } from '../../components/ui/HeroCard';
 import { PrimaryButton } from '../../components/ui/PrimaryButton';
 import { SurfaceCard } from '../../components/ui/SurfaceCard';
 import { Colors, Typography, Spacing, Radii } from '../../utils/theme';
@@ -87,20 +86,32 @@ export function MeetupDetailScreen({
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
-        <HeroCard
-          eyebrow="EVENT"
-          title={meetup.title}
-          description=""
-          style={styles.heroCard}
-          titleStyle={styles.title}
-        />
-        <View style={styles.heroMetaBlock}>
-          <Text style={styles.meta}>{weekday}, {fullDate}</Text>
-          <Text style={styles.meta}>{time} · {meetup.city}</Text>
-          <Text style={styles.meta}>
-            {meetup.capacity ? `${meetup.attendee_count}/${meetup.capacity} going` : `${meetup.attendee_count} going`}
-            {meetup.is_attending ? ' · You are attending' : ''}
-          </Text>
+        <SurfaceCard padding="lg" style={styles.eventCard}>
+          <Text style={styles.eventEyebrow}>EVENT</Text>
+          <Text style={styles.title}>{meetup.title}</Text>
+
+          <View style={styles.eventDetails}>
+            <View style={styles.eventDetailRow}>
+              <Text style={styles.eventDetailLabel}>Date</Text>
+              <Text style={styles.eventDetailValue}>{weekday}, {fullDate}</Text>
+            </View>
+            <View style={styles.eventDetailRow}>
+              <Text style={styles.eventDetailLabel}>Time</Text>
+              <Text style={styles.eventDetailValue}>{time}</Text>
+            </View>
+            <View style={styles.eventDetailRow}>
+              <Text style={styles.eventDetailLabel}>Location</Text>
+              <Text style={styles.eventDetailValue}>{meetup.city}</Text>
+            </View>
+            <View style={styles.eventDetailRow}>
+              <Text style={styles.eventDetailLabel}>Attendance</Text>
+              <Text style={styles.eventDetailValue}>
+                {meetup.capacity ? `${meetup.attendee_count}/${meetup.capacity} going` : `${meetup.attendee_count} going`}
+                {meetup.is_attending ? ' · You are attending' : ''}
+              </Text>
+            </View>
+          </View>
+
           <PrimaryButton
             label={rsvpPending ? 'Updating...' : buttonLabel}
             onPress={() => onToggleRSVP(meetup.id)}
@@ -112,7 +123,7 @@ export function MeetupDetailScreen({
             ]}
             textStyle={meetup.is_attending ? styles.primaryButtonTextActive : undefined}
           />
-        </View>
+        </SurfaceCard>
 
         {!!meetup.description && (
           <>
@@ -258,29 +269,38 @@ const styles = StyleSheet.create({
     padding: Spacing.md,
     paddingBottom: 40,
   },
-  heroCard: { marginBottom: 0 },
+  eventCard: {
+    gap: Spacing.md,
+  },
+  eventEyebrow: {
+    fontSize: Typography.sizes.xs,
+    fontWeight: '700',
+    color: Colors.primary,
+    letterSpacing: 0.8,
+  },
   title: {
     fontSize: Typography.sizes.xl,
     fontWeight: '700',
     color: Colors.light.textPrimary,
   },
-  heroMetaBlock: {
-    backgroundColor: Colors.light.backgroundSecondary,
-    borderBottomLeftRadius: Radii.lg,
-    borderBottomRightRadius: Radii.lg,
-    borderWidth: 1,
-    borderTopWidth: 0,
-    borderColor: Colors.light.border,
-    paddingHorizontal: Spacing.lg,
-    paddingBottom: Spacing.lg,
+  eventDetails: {
+    gap: Spacing.sm,
   },
-  meta: {
+  eventDetailRow: {
+    gap: 4,
+  },
+  eventDetailLabel: {
+    fontSize: Typography.sizes.xs,
+    fontWeight: '700',
+    color: Colors.light.textTertiary,
+    letterSpacing: 0.6,
+  },
+  eventDetailValue: {
     fontSize: Typography.sizes.sm,
     color: Colors.light.textSecondary,
-    marginTop: 6,
+    lineHeight: 20,
   },
   primaryButton: {
-    marginTop: Spacing.lg,
     backgroundColor: Colors.primary,
     borderRadius: Radii.full,
     paddingVertical: 13,
