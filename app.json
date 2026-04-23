@@ -1,12 +1,13 @@
 {
   "expo": {
-    "name": "Project Radeon",
+    "name": "SoberSpace",
     "slug": "project-radeon",
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
+    "icon": "./soberspace_app_icon.png",
     "splash": {
-      "backgroundColor": "#7F77DD"
+      "backgroundColor": "#212529"
     },
     "ios": {
       "supportsTablet": false,
@@ -15,7 +16,8 @@
     "android": {
       "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
-        "backgroundColor": "#7F77DD"
+        "foregroundImage": "./soberspace_app_icon.png",
+        "backgroundColor": "#212529"
       },
       "package": "com.projectradeon.app",
       "permissions": [
