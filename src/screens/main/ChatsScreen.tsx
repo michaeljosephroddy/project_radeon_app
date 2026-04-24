@@ -273,7 +273,7 @@ export function ChatsScreen({ isActive, onOpenChat }: ChatsScreenProps) {
             ListFooterComponent={chatsQuery.isFetchingNextPage ? <ActivityIndicator style={styles.footerLoader} color={Colors.primary} /> : null}
             renderItem={renderItem}
             />
-            {chatsScrollToTop.isVisible ? (
+            {isActive && chatsScrollToTop.isVisible ? (
                 <ScrollToTopButton onPress={() => flatListRef.current?.scrollToOffset({ offset: 0, animated: true })} />
             ) : null}
         </View>

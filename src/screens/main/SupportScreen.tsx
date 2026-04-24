@@ -1213,7 +1213,7 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
                 />
             )}
             />
-            {supportScrollToTop.isVisible ? (
+            {isActive && supportScrollToTop.isVisible ? (
                 <ScrollToTopButton onPress={() => flatListRef.current?.scrollToOffset({ offset: 0, animated: true })} />
             ) : null}
         </View>

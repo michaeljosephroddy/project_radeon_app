@@ -970,7 +970,7 @@ export function MeetupsScreen({ isActive, onOpenUserProfile, onMeetupDetailChang
                 )}
                 ListFooterComponent={myMeetupsQuery.isFetchingNextPage ? <ActivityIndicator style={styles.footerLoader} color={Colors.primary} /> : null}
                 />
-                {meetupsScrollToTop.isVisible ? (
+                {isActive && meetupsScrollToTop.isVisible ? (
                     <ScrollToTopButton onPress={() => flatListRef.current?.scrollToOffset({ offset: 0, animated: true })} />
                 ) : null}
             </View>
@@ -1070,7 +1070,7 @@ export function MeetupsScreen({ isActive, onOpenUserProfile, onMeetupDetailChang
             )}
             ListFooterComponent={meetupsQuery.isFetchingNextPage ? <ActivityIndicator style={styles.footerLoader} color={Colors.primary} /> : null}
             />
-            {meetupsScrollToTop.isVisible ? (
+            {isActive && meetupsScrollToTop.isVisible ? (
                 <ScrollToTopButton onPress={() => flatListRef.current?.scrollToOffset({ offset: 0, animated: true })} />
             ) : null}
         </View>

@@ -963,7 +963,7 @@ export function FeedScreen({
                     },
                 ]}
             />
-            {feedScrollToTop.isVisible && !activeCommentPost ? (
+            {isActive && feedScrollToTop.isVisible && !activeCommentPost ? (
                 <ScrollToTopButton onPress={() => flatListRef.current?.scrollToOffset({ offset: 0, animated: true })} />
             ) : null}
 

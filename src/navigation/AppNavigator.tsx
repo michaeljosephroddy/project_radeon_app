@@ -222,6 +222,7 @@ export function AppNavigator() {
                         userId={openUserProfile!.userId}
                         username={openUserProfile!.username}
                         avatarUrl={openUserProfile!.avatarUrl}
+                        isActive={inUserProfile && !inChat && !inComposeDM}
                         onBack={closeUserProfile}
                         onOpenChat={setOpenChat}
                         onComposeDM={handleComposeDM}
@@ -255,27 +256,29 @@ export function AppNavigator() {
         handleComposeDM, handleComposeDMComplete,
     ]);
 
+    const isOverlayOpen = inChat || inUserProfile || inOwnProfile || inComposeDM || meetupDetailOpen;
+
     return (
         <>
             <StatusBar style="light" />
             <SafeAreaView style={styles.container} edges={['top']}>
                 {header}
                 <View style={styles.content}>
-                    <View style={activeTab === 'community' ? styles.tabVisible : styles.tabHidden}>
+                    <View style={activeTab === 'community' && !isOverlayOpen ? styles.tabVisible : styles.tabHidden}>
                         <FeedScreen
-                            isActive={activeTab === 'community'}
+                            isActive={activeTab === 'community' && !isOverlayOpen}
                             onOpenUserProfile={handleOpenUserProfile}
                             focusRequest={feedFocusRequest}
                         />
                     </View>
-                    <DiscoverTab isActive={activeTab === 'discover'} onOpenUserProfile={handleOpenUserProfile} />
-                    <SupportTab isActive={activeTab === 'support'} onOpenChat={setOpenChat} onOpenUserProfile={handleOpenUserProfile} />
+                    <DiscoverTab isActive={activeTab === 'discover' && !isOverlayOpen} onOpenUserProfile={handleOpenUserProfile} />
+                    <SupportTab isActive={activeTab === 'support' && !isOverlayOpen} onOpenChat={setOpenChat} onOpenUserProfile={handleOpenUserProfile} />
                     <MeetupsTab
-                        isActive={activeTab === 'meetups'}
+                        isActive={activeTab === 'meetups' && !isOverlayOpen}
                         onOpenUserProfile={handleOpenUserProfile}
                         onMeetupDetailChange={setMeetupDetailOpen}
                     />
-                    <ChatsTab isActive={activeTab === 'chats'} onOpenChat={setOpenChat} />
+                    <ChatsTab isActive={activeTab === 'chats' && !isOverlayOpen} onOpenChat={setOpenChat} />
                     {overlays}
                 </View>
 

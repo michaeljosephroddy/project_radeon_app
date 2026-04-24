@@ -35,6 +35,7 @@ interface UserProfileScreenProps {
     userId: string;
     username: string;
     avatarUrl?: string;
+    isActive?: boolean;
     onBack: () => void;
     onOpenChat: (chat: api.Chat) => void;
     onComposeDM: (info: { recipientId: string; username: string; avatarUrl?: string }) => void;
@@ -43,6 +44,7 @@ interface UserProfileScreenProps {
 // Renders another user's profile plus friendship and direct-message actions.
 export function UserProfileScreen({
     userId, username, avatarUrl,
+    isActive = true,
     onBack, onOpenChat, onComposeDM,
 }: UserProfileScreenProps) {
     const flatListRef = useRef<FlatList<api.Post> | null>(null);
@@ -260,7 +262,7 @@ export function UserProfileScreen({
                 )}
                 ListFooterComponent={loadingMorePosts ? <ActivityIndicator style={styles.footerLoader} color={Colors.primary} /> : null}
             />
-            {userPostsScrollToTop.isVisible ? (
+            {isActive && userPostsScrollToTop.isVisible ? (
                 <ScrollToTopButton onPress={() => flatListRef.current?.scrollToOffset({ offset: 0, animated: true })} />
             ) : null}
         </SafeAreaView>
