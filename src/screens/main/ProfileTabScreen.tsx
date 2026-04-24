@@ -68,6 +68,14 @@ export function ProfileTabScreen({ isActive, onOpenUserProfile, onBack }: Profil
     const soberSincePickerValue = soberSince ? new Date(`${soberSince}T12:00:00Z`) : new Date();
     const savedLocation = user?.city ? `${user.city}${user.country ? `, ${user.country}` : ''}` : 'Add your location';
     const savedBio = user?.bio?.trim() ? user.bio : 'Add a short bio';
+    const currentCityDisplay = (() => {
+        if (!user?.current_city || !user.location_updated_at) return null;
+        const updatedAt = new Date(user.location_updated_at).getTime();
+        const fresh = Date.now() - updatedAt < 24 * 60 * 60 * 1000;
+        if (!fresh) return null;
+        if (user.current_city === user.city) return null;
+        return user.current_city;
+    })();
 
     useEffect(() => {
         if (!user) return;
@@ -600,7 +608,12 @@ export function ProfileTabScreen({ isActive, onOpenUserProfile, onBack }: Profil
                                 </View>
                             </>
                         ) : (
-                            <Text style={[styles.sectionValueText, !user.city && styles.sectionValuePlaceholder]}>{savedLocation}</Text>
+                            <>
+                                <Text style={[styles.sectionValueText, !user.city && styles.sectionValuePlaceholder]}>{savedLocation}</Text>
+                                {currentCityDisplay && (
+                                    <Text style={styles.currentCityText}>Currently in {currentCityDisplay}</Text>
+                                )}
+                            </>
                         )}
                     </View>
 
@@ -938,6 +951,12 @@ const styles = StyleSheet.create({
     },
     sectionValuePlaceholder: {
         color: Colors.light.textTertiary,
+    },
+    currentCityText: {
+        paddingHorizontal: Spacing.md,
+        paddingBottom: Spacing.md,
+        fontSize: Typography.sizes.sm,
+        color: Colors.light.textSecondary,
     },
     fieldRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: Spacing.md, paddingVertical: 13, gap: Spacing.sm },
     fieldDivider: { height: 0.5, backgroundColor: Colors.light.border, marginLeft: Spacing.md },

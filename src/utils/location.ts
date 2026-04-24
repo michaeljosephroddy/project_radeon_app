@@ -15,3 +15,12 @@ export async function getDeviceCoords(): Promise<Coords | null> {
         return null;
     }
 }
+
+export async function reverseGeocode(lat: number, lng: number): Promise<string | null> {
+    try {
+        const [place] = await Location.reverseGeocodeAsync({ latitude: lat, longitude: lng });
+        return place?.city ?? place?.subregion ?? place?.region ?? null;
+    } catch {
+        return null;
+    }
+}

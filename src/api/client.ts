@@ -98,6 +98,8 @@ export interface User {
     friend_count: number;
     incoming_friend_request_count: number;
     outgoing_friend_request_count: number;
+    current_city?: string | null;
+    location_updated_at?: string | null;
 }
 
 export interface PaginatedResponse<T> {
@@ -200,7 +202,6 @@ export interface MeetupAttendee {
 
 export interface SupportProfile {
     is_available_to_support: boolean;
-    support_mode: string;
     support_updated_at?: string | null;
 }
 
@@ -210,7 +211,7 @@ export interface SupportRequest {
     username: string;
     avatar_url?: string | null;
     city?: string | null;
-    type: 'need_to_talk' | 'need_distraction' | 'need_encouragement' | 'need_company';
+    type: 'need_to_talk' | 'need_distraction' | 'need_encouragement' | 'need_in_person_help';
     message?: string | null;
     urgency: 'when_you_can' | 'soon' | 'right_now';
     status: 'open' | 'closed';
@@ -229,7 +230,7 @@ export interface SupportResponse {
     username: string;
     avatar_url?: string | null;
     city?: string | null;
-    response_type: 'can_chat' | 'check_in_later' | 'nearby';
+    response_type: 'can_chat' | 'check_in_later' | 'can_meet';
     message?: string | null;
     scheduled_for?: string | null;
     created_at: string;
@@ -378,6 +379,11 @@ export async function uploadAvatar(uri: string): Promise<{ avatar_url: string }>
         body: form,
     });
     return parseDataResponse<{ avatar_url: string }>(res);
+}
+
+// Silently records the caller's live GPS position and reverse-geocoded city.
+export async function updateMyCurrentLocation(data: { lat: number; lng: number; city: string }): Promise<void> {
+    await request('/users/me/location', { method: 'PATCH', body: JSON.stringify(data) });
 }
 
 // Fetches a public profile for another user by id.
@@ -561,7 +567,6 @@ export async function getMySupportProfile(): Promise<SupportProfile> {
 // Updates the caller's support-availability settings.
 export async function updateMySupportProfile(data: {
     is_available_to_support: boolean;
-    support_mode?: string;
 }): Promise<SupportProfile> {
     return request('/support/me', { method: 'PATCH', body: JSON.stringify(data) });
 }

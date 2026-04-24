@@ -1,7 +1,8 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import {
-    View, Text, TouchableOpacity, StyleSheet, Keyboard, Platform,
+    View, Text, TouchableOpacity, StyleSheet, Keyboard, Platform, AppState,
 } from 'react-native';
+import { getDeviceCoords, reverseGeocode } from '../utils/location';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -72,7 +73,7 @@ const ChatsTab = React.memo(function ChatsTab({ isActive, onOpenChat }: { isActi
 });
 
 export function AppNavigator() {
-    const { user } = useAuth();
+    const { user, refreshUser } = useAuth();
     const { intent, consumeIntent } = useNotificationIntent();
     const [activeTab, setActiveTab] = useState<Tab>('community');
     const [openChat, setOpenChat] = useState<Chat | null>(null);
@@ -127,6 +128,37 @@ export function AppNavigator() {
         setActiveTab(tab);
         setOpenChat(null);
     }, []);
+
+    const syncingLocation = useRef(false);
+
+    useEffect(() => {
+        if (!user?.id) return;
+
+        const syncLocation = async () => {
+            if (syncingLocation.current) return;
+            syncingLocation.current = true;
+            try {
+                const coords = await getDeviceCoords();
+                if (!coords) return;
+                const city = await reverseGeocode(coords.latitude, coords.longitude);
+                if (!city) return;
+                await api.updateMyCurrentLocation({ lat: coords.latitude, lng: coords.longitude, city });
+                await refreshUser();
+            } catch {
+                // background sync — failures are non-critical
+            } finally {
+                syncingLocation.current = false;
+            }
+        };
+
+        void syncLocation();
+
+        const sub = AppState.addEventListener('change', nextState => {
+            if (nextState === 'active') void syncLocation();
+        });
+
+        return () => sub.remove();
+    }, [user?.id, refreshUser]);
 
     React.useEffect(() => {
         const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';

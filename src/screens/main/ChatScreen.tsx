@@ -353,8 +353,8 @@ function formatSupportType(value: api.SupportRequest['type']): string {
         return 'Need distraction';
     case 'need_encouragement':
         return 'Need encouragement';
-    case 'need_company':
-        return 'Need company';
+    case 'need_in_person_help':
+        return 'Need in-person help';
     default:
         return 'Support request';
     }
@@ -366,8 +366,8 @@ function formatSupportResponseType(value: api.SupportResponse['response_type']):
         return 'Can chat now';
     case 'check_in_later':
         return 'Check in later';
-    case 'nearby':
-        return 'Nearby';
+    case 'can_meet':
+        return 'I can meet up';
     default:
         return 'Support response';
     }

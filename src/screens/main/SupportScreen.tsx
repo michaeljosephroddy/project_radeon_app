@@ -31,7 +31,6 @@ type SupportType = api.SupportRequest['type'];
 type SupportUrgency = api.SupportRequest['urgency'];
 type SupportResponseType = api.SupportResponse['response_type'];
 type SupportSubView = 'open' | 'mine' | 'create' | 'preview';
-type SupportMode = SupportResponseType;
 
 interface PendingCheckInDraft {
     requestId: string;
@@ -49,7 +48,6 @@ interface SupportScreenProps {
 interface SupportRequestCardProps {
     request: api.SupportRequest;
     isAvailableToSupport: boolean;
-    supportMode: SupportMode | '';
     responsePending: boolean;
     closingPending: boolean;
     responses?: api.SupportResponse[];
@@ -68,7 +66,7 @@ const SUPPORT_TYPE_LABELS: Record<SupportType, string> = {
     need_to_talk: 'Need to talk',
     need_distraction: 'Need distraction',
     need_encouragement: 'Need encouragement',
-    need_company: 'Need company',
+    need_in_person_help: 'Need in-person help',
 };
 
 const SUPPORT_URGENCY_OPTIONS: Array<{ value: SupportUrgency; label: string }> = [
@@ -80,10 +78,9 @@ const SUPPORT_URGENCY_OPTIONS: Array<{ value: SupportUrgency; label: string }> =
 const SUPPORT_RESPONSE_LABELS: Record<SupportResponseType, string> = {
     can_chat: 'Can chat now',
     check_in_later: 'Check in later',
-    nearby: 'Nearby',
+    can_meet: 'I can meet up',
 };
 
-const DEFAULT_SUPPORT_MODES: SupportMode[] = ['can_chat', 'check_in_later', 'nearby'];
 const PRIORITY_VISIBILITY_WINDOW_HOURS = 1;
 
 const SUPPORT_PLUS_FEATURES: Array<{ icon: keyof typeof Ionicons.glyphMap; label: string; description: string }> = [
@@ -122,8 +119,22 @@ function formatScheduledForDisplay(scheduledFor: string): string {
     });
 }
 
+function buildCanChatMessage(): string {
+    return "Hey, I saw your support request — I'm here and happy to chat right now if you'd like to talk.";
+}
+
+function isLocationFresh(updatedAt: string | null | undefined): boolean {
+    if (!updatedAt) return false;
+    return Date.now() - new Date(updatedAt).getTime() < 24 * 60 * 60 * 1000;
+}
+
+function buildCanMeetMessage(city: string | null | undefined): string {
+    const location = city ? `I'm currently in ${city}` : "I'm close by";
+    return `Hey, I saw your support request. ${location} and happy to meet up in person if that would help.`;
+}
+
 function buildCheckInLaterMessage(scheduledFor: string): string {
-    return `Busy at the moment but I can check in at ${formatScheduledForDisplay(scheduledFor)}.`;
+    return `Hey, I saw your support request. I can't chat right now but I'd love to check in with you on ${formatScheduledForDisplay(scheduledFor)}.`;
 }
 
 function getSupportResponseSummary(responses?: api.SupportResponse[]): string | null {
@@ -131,12 +142,12 @@ function getSupportResponseSummary(responses?: api.SupportResponse[]): string | 
 
     const canChatCount = responses.filter(response => response.response_type === 'can_chat').length;
     const checkInLaterCount = responses.filter(response => response.response_type === 'check_in_later').length;
-    const nearbyCount = responses.filter(response => response.response_type === 'nearby').length;
+    const canMeetCount = responses.filter(response => response.response_type === 'can_meet').length;
     const parts: string[] = [];
 
     if (canChatCount > 0) parts.push(`${canChatCount} can chat now`);
     if (checkInLaterCount > 0) parts.push(`${checkInLaterCount} can check in later`);
-    if (nearbyCount > 0) parts.push(`${nearbyCount} nearby`);
+    if (canMeetCount > 0) parts.push(`${canMeetCount} can meet up`);
 
     return parts.length > 0 ? parts.join(' · ') : null;
 }
@@ -155,19 +166,6 @@ function buildSupportChatContext(
     };
 }
 
-function getSupportModeLabel(mode: SupportMode): string {
-    switch (mode) {
-    case 'can_chat':
-        return 'Can chat now';
-    case 'check_in_later':
-        return 'Check in later';
-    case 'nearby':
-        return 'Nearby';
-    default:
-        return mode;
-    }
-}
-
 function haveSameRequestIds(left: api.SupportRequest[], right: api.SupportRequest[]): boolean {
     if (left.length !== right.length) return false;
     return left.every((item, index) => item.id === right[index]?.id);
@@ -183,7 +181,6 @@ function hasPlusAccess(user: api.User | null): boolean {
 function SupportRequestCard({
     request,
     isAvailableToSupport,
-    supportMode,
     responsePending,
     closingPending,
     responses,
@@ -198,12 +195,8 @@ function SupportRequestCard({
     onPressUser,
 }: SupportRequestCardProps) {
     const isClosed = request.status !== 'open';
-    const canOfferNearby = request.type === 'need_company' && !!request.city;
     const responseSummary = getSupportResponseSummary(responses);
     const canRespond = isAvailableToSupport && !responsePending && !request.has_responded && !isClosed;
-    const canChatEnabled = supportMode === 'can_chat' || supportMode === '';
-    const checkInLaterEnabled = supportMode === 'check_in_later' || supportMode === '';
-    const nearbyEnabled = canOfferNearby && (supportMode === 'nearby' || supportMode === '');
 
     return (
         <View style={styles.card}>
@@ -286,33 +279,27 @@ function SupportRequestCard({
                         </TouchableOpacity>
                     ) : (
                         <>
-                            {canChatEnabled ? (
-                                <TouchableOpacity
-                                    style={[styles.actionPrimary, !canRespond && styles.actionDisabled]}
-                                    onPress={() => onRespond(request, 'can_chat')}
-                                    disabled={!canRespond}
-                                >
-                                    <Text style={styles.actionPrimaryText}>I can chat</Text>
-                                </TouchableOpacity>
-                            ) : null}
-                            {checkInLaterEnabled ? (
-                                <TouchableOpacity
-                                    style={[styles.actionSecondary, !canRespond && styles.actionDisabled]}
-                                    onPress={() => onOpenCheckInLaterComposer?.(request)}
-                                    disabled={!canRespond}
-                                >
-                                    <Text style={styles.actionSecondaryText}>Check in later</Text>
-                                </TouchableOpacity>
-                            ) : null}
-                            {nearbyEnabled ? (
-                                <TouchableOpacity
-                                    style={[styles.actionSecondary, !canRespond && styles.actionDisabled]}
-                                    onPress={() => onRespond(request, 'nearby')}
-                                    disabled={!canRespond}
-                                >
-                                    <Text style={styles.actionSecondaryText}>Nearby</Text>
-                                </TouchableOpacity>
-                            ) : null}
+                            <TouchableOpacity
+                                style={[styles.actionPrimary, !canRespond && styles.actionDisabled]}
+                                onPress={() => onRespond(request, 'can_chat')}
+                                disabled={!canRespond}
+                            >
+                                <Text style={styles.actionPrimaryText}>I can chat</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={[styles.actionSecondary, !canRespond && styles.actionDisabled]}
+                                onPress={() => onOpenCheckInLaterComposer?.(request)}
+                                disabled={!canRespond}
+                            >
+                                <Text style={styles.actionSecondaryText}>Check in later</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={[styles.actionSecondary, !canRespond && styles.actionDisabled]}
+                                onPress={() => onRespond(request, 'can_meet')}
+                                disabled={!canRespond}
+                            >
+                                <Text style={styles.actionSecondaryText}>I can meet up</Text>
+                            </TouchableOpacity>
                         </>
                     )}
                 </View>
@@ -373,7 +360,6 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
     const [responseLoadingIds, setResponseLoadingIds] = useState<Set<string>>(new Set());
     const [responseChatPendingIds, setResponseChatPendingIds] = useState<Record<string, string | undefined>>({});
     const [isAvailableToSupport, setIsAvailableToSupport] = useState(false);
-    const [supportMode, setSupportMode] = useState<SupportMode | ''>('');
     const [openRequestCount, setOpenRequestCount] = useState(0);
     const [availableToSupportCount, setAvailableToSupportCount] = useState(0);
     const [openHasMore, setOpenHasMore] = useState(false);
@@ -441,10 +427,6 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
         if (!supportProfileQuery.data) return;
         setIsAvailableToSupport((current) => {
             const next = supportProfileQuery.data.is_available_to_support;
-            return current === next ? current : next;
-        });
-        setSupportMode((current) => {
-            const next = (supportProfileQuery.data.support_mode ?? '') as SupportMode | '';
             return current === next ? current : next;
         });
     }, [supportProfileQuery.data]);
@@ -588,7 +570,15 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
             const scheduledFor = responseType === 'check_in_later' && pendingCheckInDraft?.requestId === request.id
                 ? pendingCheckInDraft.scheduledFor
                 : undefined;
-            const responseMessage = scheduledFor ? buildCheckInLaterMessage(scheduledFor) : undefined;
+            const responseMessage = responseType === 'check_in_later' && scheduledFor
+                ? buildCheckInLaterMessage(scheduledFor)
+                : responseType === 'can_meet'
+                ? buildCanMeetMessage(
+                    isLocationFresh(user?.location_updated_at) && user?.current_city
+                        ? user.current_city
+                        : user?.city
+                  )
+                : buildCanChatMessage();
 
             const result = await api.createSupportResponse(request.id, {
                 response_type: responseType,
@@ -694,45 +684,15 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
 
     const handleToggleAvailability = async () => {
         const next = !isAvailableToSupport;
-        const previousMode = supportMode;
-        const nextMode = next && supportMode === '' ? 'can_chat' : supportMode;
         setIsAvailableToSupport(next);
-        setSupportMode(nextMode);
         setAvailabilityUpdating(true);
         try {
-            const profile = await api.updateMySupportProfile({
-                is_available_to_support: next,
-                support_mode: nextMode,
-            });
+            const profile = await api.updateMySupportProfile({ is_available_to_support: next });
             setIsAvailableToSupport(profile.is_available_to_support);
-            setSupportMode((profile.support_mode ?? '') as SupportMode | '');
             queryClient.setQueryData(queryKeys.supportProfile(), profile);
         } catch (e: unknown) {
             setIsAvailableToSupport(!next);
-            setSupportMode(previousMode);
             Alert.alert('Could not update support availability', e instanceof Error ? e.message : 'Something went wrong.');
-        } finally {
-            setAvailabilityUpdating(false);
-        }
-    };
-
-    const handleSelectSupportMode = async (mode: SupportMode) => {
-        if (availabilityUpdating || supportMode === mode) return;
-
-        const previousMode = supportMode;
-        setSupportMode(mode);
-        setAvailabilityUpdating(true);
-        try {
-            const profile = await api.updateMySupportProfile({
-                is_available_to_support: isAvailableToSupport,
-                support_mode: mode,
-            });
-            setIsAvailableToSupport(profile.is_available_to_support);
-            setSupportMode((profile.support_mode ?? '') as SupportMode | '');
-            queryClient.setQueryData(queryKeys.supportProfile(), profile);
-        } catch (e: unknown) {
-            setSupportMode(previousMode);
-            Alert.alert('Could not update support options', e instanceof Error ? e.message : 'Something went wrong.');
         } finally {
             setAvailabilityUpdating(false);
         }
@@ -757,7 +717,7 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
                 <View style={styles.availabilityBody}>
                     <Text style={styles.availabilityTitle}>Available to support</Text>
                     <Text style={styles.availabilityText}>
-                        Let people know you are open to chatting or showing up for someone today.
+                        Let people know you are open to showing up for someone today.
                     </Text>
                 </View>
                 <TouchableOpacity
@@ -777,39 +737,6 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
                     </Text>
                 </TouchableOpacity>
             </View>
-            <Text style={styles.availabilityModesLabel}>How you can help</Text>
-            <View style={styles.selectorWrap}>
-                {DEFAULT_SUPPORT_MODES.map((mode) => {
-                    const selected = supportMode === mode;
-                    return (
-                        <TouchableOpacity
-                            key={mode}
-                            style={[
-                                styles.selectorChip,
-                                selected && styles.selectorChipActive,
-                                !isAvailableToSupport && styles.availabilityModeChipMuted,
-                            ]}
-                            onPress={() => handleSelectSupportMode(mode)}
-                            disabled={availabilityUpdating || !isAvailableToSupport}
-                        >
-                            <Text
-                                style={[
-                                    styles.selectorChipText,
-                                    selected && styles.selectorChipTextActive,
-                                    !isAvailableToSupport && styles.availabilityModeChipTextMuted,
-                                ]}
-                            >
-                                {getSupportModeLabel(mode)}
-                            </Text>
-                        </TouchableOpacity>
-                    );
-                })}
-            </View>
-            <Text style={styles.availabilityModesHint}>
-                {isAvailableToSupport
-                    ? 'Pick the one way you can best support someone today.'
-                    : 'Choose how you can help. It will be used the next time you turn availability on.'}
-            </Text>
         </View>
     );
 
@@ -1193,7 +1120,6 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
                 <SupportRequestCard
                     request={item}
                     isAvailableToSupport={isAvailableToSupport}
-                    supportMode={supportMode}
                     responsePending={responsePendingIds.has(item.id)}
                     closingPending={closingIds.has(item.id)}
                     responses={isMineView ? requestResponsesById[item.id] : undefined}
@@ -1280,19 +1206,6 @@ const styles = StyleSheet.create({
     availabilityBody: { flex: 1 },
     availabilityTitle: { fontSize: Typography.sizes.md, fontWeight: '600', color: Colors.light.textPrimary, marginBottom: 4 },
     availabilityText: { fontSize: Typography.sizes.sm, color: Colors.light.textSecondary, lineHeight: 19 },
-    availabilityModesLabel: {
-        fontSize: Typography.sizes.sm,
-        fontWeight: '600',
-        color: Colors.light.textSecondary,
-        marginTop: Spacing.md,
-        marginBottom: Spacing.sm,
-    },
-    availabilityModesHint: {
-        fontSize: Typography.sizes.sm,
-        color: Colors.light.textTertiary,
-        lineHeight: 18,
-        marginTop: Spacing.sm,
-    },
     availabilityToggle: {
         minWidth: 72,
         borderRadius: Radii.full,
@@ -1334,8 +1247,6 @@ const styles = StyleSheet.create({
     selectorChipActive: { backgroundColor: Colors.success, borderColor: Colors.success },
     selectorChipText: { fontSize: Typography.sizes.sm, color: Colors.light.textSecondary },
     selectorChipTextActive: { color: Colors.textOn.primary, fontWeight: '600' },
-    availabilityModeChipMuted: { opacity: 0.6 },
-    availabilityModeChipTextMuted: { color: Colors.light.textTertiary },
     datePickerCard: {
         borderWidth: 1,
         borderColor: Colors.light.border,
