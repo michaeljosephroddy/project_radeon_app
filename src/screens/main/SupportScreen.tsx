@@ -28,7 +28,7 @@ import { Colors, Typography, Spacing, Radii } from '../../utils/theme';
 import { formatUsername } from '../../utils/identity';
 
 type SupportType = api.SupportRequest['type'];
-type SupportAudience = api.SupportRequest['audience'];
+type SupportUrgency = api.SupportRequest['urgency'];
 type SupportResponseType = api.SupportResponse['response_type'];
 type SupportSubView = 'open' | 'mine' | 'create' | 'preview';
 type SupportMode = SupportResponseType;
@@ -49,7 +49,7 @@ interface SupportScreenProps {
 interface SupportRequestCardProps {
     request: api.SupportRequest;
     isAvailableToSupport: boolean;
-    supportModes: SupportMode[];
+    supportMode: SupportMode | '';
     responsePending: boolean;
     closingPending: boolean;
     responses?: api.SupportResponse[];
@@ -71,23 +71,17 @@ const SUPPORT_TYPE_LABELS: Record<SupportType, string> = {
     need_company: 'Need company',
 };
 
-const SUPPORT_AUDIENCE_LABELS: Record<SupportAudience, string> = {
-    friends: 'Friends',
-    city: 'My city',
-    community: 'Community',
-};
+const SUPPORT_URGENCY_OPTIONS: Array<{ value: SupportUrgency; label: string }> = [
+    { value: 'when_you_can', label: 'Whenever you can' },
+    { value: 'soon', label: 'Soon' },
+    { value: 'right_now', label: 'Right now' },
+];
 
 const SUPPORT_RESPONSE_LABELS: Record<SupportResponseType, string> = {
     can_chat: 'Can chat now',
     check_in_later: 'Check in later',
     nearby: 'Nearby',
 };
-
-const SUPPORT_DURATION_OPTIONS = [
-    { label: '2h', hours: 2 },
-    { label: '6h', hours: 6 },
-    { label: '12h', hours: 12 },
-];
 
 const DEFAULT_SUPPORT_MODES: SupportMode[] = ['can_chat', 'check_in_later', 'nearby'];
 const PRIORITY_VISIBILITY_WINDOW_HOURS = 1;
@@ -106,10 +100,6 @@ function timeAgo(dateStr: string): string {
     const hrs = Math.floor(mins / 60);
     if (hrs < 24) return `${hrs}h`;
     return `${Math.floor(hrs / 24)}d`;
-}
-
-function expiryFromHours(hours: number): string {
-    return new Date(Date.now() + hours * 60 * 60 * 1000).toISOString();
 }
 
 function getDefaultCheckInDate(): Date {
@@ -165,14 +155,6 @@ function buildSupportChatContext(
     };
 }
 
-function normalizeSupportModes(modes?: string[] | null): SupportMode[] {
-    const validModes = (modes ?? []).filter((mode): mode is SupportMode => (
-        mode === 'can_chat' || mode === 'check_in_later' || mode === 'nearby'
-    ));
-
-    return validModes.length > 0 ? validModes : [...DEFAULT_SUPPORT_MODES];
-}
-
 function getSupportModeLabel(mode: SupportMode): string {
     switch (mode) {
     case 'can_chat':
@@ -191,11 +173,6 @@ function haveSameRequestIds(left: api.SupportRequest[], right: api.SupportReques
     return left.every((item, index) => item.id === right[index]?.id);
 }
 
-function haveSameModes(left: SupportMode[], right: SupportMode[]): boolean {
-    if (left.length !== right.length) return false;
-    return left.every((item, index) => item === right[index]);
-}
-
 function hasPlusAccess(user: api.User | null): boolean {
     if (!user) return false;
     if (user.is_plus) return true;
@@ -206,7 +183,7 @@ function hasPlusAccess(user: api.User | null): boolean {
 function SupportRequestCard({
     request,
     isAvailableToSupport,
-    supportModes,
+    supportMode,
     responsePending,
     closingPending,
     responses,
@@ -224,9 +201,9 @@ function SupportRequestCard({
     const canOfferNearby = request.type === 'need_company' && !!request.city;
     const responseSummary = getSupportResponseSummary(responses);
     const canRespond = isAvailableToSupport && !responsePending && !request.has_responded && !isClosed;
-    const canChatEnabled = supportModes.includes('can_chat');
-    const checkInLaterEnabled = supportModes.includes('check_in_later');
-    const nearbyEnabled = canOfferNearby && supportModes.includes('nearby');
+    const canChatEnabled = supportMode === 'can_chat' || supportMode === '';
+    const checkInLaterEnabled = supportMode === 'check_in_later' || supportMode === '';
+    const nearbyEnabled = canOfferNearby && (supportMode === 'nearby' || supportMode === '');
 
     return (
         <View style={styles.card}>
@@ -241,6 +218,15 @@ function SupportRequestCard({
                             <View style={styles.badge}>
                                 <Text style={styles.badgeText}>Needs Support</Text>
                             </View>
+                            {request.urgency === 'right_now' ? (
+                                <View style={styles.urgencyBadgeUrgent}>
+                                    <Text style={styles.urgencyBadgeUrgentText}>Right now</Text>
+                                </View>
+                            ) : request.urgency === 'soon' ? (
+                                <View style={styles.urgencyBadgeSoon}>
+                                    <Text style={styles.urgencyBadgeSoonText}>Soon</Text>
+                                </View>
+                            ) : null}
                             {request.priority_visibility && request.priority_expires_at ? (
                                 <View style={styles.priorityBadge}>
                                     <Ionicons name="flash" size={10} color={Colors.warning} />
@@ -387,7 +373,7 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
     const [responseLoadingIds, setResponseLoadingIds] = useState<Set<string>>(new Set());
     const [responseChatPendingIds, setResponseChatPendingIds] = useState<Record<string, string | undefined>>({});
     const [isAvailableToSupport, setIsAvailableToSupport] = useState(false);
-    const [supportModes, setSupportModes] = useState<SupportMode[]>([...DEFAULT_SUPPORT_MODES]);
+    const [supportMode, setSupportMode] = useState<SupportMode | ''>('');
     const [openRequestCount, setOpenRequestCount] = useState(0);
     const [availableToSupportCount, setAvailableToSupportCount] = useState(0);
     const [openHasMore, setOpenHasMore] = useState(false);
@@ -401,8 +387,7 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
     const [form, setForm] = useState({
         type: 'need_to_talk' as SupportType,
         message: '',
-        audience: 'community' as SupportAudience,
-        durationHours: 6,
+        urgency: 'when_you_can' as SupportUrgency,
     });
     const [hasActivatedMine, setHasActivatedMine] = useState(false);
     useEffect(() => {
@@ -458,9 +443,9 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
             const next = supportProfileQuery.data.is_available_to_support;
             return current === next ? current : next;
         });
-        setSupportModes((current) => {
-            const next = normalizeSupportModes(supportProfileQuery.data.support_modes);
-            return haveSameModes(current, next) ? current : next;
+        setSupportMode((current) => {
+            const next = (supportProfileQuery.data.support_mode ?? '') as SupportMode | '';
+            return current === next ? current : next;
         });
     }, [supportProfileQuery.data]);
 
@@ -677,8 +662,7 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
             const created = await api.createSupportRequest({
                 type: form.type,
                 message: form.message.trim() || null,
-                audience: form.audience,
-                expires_at: expiryFromHours(form.durationHours),
+                urgency: form.urgency,
                 priority_visibility: withBoost,
             });
             setMyRequests(prev => [created, ...prev.filter(item => item.id !== created.id)]);
@@ -686,8 +670,7 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
             setForm({
                 type: 'need_to_talk',
                 message: '',
-                audience: 'community',
-                durationHours: 6,
+                urgency: 'when_you_can',
             });
             void queryClient.invalidateQueries({ queryKey: ['support-requests'] });
         } catch (e: unknown) {
@@ -711,55 +694,44 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
 
     const handleToggleAvailability = async () => {
         const next = !isAvailableToSupport;
-        const previousModes = supportModes;
-        const nextModes = next ? normalizeSupportModes(supportModes) : supportModes;
+        const previousMode = supportMode;
+        const nextMode = next && supportMode === '' ? 'can_chat' : supportMode;
         setIsAvailableToSupport(next);
-        setSupportModes(nextModes);
+        setSupportMode(nextMode);
         setAvailabilityUpdating(true);
         try {
             const profile = await api.updateMySupportProfile({
                 is_available_to_support: next,
-                support_modes: nextModes,
+                support_mode: nextMode,
             });
             setIsAvailableToSupport(profile.is_available_to_support);
-            setSupportModes(normalizeSupportModes(profile.support_modes));
+            setSupportMode((profile.support_mode ?? '') as SupportMode | '');
             queryClient.setQueryData(queryKeys.supportProfile(), profile);
         } catch (e: unknown) {
             setIsAvailableToSupport(!next);
-            setSupportModes(previousModes);
+            setSupportMode(previousMode);
             Alert.alert('Could not update support availability', e instanceof Error ? e.message : 'Something went wrong.');
         } finally {
             setAvailabilityUpdating(false);
         }
     };
 
-    const handleToggleSupportMode = async (mode: SupportMode) => {
-        if (availabilityUpdating) return;
+    const handleSelectSupportMode = async (mode: SupportMode) => {
+        if (availabilityUpdating || supportMode === mode) return;
 
-        const isEnabled = supportModes.includes(mode);
-        if (isEnabled && supportModes.length === 1) {
-            Alert.alert('Keep one support option', 'Choose at least one way you are available to support before removing this option.');
-            return;
-        }
-
-        const previousModes = supportModes;
-        const nextModes = isEnabled
-            ? supportModes.filter((item) => item !== mode)
-            : [...supportModes, mode];
-        const normalizedNextModes = normalizeSupportModes(nextModes);
-
-        setSupportModes(normalizedNextModes);
+        const previousMode = supportMode;
+        setSupportMode(mode);
         setAvailabilityUpdating(true);
         try {
             const profile = await api.updateMySupportProfile({
                 is_available_to_support: isAvailableToSupport,
-                support_modes: normalizedNextModes,
+                support_mode: mode,
             });
             setIsAvailableToSupport(profile.is_available_to_support);
-            setSupportModes(normalizeSupportModes(profile.support_modes));
+            setSupportMode((profile.support_mode ?? '') as SupportMode | '');
             queryClient.setQueryData(queryKeys.supportProfile(), profile);
         } catch (e: unknown) {
-            setSupportModes(previousModes);
+            setSupportMode(previousMode);
             Alert.alert('Could not update support options', e instanceof Error ? e.message : 'Something went wrong.');
         } finally {
             setAvailabilityUpdating(false);
@@ -808,22 +780,22 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
             <Text style={styles.availabilityModesLabel}>How you can help</Text>
             <View style={styles.selectorWrap}>
                 {DEFAULT_SUPPORT_MODES.map((mode) => {
-                    const enabled = supportModes.includes(mode);
+                    const selected = supportMode === mode;
                     return (
                         <TouchableOpacity
                             key={mode}
                             style={[
                                 styles.selectorChip,
-                                enabled && styles.selectorChipActive,
+                                selected && styles.selectorChipActive,
                                 !isAvailableToSupport && styles.availabilityModeChipMuted,
                             ]}
-                            onPress={() => handleToggleSupportMode(mode)}
+                            onPress={() => handleSelectSupportMode(mode)}
                             disabled={availabilityUpdating || !isAvailableToSupport}
                         >
                             <Text
                                 style={[
                                     styles.selectorChipText,
-                                    enabled && styles.selectorChipTextActive,
+                                    selected && styles.selectorChipTextActive,
                                     !isAvailableToSupport && styles.availabilityModeChipTextMuted,
                                 ]}
                             >
@@ -835,8 +807,8 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
             </View>
             <Text style={styles.availabilityModesHint}>
                 {isAvailableToSupport
-                    ? 'These options control which support responses you can send.'
-                    : 'Choose your support options now. They will be used the next time you turn availability on.'}
+                    ? 'Pick the one way you can best support someone today.'
+                    : 'Choose how you can help. It will be used the next time you turn availability on.'}
             </Text>
         </View>
     );
@@ -1038,13 +1010,15 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
                         <View style={styles.previewStat}>
                             <Ionicons name="people-outline" size={15} color={Colors.light.textTertiary} />
                             <Text style={styles.previewStatLabel}>Visible to</Text>
-                            <Text style={styles.previewStatValue}>{SUPPORT_AUDIENCE_LABELS[form.audience]}</Text>
+                            <Text style={styles.previewStatValue}>Everyone</Text>
                         </View>
                         <View style={styles.previewStatSep} />
                         <View style={styles.previewStat}>
-                            <Ionicons name="time-outline" size={15} color={Colors.light.textTertiary} />
-                            <Text style={styles.previewStatLabel}>Open for</Text>
-                            <Text style={styles.previewStatValue}>{form.durationHours}h</Text>
+                            <Ionicons name="alert-circle-outline" size={15} color={Colors.light.textTertiary} />
+                            <Text style={styles.previewStatLabel}>Urgency</Text>
+                            <Text style={styles.previewStatValue}>
+                                {SUPPORT_URGENCY_OPTIONS.find(o => o.value === form.urgency)?.label ?? form.urgency}
+                            </Text>
                         </View>
                     </View>
                 </View>
@@ -1120,30 +1094,15 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
                     multiline
                 />
 
-                <Text style={styles.formLabel}>Who should see this?</Text>
+                <Text style={styles.formLabel}>How urgent is this?</Text>
                 <View style={styles.selectorWrap}>
-                    {(Object.keys(SUPPORT_AUDIENCE_LABELS) as SupportAudience[]).map(audience => (
+                    {SUPPORT_URGENCY_OPTIONS.map(option => (
                         <TouchableOpacity
-                            key={audience}
-                            style={[styles.selectorChip, form.audience === audience && styles.selectorChipActive]}
-                            onPress={() => setForm(prev => ({ ...prev, audience }))}
+                            key={option.value}
+                            style={[styles.selectorChip, form.urgency === option.value && styles.selectorChipActive]}
+                            onPress={() => setForm(prev => ({ ...prev, urgency: option.value }))}
                         >
-                            <Text style={[styles.selectorChipText, form.audience === audience && styles.selectorChipTextActive]}>
-                                {SUPPORT_AUDIENCE_LABELS[audience]}
-                            </Text>
-                        </TouchableOpacity>
-                    ))}
-                </View>
-
-                <Text style={styles.formLabel}>How long should it stay open?</Text>
-                <View style={styles.selectorWrap}>
-                    {SUPPORT_DURATION_OPTIONS.map(option => (
-                        <TouchableOpacity
-                            key={option.hours}
-                            style={[styles.selectorChip, form.durationHours === option.hours && styles.selectorChipActive]}
-                            onPress={() => setForm(prev => ({ ...prev, durationHours: option.hours }))}
-                        >
-                            <Text style={[styles.selectorChipText, form.durationHours === option.hours && styles.selectorChipTextActive]}>
+                            <Text style={[styles.selectorChipText, form.urgency === option.value && styles.selectorChipTextActive]}>
                                 {option.label}
                             </Text>
                         </TouchableOpacity>
@@ -1234,7 +1193,7 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
                 <SupportRequestCard
                     request={item}
                     isAvailableToSupport={isAvailableToSupport}
-                    supportModes={supportModes}
+                    supportMode={supportMode}
                     responsePending={responsePendingIds.has(item.id)}
                     closingPending={closingIds.has(item.id)}
                     responses={isMineView ? requestResponsesById[item.id] : undefined}
@@ -1563,6 +1522,32 @@ const styles = StyleSheet.create({
     cardName: { fontSize: Typography.sizes.md, fontWeight: '600', color: Colors.light.textPrimary },
     badge: { backgroundColor: Colors.successSubtle, borderRadius: Radii.full, paddingHorizontal: 10, paddingVertical: 4 },
     badgeText: { fontSize: Typography.sizes.xs, fontWeight: '700', color: Colors.success },
+    urgencyBadgeUrgent: {
+        borderRadius: Radii.full,
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        backgroundColor: 'rgba(220,38,38,0.12)',
+        borderWidth: 1,
+        borderColor: 'rgba(220,38,38,0.25)',
+    },
+    urgencyBadgeUrgentText: {
+        fontSize: Typography.sizes.xs,
+        fontWeight: '700',
+        color: Colors.danger,
+    },
+    urgencyBadgeSoon: {
+        borderRadius: Radii.full,
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        backgroundColor: 'rgba(255,193,7,0.14)',
+        borderWidth: 1,
+        borderColor: 'rgba(255,193,7,0.28)',
+    },
+    urgencyBadgeSoonText: {
+        fontSize: Typography.sizes.xs,
+        fontWeight: '700',
+        color: Colors.warning,
+    },
     priorityBadge: {
         flexDirection: 'row',
         alignItems: 'center',

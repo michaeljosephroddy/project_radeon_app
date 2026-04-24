@@ -13,6 +13,8 @@ export function useDiscover(params: {
     ageMax?: number;
     distanceKm?: number;
     sobriety?: string;
+    lat?: number;
+    lng?: number;
     limit?: number;
 }, enabled = true) {
     const limit = params.limit ?? 20;
@@ -24,6 +26,8 @@ export function useDiscover(params: {
         ageMax: params.ageMax,
         distanceKm: params.distanceKm,
         sobriety: params.sobriety,
+        lat: params.lat,
+        lng: params.lng,
         limit,
     });
     const policy = getInfiniteQueryPolicy(queryKey);
@@ -38,6 +42,8 @@ export function useDiscover(params: {
             ageMax: params.ageMax,
             distanceKm: params.distanceKm,
             sobriety: params.sobriety,
+            lat: params.lat,
+            lng: params.lng,
             page: pageParam as number | undefined,
             limit,
         }),

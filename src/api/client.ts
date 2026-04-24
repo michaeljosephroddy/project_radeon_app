@@ -200,7 +200,7 @@ export interface MeetupAttendee {
 
 export interface SupportProfile {
     is_available_to_support: boolean;
-    support_modes: string[];
+    support_mode: string;
     support_updated_at?: string | null;
 }
 
@@ -212,10 +212,9 @@ export interface SupportRequest {
     city?: string | null;
     type: 'need_to_talk' | 'need_distraction' | 'need_encouragement' | 'need_company';
     message?: string | null;
-    audience: 'friends' | 'city' | 'community';
-    status: 'open' | 'matched' | 'closed' | 'expired';
+    urgency: 'when_you_can' | 'soon' | 'right_now';
+    status: 'open' | 'closed';
     response_count: number;
-    expires_at: string;
     created_at: string;
     priority_visibility: boolean;
     priority_expires_at?: string | null;
@@ -328,6 +327,8 @@ export interface UpdateMeInput {
     bio?: string | null;
     interests?: string[];
     sober_since?: string;
+    lat?: number;
+    lng?: number;
 }
 
 // ── Auth ───────────────────────────────────────────────────────────────────
@@ -399,6 +400,8 @@ export async function discoverUsers(params?: {
     ageMax?: number;
     distanceKm?: number;
     sobriety?: string;
+    lat?: number;
+    lng?: number;
     page?: number;
     limit?: number;
 }): Promise<PaginatedResponse<User>> {
@@ -410,6 +413,8 @@ export async function discoverUsers(params?: {
     if (typeof params?.ageMax === 'number') search.set('age_max', String(params.ageMax));
     if (typeof params?.distanceKm === 'number') search.set('distance_km', String(params.distanceKm));
     if (params?.sobriety?.trim()) search.set('sobriety', params.sobriety.trim());
+    if (typeof params?.lat === 'number') search.set('lat', String(params.lat));
+    if (typeof params?.lng === 'number') search.set('lng', String(params.lng));
     if (params?.page) search.set('page', String(params.page));
     if (params?.limit) search.set('limit', String(params.limit));
     const suffix = search.toString() ? `?${search.toString()}` : '';
@@ -556,17 +561,16 @@ export async function getMySupportProfile(): Promise<SupportProfile> {
 // Updates the caller's support-availability settings.
 export async function updateMySupportProfile(data: {
     is_available_to_support: boolean;
-    support_modes?: string[];
+    support_mode?: string;
 }): Promise<SupportProfile> {
     return request('/support/me', { method: 'PATCH', body: JSON.stringify(data) });
 }
 
-// Creates a new support request that can appear inline in the community feed.
+// Creates a new support request visible to the whole community.
 export async function createSupportRequest(data: {
     type: SupportRequest['type'];
     message?: string | null;
-    audience: SupportRequest['audience'];
-    expires_at: string;
+    urgency: SupportRequest['urgency'];
     priority_visibility?: boolean;
 }): Promise<SupportRequest> {
     return request('/support/requests', { method: 'POST', body: JSON.stringify(data) });

@@ -5,6 +5,7 @@ import {
     Image,
     TouchableOpacity,
     FlatList,
+    RefreshControl,
     StyleSheet,
     ActivityIndicator,
     Dimensions,
@@ -21,6 +22,7 @@ import * as api from '../../api/client';
 import { useAuth } from '../../hooks/useAuth';
 import { useDiscover } from '../../hooks/queries/useDiscover';
 import { useLazyActivation } from '../../hooks/useLazyActivation';
+import { getDeviceCoords } from '../../utils/location';
 import { getRecoveryMilestone } from '../../utils/date';
 import { formatUsername } from '../../utils/identity';
 import { Colors, Typography, Spacing, Radii, getAvatarColors } from '../../utils/theme';
@@ -245,6 +247,17 @@ export function DiscoverScreen({ isActive, onOpenUserProfile }: DiscoverScreenPr
         sobriety: 'Any',
     });
 
+    const [coords, setCoords] = useState<{ latitude: number; longitude: number } | null>(null);
+
+    useEffect(() => {
+        if (!hasActivated) return;
+        getDeviceCoords().then(setCoords);
+    }, [hasActivated]);
+
+    // Round to 2 decimal places (~1 km) so minor GPS drift doesn't bust the cache.
+    const discoverLat = coords ? Math.round(coords.latitude * 100) / 100 : undefined;
+    const discoverLng = coords ? Math.round(coords.longitude * 100) / 100 : undefined;
+
     const discoverQuery = useDiscover({
         limit: 20,
         query: isSearching ? debouncedQuery : undefined,
@@ -253,6 +266,8 @@ export function DiscoverScreen({ isActive, onOpenUserProfile }: DiscoverScreenPr
         ageMax: appliedFilters.ageMax ? Number(appliedFilters.ageMax) : undefined,
         distanceKm: appliedFilters.distanceKm,
         sobriety: appliedFilters.sobriety !== 'Any' ? appliedFilters.sobriety : undefined,
+        lat: isSearching ? undefined : discoverLat,
+        lng: isSearching ? undefined : discoverLng,
     }, hasActivated);
     const [friendedIds, setFriendedIds] = useState<Set<string>>(new Set());
     const [upgradeVisible, setUpgradeVisible] = useState(false);
@@ -274,6 +289,10 @@ export function DiscoverScreen({ isActive, onOpenUserProfile }: DiscoverScreenPr
         user.friendship_status === 'outgoing' ||
         user.friendship_status === 'friends',
     [friendedIds]);
+
+    const handleRefresh = useCallback(() => {
+        void discoverQuery.refetch();
+    }, [discoverQuery]);
 
     const handleEndReached = useCallback(() => {
         if (discoverQuery.hasNextPage && !discoverQuery.isFetchingNextPage) {
@@ -449,6 +468,13 @@ export function DiscoverScreen({ isActive, onOpenUserProfile }: DiscoverScreenPr
                             data={users}
                             keyExtractor={u => u.id}
                             contentContainerStyle={styles.resultsContent}
+                            refreshControl={
+                                <RefreshControl
+                                    refreshing={discoverQuery.isRefetching && !discoverQuery.isFetchingNextPage}
+                                    onRefresh={handleRefresh}
+                                    tintColor={Colors.primary}
+                                />
+                            }
                             renderItem={({ item }) => (
                                 <SearchResultRow
                                     user={item}
@@ -481,6 +507,19 @@ export function DiscoverScreen({ isActive, onOpenUserProfile }: DiscoverScreenPr
                             numColumns={2}
                             columnWrapperStyle={styles.gridRow}
                             contentContainerStyle={styles.gridContent}
+                            refreshControl={
+                                <RefreshControl
+                                    refreshing={discoverQuery.isRefetching && !discoverQuery.isFetchingNextPage}
+                                    onRefresh={handleRefresh}
+                                    tintColor={Colors.primary}
+                                />
+                            }
+                            ListHeaderComponent={
+                                <View style={styles.sectionHeadingRow}>
+                                    <Text style={styles.sectionHeading}>People you might know</Text>
+                                    <Text style={styles.sectionCount}>{users.length}{discoverQuery.hasNextPage ? '+' : ''} results</Text>
+                                </View>
+                            }
                             renderItem={({ item }) => (
                                 <DiscoverCard
                                     user={item}
@@ -529,6 +568,23 @@ const styles = StyleSheet.create({
         fontSize: Typography.sizes.base,
         color: Colors.light.textTertiary,
         textAlign: 'center',
+    },
+
+    sectionHeadingRow: {
+        flexDirection: 'row',
+        alignItems: 'baseline',
+        paddingHorizontal: Spacing.md,
+        paddingBottom: Spacing.sm,
+    },
+    sectionHeading: {
+        flex: 1,
+        fontSize: Typography.sizes.md,
+        fontWeight: '600',
+        color: Colors.light.textPrimary,
+    },
+    sectionCount: {
+        fontSize: Typography.sizes.sm,
+        color: Colors.light.textSecondary,
     },
 
     controls: {

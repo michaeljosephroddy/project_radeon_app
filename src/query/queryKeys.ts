@@ -18,6 +18,8 @@ export const queryKeys = {
         ageMax?: number;
         distanceKm?: number;
         sobriety?: string;
+        lat?: number;
+        lng?: number;
         limit?: number;
     }) => ['discover', params ?? {}] as const,
     supportRequests: (params?: { scope?: 'open' | 'mine'; limit?: number }) => ['support-requests', params ?? {}] as const,

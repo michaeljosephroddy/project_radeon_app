@@ -21,6 +21,7 @@ export function LocationStep({ onNext, dotIndex, dotTotal }: LocationStepProps) 
     const [country, setCountry] = useState(user?.country ?? '');
     const [detecting, setDetecting] = useState(false);
     const [saving, setSaving] = useState(false);
+    const [detectedCoords, setDetectedCoords] = useState<{ lat: number; lng: number } | null>(null);
 
     useEffect(() => {
         if (user?.city) return;
@@ -36,6 +37,7 @@ export function LocationStep({ onNext, dotIndex, dotTotal }: LocationStepProps) 
             const position = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
             const [place] = await Location.reverseGeocodeAsync(position.coords);
 
+            setDetectedCoords({ lat: position.coords.latitude, lng: position.coords.longitude });
             if (place?.city) setCity(place.city);
             if (place?.country) setCountry(place.country);
         } catch {
@@ -52,6 +54,8 @@ export function LocationStep({ onNext, dotIndex, dotTotal }: LocationStepProps) 
             await api.updateMe({
                 city: city.trim() || undefined,
                 country: country.trim() || undefined,
+                lat: detectedCoords?.lat,
+                lng: detectedCoords?.lng,
             });
             await refreshUser();
             onNext();
