@@ -86,6 +86,7 @@ export interface User {
     id: string;
     username: string;
     avatar_url?: string;
+    banner_url?: string | null;
     is_plus?: boolean;
     subscription_tier?: string | null;
     city?: string;
@@ -379,6 +380,18 @@ export async function uploadAvatar(uri: string): Promise<{ avatar_url: string }>
         body: form,
     });
     return parseDataResponse<{ avatar_url: string }>(res);
+}
+
+export async function uploadBanner(uri: string): Promise<{ banner_url: string }> {
+    const token = await getToken();
+    const form = new FormData();
+    form.append('banner', { uri, name: 'banner.jpg', type: 'image/jpeg' } as unknown as Blob);
+    const res = await fetch(`${BASE_URL}/users/me/banner`, {
+        method: 'POST',
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        body: form,
+    });
+    return parseDataResponse<{ banner_url: string }>(res);
 }
 
 // Silently records the caller's live GPS position and reverse-geocoded city.

@@ -25,6 +25,7 @@ import { useLazyActivation } from '../../hooks/useLazyActivation';
 import { getDeviceCoords } from '../../utils/location';
 import { getRecoveryMilestone } from '../../utils/date';
 import { formatUsername } from '../../utils/identity';
+import { dedupeById } from '../../utils/list';
 import { Colors, Typography, Spacing, Radii, getAvatarColors } from '../../utils/theme';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -273,9 +274,11 @@ export function DiscoverScreen({ isActive, onOpenUserProfile }: DiscoverScreenPr
     const [upgradeVisible, setUpgradeVisible] = useState(false);
 
     const users = useMemo(
-        () => (discoverQuery.data?.pages ?? [])
-            .flatMap(p => p.items ?? [])
-            .filter(u => u.friendship_status !== 'self'),
+        () => dedupeById(
+            (discoverQuery.data?.pages ?? [])
+                .flatMap(p => p.items ?? [])
+                .filter(u => u.friendship_status !== 'self')
+        ),
         [discoverQuery.data?.pages],
     );
 

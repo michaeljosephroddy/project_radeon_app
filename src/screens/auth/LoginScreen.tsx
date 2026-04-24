@@ -5,6 +5,7 @@ import {
     ScrollView, ActivityIndicator, Alert,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../hooks/useAuth';
 import { Colors, Typography, Spacing, Radii } from '../../utils/theme';
 
@@ -37,11 +38,12 @@ export function LoginScreen({ onGoToRegister }: LoginScreenProps) {
     };
 
     return (
+        <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+            <StatusBar style="light" />
         <KeyboardAvoidingView
-            style={styles.container}
+            style={styles.flex}
             behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         >
-            <StatusBar style="light" />
         <ScrollView contentContainerStyle={styles.inner} keyboardShouldPersistTaps="handled">
                 <View style={styles.header}>
                     <Text style={styles.wordmark}>
@@ -91,11 +93,13 @@ export function LoginScreen({ onGoToRegister }: LoginScreenProps) {
                 </View>
             </ScrollView>
         </KeyboardAvoidingView>
+        </SafeAreaView>
     );
 }
 
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: Colors.light.background },
+    flex: { flex: 1 },
     inner: { flexGrow: 1, justifyContent: 'center', padding: Spacing.xl },
     header: { marginBottom: 40 },
     wordmark: {

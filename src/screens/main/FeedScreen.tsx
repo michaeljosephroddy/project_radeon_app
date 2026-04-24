@@ -24,6 +24,7 @@ import { queryKeys } from '../../query/queryKeys';
 import { getListPerformanceProps } from '../../utils/listPerformance';
 import { Colors, Typography, Spacing, Radii } from '../../utils/theme';
 import { formatUsername } from '../../utils/identity';
+import { dedupeById } from '../../utils/list';
 import { formatReadableTimestamp } from '../../utils/date';
 
 const EMPTY_COMMENTS: api.Comment[] = [];
@@ -73,15 +74,6 @@ interface ComposerImageState {
     status: 'uploading' | 'uploaded' | 'failed';
     uploadToken: number;
     uploadedImage?: api.PostImage;
-}
-
-function dedupePostsById(posts: api.Post[]): api.Post[] {
-    const seen = new Set<string>();
-    return posts.filter((post) => {
-        if (seen.has(post.id)) return false;
-        seen.add(post.id);
-        return true;
-    });
 }
 
 interface PreviewCacheEntry {
@@ -187,7 +179,7 @@ const PostCard = React.memo(function PostCard({
         <View style={styles.postCard}>
             <View style={styles.postHead}>
                 <TouchableOpacity onPress={isOwn ? undefined : handlePressUser} disabled={isOwn}>
-                    <Avatar username={post.username} avatarUrl={post.avatar_url} size={36} />
+                    <Avatar username={post.username} avatarUrl={post.avatar_url} size={44} />
                 </TouchableOpacity>
                 <View style={styles.postHeadBody}>
                     <View style={styles.postTitleRow}>
@@ -362,7 +354,7 @@ export function FeedScreen({
                     localManagedPostIdsRef.current.delete(postId);
                 }
             });
-            const nextPosts = dedupePostsById([...preservedLocalPosts, ...feedPosts]);
+            const nextPosts = dedupeById([...preservedLocalPosts, ...feedPosts]);
             postsRef.current = nextPosts;
             return nextPosts;
         });

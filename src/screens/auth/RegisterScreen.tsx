@@ -5,6 +5,7 @@ import {
     ScrollView, ActivityIndicator, Alert,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../hooks/useAuth';
 import { Colors, Typography, Spacing, Radii } from '../../utils/theme';
 
@@ -48,11 +49,12 @@ export function RegisterScreen({ onGoToLogin }: RegisterScreenProps) {
     };
 
     return (
-        <KeyboardAvoidingView
-            style={styles.container}
-            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        >
+        <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
             <StatusBar style="light" />
+            <KeyboardAvoidingView
+                style={styles.flex}
+                behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            >
             <ScrollView contentContainerStyle={styles.inner} keyboardShouldPersistTaps="handled">
                 <View style={styles.header}>
                     <Text style={styles.wordmark}>
@@ -98,14 +100,16 @@ export function RegisterScreen({ onGoToLogin }: RegisterScreenProps) {
                     </TouchableOpacity>
                 </View>
             </ScrollView>
-        </KeyboardAvoidingView>
+            </KeyboardAvoidingView>
+        </SafeAreaView>
     );
 }
 
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: Colors.light.background },
-    inner: { flexGrow: 1, padding: Spacing.xl, paddingTop: 60 },
-    header: { marginBottom: 32 },
+    flex: { flex: 1 },
+    inner: { flexGrow: 1, justifyContent: 'center', padding: Spacing.xl },
+    header: { marginBottom: 40 },
     wordmark: { fontSize: 26, fontWeight: '600', color: Colors.light.textPrimary, letterSpacing: -0.5 },
     wordmarkAccent: { color: Colors.primary },
     tagline: { fontSize: Typography.sizes.base, color: Colors.light.textTertiary, marginTop: Spacing.sm },

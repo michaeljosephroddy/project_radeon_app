@@ -49,8 +49,8 @@ const styles = StyleSheet.create({
         borderBottomWidth: 0.5,
         borderBottomColor: Colors.light.border,
     },
-    headerSide: { width: 64, alignItems: 'flex-end' },
-    backIcon: { fontSize: 20, color: Colors.primary, width: 64 },
+    headerSide: { width: 40 },
+    backIcon: { fontSize: 20, color: Colors.primary, width: 40 },
     headerTitle: {
         fontSize: Typography.sizes.lg,
         fontWeight: '500',

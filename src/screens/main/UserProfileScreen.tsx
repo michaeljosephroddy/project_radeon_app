@@ -123,74 +123,79 @@ export function UserProfileScreen({
 
     const ProfileHeader = (
         <View style={styles.profileHeader}>
-            <Avatar
-                username={username}
-                avatarUrl={avatarUrl}
-                size={192}
-                fontSize={70}
-            />
-            <Text style={styles.name}>{formatUsername(username)}</Text>
-
-            {loading ? (
-                <ActivityIndicator color={Colors.primary} style={{ marginTop: Spacing.sm }} />
-            ) : (
-                <>
-                    {profile?.bio ? (
-                        <Text style={styles.bio}>{profile.bio}</Text>
-                    ) : null}
-                    {profile?.city && (
-                        <Text style={styles.meta}>{profile.city}{profile.country ? `, ${profile.country}` : ''}</Text>
-                    )}
-                    {profile?.interests?.length ? (
-                        <View style={styles.interestsWrap}>
-                            {profile.interests.map((interest) => (
-                                <View key={interest} style={styles.interestChip}>
-                                    <Text style={styles.interestChipText}>{interest}</Text>
-                                </View>
-                            ))}
-                        </View>
-                    ) : null}
-                    {formattedSobrietyDate && (
-                        <Text style={styles.meta}>Sober since {formattedSobrietyDate}</Text>
-                    )}
-                    {recoveryMilestone && (
-                        <View style={styles.milestoneCard}>
-                            <Text style={styles.milestoneLabel}>MILESTONE</Text>
-                            <View style={styles.milestoneBadge}>
-                                <Text style={styles.milestoneBadgeText}>{recoveryMilestone.currentLabel}</Text>
-                            </View>
-                            <Text style={styles.milestoneValue}>
-                                {formatRecoveryDuration(recoveryMilestone.daysSober)}
-                            </Text>
-                            <Text style={styles.milestoneHint}>
-                                {recoveryMilestone.nextLabel && recoveryMilestone.daysToNext
-                                    ? `${recoveryMilestone.daysToNext} days to ${recoveryMilestone.nextLabel}`
-                                    : 'Longest milestone badge unlocked'}
-                            </Text>
-                        </View>
-                    )}
-                </>
-            )}
-
-            <View style={styles.actionRow}>
-                <TouchableOpacity
-                    style={[styles.followBtn, friendshipStatus === 'friends' && styles.followingBtn, friendActionLoading && { opacity: 0.6 }]}
-                    onPress={handleFriendAction}
-                    disabled={friendActionLoading}
-                >
-                    <Text style={[styles.followBtnText, friendshipStatus === 'friends' && styles.followingBtnText]}>
-                        {friendButtonLabel}
-                    </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                    style={styles.dmBtn}
-                    onPress={handleDM}
-                >
-                    <Text style={styles.dmBtnText}>Message</Text>
-                </TouchableOpacity>
+            {profile?.banner_url
+                ? <Image source={{ uri: profile.banner_url }} style={styles.banner} resizeMode="cover" />
+                : <View style={styles.bannerPlaceholder} />
+            }
+            <View style={styles.avatarOverlapRow}>
+                <View style={styles.avatarBorder}>
+                    <Avatar username={username} avatarUrl={avatarUrl} size={96} fontSize={34} />
+                </View>
             </View>
+            <View style={styles.profileContent}>
+                <Text style={styles.name}>{formatUsername(username)}</Text>
 
-            <Text style={styles.postsLabel}>POSTS</Text>
+                {loading ? (
+                    <ActivityIndicator color={Colors.primary} style={{ marginTop: Spacing.sm }} />
+                ) : (
+                    <>
+                        {profile?.bio ? (
+                            <Text style={styles.bio}>{profile.bio}</Text>
+                        ) : null}
+                        {profile?.city && (
+                            <Text style={styles.meta}>{profile.city}{profile.country ? `, ${profile.country}` : ''}</Text>
+                        )}
+                        {profile?.interests?.length ? (
+                            <View style={styles.interestsWrap}>
+                                {profile.interests.map((interest) => (
+                                    <View key={interest} style={styles.interestChip}>
+                                        <Text style={styles.interestChipText}>{interest}</Text>
+                                    </View>
+                                ))}
+                            </View>
+                        ) : null}
+                        {formattedSobrietyDate && (
+                            <Text style={styles.meta}>Sober since {formattedSobrietyDate}</Text>
+                        )}
+                        {recoveryMilestone && (
+                            <View style={styles.milestoneCard}>
+                                <Text style={styles.milestoneLabel}>MILESTONE</Text>
+                                <View style={styles.milestoneBadge}>
+                                    <Text style={styles.milestoneBadgeText}>{recoveryMilestone.currentLabel}</Text>
+                                </View>
+                                <Text style={styles.milestoneValue}>
+                                    {formatRecoveryDuration(recoveryMilestone.daysSober)}
+                                </Text>
+                                <Text style={styles.milestoneHint}>
+                                    {recoveryMilestone.nextLabel && recoveryMilestone.daysToNext
+                                        ? `${recoveryMilestone.daysToNext} days to ${recoveryMilestone.nextLabel}`
+                                        : 'Longest milestone badge unlocked'}
+                                </Text>
+                            </View>
+                        )}
+                    </>
+                )}
+
+                <View style={styles.actionRow}>
+                    <TouchableOpacity
+                        style={[styles.followBtn, friendshipStatus === 'friends' && styles.followingBtn, friendActionLoading && { opacity: 0.6 }]}
+                        onPress={handleFriendAction}
+                        disabled={friendActionLoading}
+                    >
+                        <Text style={[styles.followBtnText, friendshipStatus === 'friends' && styles.followingBtnText]}>
+                            {friendButtonLabel}
+                        </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                        style={styles.dmBtn}
+                        onPress={handleDM}
+                    >
+                        <Text style={styles.dmBtnText}>Message</Text>
+                    </TouchableOpacity>
+                </View>
+
+                <Text style={styles.postsLabel}>POSTS</Text>
+            </View>
         </View>
     );
 
@@ -230,7 +235,7 @@ export function UserProfileScreen({
                 renderItem={({ item }) => (
                     <View style={styles.postCard}>
                         <View style={styles.postHead}>
-                            <Avatar username={item.username} avatarUrl={item.avatar_url} size={36} fontSize={13} />
+                            <Avatar username={item.username} avatarUrl={item.avatar_url} size={44} fontSize={14} />
                             <View style={styles.postHeadBody}>
                                 <Text style={styles.postName}>{formatUsername(item.username)}</Text>
                                 <Text style={styles.postMeta}>{timeAgo(item.created_at)}</Text>
@@ -293,20 +298,46 @@ const styles = StyleSheet.create({
     footerLoader: { paddingVertical: Spacing.md },
 
     profileHeader: {
-        alignItems: 'center',
-        paddingHorizontal: Spacing.md,
-        paddingTop: Spacing.xl,
-        paddingBottom: Spacing.md,
-        gap: 6,
         borderBottomWidth: 0.5,
         borderBottomColor: Colors.light.border,
         marginBottom: Spacing.sm,
+        paddingBottom: Spacing.md,
+    },
+    banner: {
+        height: 140,
+        marginHorizontal: Spacing.md,
+        borderRadius: Radii.lg,
+    },
+    bannerPlaceholder: {
+        height: 140,
+        marginHorizontal: Spacing.md,
+        borderRadius: Radii.lg,
+        backgroundColor: Colors.light.backgroundSecondary,
+    },
+    avatarOverlapRow: {
+        alignItems: 'center',
+        marginHorizontal: Spacing.md,
+        marginTop: -48,
+        marginBottom: Spacing.sm,
+    },
+    avatarBorder: {
+        width: 102,
+        height: 102,
+        borderRadius: 51,
+        backgroundColor: Colors.light.background,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    profileContent: {
+        alignItems: 'center',
+        paddingHorizontal: Spacing.md,
+        gap: 6,
     },
     name: {
         fontSize: Typography.sizes.xl,
         fontWeight: '600',
         color: Colors.light.textPrimary,
-        marginTop: Spacing.sm,
+        textAlign: 'center',
     },
     meta: {
         fontSize: Typography.sizes.sm,

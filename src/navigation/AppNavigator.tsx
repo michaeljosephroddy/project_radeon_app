@@ -15,6 +15,7 @@ import { ProfileTabScreen } from '../screens/main/ProfileTabScreen';
 import { ChatScreen } from '../screens/main/ChatScreen';
 import { ComposeDMScreen } from '../screens/main/ComposeDMScreen';
 import { UserProfileScreen } from '../screens/main/UserProfileScreen';
+import { MeetupDetailScreen } from '../screens/main/MeetupDetailScreen';
 import { Avatar } from '../components/Avatar';
 import * as api from '../api/client';
 import { Colors, Typography, Spacing } from '../utils/theme';
@@ -51,18 +52,18 @@ const SupportTab = React.memo(function SupportTab({ isActive, onOpenChat, onOpen
 const MeetupsTab = React.memo(function MeetupsTab({
     isActive,
     onOpenUserProfile,
-    onMeetupDetailChange,
+    onOpenMeetup,
 }: {
     isActive: boolean;
     onOpenUserProfile: (p: OpenUserProfile) => void;
-    onMeetupDetailChange: (isOpen: boolean) => void;
+    onOpenMeetup: (meetup: api.Meetup) => void;
 }) {
     return (
         <View style={isActive ? styles.tabVisible : styles.tabHidden}>
             <MeetupsScreen
                 isActive={isActive}
                 onOpenUserProfile={onOpenUserProfile}
-                onMeetupDetailChange={onMeetupDetailChange}
+                onOpenMeetup={onOpenMeetup}
             />
         </View>
     );
@@ -80,7 +81,7 @@ export function AppNavigator() {
     const [openUserProfile, setOpenUserProfile] = useState<OpenUserProfile | null>(null);
     const [pendingDM, setPendingDM] = useState<{ recipientId: string; username: string; avatarUrl?: string } | null>(null);
     const [ownProfileOpen, setOwnProfileOpen] = useState(false);
-    const [meetupDetailOpen, setMeetupDetailOpen] = useState(false);
+    const [openMeetup, setOpenMeetup] = useState<api.Meetup | null>(null);
     const [keyboardVisible, setKeyboardVisible] = useState(false);
     const [feedFocusRequest, setFeedFocusRequest] = useState<{ postId: string; commentId?: string; nonce: number } | null>(null);
     const insets = useSafeAreaInsets();
@@ -89,11 +90,20 @@ export function AppNavigator() {
     const inUserProfile = openUserProfile !== null;
     const inOwnProfile = ownProfileOpen;
     const inComposeDM = pendingDM !== null;
+    const inMeetupDetail = openMeetup !== null;
 
     const handleOpenUserProfile = useCallback((profile: OpenUserProfile) => {
         setOpenUserProfile(profile);
         setOwnProfileOpen(false);
         setOpenChat(null);
+    }, []);
+
+    const handleOpenMeetup = useCallback((meetup: api.Meetup) => {
+        setOpenMeetup(meetup);
+    }, []);
+
+    const handleCloseMeetup = useCallback(() => {
+        setOpenMeetup(null);
     }, []);
 
     const handleCloseChat = useCallback(() => {
@@ -208,7 +218,7 @@ export function AppNavigator() {
     }, [consumeIntent, intent]);
 
     const header = useMemo(() => {
-        if (inChat || inUserProfile || inOwnProfile || inComposeDM || meetupDetailOpen) return null;
+        if (inChat || inUserProfile || inOwnProfile || inComposeDM || inMeetupDetail) return null;
 
         const titles: Record<Tab, React.ReactNode> = {
             community: (
@@ -235,7 +245,7 @@ export function AppNavigator() {
                 </TouchableOpacity>
             </View>
         );
-    }, [inChat, inUserProfile, inOwnProfile, inComposeDM, meetupDetailOpen, activeTab, user, openOwnProfile]);
+    }, [inChat, inUserProfile, inOwnProfile, inComposeDM, inMeetupDetail, activeTab, user, openOwnProfile]);
 
     const overlays = useMemo(() => (
         <>
@@ -280,15 +290,24 @@ export function AppNavigator() {
                     />
                 </View>
             )}
+            {inMeetupDetail && (
+                <View style={StyleSheet.absoluteFill}>
+                    <MeetupDetailScreen
+                        meetup={openMeetup!}
+                        onBack={handleCloseMeetup}
+                        onOpenUserProfile={handleOpenUserProfile}
+                    />
+                </View>
+            )}
         </>
     ), [
-        inOwnProfile, inUserProfile, inChat, inComposeDM,
-        openUserProfile, openChat, pendingDM,
+        inOwnProfile, inUserProfile, inChat, inComposeDM, inMeetupDetail,
+        openUserProfile, openChat, pendingDM, openMeetup,
         handleOpenUserProfile, handleCloseChat, closeUserProfile, closeOwnProfile,
-        handleComposeDM, handleComposeDMComplete,
+        handleComposeDM, handleComposeDMComplete, handleCloseMeetup,
     ]);
 
-    const isOverlayOpen = inChat || inUserProfile || inOwnProfile || inComposeDM || meetupDetailOpen;
+    const isOverlayOpen = inChat || inUserProfile || inOwnProfile || inComposeDM || inMeetupDetail;
 
     return (
         <>
@@ -308,13 +327,13 @@ export function AppNavigator() {
                     <MeetupsTab
                         isActive={activeTab === 'meetups' && !isOverlayOpen}
                         onOpenUserProfile={handleOpenUserProfile}
-                        onMeetupDetailChange={setMeetupDetailOpen}
+                        onOpenMeetup={handleOpenMeetup}
                     />
                     <ChatsTab isActive={activeTab === 'chats' && !isOverlayOpen} onOpenChat={setOpenChat} />
                     {overlays}
                 </View>
 
-                {!inChat && !inUserProfile && !inOwnProfile && !inComposeDM && !meetupDetailOpen && !keyboardVisible && (
+                {!inChat && !inUserProfile && !inOwnProfile && !inComposeDM && !inMeetupDetail && !keyboardVisible && (
                     <View style={[styles.tabBar, { paddingBottom: insets.bottom + 6 }]}>
                         {TABS.map(tab => (
                             <TouchableOpacity

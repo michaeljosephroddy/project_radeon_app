@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
-    View, Text, TextInput, TouchableOpacity,
+    View, Text, TextInput, TouchableOpacity, Image,
     StyleSheet, ScrollView, FlatList, ActivityIndicator, Alert, Platform,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
@@ -43,7 +44,9 @@ export function ProfileTabScreen({ isActive, onOpenUserProfile, onBack }: Profil
     const [editingSection, setEditingSection] = useState<EditableSection>(null);
     const [savingSection, setSavingSection] = useState<EditableSection>(null);
     const [uploadingAvatar, setUploadingAvatar] = useState(false);
+    const [uploadingBanner, setUploadingBanner] = useState(false);
     const [localAvatarUrl, setLocalAvatarUrl]   = useState(user?.avatar_url);
+    const [localBannerUrl, setLocalBannerUrl]   = useState(user?.banner_url ?? undefined);
 
     const [friends, setFriends] = useState<api.FriendUser[]>([]);
     const [incomingRequests, setIncomingRequests] = useState<api.FriendUser[]>([]);
@@ -161,6 +164,34 @@ export function ProfileTabScreen({ isActive, onOpenUserProfile, onBack }: Profil
             Alert.alert('Upload failed', e instanceof Error ? e.message : 'Something went wrong.');
         } finally {
             setUploadingAvatar(false);
+        }
+    };
+
+    const handlePickBanner = async () => {
+        const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (!perm.granted) {
+            Alert.alert('Permission required', 'Allow access to your photo library to upload a banner.');
+            return;
+        }
+        const result = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            allowsEditing: true,
+            aspect: [3, 1],
+            quality: 0.8,
+        });
+        if (result.canceled) return;
+        const localUri = result.assets[0].uri;
+        const previousBannerUrl = localBannerUrl;
+        setLocalBannerUrl(localUri);
+        setUploadingBanner(true);
+        try {
+            await api.uploadBanner(localUri);
+            refreshUser().catch(() => {});
+        } catch (e: unknown) {
+            setLocalBannerUrl(previousBannerUrl);
+            Alert.alert('Upload failed', e instanceof Error ? e.message : 'Something went wrong.');
+        } finally {
+            setUploadingBanner(false);
         }
     };
 
@@ -366,7 +397,7 @@ export function ProfileTabScreen({ isActive, onOpenUserProfile, onBack }: Profil
 
     if (subView === 'friends') {
         return (
-            <SafeAreaView style={styles.container}>
+            <SafeAreaView style={styles.container} edges={['bottom']}>
                 <View style={styles.subHeader}>
                     <TouchableOpacity onPress={() => setSubView('profile')} style={styles.subHeaderSide}>
                         <Text style={styles.backIcon}>←</Text>
@@ -385,7 +416,7 @@ export function ProfileTabScreen({ isActive, onOpenUserProfile, onBack }: Profil
                     renderItem={({ item }) => (
                         <View style={styles.row}>
                             <TouchableOpacity onPress={() => onOpenUserProfile({ userId: item.user_id, username: item.username, avatarUrl: item.avatar_url })}>
-                                <Avatar username={item.username} avatarUrl={item.avatar_url} size={48} fontSize={16} />
+                                <Avatar username={item.username} avatarUrl={item.avatar_url} size={44} fontSize={14} />
                             </TouchableOpacity>
                             <TouchableOpacity style={styles.rowInfo} onPress={() => onOpenUserProfile({ userId: item.user_id, username: item.username, avatarUrl: item.avatar_url })}>
                                 <Text style={styles.rowName}>{formatUsername(item.username)}</Text>
@@ -411,7 +442,7 @@ export function ProfileTabScreen({ isActive, onOpenUserProfile, onBack }: Profil
 
     if (subView === 'requests') {
         return (
-            <SafeAreaView style={styles.container}>
+            <SafeAreaView style={styles.container} edges={['bottom']}>
                 <View style={styles.subHeader}>
                     <TouchableOpacity onPress={() => setSubView('profile')} style={styles.subHeaderSide}>
                         <Text style={styles.backIcon}>←</Text>
@@ -446,7 +477,7 @@ export function ProfileTabScreen({ isActive, onOpenUserProfile, onBack }: Profil
                         return (
                             <View style={styles.row}>
                                 <TouchableOpacity onPress={() => onOpenUserProfile({ userId: item.user_id, username: item.username, avatarUrl: item.avatar_url })}>
-                                    <Avatar username={item.username} avatarUrl={item.avatar_url} size={48} fontSize={16} />
+                                    <Avatar username={item.username} avatarUrl={item.avatar_url} size={44} fontSize={14} />
                                 </TouchableOpacity>
                                 <TouchableOpacity style={styles.rowInfo} onPress={() => onOpenUserProfile({ userId: item.user_id, username: item.username, avatarUrl: item.avatar_url })}>
                                     <Text style={styles.rowName}>{formatUsername(item.username)}</Text>
@@ -477,7 +508,7 @@ export function ProfileTabScreen({ isActive, onOpenUserProfile, onBack }: Profil
     }
 
     return (
-        <SafeAreaView style={styles.container}>
+        <SafeAreaView style={styles.container} edges={['bottom']}>
             <View style={styles.topBar}>
                 {onBack ? (
                     <TouchableOpacity onPress={onBack} style={styles.topBarSide}>
@@ -493,25 +524,39 @@ export function ProfileTabScreen({ isActive, onOpenUserProfile, onBack }: Profil
             </View>
 
             <ScrollView style={styles.scroll} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-                <View style={styles.mainContent}>
-                    <View style={styles.avatarSection}>
-                        <TouchableOpacity onPress={handlePickAvatar} disabled={uploadingAvatar} style={styles.avatarWrap}>
-                            <Avatar
-                                username={user.username}
-                                avatarUrl={localAvatarUrl}
-                                size={80}
-                                fontSize={28}
-                            />
-                            <View style={styles.avatarEditBadge}>
-                                {uploadingAvatar
-                                    ? <ActivityIndicator size="small" color={Colors.textOn.primary} />
-                                    : <Text style={styles.avatarEditIcon}>✎</Text>
-                                }
-                            </View>
-                        </TouchableOpacity>
-                        <Text style={styles.avatarName}>{formatUsername(user.username)}</Text>
-                        {user.city ? <Text style={styles.avatarSub}>{user.city}{user.country ? `, ${user.country}` : ''}</Text> : null}
+                <TouchableOpacity onPress={handlePickBanner} disabled={uploadingBanner} activeOpacity={0.85} style={styles.bannerTouch}>
+                    {localBannerUrl
+                        ? <Image source={{ uri: localBannerUrl }} style={styles.banner} resizeMode="cover" />
+                        : <View style={styles.bannerPlaceholder}>
+                            <Ionicons name="image-outline" size={22} color={Colors.light.textTertiary} />
+                            <Text style={styles.bannerPlaceholderText}>Add a banner photo</Text>
+                          </View>
+                    }
+                    <View style={styles.bannerCameraBtn}>
+                        {uploadingBanner
+                            ? <ActivityIndicator size="small" color="#fff" />
+                            : <Ionicons name="camera" size={14} color="#fff" />
+                        }
                     </View>
+                </TouchableOpacity>
+
+                <View style={styles.avatarOverlapRow}>
+                    <TouchableOpacity onPress={handlePickAvatar} disabled={uploadingAvatar} style={styles.avatarWrap}>
+                        <View style={styles.avatarBorder}>
+                            <Avatar username={user.username} avatarUrl={localAvatarUrl} size={110} fontSize={38} />
+                        </View>
+                        <View style={styles.avatarEditBadge}>
+                            {uploadingAvatar
+                                ? <ActivityIndicator size="small" color={Colors.textOn.primary} />
+                                : <Ionicons name="camera" size={12} color={Colors.textOn.primary} />
+                            }
+                        </View>
+                    </TouchableOpacity>
+                </View>
+
+                <View style={styles.mainContent}>
+                    <Text style={styles.avatarName}>{formatUsername(user.username)}</Text>
+                    {user.city ? <Text style={styles.avatarSub}>{user.city}{user.country ? `, ${user.country}` : ''}</Text> : null}
 
                     <View style={styles.statsRow}>
                         <TouchableOpacity style={styles.statItem} onPress={() => setSubView('friends')}>
@@ -706,20 +751,16 @@ export function ProfileTabScreen({ isActive, onOpenUserProfile, onBack }: Profil
                                 </TouchableOpacity>
                             )}
                         </View>
-                        <View style={styles.fieldRow}>
-                            <Text style={styles.fieldLabel}>Date</Text>
-                            <TouchableOpacity
-                                style={styles.dateFieldButton}
-                                onPress={() => {
-                                    if (editingSection === 'sobriety') setShowSoberSincePicker(true);
-                                }}
-                                disabled={editingSection !== 'sobriety'}
-                            >
-                                <Text style={[styles.dateFieldText, !soberSince && styles.dateFieldPlaceholder]}>
-                                    {sobrietyFieldValue}
-                                </Text>
-                            </TouchableOpacity>
-                        </View>
+                        <TouchableOpacity
+                            onPress={() => {
+                                if (editingSection === 'sobriety') setShowSoberSincePicker(true);
+                            }}
+                            disabled={editingSection !== 'sobriety'}
+                        >
+                            <Text style={[styles.sectionValueText, !soberSince && styles.sectionValuePlaceholder]}>
+                                {sobrietyFieldValue}
+                            </Text>
+                        </TouchableOpacity>
                         {editingSection === 'sobriety' ? (
                             <>
                                 {Platform.OS === 'ios' ? (
@@ -881,27 +922,72 @@ const styles = StyleSheet.create({
     },
     requestActionSecondaryText: { fontSize: Typography.sizes.sm, fontWeight: '500', color: Colors.light.textSecondary },
 
-    content: { flexGrow: 1, padding: Spacing.md, paddingBottom: Spacing.md },
-    mainContent: { gap: 0 },
+    content: { flexGrow: 1, paddingBottom: Spacing.md },
+    mainContent: { gap: 0, paddingHorizontal: Spacing.md },
 
-    avatarSection: { alignItems: 'center', paddingVertical: Spacing.md, marginBottom: Spacing.sm, gap: 4 },
+    bannerTouch: {
+        marginHorizontal: Spacing.md,
+        marginTop: Spacing.md,
+        borderRadius: Radii.lg,
+        overflow: 'hidden',
+    },
+    banner: { height: 140 },
+    bannerPlaceholder: {
+        height: 140,
+        backgroundColor: Colors.light.backgroundSecondary,
+        borderWidth: 0.5,
+        borderColor: Colors.light.border,
+        borderRadius: Radii.lg,
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: Spacing.xs,
+        paddingBottom: Spacing.xl,
+    },
+    bannerPlaceholderText: {
+        fontSize: Typography.sizes.sm,
+        color: Colors.light.textTertiary,
+    },
+    bannerCameraBtn: {
+        position: 'absolute',
+        bottom: Spacing.sm,
+        right: Spacing.sm,
+        width: 28,
+        height: 28,
+        borderRadius: 14,
+        backgroundColor: 'rgba(0,0,0,0.45)',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    avatarOverlapRow: {
+        marginHorizontal: Spacing.md,
+        marginTop: -56,
+        marginBottom: Spacing.sm,
+        alignItems: 'center',
+    },
+    avatarBorder: {
+        width: 118,
+        height: 118,
+        borderRadius: 59,
+        backgroundColor: Colors.light.background,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
     avatarWrap: { position: 'relative' },
     avatarEditBadge: {
         position: 'absolute',
         bottom: 0,
         right: 0,
-        width: 24,
-        height: 24,
-        borderRadius: 12,
+        width: 26,
+        height: 26,
+        borderRadius: 13,
         backgroundColor: Colors.primary,
         alignItems: 'center',
         justifyContent: 'center',
         borderWidth: 2,
         borderColor: Colors.light.background,
     },
-    avatarEditIcon: { fontSize: 12, color: Colors.light.textPrimary },
-    avatarName: { fontSize: Typography.sizes.lg, fontWeight: '600', color: Colors.light.textPrimary, marginTop: Spacing.sm },
-    avatarSub: { fontSize: Typography.sizes.sm, color: Colors.light.textTertiary },
+    avatarName: { fontSize: Typography.sizes.lg, fontWeight: '600', color: Colors.light.textPrimary, marginBottom: 2 },
+    avatarSub: { fontSize: Typography.sizes.sm, color: Colors.light.textTertiary, marginBottom: Spacing.sm },
 
     statsRow: {
         flexDirection: 'row',
@@ -962,18 +1048,6 @@ const styles = StyleSheet.create({
     fieldDivider: { height: 0.5, backgroundColor: Colors.light.border, marginLeft: Spacing.md },
     fieldLabel: { width: 90, fontSize: Typography.sizes.sm, color: Colors.light.textTertiary },
     fieldInput: { flex: 1, fontSize: Typography.sizes.base, color: Colors.light.textPrimary, textAlign: 'right', padding: 0 },
-    dateFieldButton: {
-        flex: 1,
-        alignItems: 'flex-end',
-    },
-    dateFieldText: {
-        fontSize: Typography.sizes.base,
-        color: Colors.light.textPrimary,
-        textAlign: 'right',
-    },
-    dateFieldPlaceholder: {
-        color: Colors.light.textTertiary,
-    },
     inlineDatePickerWrap: {
         borderTopWidth: 0.5,
         borderTopColor: Colors.light.border,

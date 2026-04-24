@@ -9,7 +9,7 @@ import type { OnboardingStepProps } from '../../navigation/OnboardingNavigator';
 
 const FEATURES = [
 { icon: 'trophy' as const, label: 'Advanced milestone tracking & badges' },
-    { icon: 'people' as const, label: 'Greater visibility for support requests' },
+    { icon: 'calendar' as const, label: 'Organize meetups & events' },
     { icon: 'options' as const, label: 'Advanced filters for people discovery' },
     { icon: 'ban' as const, label: 'Ad-free experience' },
 ];
@@ -36,7 +36,7 @@ export function PlusStep({ onNext, onSkip, dotIndex, dotTotal }: PlusStepProps) 
                 <Text style={styles.badge}>SoberSpace Plus</Text>
                 <Text style={styles.title}>Upgrade to SoberSpace Plus</Text>
                 <Text style={styles.subtitle}>
-                    Join thousands of members who've unlocked the full SoberSpace experience.
+                    Join other members who've unlocked the full SoberSpace experience.
                 </Text>
 
                 <View style={styles.featureList}>

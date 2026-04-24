@@ -9,7 +9,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { Avatar } from '../../components/Avatar';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { HeroCard } from '../../components/ui/HeroCard';
-import { PlusFeatureSheet } from '../../components/ui/PlusFeatureSheet';
 import { PrimaryButton } from '../../components/ui/PrimaryButton';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { ScrollToTopButton } from '../../components/ui/ScrollToTopButton';
@@ -23,6 +22,7 @@ import { useScrollToTopButton } from '../../hooks/useScrollToTopButton';
 import { useMySupportRequests, useSupportProfile, useSupportRequests } from '../../hooks/queries/useSupport';
 import { resetInfiniteQueryToFirstPage } from '../../query/infiniteQueryPolicy';
 import { queryKeys } from '../../query/queryKeys';
+import { dedupeById } from '../../utils/list';
 import { getListPerformanceProps } from '../../utils/listPerformance';
 import { Colors, Typography, Spacing, Radii } from '../../utils/theme';
 import { formatUsername } from '../../utils/identity';
@@ -80,14 +80,6 @@ const SUPPORT_RESPONSE_LABELS: Record<SupportResponseType, string> = {
     check_in_later: 'Check in later',
     can_meet: 'I can meet up',
 };
-
-const PRIORITY_VISIBILITY_WINDOW_HOURS = 1;
-
-const SUPPORT_PLUS_FEATURES: Array<{ icon: keyof typeof Ionicons.glyphMap; label: string; description: string }> = [
-    { icon: 'flash-outline', label: 'Priority visibility', description: 'Show your request higher in the support feed for 1 hour.' },
-    { icon: 'people-outline', label: 'Better reach', description: 'Give your request a temporary boost without blocking free posting.' },
-    { icon: 'star-outline', label: 'SoberSpace Plus', description: 'Priority visibility is included with Plus.' },
-];
 
 function timeAgo(dateStr: string): string {
     const diff = Date.now() - new Date(dateStr).getTime();
@@ -171,13 +163,6 @@ function haveSameRequestIds(left: api.SupportRequest[], right: api.SupportReques
     return left.every((item, index) => item.id === right[index]?.id);
 }
 
-function hasPlusAccess(user: api.User | null): boolean {
-    if (!user) return false;
-    if (user.is_plus) return true;
-    return user.subscription_tier === 'plus';
-}
-
-
 function SupportRequestCard({
     request,
     isAvailableToSupport,
@@ -202,7 +187,7 @@ function SupportRequestCard({
         <View style={styles.card}>
             <View style={styles.cardHead}>
                 <TouchableOpacity onPress={request.is_own_request ? undefined : onPressUser} disabled={request.is_own_request}>
-                    <Avatar username={request.username} avatarUrl={request.avatar_url ?? undefined} size={36} />
+                    <Avatar username={request.username} avatarUrl={request.avatar_url ?? undefined} size={44} />
                 </TouchableOpacity>
                 <View style={styles.cardHeadBody}>
                     <View style={styles.cardTitleRow}>
@@ -219,13 +204,11 @@ function SupportRequestCard({
                                 <View style={styles.urgencyBadgeSoon}>
                                     <Text style={styles.urgencyBadgeSoonText}>Soon</Text>
                                 </View>
-                            ) : null}
-                            {request.priority_visibility && request.priority_expires_at ? (
-                                <View style={styles.priorityBadge}>
-                                    <Ionicons name="flash" size={10} color={Colors.warning} />
-                                    <Text style={styles.priorityBadgeText}>Priority</Text>
+                            ) : (
+                                <View style={styles.urgencyBadgeWhenever}>
+                                    <Text style={styles.urgencyBadgeWheneverText}>Whenever you can</Text>
                                 </View>
-                            ) : null}
+                            )}
                         </View>
                     </View>
                     <Text style={styles.cardMeta}>
@@ -365,7 +348,6 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
     const [openHasMore, setOpenHasMore] = useState(false);
     const [myHasMore, setMyHasMore] = useState(false);
     const [submitting, setSubmitting] = useState(false);
-    const [showPriorityPaywall, setShowPriorityPaywall] = useState(false);
     const [availabilityUpdating, setAvailabilityUpdating] = useState(false);
     const [responsePendingIds, setResponsePendingIds] = useState<Set<string>>(new Set());
     const [closingIds, setClosingIds] = useState<Set<string>>(new Set());
@@ -390,15 +372,13 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
     useRefetchOnActiveIfStale(isActive && subView === 'mine', myRequestsQuery);
     const supportScrollToTop = useScrollToTopButton({ threshold: 320 });
     const openRequestItems = useMemo(
-        () => openRequestsQuery.data?.pages.flatMap((page) => page.items ?? []) ?? [],
+        () => dedupeById(openRequestsQuery.data?.pages.flatMap((page) => page.items ?? []) ?? []),
         [openRequestsQuery.data],
     );
     const myRequestItems = useMemo(
-        () => myRequestsQuery.data?.pages.flatMap((page) => page.items ?? []) ?? [],
+        () => dedupeById(myRequestsQuery.data?.pages.flatMap((page) => page.items ?? []) ?? []),
         [myRequestsQuery.data],
     );
-    const canUsePriorityVisibility = hasPlusAccess(user);
-
     useEffect(() => {
         setRequests((current) => haveSameRequestIds(current, openRequestItems) ? current : openRequestItems);
         setOpenHasMore((current) => {
@@ -646,14 +626,14 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
         }
     };
 
-    const handleCreate = async (withBoost: boolean) => {
+    const handleCreate = async () => {
         setSubmitting(true);
         try {
             const created = await api.createSupportRequest({
                 type: form.type,
                 message: form.message.trim() || null,
                 urgency: form.urgency,
-                priority_visibility: withBoost,
+                priority_visibility: false,
             });
             setMyRequests(prev => [created, ...prev.filter(item => item.id !== created.id)]);
             setSubView('mine');
@@ -668,18 +648,6 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
         } finally {
             setSubmitting(false);
         }
-    };
-
-    const handlePostWithBoost = () => {
-        if (!canUsePriorityVisibility) {
-            setShowPriorityPaywall(true);
-            return;
-        }
-        void handleCreate(true);
-    };
-
-    const handlePostWithoutBoost = () => {
-        void handleCreate(false);
     };
 
     const handleToggleAvailability = async () => {
@@ -906,13 +874,6 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
     if (subView === 'preview') {
         return (
             <ScrollView contentContainerStyle={styles.list}>
-                <PlusFeatureSheet
-                    visible={showPriorityPaywall}
-                    title="Boost request visibility"
-                    items={SUPPORT_PLUS_FEATURES}
-                    onClose={() => setShowPriorityPaywall(false)}
-                />
-
                 <View style={styles.previewHeader}>
                     <TouchableOpacity onPress={() => setSubView('create')} style={styles.previewBack}>
                         <Ionicons name="chevron-back" size={22} color={Colors.primary} />
@@ -950,32 +911,12 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
                     </View>
                 </View>
 
-                <View style={styles.previewActions}>
-                    <TouchableOpacity
-                        style={[styles.boostButton, submitting && styles.boostButtonDisabled]}
-                        onPress={handlePostWithBoost}
-                        disabled={submitting}
-                        activeOpacity={0.85}
-                    >
-                        <Ionicons name="star" size={16} color={Colors.textOn.warning} />
-                        <Text style={styles.boostButtonText}>Post & boost visibility</Text>
-                        <View style={styles.boostPlusBadge}>
-                            <Text style={styles.boostPlusBadgeText}>Plus</Text>
-                        </View>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                        style={[styles.freePostButton, submitting && styles.boostButtonDisabled]}
-                        onPress={handlePostWithoutBoost}
-                        disabled={submitting}
-                        activeOpacity={0.85}
-                    >
-                        {submitting
-                            ? <ActivityIndicator color={Colors.light.textSecondary} />
-                            : <Text style={styles.freePostButtonText}>Post without boost</Text>
-                        }
-                    </TouchableOpacity>
-                </View>
+                <PrimaryButton
+                    label={submitting ? 'Posting...' : 'Post request'}
+                    onPress={() => void handleCreate()}
+                    disabled={submitting}
+                    variant="success"
+                />
             </ScrollView>
         );
     }
@@ -1372,49 +1313,6 @@ const styles = StyleSheet.create({
         fontWeight: '600',
         color: Colors.light.textPrimary,
     },
-    previewActions: {
-        gap: Spacing.md,
-    },
-    boostButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: Spacing.sm,
-        backgroundColor: Colors.warning,
-        borderRadius: Radii.md,
-        paddingVertical: 14,
-    },
-    boostButtonDisabled: {
-        opacity: 0.6,
-    },
-    boostButtonText: {
-        fontSize: Typography.sizes.md,
-        fontWeight: '700',
-        color: Colors.textOn.warning,
-    },
-    boostPlusBadge: {
-        backgroundColor: 'rgba(255,255,255,0.25)',
-        borderRadius: Radii.pill,
-        paddingHorizontal: Spacing.xs + 2,
-        paddingVertical: 3,
-    },
-    boostPlusBadgeText: {
-        fontSize: Typography.sizes.xs,
-        fontWeight: '700',
-        color: Colors.textOn.warning,
-    },
-    freePostButton: {
-        borderRadius: Radii.md,
-        borderWidth: 1,
-        borderColor: Colors.light.border,
-        paddingVertical: 14,
-        alignItems: 'center',
-    },
-    freePostButtonText: {
-        fontSize: Typography.sizes.md,
-        fontWeight: '600',
-        color: Colors.light.textSecondary,
-    },
     formInput: { marginTop: Spacing.md },
     inputMultiline: { minHeight: 110, textAlignVertical: 'top' },
     submitButton: { marginTop: Spacing.lg },
@@ -1459,21 +1357,18 @@ const styles = StyleSheet.create({
         fontWeight: '700',
         color: Colors.warning,
     },
-    priorityBadge: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 3,
-        backgroundColor: 'rgba(255,193,7,0.14)',
+    urgencyBadgeWhenever: {
         borderRadius: Radii.full,
         paddingHorizontal: 8,
         paddingVertical: 4,
+        backgroundColor: 'rgba(120,120,128,0.12)',
         borderWidth: 1,
-        borderColor: 'rgba(255,193,7,0.28)',
+        borderColor: 'rgba(120,120,128,0.25)',
     },
-    priorityBadgeText: {
+    urgencyBadgeWheneverText: {
         fontSize: Typography.sizes.xs,
         fontWeight: '700',
-        color: Colors.warning,
+        color: Colors.light.textSecondary,
     },
     cardMeta: { fontSize: Typography.sizes.sm, color: Colors.light.textTertiary, marginTop: 4 },
     cardBody: { fontSize: Typography.sizes.base, lineHeight: 19, color: Colors.light.textSecondary, marginTop: Spacing.md },

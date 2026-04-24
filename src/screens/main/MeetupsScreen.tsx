@@ -26,9 +26,9 @@ import { useAuth } from '../../hooks/useAuth';
 import { useMeetups, useMyMeetups } from '../../hooks/queries/useMeetups';
 import { resetInfiniteQueryToFirstPage } from '../../query/infiniteQueryPolicy';
 import { queryKeys } from '../../query/queryKeys';
+import { dedupeById } from '../../utils/list';
 import { getListPerformanceProps } from '../../utils/listPerformance';
 import { Colors, Typography, Spacing, Radii } from '../../utils/theme';
-import { MeetupDetailScreen } from './MeetupDetailScreen';
 
 type MeetupsSubView = 'browse' | 'my' | 'create' | 'preview';
 type MeetupFieldKey = 'title' | 'description' | 'city' | 'capacity';
@@ -266,7 +266,7 @@ function MeetupCard({ meetup, onPress, onToggleRSVP, rsvpPending = false, action
 interface MeetupsScreenProps {
     isActive: boolean;
     onOpenUserProfile: (profile: { userId: string; username: string; avatarUrl?: string }) => void;
-    onMeetupDetailChange?: (isOpen: boolean) => void;
+    onOpenMeetup: (meetup: api.Meetup) => void;
 }
 
 const CREATE_PLUS_FEATURES: Array<{ icon: keyof typeof Ionicons.glyphMap; label: string; description: string }> = [
@@ -289,8 +289,17 @@ function PlusButtonBadge() {
     );
 }
 
+function getBestCity(user: api.User | null): string {
+    if (!user) return '';
+    if (user.current_city && user.location_updated_at) {
+        const fresh = Date.now() - new Date(user.location_updated_at).getTime() < 24 * 60 * 60 * 1000;
+        if (fresh) return user.current_city;
+    }
+    return user.city ?? '';
+}
+
 function flattenMeetupPages(data?: InfiniteData<api.PaginatedResponse<api.Meetup>>): api.Meetup[] {
-    return data?.pages.flatMap((page) => page.items ?? []) ?? [];
+    return dedupeById(data?.pages.flatMap((page) => page.items ?? []) ?? []);
 }
 
 function updateMeetupPages(
@@ -309,7 +318,7 @@ function updateMeetupPages(
 }
 
 // Renders the meetups tab and keeps RSVP state in sync with the list.
-export function MeetupsScreen({ isActive, onOpenUserProfile, onMeetupDetailChange }: MeetupsScreenProps) {
+export function MeetupsScreen({ isActive, onOpenUserProfile, onOpenMeetup }: MeetupsScreenProps) {
     const { user } = useAuth();
     const queryClient = useQueryClient();
     const flatListRef = useRef<FlatList<api.Meetup> | null>(null);
@@ -317,12 +326,11 @@ export function MeetupsScreen({ isActive, onOpenUserProfile, onMeetupDetailChang
     const createFieldPositionsRef = useRef<Partial<Record<MeetupFieldKey, number>>>({});
     const hasActivatedBrowse = useLazyActivation(isActive);
     const [subView, setSubView] = useState<MeetupsSubView>('browse');
-    const [selectedMeetupId, setSelectedMeetupId] = useState<string | null>(null);
     const [query, setQuery] = useState('');
     const [debouncedQuery, setDebouncedQuery] = useState('');
-    const [cityFilter, setCityFilter] = useState(user?.city ?? '');
-    const [debouncedCityFilter, setDebouncedCityFilter] = useState((user?.city ?? '').trim());
-    const [cityHydrated, setCityHydrated] = useState(!!user?.city);
+    const [cityFilter, setCityFilter] = useState(() => getBestCity(user));
+    const [debouncedCityFilter, setDebouncedCityFilter] = useState(() => getBestCity(user).trim());
+    const [cityHydrated, setCityHydrated] = useState(() => !!getBestCity(user));
     const [rsvpPendingIds, setRsvpPendingIds] = useState<Set<string>>(new Set());
     const [showCreatePaywall, setShowCreatePaywall] = useState(false);
     const [submitError, setSubmitError] = useState('');
@@ -361,9 +369,6 @@ export function MeetupsScreen({ isActive, onOpenUserProfile, onMeetupDetailChang
         () => flattenMeetupPages(myMeetupsQuery.data),
         [myMeetupsQuery.data],
     );
-    const selectedMeetup = meetups.find(item => item.id === selectedMeetupId)
-        ?? myMeetups.find(item => item.id === selectedMeetupId)
-        ?? null;
     const canCreateMeetups = hasPlusAccess(user);
 
     useEffect(() => {
@@ -372,24 +377,21 @@ export function MeetupsScreen({ isActive, onOpenUserProfile, onMeetupDetailChang
     }, [query]);
 
     useEffect(() => {
-        onMeetupDetailChange?.(selectedMeetupId !== null);
-    }, [onMeetupDetailChange, selectedMeetupId]);
-
-    useEffect(() => {
         const timer = setTimeout(() => setDebouncedCityFilter(cityFilter.trim()), 250);
         return () => clearTimeout(timer);
     }, [cityFilter]);
 
     useEffect(() => {
-        if (user?.city && !cityHydrated) {
-            setCityFilter(user.city);
-            setDebouncedCityFilter(user.city.trim());
+        const best = getBestCity(user);
+        if (best && !cityHydrated) {
+            setCityFilter(best);
+            setDebouncedCityFilter(best.trim());
             setCityHydrated(true);
         }
-    }, [user?.city, cityHydrated]);
+    }, [user?.city, user?.current_city, user?.location_updated_at, cityHydrated]);
 
     useEffect(() => {
-        if (cityHydrated || user?.city) return;
+        if (cityHydrated || getBestCity(user)) return;
 
         let active = true;
         (async () => {
@@ -588,14 +590,6 @@ export function MeetupsScreen({ isActive, onOpenUserProfile, onMeetupDetailChang
         setSubView('preview');
     };
 
-    const openMeetupDetails = useCallback((meetup: api.Meetup) => {
-        setSelectedMeetupId(meetup.id);
-    }, []);
-
-    const closeMeetupDetails = useCallback(() => {
-        setSelectedMeetupId(null);
-    }, []);
-
     const handleSubViewChange = useCallback((key: string) => {
         setSubView(key as MeetupsSubView);
     }, []);
@@ -616,27 +610,6 @@ export function MeetupsScreen({ isActive, onOpenUserProfile, onMeetupDetailChang
 
     if (loading) {
         return <View style={styles.center}><ActivityIndicator color={Colors.primary} /></View>;
-    }
-
-    if (selectedMeetup) {
-        return (
-            <>
-                <PlusFeatureSheet
-                    visible={showCreatePaywall}
-                    title="Create Meetups"
-                    items={CREATE_PLUS_FEATURES}
-                    onClose={() => setShowCreatePaywall(false)}
-                />
-                <MeetupDetailScreen
-                    meetup={selectedMeetup}
-                    onBack={closeMeetupDetails}
-                    onToggleRSVP={handleRSVP}
-                    onOpenUserProfile={onOpenUserProfile}
-                    rsvpPending={rsvpPendingIds.has(selectedMeetup.id)}
-                    actionLabel={subView === 'my' && selectedMeetup.is_attending ? 'Hosting ✓' : undefined}
-                />
-            </>
-        );
     }
 
     if (subView === 'preview') {
@@ -962,7 +935,7 @@ export function MeetupsScreen({ isActive, onOpenUserProfile, onMeetupDetailChang
                 renderItem={({ item }) => (
                     <MeetupCard
                         meetup={item}
-                        onPress={openMeetupDetails}
+                        onPress={onOpenMeetup}
                         onToggleRSVP={handleRSVP}
                         rsvpPending={rsvpPendingIds.has(item.id)}
                         actionLabel={item.is_attending ? 'Hosting ✓' : 'RSVP'}
@@ -1063,7 +1036,7 @@ export function MeetupsScreen({ isActive, onOpenUserProfile, onMeetupDetailChang
             renderItem={({ item }) => (
                 <MeetupCard
                     meetup={item}
-                    onPress={openMeetupDetails}
+                    onPress={onOpenMeetup}
                     onToggleRSVP={handleRSVP}
                     rsvpPending={rsvpPendingIds.has(item.id)}
                 />

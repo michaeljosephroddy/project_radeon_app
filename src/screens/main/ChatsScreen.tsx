@@ -18,6 +18,7 @@ import { useChats } from '../../hooks/queries/useChats';
 import { useAuth } from '../../hooks/useAuth';
 import { resetInfiniteQueryToFirstPage } from '../../query/infiniteQueryPolicy';
 import { queryKeys } from '../../query/queryKeys';
+import { dedupeById } from '../../utils/list';
 import { getListPerformanceProps } from '../../utils/listPerformance';
 import { Colors, Typography, Spacing, Radii } from '../../utils/theme';
 import { formatUsername } from '../../utils/identity';
@@ -93,7 +94,7 @@ const ChatItem = React.memo(function ChatItem({ item, currentUserId, onOpenChat,
                 onPress={handleOpen}
             >
                 <View style={styles.avatarWrap}>
-                    <Avatar username={item.is_group ? 'group' : (item.username ?? 'unknown')} avatarUrl={item.is_group ? undefined : item.avatar_url} size={40} fontSize={13} />
+                    <Avatar username={item.is_group ? 'group' : (item.username ?? 'unknown')} avatarUrl={item.is_group ? undefined : item.avatar_url} size={44} fontSize={14} />
                     {item.is_group && (
                         <View style={styles.groupBadge}>
                             <Text style={styles.groupBadgeText}>G</Text>
@@ -138,7 +139,7 @@ export function ChatsScreen({ isActive, onOpenChat }: ChatsScreenProps) {
     useRefetchOnActiveIfStale(isActive, chatsQuery);
     const chatsScrollToTop = useScrollToTopButton({ threshold: 260 });
     const chats = useMemo(
-        () => chatsQuery.data?.pages.flatMap((page) => page.items ?? []) ?? [],
+        () => dedupeById(chatsQuery.data?.pages.flatMap((page) => page.items ?? []) ?? []),
         [chatsQuery.data],
     );
 

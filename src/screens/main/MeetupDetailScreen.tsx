@@ -1,14 +1,16 @@
 import React, { useEffect, useState } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, Image,
-  ActivityIndicator, ScrollView, StyleProp, ViewStyle,
+  Alert, ActivityIndicator, ScrollView, StyleProp, ViewStyle,
 } from 'react-native';
+import { InfiniteData, useQueryClient } from '@tanstack/react-query';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as api from '../../api/client';
 import { PrimaryButton } from '../../components/ui/PrimaryButton';
 import { SurfaceCard } from '../../components/ui/SurfaceCard';
 import { Colors, Typography, Spacing, Radii, getAvatarColors } from '../../utils/theme';
 import { formatUsername } from '../../utils/identity';
+import { useAuth } from '../../hooks/useAuth';
 
 function formatMeetupDate(dateStr: string) {
   const date = new Date(dateStr);
@@ -30,10 +32,7 @@ function formatMeetupDate(dateStr: string) {
 interface MeetupDetailScreenProps {
   meetup: api.Meetup;
   onBack: () => void;
-  onToggleRSVP: (id: string) => void;
   onOpenUserProfile: (profile: { userId: string; username: string; avatarUrl?: string }) => void;
-  rsvpPending?: boolean;
-  actionLabel?: string;
 }
 
 interface AttendeeProfileCardProps {
@@ -128,16 +127,19 @@ function AttendeeMosaicCard({ attendees, onPress, style }: AttendeeMosaicCardPro
 export function MeetupDetailScreen({
   meetup,
   onBack,
-  onToggleRSVP,
   onOpenUserProfile,
-  rsvpPending = false,
-  actionLabel,
 }: MeetupDetailScreenProps) {
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [attendees, setAttendees] = useState<api.MeetupAttendee[]>([]);
   const [loadingAttendees, setLoadingAttendees] = useState(true);
   const [attendeesError, setAttendeesError] = useState('');
   const [attendeesExpanded, setAttendeesExpanded] = useState(false);
-  const buttonLabel = actionLabel ?? (meetup.is_attending ? 'Going ✓' : 'RSVP to this meetup');
+  const [rsvpPending, setRsvpPending] = useState(false);
+  const [isAttending, setIsAttending] = useState(meetup.is_attending);
+  const [attendeeCount, setAttendeeCount] = useState(meetup.attendee_count);
+  const isOrganizer = !!user && user.id === meetup.organizer_id;
+  const buttonLabel = isOrganizer && isAttending ? 'Hosting ✓' : isAttending ? 'Going ✓' : 'RSVP to this meetup';
   const { weekday, fullDate, time } = formatMeetupDate(meetup.starts_at);
 
   useEffect(() => {
@@ -164,6 +166,40 @@ export function MeetupDetailScreen({
       active = false;
     };
   }, [meetup.id]);
+
+  const handleToggleRSVP = async () => {
+    setRsvpPending(true);
+    try {
+      const res = await api.rsvpMeetup(meetup.id);
+      setIsAttending(res.attending);
+      setAttendeeCount(prev => prev + (res.attending ? 1 : -1));
+
+      const applyUpdate = (data: InfiniteData<api.PaginatedResponse<api.Meetup>> | undefined) => {
+        if (!data) return data;
+        return {
+          ...data,
+          pages: data.pages.map((page, i) => ({
+            ...page,
+            items: i === 0
+              ? (page.items ?? []).map(m => m.id === meetup.id
+                  ? { ...m, is_attending: res.attending, attendee_count: m.attendee_count + (res.attending ? 1 : -1) }
+                  : m)
+              : (page.items ?? []),
+          })),
+        };
+      };
+      queryClient.setQueriesData<InfiniteData<api.PaginatedResponse<api.Meetup>>>(
+        { queryKey: ['meetups'] }, applyUpdate,
+      );
+      queryClient.setQueriesData<InfiniteData<api.PaginatedResponse<api.Meetup>>>(
+        { queryKey: ['my-meetups'] }, applyUpdate,
+      );
+    } catch (e: unknown) {
+      Alert.alert('Error', e instanceof Error ? e.message : 'Something went wrong.');
+    } finally {
+      setRsvpPending(false);
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -196,22 +232,22 @@ export function MeetupDetailScreen({
             <View style={styles.eventDetailRow}>
               <Text style={styles.eventDetailLabel}>Attendance</Text>
               <Text style={styles.eventDetailValue}>
-                {meetup.capacity ? `${meetup.attendee_count}/${meetup.capacity} going` : `${meetup.attendee_count} going`}
-                {meetup.is_attending ? ' · You are attending' : ''}
+                {meetup.capacity ? `${attendeeCount}/${meetup.capacity} going` : `${attendeeCount} going`}
+                {isAttending ? ' · You are attending' : ''}
               </Text>
             </View>
           </View>
 
           <PrimaryButton
             label={rsvpPending ? 'Updating...' : buttonLabel}
-            onPress={() => onToggleRSVP(meetup.id)}
+            onPress={handleToggleRSVP}
             disabled={rsvpPending}
             style={[
               styles.primaryButton,
-              meetup.is_attending && styles.primaryButtonActive,
+              isAttending && styles.primaryButtonActive,
               rsvpPending && styles.primaryButtonDisabled,
             ]}
-            textStyle={meetup.is_attending ? styles.primaryButtonTextActive : undefined}
+            textStyle={isAttending ? styles.primaryButtonTextActive : undefined}
           />
         </SurfaceCard>
 
@@ -228,10 +264,10 @@ export function MeetupDetailScreen({
           <View style={styles.attendeesTitleRow}>
             <Text style={styles.sectionLabelInline}>Attendees</Text>
             <View style={styles.attendeeCountPill}>
-              <Text style={styles.attendeeCountText}>{attendees.length || meetup.attendee_count}</Text>
+              <Text style={styles.attendeeCountText}>{attendees.length || attendeeCount}</Text>
             </View>
           </View>
-          {!loadingAttendees && attendees.length > 0 && (
+          {!loadingAttendees && attendees.length > 1 && (
             <TouchableOpacity onPress={() => setAttendeesExpanded(current => !current)}>
               <Text style={styles.attendeesToggleText}>
               {attendeesExpanded ? 'Hide' : 'See all'}
@@ -239,7 +275,7 @@ export function MeetupDetailScreen({
             </TouchableOpacity>
           )}
         </View>
-        <SurfaceCard style={styles.sectionCard}>
+        <View>
           {loadingAttendees ? (
             <ActivityIndicator color={Colors.primary} />
           ) : attendeesError ? (
@@ -298,7 +334,7 @@ export function MeetupDetailScreen({
               )}
             </>
           )}
-        </SurfaceCard>
+        </View>
       </ScrollView>
     </View>
   );
@@ -427,7 +463,7 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
   },
   attendeeCard: {
-    flex: 1,
+    width: '48%',
     minHeight: 176,
     borderRadius: Radii.xl,
     backgroundColor: Colors.light.background,
