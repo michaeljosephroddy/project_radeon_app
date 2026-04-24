@@ -78,8 +78,8 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
                     push_token: token.data,
                     platform: Platform.OS,
                 });
-            } catch (error: unknown) {
-                console.warn('Notification registration failed', error);
+            } catch {
+                // non-critical — push registration failure doesn't block the app
             }
         })();
     }, [isAuthenticated]);
