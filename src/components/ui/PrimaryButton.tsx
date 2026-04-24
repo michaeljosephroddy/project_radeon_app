@@ -1,6 +1,7 @@
 import React from 'react';
 import {
     ActivityIndicator,
+    View,
     StyleProp,
     StyleSheet,
     Text,
@@ -15,9 +16,11 @@ interface PrimaryButtonProps {
     onPress: () => void;
     disabled?: boolean;
     loading?: boolean;
-    variant?: 'primary' | 'success';
+    variant?: 'primary' | 'success' | 'warning';
     style?: StyleProp<ViewStyle>;
     textStyle?: StyleProp<TextStyle>;
+    leftAdornment?: React.ReactNode;
+    rightAdornment?: React.ReactNode;
 }
 
 export function PrimaryButton({
@@ -28,12 +31,15 @@ export function PrimaryButton({
     variant = 'primary',
     style,
     textStyle,
+    leftAdornment,
+    rightAdornment,
 }: PrimaryButtonProps) {
+    const isWarning = variant === 'warning';
     return (
         <TouchableOpacity
             style={[
                 styles.base,
-                variant === 'success' ? styles.success : styles.primary,
+                variant === 'success' ? styles.success : isWarning ? styles.warning : styles.primary,
                 (disabled || loading) && styles.disabled,
                 style,
             ]}
@@ -41,9 +47,13 @@ export function PrimaryButton({
             disabled={disabled || loading}
         >
             {loading ? (
-                <ActivityIndicator color={Colors.textOn.primary} />
+                <ActivityIndicator color={isWarning ? Colors.textOn.warning : Colors.textOn.primary} />
             ) : (
-                <Text style={[styles.text, textStyle]}>{label}</Text>
+                <View style={styles.content}>
+                    {leftAdornment}
+                    <Text style={[styles.text, isWarning && styles.warningText, textStyle]}>{label}</Text>
+                    {rightAdornment}
+                </View>
             )}
         </TouchableOpacity>
     );
@@ -61,8 +71,20 @@ const styles = StyleSheet.create({
     success: {
         backgroundColor: Colors.success,
     },
+    warning: {
+        backgroundColor: Colors.warning,
+    },
+    warningText: {
+        color: Colors.textOn.warning,
+    },
     disabled: {
         opacity: 0.6,
+    },
+    content: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 8,
     },
     text: {
         color: Colors.textOn.primary,

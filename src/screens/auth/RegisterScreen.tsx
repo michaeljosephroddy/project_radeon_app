@@ -19,8 +19,6 @@ export function RegisterScreen({ onGoToLogin }: RegisterScreenProps) {
         username: '',
         email: '',
         password: '',
-        city: '',
-        sober_since: '',
     });
     const [loading, setLoading] = useState(false);
 
@@ -38,13 +36,9 @@ export function RegisterScreen({ onGoToLogin }: RegisterScreenProps) {
         }
         setLoading(true);
         try {
-            // Optional fields are converted to undefined so the API does not receive
-            // empty strings for values the user intentionally skipped.
             await register({
                 ...form,
                 email: form.email.trim().toLowerCase(),
-                sober_since: form.sober_since || undefined,
-                city: form.city || undefined,
             });
         } catch (e: unknown) {
             Alert.alert('Registration failed', e instanceof Error ? e.message : 'Something went wrong.');
@@ -86,18 +80,6 @@ export function RegisterScreen({ onGoToLogin }: RegisterScreenProps) {
                         placeholderTextColor={Colors.light.textTertiary}
                         secureTextEntry value={form.password} onChangeText={set('password')} />
 
-                    <Text style={styles.label}>City <Text style={styles.optional}>(optional)</Text></Text>
-                    <TextInput style={styles.input} placeholder="Dublin"
-                        placeholderTextColor={Colors.light.textTertiary}
-                        value={form.city} onChangeText={set('city')} />
-
-                    <Text style={styles.label}>
-                        Sober since <Text style={styles.optional}>(optional — YYYY-MM-DD)</Text>
-                    </Text>
-                    <TextInput style={styles.input} placeholder="2024-01-01"
-                        placeholderTextColor={Colors.light.textTertiary}
-                        value={form.sober_since} onChangeText={set('sober_since')} />
-
                     <TouchableOpacity
                         style={[styles.btn, loading && styles.btnDisabled]}
                         onPress={handleRegister}
@@ -135,7 +117,6 @@ const styles = StyleSheet.create({
         marginBottom: 4,
         marginTop: Spacing.sm,
     },
-    optional: { fontWeight: '400', color: Colors.light.textTertiary },
     input: {
         backgroundColor: Colors.light.backgroundSecondary,
         borderRadius: Radii.md,

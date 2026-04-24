@@ -5,9 +5,27 @@ import { queryKeys } from '../../query/queryKeys';
 
 const DISCOVER_STALE_TIME = 1000 * 60;
 
-export function useDiscover(params: { query?: string; city?: string; limit?: number }, enabled = true) {
+export function useDiscover(params: {
+    query?: string;
+    city?: string;
+    gender?: string;
+    ageMin?: number;
+    ageMax?: number;
+    distanceKm?: number;
+    sobriety?: string;
+    limit?: number;
+}, enabled = true) {
     const limit = params.limit ?? 20;
-    const queryKey = queryKeys.discover({ query: params.query, city: params.city, limit });
+    const queryKey = queryKeys.discover({
+        query: params.query,
+        city: params.city,
+        gender: params.gender,
+        ageMin: params.ageMin,
+        ageMax: params.ageMax,
+        distanceKm: params.distanceKm,
+        sobriety: params.sobriety,
+        limit,
+    });
     const policy = getInfiniteQueryPolicy(queryKey);
 
     return useInfiniteQuery({
@@ -15,6 +33,11 @@ export function useDiscover(params: { query?: string; city?: string; limit?: num
         queryFn: ({ pageParam }) => api.discoverUsers({
             query: params.query,
             city: params.city,
+            gender: params.gender,
+            ageMin: params.ageMin,
+            ageMax: params.ageMax,
+            distanceKm: params.distanceKm,
+            sobriety: params.sobriety,
             page: pageParam as number | undefined,
             limit,
         }),

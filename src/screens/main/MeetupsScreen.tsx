@@ -7,10 +7,12 @@ import {
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { InfiniteData, useQueryClient } from '@tanstack/react-query';
 import * as Location from 'expo-location';
+import { Ionicons } from '@expo/vector-icons';
 import * as api from '../../api/client';
 import { Avatar } from '../../components/Avatar';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { HeroCard } from '../../components/ui/HeroCard';
+import { PlusFeatureSheet } from '../../components/ui/PlusFeatureSheet';
 import { PrimaryButton } from '../../components/ui/PrimaryButton';
 import { SearchBar } from '../../components/ui/SearchBar';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
@@ -28,7 +30,7 @@ import { getListPerformanceProps } from '../../utils/listPerformance';
 import { Colors, Typography, Spacing, Radii } from '../../utils/theme';
 import { MeetupDetailScreen } from './MeetupDetailScreen';
 
-type MeetupsSubView = 'browse' | 'my' | 'create';
+type MeetupsSubView = 'browse' | 'my' | 'create' | 'preview';
 type MeetupFieldKey = 'title' | 'description' | 'city' | 'capacity';
 
 // Splits a meetup start date into compact parts used by the list badge.
@@ -264,6 +266,27 @@ function MeetupCard({ meetup, onPress, onToggleRSVP, rsvpPending = false, action
 interface MeetupsScreenProps {
     isActive: boolean;
     onOpenUserProfile: (profile: { userId: string; username: string; avatarUrl?: string }) => void;
+    onMeetupDetailChange?: (isOpen: boolean) => void;
+}
+
+const CREATE_PLUS_FEATURES: Array<{ icon: keyof typeof Ionicons.glyphMap; label: string; description: string }> = [
+    { icon: 'calendar-outline', label: 'Host meetups', description: 'Create events for your city and recovery circle.' },
+    { icon: 'people-outline', label: 'Manage attendees', description: 'Keep your guest list and meetup hosting tools in one place.' },
+    { icon: 'star-outline', label: 'Organizer access', description: 'Unlock meetup creation with SoberSpace Plus.' },
+];
+
+function hasPlusAccess(user: api.User | null): boolean {
+    if (!user) return false;
+    if (user.is_plus) return true;
+    return user.subscription_tier === 'plus';
+}
+
+function PlusButtonBadge() {
+    return (
+        <View style={styles.buttonPlusBadge}>
+            <Text style={styles.buttonPlusBadgeText}>Plus</Text>
+        </View>
+    );
 }
 
 function flattenMeetupPages(data?: InfiniteData<api.PaginatedResponse<api.Meetup>>): api.Meetup[] {
@@ -286,7 +309,7 @@ function updateMeetupPages(
 }
 
 // Renders the meetups tab and keeps RSVP state in sync with the list.
-export function MeetupsScreen({ isActive, onOpenUserProfile }: MeetupsScreenProps) {
+export function MeetupsScreen({ isActive, onOpenUserProfile, onMeetupDetailChange }: MeetupsScreenProps) {
     const { user } = useAuth();
     const queryClient = useQueryClient();
     const flatListRef = useRef<FlatList<api.Meetup> | null>(null);
@@ -301,6 +324,7 @@ export function MeetupsScreen({ isActive, onOpenUserProfile }: MeetupsScreenProp
     const [debouncedCityFilter, setDebouncedCityFilter] = useState((user?.city ?? '').trim());
     const [cityHydrated, setCityHydrated] = useState(!!user?.city);
     const [rsvpPendingIds, setRsvpPendingIds] = useState<Set<string>>(new Set());
+    const [showCreatePaywall, setShowCreatePaywall] = useState(false);
     const [submitError, setSubmitError] = useState('');
     const [successMessage, setSuccessMessage] = useState('');
     const [submitting, setSubmitting] = useState(false);
@@ -340,11 +364,16 @@ export function MeetupsScreen({ isActive, onOpenUserProfile }: MeetupsScreenProp
     const selectedMeetup = meetups.find(item => item.id === selectedMeetupId)
         ?? myMeetups.find(item => item.id === selectedMeetupId)
         ?? null;
+    const canCreateMeetups = hasPlusAccess(user);
 
     useEffect(() => {
         const timer = setTimeout(() => setDebouncedQuery(query.trim()), 250);
         return () => clearTimeout(timer);
     }, [query]);
+
+    useEffect(() => {
+        onMeetupDetailChange?.(selectedMeetupId !== null);
+    }, [onMeetupDetailChange, selectedMeetupId]);
 
     useEffect(() => {
         const timer = setTimeout(() => setDebouncedCityFilter(cityFilter.trim()), 250);
@@ -498,6 +527,11 @@ export function MeetupsScreen({ isActive, onOpenUserProfile }: MeetupsScreenProp
 
     // Persists a new meetup and updates both the public and personal meetup lists.
     const handleCreateMeetup = async () => {
+        if (!canCreateMeetups) {
+            setShowCreatePaywall(true);
+            return;
+        }
+
         const result = validateMeetupForm(form);
         if ('error' in result) {
             setSubmitError(result.error);
@@ -543,12 +577,27 @@ export function MeetupsScreen({ isActive, onOpenUserProfile }: MeetupsScreenProp
         }
     };
 
+    const handleReviewPress = () => {
+        const result = validateMeetupForm(form);
+        if ('error' in result) {
+            setSubmitError(result.error);
+            setSuccessMessage('');
+            return;
+        }
+        setSubmitError('');
+        setSubView('preview');
+    };
+
     const openMeetupDetails = useCallback((meetup: api.Meetup) => {
         setSelectedMeetupId(meetup.id);
     }, []);
 
     const closeMeetupDetails = useCallback(() => {
         setSelectedMeetupId(null);
+    }, []);
+
+    const handleSubViewChange = useCallback((key: string) => {
+        setSubView(key as MeetupsSubView);
     }, []);
 
     const handleApplySearch = useCallback(() => {
@@ -571,14 +620,100 @@ export function MeetupsScreen({ isActive, onOpenUserProfile }: MeetupsScreenProp
 
     if (selectedMeetup) {
         return (
-      <MeetupDetailScreen
-        meetup={selectedMeetup}
-        onBack={closeMeetupDetails}
-        onToggleRSVP={handleRSVP}
-        onOpenUserProfile={onOpenUserProfile}
-        rsvpPending={rsvpPendingIds.has(selectedMeetup.id)}
-        actionLabel={subView === 'my' && selectedMeetup.is_attending ? 'Hosting ✓' : undefined}
-      />
+            <>
+                <PlusFeatureSheet
+                    visible={showCreatePaywall}
+                    title="Create Meetups"
+                    items={CREATE_PLUS_FEATURES}
+                    onClose={() => setShowCreatePaywall(false)}
+                />
+                <MeetupDetailScreen
+                    meetup={selectedMeetup}
+                    onBack={closeMeetupDetails}
+                    onToggleRSVP={handleRSVP}
+                    onOpenUserProfile={onOpenUserProfile}
+                    rsvpPending={rsvpPendingIds.has(selectedMeetup.id)}
+                    actionLabel={subView === 'my' && selectedMeetup.is_attending ? 'Hosting ✓' : undefined}
+                />
+            </>
+        );
+    }
+
+    if (subView === 'preview') {
+        const startsAtIso = toStartsAtValue(form.startsOn, form.startsAt);
+        const { day, month, dateTime: formattedDateTime } = startsAtIso
+            ? formatMeetupDate(startsAtIso)
+            : { day: '--', month: '---', dateTime: `${form.startsOn} ${form.startsAt}` };
+
+        return (
+            <ScrollView contentContainerStyle={styles.formContent}>
+                <PlusFeatureSheet
+                    visible={showCreatePaywall}
+                    title="Create Meetups"
+                    items={CREATE_PLUS_FEATURES}
+                    onClose={() => setShowCreatePaywall(false)}
+                />
+
+                <View style={styles.previewHeader}>
+                    <TouchableOpacity onPress={() => setSubView('create')} style={styles.previewBack}>
+                        <Ionicons name="chevron-back" size={22} color={Colors.primary} />
+                    </TouchableOpacity>
+                    <Text style={styles.previewTitle}>Review your meetup</Text>
+                    <View style={styles.previewBackSpacer} />
+                </View>
+
+                <View style={styles.previewCard}>
+                    <View style={styles.previewCardTop}>
+                        <View style={styles.previewDateBadge}>
+                            <Text style={styles.previewDateDay}>{day}</Text>
+                            <Text style={styles.previewDateMon}>{month}</Text>
+                        </View>
+                        <View style={styles.previewCardBody}>
+                            <Text style={styles.previewCardTitle}>{form.title.trim()}</Text>
+                            {!!form.description.trim() && (
+                                <Text style={styles.previewCardDescription}>{form.description.trim()}</Text>
+                            )}
+                        </View>
+                    </View>
+
+                    <View style={styles.previewDivider} />
+
+                    <View style={styles.previewDetailRow}>
+                        <Ionicons name="location-outline" size={15} color={Colors.light.textTertiary} />
+                        <View style={styles.previewDetailBody}>
+                            <Text style={styles.previewDetailLabel}>Location</Text>
+                            <Text style={styles.previewDetailValue}>{form.city.trim()}</Text>
+                        </View>
+                    </View>
+                    <View style={styles.previewDetailRow}>
+                        <Ionicons name="calendar-outline" size={15} color={Colors.light.textTertiary} />
+                        <View style={styles.previewDetailBody}>
+                            <Text style={styles.previewDetailLabel}>Date & time</Text>
+                            <Text style={styles.previewDetailValue}>{formattedDateTime}</Text>
+                        </View>
+                    </View>
+                    {!!form.capacity.trim() && (
+                        <View style={styles.previewDetailRow}>
+                            <Ionicons name="people-outline" size={15} color={Colors.light.textTertiary} />
+                            <View style={styles.previewDetailBody}>
+                                <Text style={styles.previewDetailLabel}>Capacity</Text>
+                                <Text style={styles.previewDetailValue}>{form.capacity.trim()} spots</Text>
+                            </View>
+                        </View>
+                    )}
+                </View>
+
+                <PrimaryButton
+                    label="Create Meetup"
+                    onPress={handleCreateMeetup}
+                    disabled={submitting}
+                    loading={submitting}
+                    variant="warning"
+                    style={styles.primaryButton}
+                    leftAdornment={<Ionicons name="star" size={15} color={Colors.textOn.warning} />}
+                    rightAdornment={<PlusButtonBadge />}
+                />
+            </ScrollView>
         );
     }
 
@@ -590,6 +725,12 @@ export function MeetupsScreen({ isActive, onOpenUserProfile }: MeetupsScreenProp
                 style={styles.container}
                 behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
             >
+                <PlusFeatureSheet
+                    visible={showCreatePaywall}
+                    title="Create Meetups"
+                    items={CREATE_PLUS_FEATURES}
+                    onClose={() => setShowCreatePaywall(false)}
+                />
                 <ScrollView
                     ref={createFormRef}
                     contentContainerStyle={styles.formContent}
@@ -598,7 +739,7 @@ export function MeetupsScreen({ isActive, onOpenUserProfile }: MeetupsScreenProp
                 >
                     <SegmentedControl
                         activeKey="create"
-                        onChange={(key) => setSubView(key as MeetupsSubView)}
+                        onChange={handleSubViewChange}
                         items={[
                             { key: 'browse', label: 'Browse' },
                             { key: 'my', label: 'My Meetups' },
@@ -744,13 +885,10 @@ export function MeetupsScreen({ isActive, onOpenUserProfile }: MeetupsScreenProp
                     </View>
 
                     {!!submitError && <Text style={styles.errorText}>{submitError}</Text>}
-                    {!!successMessage && <Text style={styles.successText}>{successMessage}</Text>}
 
                     <PrimaryButton
-                        label="Create Meetup"
-                        onPress={handleCreateMeetup}
-                        disabled={submitting}
-                        loading={submitting}
+                        label="Review & create"
+                        onPress={handleReviewPress}
                         variant="success"
                         style={styles.primaryButton}
                     />
@@ -762,6 +900,12 @@ export function MeetupsScreen({ isActive, onOpenUserProfile }: MeetupsScreenProp
     if (subView === 'my') {
         return (
             <View style={styles.container}>
+                <PlusFeatureSheet
+                    visible={showCreatePaywall}
+                    title="Create Meetups"
+                    items={CREATE_PLUS_FEATURES}
+                    onClose={() => setShowCreatePaywall(false)}
+                />
                 <FlatList
                 ref={flatListRef}
                 data={myMeetups}
@@ -785,7 +929,7 @@ export function MeetupsScreen({ isActive, onOpenUserProfile }: MeetupsScreenProp
                     <>
                         <SegmentedControl
                             activeKey="my"
-                            onChange={(key) => setSubView(key as MeetupsSubView)}
+                            onChange={handleSubViewChange}
                             items={[
                                 { key: 'browse', label: 'Browse' },
                                 { key: 'my', label: 'My Meetups' },
@@ -793,12 +937,12 @@ export function MeetupsScreen({ isActive, onOpenUserProfile }: MeetupsScreenProp
                             ]}
                         />
 
-                        <HeroCard
-                            eyebrow="HOSTING"
-                            title="Meetups you've created."
-                            description="New meetups appear here immediately after creation and stay in sync with the public list."
-                            style={styles.headerCard}
-                        />
+                        <View style={styles.screenNote}>
+                            <Text style={styles.screenNoteTitle}>Your Meetups</Text>
+                            <Text style={styles.screenNoteText}>
+                                Meetups you create appear here right away and stay in sync with the public list.
+                            </Text>
+                        </View>
 
                         {!!successMessage && <Text style={styles.successTextInline}>{successMessage}</Text>}
                     </>
@@ -835,6 +979,12 @@ export function MeetupsScreen({ isActive, onOpenUserProfile }: MeetupsScreenProp
 
     return (
         <View style={styles.container}>
+            <PlusFeatureSheet
+                visible={showCreatePaywall}
+                title="Create Meetups"
+                items={CREATE_PLUS_FEATURES}
+                onClose={() => setShowCreatePaywall(false)}
+            />
             <FlatList
             ref={flatListRef}
             data={meetups}
@@ -859,7 +1009,7 @@ export function MeetupsScreen({ isActive, onOpenUserProfile }: MeetupsScreenProp
                 <>
                     <SegmentedControl
                         activeKey="browse"
-                        onChange={(key) => setSubView(key as MeetupsSubView)}
+                        onChange={handleSubViewChange}
                         items={[
                             { key: 'browse', label: 'Browse' },
                             { key: 'my', label: 'My Meetups' },
@@ -867,12 +1017,12 @@ export function MeetupsScreen({ isActive, onOpenUserProfile }: MeetupsScreenProp
                         ]}
                     />
 
-                    <HeroCard
-                        eyebrow="MEETUPS"
-                        title="Find local sober events."
-                        description="Browse public meetups, RSVP from the list, or create your own."
-                        style={styles.headerCard}
-                    />
+                    <View style={styles.screenNote}>
+                        <Text style={styles.screenNoteTitle}>Meetups</Text>
+                        <Text style={styles.screenNoteText}>
+                            Browse public sober meetups, RSVP from the list, or create one in your city.
+                        </Text>
+                    </View>
 
                     <SearchBar
                         style={styles.searchBar}
@@ -934,6 +1084,119 @@ const styles = StyleSheet.create({
     footerLoader: { paddingVertical: Spacing.md },
     formContent: { padding: Spacing.md, paddingBottom: 40 },
     headerCard: { marginBottom: Spacing.md },
+    previewHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: Spacing.lg,
+    },
+    previewBack: { padding: 4 },
+    previewBackSpacer: { width: 30 },
+    previewTitle: {
+        flex: 1,
+        textAlign: 'center',
+        fontSize: Typography.sizes.lg,
+        fontWeight: '600',
+        color: Colors.light.textPrimary,
+    },
+    previewCard: {
+        backgroundColor: Colors.light.backgroundSecondary,
+        borderRadius: Radii.lg,
+        borderWidth: 1,
+        borderColor: Colors.light.border,
+        padding: Spacing.md,
+        marginBottom: Spacing.lg,
+        gap: Spacing.md,
+    },
+    previewCardTop: {
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        gap: Spacing.md,
+    },
+    previewDateBadge: {
+        backgroundColor: Colors.primary,
+        borderRadius: Radii.sm,
+        width: 52,
+        height: 52,
+        alignItems: 'center',
+        justifyContent: 'center',
+        flexShrink: 0,
+    },
+    previewDateDay: {
+        fontSize: Typography.sizes.xl,
+        fontWeight: '700',
+        color: Colors.textOn.primary,
+        lineHeight: 24,
+    },
+    previewDateMon: {
+        fontSize: Typography.sizes.xs,
+        color: 'rgba(255,255,255,0.7)',
+        letterSpacing: 0.5,
+    },
+    previewCardBody: { flex: 1 },
+    previewCardTitle: {
+        fontSize: Typography.sizes.lg,
+        fontWeight: '700',
+        color: Colors.light.textPrimary,
+        lineHeight: 22,
+        marginBottom: 4,
+    },
+    previewCardDescription: {
+        fontSize: Typography.sizes.sm,
+        color: Colors.light.textSecondary,
+        lineHeight: 20,
+    },
+    previewDivider: {
+        height: 0.5,
+        backgroundColor: Colors.light.border,
+    },
+    previewDetailRow: {
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        gap: Spacing.sm,
+        paddingTop: 2,
+    },
+    previewDetailBody: { flex: 1 },
+    previewDetailLabel: {
+        fontSize: Typography.sizes.xs,
+        color: Colors.light.textTertiary,
+        marginBottom: 2,
+    },
+    previewDetailValue: {
+        fontSize: Typography.sizes.md,
+        fontWeight: '500',
+        color: Colors.light.textPrimary,
+    },
+    buttonPlusBadge: {
+        backgroundColor: 'rgba(255,255,255,0.25)',
+        borderRadius: Radii.pill,
+        paddingHorizontal: Spacing.xs + 2,
+        paddingVertical: 3,
+    },
+    buttonPlusBadgeText: {
+        fontSize: Typography.sizes.xs,
+        fontWeight: '700',
+        color: Colors.textOn.warning,
+    },
+    screenNote: {
+        backgroundColor: Colors.light.backgroundSecondary,
+        borderRadius: Radii.md,
+        borderWidth: 0.5,
+        borderColor: Colors.light.border,
+        paddingHorizontal: Spacing.md,
+        paddingVertical: Spacing.sm,
+        gap: 4,
+        marginBottom: Spacing.md,
+    },
+    screenNoteTitle: {
+        fontSize: Typography.sizes.md,
+        fontWeight: '600',
+        color: Colors.light.textPrimary,
+    },
+    screenNoteText: {
+        fontSize: Typography.sizes.sm,
+        color: Colors.light.textTertiary,
+        lineHeight: 18,
+    },
     searchBar: {
         marginBottom: Spacing.md,
     },

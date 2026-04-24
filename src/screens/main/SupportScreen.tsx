@@ -5,15 +5,18 @@ import {
 } from 'react-native';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { useQueryClient } from '@tanstack/react-query';
+import { Ionicons } from '@expo/vector-icons';
 import { Avatar } from '../../components/Avatar';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { HeroCard } from '../../components/ui/HeroCard';
+import { PlusFeatureSheet } from '../../components/ui/PlusFeatureSheet';
 import { PrimaryButton } from '../../components/ui/PrimaryButton';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { ScrollToTopButton } from '../../components/ui/ScrollToTopButton';
 import { TextField } from '../../components/ui/TextField';
 import * as api from '../../api/client';
 import { useGuardedEndReached } from '../../hooks/useGuardedEndReached';
+import { useAuth } from '../../hooks/useAuth';
 import { useLazyActivation } from '../../hooks/useLazyActivation';
 import { useRefetchOnActiveIfStale } from '../../hooks/useRefetchOnActiveIfStale';
 import { useScrollToTopButton } from '../../hooks/useScrollToTopButton';
@@ -27,7 +30,7 @@ import { formatUsername } from '../../utils/identity';
 type SupportType = api.SupportRequest['type'];
 type SupportAudience = api.SupportRequest['audience'];
 type SupportResponseType = api.SupportResponse['response_type'];
-type SupportSubView = 'open' | 'mine' | 'create';
+type SupportSubView = 'open' | 'mine' | 'create' | 'preview';
 type SupportMode = SupportResponseType;
 
 interface PendingCheckInDraft {
@@ -87,6 +90,13 @@ const SUPPORT_DURATION_OPTIONS = [
 ];
 
 const DEFAULT_SUPPORT_MODES: SupportMode[] = ['can_chat', 'check_in_later', 'nearby'];
+const PRIORITY_VISIBILITY_WINDOW_HOURS = 1;
+
+const SUPPORT_PLUS_FEATURES: Array<{ icon: keyof typeof Ionicons.glyphMap; label: string; description: string }> = [
+    { icon: 'flash-outline', label: 'Priority visibility', description: 'Show your request higher in the support feed for 1 hour.' },
+    { icon: 'people-outline', label: 'Better reach', description: 'Give your request a temporary boost without blocking free posting.' },
+    { icon: 'star-outline', label: 'SoberSpace Plus', description: 'Priority visibility is included with Plus.' },
+];
 
 function timeAgo(dateStr: string): string {
     const diff = Date.now() - new Date(dateStr).getTime();
@@ -186,6 +196,13 @@ function haveSameModes(left: SupportMode[], right: SupportMode[]): boolean {
     return left.every((item, index) => item === right[index]);
 }
 
+function hasPlusAccess(user: api.User | null): boolean {
+    if (!user) return false;
+    if (user.is_plus) return true;
+    return user.subscription_tier === 'plus';
+}
+
+
 function SupportRequestCard({
     request,
     isAvailableToSupport,
@@ -220,8 +237,16 @@ function SupportRequestCard({
                 <View style={styles.cardHeadBody}>
                     <View style={styles.cardTitleRow}>
                         <Text style={styles.cardName}>{formatUsername(request.username)}</Text>
-                        <View style={styles.badge}>
-                            <Text style={styles.badgeText}>Needs Support</Text>
+                        <View style={styles.cardTitleBadges}>
+                            <View style={styles.badge}>
+                                <Text style={styles.badgeText}>Needs Support</Text>
+                            </View>
+                            {request.priority_visibility && request.priority_expires_at ? (
+                                <View style={styles.priorityBadge}>
+                                    <Ionicons name="flash" size={10} color={Colors.warning} />
+                                    <Text style={styles.priorityBadgeText}>Priority</Text>
+                                </View>
+                            ) : null}
                         </View>
                     </View>
                     <Text style={styles.cardMeta}>
@@ -350,6 +375,7 @@ function SupportRequestCard({
 }
 
 export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: SupportScreenProps) {
+    const { user } = useAuth();
     const queryClient = useQueryClient();
     const flatListRef = useRef<FlatList<api.SupportRequest> | null>(null);
     const hasActivatedOpen = useLazyActivation(isActive);
@@ -367,6 +393,7 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
     const [openHasMore, setOpenHasMore] = useState(false);
     const [myHasMore, setMyHasMore] = useState(false);
     const [submitting, setSubmitting] = useState(false);
+    const [showPriorityPaywall, setShowPriorityPaywall] = useState(false);
     const [availabilityUpdating, setAvailabilityUpdating] = useState(false);
     const [responsePendingIds, setResponsePendingIds] = useState<Set<string>>(new Set());
     const [closingIds, setClosingIds] = useState<Set<string>>(new Set());
@@ -399,6 +426,7 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
         () => myRequestsQuery.data?.pages.flatMap((page) => page.items ?? []) ?? [],
         [myRequestsQuery.data],
     );
+    const canUsePriorityVisibility = hasPlusAccess(user);
 
     useEffect(() => {
         setRequests((current) => haveSameRequestIds(current, openRequestItems) ? current : openRequestItems);
@@ -643,7 +671,7 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
         }
     };
 
-    const handleCreate = async () => {
+    const handleCreate = async (withBoost: boolean) => {
         setSubmitting(true);
         try {
             const created = await api.createSupportRequest({
@@ -651,6 +679,7 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
                 message: form.message.trim() || null,
                 audience: form.audience,
                 expires_at: expiryFromHours(form.durationHours),
+                priority_visibility: withBoost,
             });
             setMyRequests(prev => [created, ...prev.filter(item => item.id !== created.id)]);
             setSubView('mine');
@@ -666,6 +695,18 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
         } finally {
             setSubmitting(false);
         }
+    };
+
+    const handlePostWithBoost = () => {
+        if (!canUsePriorityVisibility) {
+            setShowPriorityPaywall(true);
+            return;
+        }
+        void handleCreate(true);
+    };
+
+    const handlePostWithoutBoost = () => {
+        void handleCreate(false);
     };
 
     const handleToggleAvailability = async () => {
@@ -963,6 +1004,81 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
         );
     }
 
+    if (subView === 'preview') {
+        return (
+            <ScrollView contentContainerStyle={styles.list}>
+                <PlusFeatureSheet
+                    visible={showPriorityPaywall}
+                    title="Boost request visibility"
+                    items={SUPPORT_PLUS_FEATURES}
+                    onClose={() => setShowPriorityPaywall(false)}
+                />
+
+                <View style={styles.previewHeader}>
+                    <TouchableOpacity onPress={() => setSubView('create')} style={styles.previewBack}>
+                        <Ionicons name="chevron-back" size={22} color={Colors.primary} />
+                    </TouchableOpacity>
+                    <Text style={styles.previewTitle}>Review your request</Text>
+                    <View style={styles.previewBackSpacer} />
+                </View>
+
+                <View style={styles.previewCard}>
+                    <View style={styles.previewTypeRow}>
+                        <View style={[styles.selectorChip, styles.selectorChipActive]}>
+                            <Text style={[styles.selectorChipText, styles.selectorChipTextActive]}>
+                                {SUPPORT_TYPE_LABELS[form.type]}
+                            </Text>
+                        </View>
+                    </View>
+                    {!!form.message.trim() && (
+                        <Text style={styles.previewMessage}>{form.message.trim()}</Text>
+                    )}
+                    <View style={styles.previewDivider} />
+                    <View style={styles.previewStatRow}>
+                        <View style={styles.previewStat}>
+                            <Ionicons name="people-outline" size={15} color={Colors.light.textTertiary} />
+                            <Text style={styles.previewStatLabel}>Visible to</Text>
+                            <Text style={styles.previewStatValue}>{SUPPORT_AUDIENCE_LABELS[form.audience]}</Text>
+                        </View>
+                        <View style={styles.previewStatSep} />
+                        <View style={styles.previewStat}>
+                            <Ionicons name="time-outline" size={15} color={Colors.light.textTertiary} />
+                            <Text style={styles.previewStatLabel}>Open for</Text>
+                            <Text style={styles.previewStatValue}>{form.durationHours}h</Text>
+                        </View>
+                    </View>
+                </View>
+
+                <View style={styles.previewActions}>
+                    <TouchableOpacity
+                        style={[styles.boostButton, submitting && styles.boostButtonDisabled]}
+                        onPress={handlePostWithBoost}
+                        disabled={submitting}
+                        activeOpacity={0.85}
+                    >
+                        <Ionicons name="star" size={16} color={Colors.textOn.warning} />
+                        <Text style={styles.boostButtonText}>Post & boost visibility</Text>
+                        <View style={styles.boostPlusBadge}>
+                            <Text style={styles.boostPlusBadgeText}>Plus</Text>
+                        </View>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                        style={[styles.freePostButton, submitting && styles.boostButtonDisabled]}
+                        onPress={handlePostWithoutBoost}
+                        disabled={submitting}
+                        activeOpacity={0.85}
+                    >
+                        {submitting
+                            ? <ActivityIndicator color={Colors.light.textSecondary} />
+                            : <Text style={styles.freePostButtonText}>Post without boost</Text>
+                        }
+                    </TouchableOpacity>
+                </View>
+            </ScrollView>
+        );
+    }
+
     if (subView === 'create') {
         return (
             <ScrollView contentContainerStyle={styles.list}>
@@ -976,12 +1092,10 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
                     ]}
                 />
 
-                <HeroCard
-                    eyebrow="SUPPORT"
-                    title="Ask the community for support."
-                    description="Keep it short so people know how to show up for you."
-                    style={styles.headerCard}
-                />
+                <View style={styles.screenNote}>
+                    <Text style={styles.screenNoteTitle}>Ask the community for support.</Text>
+                    <Text style={styles.screenNoteText}>Keep it short so people know how to show up for you.</Text>
+                </View>
 
                 <Text style={styles.formLabel}>What do you need?</Text>
                 <View style={styles.selectorWrap}>
@@ -1037,10 +1151,8 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
                 </View>
 
                 <PrimaryButton
-                    label="Post support request"
-                    onPress={handleCreate}
-                    disabled={submitting}
-                    loading={submitting}
+                    label="Review & post"
+                    onPress={() => setSubView('preview')}
                     variant="success"
                     style={styles.submitButton}
                 />
@@ -1086,14 +1198,16 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
                         ]}
                     />
 
-                    <HeroCard
-                        eyebrow="SUPPORT"
-                        title={isMineView ? 'Requests you created.' : 'Open support requests from the community.'}
-                        description={isMineView
-                            ? 'See how people responded, open a chat that fits, and close the request once you are okay.'
-                            : 'Respond quickly when you can genuinely show up for someone.'}
-                        style={styles.headerCard}
-                    />
+                    <View style={styles.screenNote}>
+                        <Text style={styles.screenNoteTitle}>
+                            {isMineView ? 'Your Support Requests' : 'Support Requests'}
+                        </Text>
+                        <Text style={styles.screenNoteText}>
+                            {isMineView
+                                ? 'See how people responded, open a chat that fits, and close the request once you are okay.'
+                                : 'Open requests from the community show up here so you can respond when you can genuinely help.'}
+                        </Text>
+                    </View>
                     {!isMineView ? (
                         <View style={styles.statsRow}>
                             <View style={styles.statCard}>
@@ -1152,6 +1266,26 @@ const styles = StyleSheet.create({
     center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.light.background },
     list: { padding: Spacing.md, paddingBottom: 32 },
     headerCard: { marginBottom: Spacing.md },
+    screenNote: {
+        backgroundColor: Colors.light.backgroundSecondary,
+        borderRadius: Radii.md,
+        borderWidth: 0.5,
+        borderColor: Colors.light.border,
+        paddingHorizontal: Spacing.md,
+        paddingVertical: Spacing.sm,
+        gap: 4,
+        marginBottom: Spacing.md,
+    },
+    screenNoteTitle: {
+        fontSize: Typography.sizes.md,
+        fontWeight: '600',
+        color: Colors.light.textPrimary,
+    },
+    screenNoteText: {
+        fontSize: Typography.sizes.sm,
+        color: Colors.light.textTertiary,
+        lineHeight: 18,
+    },
     statsRow: {
         flexDirection: 'row',
         gap: Spacing.sm,
@@ -1306,6 +1440,111 @@ const styles = StyleSheet.create({
     inlinePickerTabTextActive: {
         color: Colors.textOn.primary,
     },
+    previewHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: Spacing.lg,
+    },
+    previewBack: {
+        padding: 4,
+    },
+    previewBackSpacer: {
+        width: 30,
+    },
+    previewTitle: {
+        flex: 1,
+        textAlign: 'center',
+        fontSize: Typography.sizes.lg,
+        fontWeight: '600',
+        color: Colors.light.textPrimary,
+    },
+    previewCard: {
+        backgroundColor: Colors.light.backgroundSecondary,
+        borderRadius: Radii.lg,
+        borderWidth: 1,
+        borderColor: Colors.light.border,
+        padding: Spacing.md,
+        marginBottom: Spacing.lg,
+        gap: Spacing.sm,
+    },
+    previewTypeRow: {
+        flexDirection: 'row',
+    },
+    previewMessage: {
+        fontSize: Typography.sizes.lg,
+        color: Colors.light.textPrimary,
+        lineHeight: 24,
+    },
+    previewDivider: {
+        height: 0.5,
+        backgroundColor: Colors.light.border,
+        marginTop: Spacing.sm,
+    },
+    previewStatRow: {
+        flexDirection: 'row',
+        paddingTop: Spacing.sm,
+    },
+    previewStat: {
+        flex: 1,
+        alignItems: 'center',
+        gap: 3,
+    },
+    previewStatSep: {
+        width: 0.5,
+        backgroundColor: Colors.light.border,
+    },
+    previewStatLabel: {
+        fontSize: Typography.sizes.xs,
+        color: Colors.light.textTertiary,
+    },
+    previewStatValue: {
+        fontSize: Typography.sizes.md,
+        fontWeight: '600',
+        color: Colors.light.textPrimary,
+    },
+    previewActions: {
+        gap: Spacing.md,
+    },
+    boostButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: Spacing.sm,
+        backgroundColor: Colors.warning,
+        borderRadius: Radii.md,
+        paddingVertical: 14,
+    },
+    boostButtonDisabled: {
+        opacity: 0.6,
+    },
+    boostButtonText: {
+        fontSize: Typography.sizes.md,
+        fontWeight: '700',
+        color: Colors.textOn.warning,
+    },
+    boostPlusBadge: {
+        backgroundColor: 'rgba(255,255,255,0.25)',
+        borderRadius: Radii.pill,
+        paddingHorizontal: Spacing.xs + 2,
+        paddingVertical: 3,
+    },
+    boostPlusBadgeText: {
+        fontSize: Typography.sizes.xs,
+        fontWeight: '700',
+        color: Colors.textOn.warning,
+    },
+    freePostButton: {
+        borderRadius: Radii.md,
+        borderWidth: 1,
+        borderColor: Colors.light.border,
+        paddingVertical: 14,
+        alignItems: 'center',
+    },
+    freePostButtonText: {
+        fontSize: Typography.sizes.md,
+        fontWeight: '600',
+        color: Colors.light.textSecondary,
+    },
     formInput: { marginTop: Spacing.md },
     inputMultiline: { minHeight: 110, textAlignVertical: 'top' },
     submitButton: { marginTop: Spacing.lg },
@@ -1320,9 +1559,26 @@ const styles = StyleSheet.create({
     cardHead: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
     cardHeadBody: { flex: 1 },
     cardTitleRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, flexWrap: 'wrap' },
+    cardTitleBadges: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, flexWrap: 'wrap' },
     cardName: { fontSize: Typography.sizes.md, fontWeight: '600', color: Colors.light.textPrimary },
     badge: { backgroundColor: Colors.successSubtle, borderRadius: Radii.full, paddingHorizontal: 10, paddingVertical: 4 },
     badgeText: { fontSize: Typography.sizes.xs, fontWeight: '700', color: Colors.success },
+    priorityBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 3,
+        backgroundColor: 'rgba(255,193,7,0.14)',
+        borderRadius: Radii.full,
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderWidth: 1,
+        borderColor: 'rgba(255,193,7,0.28)',
+    },
+    priorityBadgeText: {
+        fontSize: Typography.sizes.xs,
+        fontWeight: '700',
+        color: Colors.warning,
+    },
     cardMeta: { fontSize: Typography.sizes.sm, color: Colors.light.textTertiary, marginTop: 4 },
     cardBody: { fontSize: Typography.sizes.base, lineHeight: 19, color: Colors.light.textSecondary, marginTop: Spacing.md },
     cardFooterText: { fontSize: Typography.sizes.sm, color: Colors.light.textTertiary, marginTop: Spacing.md },

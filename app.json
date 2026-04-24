@@ -5,7 +5,7 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
-    "icon": "./soberspace_app_icon.png",
+    "icon": "./soberspace_icon.png",
     "splash": {
       "backgroundColor": "#212529"
     },
@@ -16,7 +16,7 @@
     "android": {
       "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
-        "foregroundImage": "./soberspace_app_icon.png",
+        "foregroundImage": "./soberspace_icon.png",
         "backgroundColor": "#212529"
       },
       "package": "com.projectradeon.app",

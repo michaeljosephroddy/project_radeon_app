@@ -887,56 +887,65 @@ export function FeedScreen({
                     });
                 }}
                 ListHeaderComponent={
-                    <View style={styles.composeBar}>
-                        {user && <Avatar username={user.username} avatarUrl={user.avatar_url} size={28} />}
-                        {composing ? (
-                            <View style={styles.composeExpanded}>
-                                <TextInput
-                                    style={styles.composeInput}
-                                    placeholder="What's on your mind?"
-                                    placeholderTextColor={Colors.light.textTertiary}
-                                    value={draft}
-                                    onChangeText={setDraft}
-                                    multiline
-                                    autoFocus={!selectedImage}
-                                />
-                                {selectedImage ? (
-                                    <View style={styles.composeImagePreviewWrap}>
-                                        <Image source={{ uri: selectedImage.localImage.uri }} style={styles.composeImagePreview} resizeMode="cover" />
-                                        <TouchableOpacity style={styles.removeImageButton} onPress={removeSelectedImage}>
-                                            <Ionicons name="close" size={14} color={Colors.textOn.primary} />
-                                        </TouchableOpacity>
-                                        <View style={styles.composeImageStatusBadge}>
-                                            <Text style={styles.composeImageStatusText}>
-                                                {selectedImage.status === 'uploading'
-                                                    ? 'Uploading...'
-                                                    : selectedImage.status === 'uploaded'
-                                                        ? 'Ready'
-                                                        : 'Retry on post'}
-                                            </Text>
+                    <View style={styles.listHeader}>
+                        <View style={styles.composeBar}>
+                            {user && <Avatar username={user.username} avatarUrl={user.avatar_url} size={28} />}
+                            {composing ? (
+                                <View style={styles.composeExpanded}>
+                                    <TextInput
+                                        style={styles.composeInput}
+                                        placeholder="What's on your mind?"
+                                        placeholderTextColor={Colors.light.textTertiary}
+                                        value={draft}
+                                        onChangeText={setDraft}
+                                        multiline
+                                        autoFocus={!selectedImage}
+                                    />
+                                    {selectedImage ? (
+                                        <View style={styles.composeImagePreviewWrap}>
+                                            <Image source={{ uri: selectedImage.localImage.uri }} style={styles.composeImagePreview} resizeMode="cover" />
+                                            <TouchableOpacity style={styles.removeImageButton} onPress={removeSelectedImage}>
+                                                <Ionicons name="close" size={14} color={Colors.textOn.primary} />
+                                            </TouchableOpacity>
+                                            <View style={styles.composeImageStatusBadge}>
+                                                <Text style={styles.composeImageStatusText}>
+                                                    {selectedImage.status === 'uploading'
+                                                        ? 'Uploading...'
+                                                        : selectedImage.status === 'uploaded'
+                                                            ? 'Ready'
+                                                            : 'Retry on post'}
+                                                </Text>
+                                            </View>
                                         </View>
-                                    </View>
-                                ) : null}
-                            </View>
-                        ) : (
-                            <TouchableOpacity style={{ flex: 1 }} onPress={() => setComposing(true)}>
-                                <Text style={styles.composePlaceholder}>What's on your mind?</Text>
-                            </TouchableOpacity>
-                        )}
-                        <TouchableOpacity
-                            style={styles.attachImageButton}
-                            onPress={handlePickPostImage}
-                        >
-                            <Ionicons name="image-outline" size={18} color={Colors.primary} />
-                        </TouchableOpacity>
-                        {composing && (
+                                    ) : null}
+                                </View>
+                            ) : (
+                                <TouchableOpacity style={styles.composeTrigger} onPress={() => setComposing(true)}>
+                                    <Text style={styles.composePlaceholder}>What's on your mind?</Text>
+                                </TouchableOpacity>
+                            )}
                             <TouchableOpacity
-                                style={styles.postBtn}
-                                onPress={handlePost}
+                                style={styles.attachImageButton}
+                                onPress={handlePickPostImage}
                             >
-                                <Text style={styles.postBtnText}>Post</Text>
+                                <Ionicons name="image-outline" size={18} color={Colors.primary} />
                             </TouchableOpacity>
-                        )}
+                            {composing && (
+                                <TouchableOpacity
+                                    style={styles.postBtn}
+                                    onPress={handlePost}
+                                >
+                                    <Text style={styles.postBtnText}>Post</Text>
+                                </TouchableOpacity>
+                            )}
+                        </View>
+
+                        <View style={styles.feedNotice}>
+                            <Text style={styles.feedNoticeTitle}>Community Feed</Text>
+                            <Text style={styles.feedNoticeText}>
+                                Posts here come from the wider community as well as your friends.
+                            </Text>
+                        </View>
                     </View>
                 }
                 ListEmptyComponent={
@@ -1042,6 +1051,26 @@ const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: Colors.light.background },
     center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
     list: { padding: Spacing.md, paddingBottom: 32 },
+    listHeader: { gap: Spacing.sm, marginBottom: Spacing.md },
+    feedNotice: {
+        backgroundColor: Colors.light.backgroundSecondary,
+        borderRadius: Radii.md,
+        borderWidth: 0.5,
+        borderColor: Colors.light.border,
+        paddingHorizontal: Spacing.md,
+        paddingVertical: Spacing.sm,
+        gap: 4,
+    },
+    feedNoticeTitle: {
+        fontSize: Typography.sizes.md,
+        fontWeight: '600',
+        color: Colors.light.textPrimary,
+    },
+    feedNoticeText: {
+        fontSize: Typography.sizes.sm,
+        color: Colors.light.textTertiary,
+        lineHeight: 18,
+    },
     composeBar: {
         backgroundColor: Colors.light.backgroundSecondary,
         borderRadius: Radii.md,
@@ -1049,8 +1078,8 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'flex-end',
         gap: Spacing.sm,
-        marginBottom: Spacing.md,
     },
+    composeTrigger: { flex: 1 },
     composeExpanded: { flex: 1, gap: Spacing.sm },
     composeInput: { flex: 1, fontSize: Typography.sizes.base, color: Colors.light.textPrimary, maxHeight: 100 },
     composePlaceholder: { flex: 1, fontSize: Typography.sizes.base, color: Colors.light.textTertiary, textAlignVertical: 'center' },

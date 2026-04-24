@@ -10,7 +10,16 @@ export const queryKeys = {
     myMeetups: (params?: { limit?: number }) => ['my-meetups', params ?? {}] as const,
     meetup: (meetupId: string) => ['meetup', meetupId] as const,
     meetupAttendees: (meetupId: string) => ['meetup-attendees', meetupId] as const,
-    discover: (params?: { query?: string; city?: string; limit?: number }) => ['discover', params ?? {}] as const,
+    discover: (params?: {
+        query?: string;
+        city?: string;
+        gender?: string;
+        ageMin?: number;
+        ageMax?: number;
+        distanceKm?: number;
+        sobriety?: string;
+        limit?: number;
+    }) => ['discover', params ?? {}] as const,
     supportRequests: (params?: { scope?: 'open' | 'mine'; limit?: number }) => ['support-requests', params ?? {}] as const,
     supportProfile: () => ['support-profile'] as const,
 };

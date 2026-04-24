@@ -86,6 +86,8 @@ export interface User {
     id: string;
     username: string;
     avatar_url?: string;
+    is_plus?: boolean;
+    subscription_tier?: string | null;
     city?: string;
     country?: string;
     bio?: string | null;
@@ -215,6 +217,8 @@ export interface SupportRequest {
     response_count: number;
     expires_at: string;
     created_at: string;
+    priority_visibility: boolean;
+    priority_expires_at?: string | null;
     has_responded: boolean;
     is_own_request: boolean;
 }
@@ -387,10 +391,25 @@ export async function getInterests(): Promise<string[]> {
 }
 
 // Queries discover results using optional search filters.
-export async function discoverUsers(params?: { query?: string; city?: string; page?: number; limit?: number }): Promise<PaginatedResponse<User>> {
+export async function discoverUsers(params?: {
+    query?: string;
+    city?: string;
+    gender?: string;
+    ageMin?: number;
+    ageMax?: number;
+    distanceKm?: number;
+    sobriety?: string;
+    page?: number;
+    limit?: number;
+}): Promise<PaginatedResponse<User>> {
     const search = new URLSearchParams();
     if (params?.query?.trim()) search.set('q', params.query.trim());
     if (params?.city?.trim()) search.set('city', params.city.trim());
+    if (params?.gender?.trim()) search.set('gender', params.gender.trim());
+    if (typeof params?.ageMin === 'number') search.set('age_min', String(params.ageMin));
+    if (typeof params?.ageMax === 'number') search.set('age_max', String(params.ageMax));
+    if (typeof params?.distanceKm === 'number') search.set('distance_km', String(params.distanceKm));
+    if (params?.sobriety?.trim()) search.set('sobriety', params.sobriety.trim());
     if (params?.page) search.set('page', String(params.page));
     if (params?.limit) search.set('limit', String(params.limit));
     const suffix = search.toString() ? `?${search.toString()}` : '';
@@ -548,6 +567,7 @@ export async function createSupportRequest(data: {
     message?: string | null;
     audience: SupportRequest['audience'];
     expires_at: string;
+    priority_visibility?: boolean;
 }): Promise<SupportRequest> {
     return request('/support/requests', { method: 'POST', body: JSON.stringify(data) });
 }

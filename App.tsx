@@ -6,6 +6,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider, useAuth } from './src/hooks/useAuth';
 import { AuthNavigator } from './src/navigation/AuthNavigator';
 import { AppNavigator } from './src/navigation/AppNavigator';
+import { OnboardingNavigator } from './src/navigation/OnboardingNavigator';
 import { NotificationProvider } from './src/notifications/NotificationProvider';
 import { asyncStoragePersister } from './src/query/asyncStoragePersister';
 import { queryClient } from './src/query/queryClient';
@@ -14,11 +15,9 @@ import { StatusBar } from 'expo-status-bar';
 
 // Chooses between the authenticated app shell and the auth flow once session state is resolved.
 function RootNavigator() {
-    const { isAuthenticated, isLoading } = useAuth();
+    const { isAuthenticated, isLoading, isNewUser } = useAuth();
 
     if (isLoading) {
-        // Hold the app shell on a neutral splash while AuthProvider restores any
-        // persisted session so we do not flash the logged-out stack on launch.
         return (
             <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.light.background }}>
                 <ActivityIndicator color={Colors.primary} />
@@ -26,11 +25,14 @@ function RootNavigator() {
         );
     }
 
-    return isAuthenticated ? (
+    if (!isAuthenticated) return <AuthNavigator />;
+    if (isNewUser) return <OnboardingNavigator />;
+
+    return (
         <NotificationProvider>
             <AppNavigator />
         </NotificationProvider>
-    ) : <AuthNavigator />;
+    );
 }
 
 // Mounts the global providers required by every screen in the app.

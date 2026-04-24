@@ -1,4 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { unstable_batchedUpdates } from 'react-native';
 import * as api from '../api/client';
 import { queryClient } from '../query/queryClient';
 
@@ -6,10 +7,12 @@ interface AuthContextType {
     user: api.User | null;
     isLoading: boolean;
     isAuthenticated: boolean;
+    isNewUser: boolean;
     login: (email: string, password: string) => Promise<void>;
     register: (data: Parameters<typeof api.register>[0]) => Promise<void>;
     logout: () => Promise<void>;
     refreshUser: () => Promise<void>;
+    completeOnboarding: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -18,6 +21,7 @@ const AuthContext = createContext<AuthContextType | null>(null);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [user, setUser] = useState<api.User | null>(null);
     const [isLoading, setIsLoading] = useState(true);
+    const [isNewUser, setIsNewUser] = useState(false);
     const setUserRef = useRef(setUser);
     setUserRef.current = setUser;
 
@@ -64,7 +68,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         await api.setToken(token);
         queryClient.clear();
         const me = await api.getMe();
-        setUser(me);
+        unstable_batchedUpdates(() => {
+            setUser(me);
+            setIsNewUser(true);
+        });
     }, []);
 
     // Clears local auth state and removes the current user from context.
@@ -80,15 +87,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(me);
     }, []);
 
+    const completeOnboarding = useCallback(() => {
+        setIsNewUser(false);
+    }, []);
+
     return (
         <AuthContext.Provider value={{
             user,
             isLoading,
             isAuthenticated: !!user,
+            isNewUser,
             login,
             register,
             logout,
             refreshUser,
+            completeOnboarding,
         }}>
             {children}
         </AuthContext.Provider>

@@ -1,7 +1,6 @@
 import React, { useRef, useState } from 'react';
 import {
-    View, Text, TouchableOpacity, StyleSheet, Image,
-    FlatList, ActivityIndicator, RefreshControl,
+    View, Text, TouchableOpacity, StyleSheet, Image, FlatList, ActivityIndicator, RefreshControl,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -38,12 +37,13 @@ interface UserProfileScreenProps {
     avatarUrl?: string;
     onBack: () => void;
     onOpenChat: (chat: api.Chat) => void;
+    onComposeDM: (info: { recipientId: string; username: string; avatarUrl?: string }) => void;
 }
 
 // Renders another user's profile plus friendship and direct-message actions.
 export function UserProfileScreen({
     userId, username, avatarUrl,
-    onBack, onOpenChat,
+    onBack, onOpenChat, onComposeDM,
 }: UserProfileScreenProps) {
     const flatListRef = useRef<FlatList<api.Post> | null>(null);
     const queryClient = useQueryClient();
@@ -52,7 +52,6 @@ export function UserProfileScreen({
     const userPostsListProps = getListPerformanceProps('detailList');
     const userPostsScrollToTop = useScrollToTopButton({ threshold: 320 });
     const [friendActionLoading, setFriendActionLoading] = useState(false);
-    const [dmLoading, setDmLoading] = useState(false);
     const profile = profileQuery.data ?? null;
     const posts = (userPostsQuery.data?.pages ?? []).flatMap(page => page.items ?? []);
     const loading = (!profile && profileQuery.isLoading) || (posts.length === 0 && userPostsQuery.isLoading);
@@ -100,23 +99,8 @@ export function UserProfileScreen({
         }
     };
 
-    // Creates or opens a direct message thread with the viewed user.
-    const handleDM = async () => {
-        setDmLoading(true);
-        try {
-            const { id } = await api.createChat([userId]);
-            // Jump straight into the newly created DM using enough metadata to render
-            // the chat overlay before the chats list refreshes.
-            onOpenChat({
-                id,
-                is_group: false,
-                username,
-                avatar_url: avatarUrl,
-                created_at: new Date().toISOString(),
-            });
-        } catch { } finally {
-            setDmLoading(false);
-        }
+    const handleDM = () => {
+        onComposeDM({ recipientId: userId, username, avatarUrl });
     };
 
     const friendButtonLabel = friendshipStatus === 'friends'
@@ -140,8 +124,8 @@ export function UserProfileScreen({
             <Avatar
                 username={username}
                 avatarUrl={avatarUrl}
-                size={80}
-                fontSize={28}
+                size={192}
+                fontSize={70}
             />
             <Text style={styles.name}>{formatUsername(username)}</Text>
 
@@ -197,9 +181,8 @@ export function UserProfileScreen({
                     </Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                    style={[styles.dmBtn, dmLoading && { opacity: 0.6 }]}
+                    style={styles.dmBtn}
                     onPress={handleDM}
-                    disabled={dmLoading}
                 >
                     <Text style={styles.dmBtnText}>Message</Text>
                 </TouchableOpacity>

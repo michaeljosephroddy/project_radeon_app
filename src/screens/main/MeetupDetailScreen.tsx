@@ -1,13 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import {
-  View, Text, TouchableOpacity, StyleSheet,
-  ActivityIndicator, ScrollView,
+  View, Text, TouchableOpacity, StyleSheet, Image,
+  ActivityIndicator, ScrollView, StyleProp, ViewStyle,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import * as api from '../../api/client';
-import { Avatar } from '../../components/Avatar';
 import { PrimaryButton } from '../../components/ui/PrimaryButton';
 import { SurfaceCard } from '../../components/ui/SurfaceCard';
-import { Colors, Typography, Spacing, Radii } from '../../utils/theme';
+import { Colors, Typography, Spacing, Radii, getAvatarColors } from '../../utils/theme';
+import { formatUsername } from '../../utils/identity';
 
 function formatMeetupDate(dateStr: string) {
   const date = new Date(dateStr);
@@ -33,6 +34,95 @@ interface MeetupDetailScreenProps {
   onOpenUserProfile: (profile: { userId: string; username: string; avatarUrl?: string }) => void;
   rsvpPending?: boolean;
   actionLabel?: string;
+}
+
+interface AttendeeProfileCardProps {
+  attendee: api.MeetupAttendee;
+  label: string;
+  onPress: () => void;
+  style?: StyleProp<ViewStyle>;
+}
+
+function AttendeeProfileCard({ attendee, label, onPress, style }: AttendeeProfileCardProps) {
+  const avatarColors = getAvatarColors(attendee.username);
+
+  return (
+    <TouchableOpacity style={[styles.attendeeProfileCard, style]} activeOpacity={0.85} onPress={onPress}>
+      {attendee.avatar_url ? (
+        <Image source={{ uri: attendee.avatar_url }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+      ) : (
+        <View style={[StyleSheet.absoluteFill, { backgroundColor: avatarColors.bg }]} />
+      )}
+
+      {!attendee.avatar_url && (
+        <View style={styles.attendeeInitials}>
+          <Text style={styles.attendeeInitialsText}>
+            {attendee.username.slice(0, 2).toUpperCase()}
+          </Text>
+        </View>
+      )}
+
+      <LinearGradient
+        colors={['transparent', 'rgba(0,0,0,0.72)']}
+        style={styles.attendeeCardScrim}
+      />
+
+      <View style={styles.attendeeCardFooter}>
+        <View style={styles.attendeeCardPill}>
+          <Text style={styles.attendeeCardPillText}>{label}</Text>
+        </View>
+        <Text style={styles.attendeeCardName} numberOfLines={1}>
+          {formatUsername(attendee.username)}
+        </Text>
+      </View>
+    </TouchableOpacity>
+  );
+}
+
+interface AttendeeMosaicCardProps {
+  attendees: api.MeetupAttendee[];
+  onPress: () => void;
+  style?: StyleProp<ViewStyle>;
+}
+
+function AttendeeMosaicCard({ attendees, onPress, style }: AttendeeMosaicCardProps) {
+  const previewAttendees = attendees.slice(0, 4);
+
+  return (
+    <TouchableOpacity style={[styles.attendeeProfileCard, styles.moreCard, style]} activeOpacity={0.85} onPress={onPress}>
+      <View style={styles.mosaicGrid}>
+        {previewAttendees.map((attendee) => {
+          const avatarColors = getAvatarColors(attendee.username);
+
+          return (
+            <View key={`mosaic-${attendee.id}`} style={styles.mosaicCell}>
+              {attendee.avatar_url ? (
+                <Image source={{ uri: attendee.avatar_url }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+              ) : (
+                <View style={[StyleSheet.absoluteFill, { backgroundColor: avatarColors.bg }]} />
+              )}
+
+              {!attendee.avatar_url ? (
+                <View style={styles.mosaicFallback}>
+                  <Text style={styles.mosaicFallbackText}>
+                    {attendee.username.slice(0, 2).toUpperCase()}
+                  </Text>
+                </View>
+              ) : null}
+            </View>
+          );
+        })}
+      </View>
+
+      <LinearGradient
+        colors={['rgba(0,0,0,0.08)', 'rgba(0,0,0,0.55)']}
+        style={styles.mosaicOverlay}
+      />
+      <View style={styles.mosaicCountWrap}>
+        <Text style={styles.mosaicCountText}>+{attendees.length} more</Text>
+      </View>
+    </TouchableOpacity>
+  );
 }
 
 export function MeetupDetailScreen({
@@ -162,80 +252,47 @@ export function MeetupDetailScreen({
                 {(() => {
                   const featuredAttendee = attendees.find(attendee => attendee.id === meetup.organizer_id) ?? attendees[0];
                   const isHost = featuredAttendee.id === meetup.organizer_id;
+                  const remainingAttendees = attendees.filter(attendee => attendee.id !== featuredAttendee.id);
 
                   return (
-                    <TouchableOpacity
-                      style={styles.attendeeCard}
-                      activeOpacity={0.85}
-                      onPress={() => onOpenUserProfile({
-                        userId: featuredAttendee.id,
-                        username: featuredAttendee.username,
-                        avatarUrl: featuredAttendee.avatar_url ?? undefined,
-                      })}
-                    >
-                      <Avatar
-                        username={featuredAttendee.username}
-                        avatarUrl={featuredAttendee.avatar_url ?? undefined}
-                        size={56}
-                        fontSize={18}
+                    <>
+                      <AttendeeProfileCard
+                        attendee={featuredAttendee}
+                        label={isHost ? 'Organizer' : (featuredAttendee.city ?? 'Member')}
+                        style={styles.attendeeCard}
+                        onPress={() => onOpenUserProfile({
+                          userId: featuredAttendee.id,
+                          username: featuredAttendee.username,
+                          avatarUrl: featuredAttendee.avatar_url ?? undefined,
+                        })}
                       />
-                      {isHost && (
-                        <View style={styles.hostBadge}>
-                          <Text style={styles.hostBadgeText}>Host</Text>
-                        </View>
-                      )}
-                      <Text style={styles.attendeeCardName} numberOfLines={1}>{featuredAttendee.username}</Text>
-                      <Text style={styles.attendeeCardMeta}>{isHost ? 'Organizer' : 'Member'}</Text>
-                    </TouchableOpacity>
+
+                      {remainingAttendees.length > 0 ? (
+                        <AttendeeMosaicCard
+                          attendees={remainingAttendees}
+                          style={styles.attendeeCard}
+                          onPress={() => setAttendeesExpanded(true)}
+                        />
+                      ) : null}
+                    </>
                   );
                 })()}
-
-                {attendees.length > 1 && (
-                  <TouchableOpacity
-                    style={[styles.attendeeCard, styles.moreCard]}
-                    onPress={() => setAttendeesExpanded(true)}
-                  >
-                    <View style={styles.moreAvatarCluster}>
-                      {attendees.slice(0, 4).map(attendee => (
-                        <View key={`cluster-${attendee.id}`} style={styles.moreAvatar}>
-                          <Avatar
-                            username={attendee.username}
-                            avatarUrl={attendee.avatar_url ?? undefined}
-                            size={34}
-                            fontSize={11}
-                          />
-                        </View>
-                      ))}
-                    </View>
-                    <Text style={styles.moreCardText}>+{attendees.length - 1} more</Text>
-                  </TouchableOpacity>
-                )}
               </View>
 
               {attendeesExpanded && (
                 <View style={styles.attendeeGrid}>
                   {attendees.map(attendee => (
-                    <TouchableOpacity
+                    <AttendeeProfileCard
                       key={`row-${attendee.id}`}
+                      attendee={attendee}
+                      label={attendee.id === meetup.organizer_id ? 'Organizer' : (attendee.city ?? 'Member')}
                       style={styles.attendeeGridCard}
-                      activeOpacity={0.85}
                       onPress={() => onOpenUserProfile({
                         userId: attendee.id,
                         username: attendee.username,
                         avatarUrl: attendee.avatar_url ?? undefined,
                       })}
-                    >
-                      <Avatar
-                        username={attendee.username}
-                        avatarUrl={attendee.avatar_url ?? undefined}
-                        size={40}
-                        fontSize={14}
-                      />
-                      <Text style={styles.attendeeGridName} numberOfLines={1}>{attendee.username}</Text>
-                      <Text style={styles.attendeeGridMeta}>
-                        {attendee.id === meetup.organizer_id ? 'Organizer' : (attendee.city ?? 'Member')}
-                      </Text>
-                    </TouchableOpacity>
+                    />
                   ))}
                 </View>
               )}
@@ -371,89 +428,120 @@ const styles = StyleSheet.create({
   },
   attendeeCard: {
     flex: 1,
-    minHeight: 154,
-    borderRadius: Radii.lg,
+    minHeight: 176,
+    borderRadius: Radii.xl,
     backgroundColor: Colors.light.background,
-    borderWidth: 1,
-    borderColor: Colors.light.border,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.md,
-    alignItems: 'center',
-  },
-  hostBadge: {
-    marginTop: Spacing.sm,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: Radii.full,
-    backgroundColor: Colors.successSubtle,
-  },
-  hostBadgeText: {
-    fontSize: Typography.sizes.xs,
-    fontWeight: '700',
-    color: Colors.success,
+    overflow: 'hidden',
   },
   attendeeCardName: {
-    marginTop: Spacing.sm,
     fontSize: Typography.sizes.base,
     fontWeight: '700',
-    color: Colors.light.textPrimary,
-  },
-  attendeeCardMeta: {
-    fontSize: Typography.sizes.sm,
-    color: Colors.light.textTertiary,
-    marginTop: 4,
+    color: '#fff',
+    textAlign: 'center',
   },
   moreCard: {
-    justifyContent: 'center',
+    position: 'relative',
   },
   attendeesToggleText: {
     fontSize: Typography.sizes.sm,
     fontWeight: '600',
     color: Colors.primary,
   },
-  moreAvatarCluster: {
-    width: 76,
-    height: 76,
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    alignContent: 'space-between',
-    marginBottom: Spacing.md,
-  },
-  moreAvatar: {
-    width: 34,
-    height: 34,
-  },
-  moreCardText: {
-    fontSize: Typography.sizes.base,
-    fontWeight: '700',
-    color: Colors.light.textPrimary,
-  },
   attendeeGrid: {
     gap: Spacing.sm,
     marginTop: Spacing.md,
     flexDirection: 'row',
     flexWrap: 'wrap',
+    justifyContent: 'space-between',
   },
   attendeeGridCard: {
     width: '48%',
     backgroundColor: Colors.light.background,
-    borderRadius: Radii.md,
+    borderRadius: Radii.xl,
+    minHeight: 164,
+    overflow: 'hidden',
+  },
+  attendeeProfileCard: {
+    backgroundColor: Colors.light.backgroundSecondary,
     borderWidth: 1,
     borderColor: Colors.light.border,
-    paddingVertical: Spacing.md,
+  },
+  attendeeInitials: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  attendeeInitialsText: {
+    fontSize: 34,
+    fontWeight: '700',
+    color: 'rgba(255,255,255,0.6)',
+    letterSpacing: 2,
+  },
+  attendeeCardScrim: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: '58%',
+  },
+  attendeeCardFooter: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
     paddingHorizontal: Spacing.sm,
+    paddingTop: Spacing.sm,
+    paddingBottom: Spacing.sm,
+    gap: 4,
     alignItems: 'center',
   },
-  attendeeGridName: {
-    marginTop: Spacing.sm,
-    fontSize: Typography.sizes.base,
-    fontWeight: '600',
-    color: Colors.light.textPrimary,
+  attendeeCardPill: {
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    borderRadius: Radii.full,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
   },
-  attendeeGridMeta: {
-    fontSize: Typography.sizes.sm,
-    color: Colors.light.textTertiary,
-    marginTop: 2,
+  attendeeCardPillText: {
+    fontSize: Typography.sizes.xs,
+    fontWeight: '700',
+    color: '#fff',
+  },
+  mosaicGrid: {
+    ...StyleSheet.absoluteFillObject,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  mosaicCell: {
+    width: '50%',
+    height: '50%',
+    borderWidth: 0.5,
+    borderColor: 'rgba(255,255,255,0.08)',
+    overflow: 'hidden',
+  },
+  mosaicFallback: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  mosaicFallbackText: {
+    fontSize: Typography.sizes.base,
+    fontWeight: '700',
+    color: 'rgba(255,255,255,0.72)',
+    letterSpacing: 1,
+  },
+  mosaicOverlay: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  mosaicCountWrap: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.md,
+  },
+  mosaicCountText: {
+    fontSize: Typography.sizes.lg,
+    fontWeight: '700',
+    color: '#fff',
+    textAlign: 'center',
   },
 });

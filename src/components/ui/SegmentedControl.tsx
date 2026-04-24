@@ -7,6 +7,7 @@ export interface SegmentedControlItem {
     label: string;
     flex?: number;
     disabled?: boolean;
+    badgeLabel?: string;
 }
 
 interface SegmentedControlProps {
@@ -36,9 +37,16 @@ export function SegmentedControl({ items, activeKey, onChange, style }: Segmente
                         onPress={isDisabled ? undefined : () => onChange(item.key)}
                         disabled={isDisabled}
                     >
-                        <Text style={[styles.label, isActive && styles.labelActive]}>
-                            {item.label}
-                        </Text>
+                        <View style={styles.content}>
+                            <Text style={[styles.label, isActive && styles.labelActive]}>
+                                {item.label}
+                            </Text>
+                            {item.badgeLabel ? (
+                                <View style={styles.badge}>
+                                    <Text style={styles.badgeText}>{item.badgeLabel}</Text>
+                                </View>
+                            ) : null}
+                        </View>
                     </TouchableOpacity>
                 );
             })}
@@ -60,6 +68,11 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         backgroundColor: Colors.light.backgroundSecondary,
     },
+    content: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: Spacing.xs,
+    },
     buttonActive: {
         backgroundColor: Colors.primary,
         borderColor: Colors.primary,
@@ -71,5 +84,18 @@ const styles = StyleSheet.create({
     },
     labelActive: {
         color: Colors.textOn.primary,
+    },
+    badge: {
+        backgroundColor: 'rgba(255,193,7,0.12)',
+        borderRadius: Radii.pill,
+        paddingHorizontal: Spacing.xs + 2,
+        paddingVertical: 2,
+        borderWidth: 1,
+        borderColor: 'rgba(255,193,7,0.3)',
+    },
+    badgeText: {
+        fontSize: Typography.sizes.xs,
+        fontWeight: '700',
+        color: Colors.warning,
     },
 });
