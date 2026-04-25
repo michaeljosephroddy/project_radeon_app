@@ -679,7 +679,7 @@ const styles = StyleSheet.create({
     },
     filterChipActive: {
         borderColor: Colors.primary,
-        backgroundColor: 'rgba(127,119,221,0.12)',
+        backgroundColor: Colors.primarySubtle,
     },
     filterChipText: {
         fontSize: Typography.sizes.sm,

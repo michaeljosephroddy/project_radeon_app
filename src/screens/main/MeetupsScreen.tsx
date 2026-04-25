@@ -12,8 +12,10 @@ import * as api from '../../api/client';
 import { Avatar } from '../../components/Avatar';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { HeroCard } from '../../components/ui/HeroCard';
+import { InfoNoticeCard } from '../../components/ui/InfoNoticeCard';
 import { PlusFeatureSheet } from '../../components/ui/PlusFeatureSheet';
 import { PrimaryButton } from '../../components/ui/PrimaryButton';
+import { ScreenHeader } from '../../components/ui/ScreenHeader';
 import { SearchBar } from '../../components/ui/SearchBar';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { ScrollToTopButton } from '../../components/ui/ScrollToTopButton';
@@ -29,6 +31,7 @@ import { queryKeys } from '../../query/queryKeys';
 import { dedupeById } from '../../utils/list';
 import { getListPerformanceProps } from '../../utils/listPerformance';
 import { Colors, Typography, Spacing, Radii } from '../../utils/theme';
+import { screenStandards } from '../../styles/screenStandards';
 
 type MeetupsSubView = 'browse' | 'my' | 'create' | 'preview';
 type MeetupFieldKey = 'title' | 'description' | 'city' | 'capacity';
@@ -619,7 +622,7 @@ export function MeetupsScreen({ isActive, onOpenUserProfile, onOpenMeetup }: Mee
             : { day: '--', month: '---', dateTime: `${form.startsOn} ${form.startsAt}` };
 
         return (
-            <ScrollView contentContainerStyle={styles.formContent}>
+            <ScrollView contentContainerStyle={screenStandards.detailContent}>
                 <PlusFeatureSheet
                     visible={showCreatePaywall}
                     title="Create Meetups"
@@ -627,13 +630,7 @@ export function MeetupsScreen({ isActive, onOpenUserProfile, onOpenMeetup }: Mee
                     onClose={() => setShowCreatePaywall(false)}
                 />
 
-                <View style={styles.previewHeader}>
-                    <TouchableOpacity onPress={() => setSubView('create')} style={styles.previewBack}>
-                        <Ionicons name="chevron-back" size={22} color={Colors.primary} />
-                    </TouchableOpacity>
-                    <Text style={styles.previewTitle}>Review your meetup</Text>
-                    <View style={styles.previewBackSpacer} />
-                </View>
+                <ScreenHeader onBack={() => setSubView('create')} title="Review your meetup" style={styles.previewHeader} />
 
                 <View style={styles.previewCard}>
                     <View style={styles.previewCardTop}>
@@ -706,7 +703,7 @@ export function MeetupsScreen({ isActive, onOpenUserProfile, onOpenMeetup }: Mee
                 />
                 <ScrollView
                     ref={createFormRef}
-                    contentContainerStyle={styles.formContent}
+                    contentContainerStyle={screenStandards.detailContent}
                     keyboardShouldPersistTaps="handled"
                     keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
                 >
@@ -897,7 +894,7 @@ export function MeetupsScreen({ isActive, onOpenUserProfile, onOpenMeetup }: Mee
                         tintColor={Colors.primary}
                     />
                 }
-                contentContainerStyle={styles.list}
+                contentContainerStyle={screenStandards.listContent}
                 ListHeaderComponent={
                     <>
                         <SegmentedControl
@@ -910,12 +907,11 @@ export function MeetupsScreen({ isActive, onOpenUserProfile, onOpenMeetup }: Mee
                             ]}
                         />
 
-                        <View style={styles.screenNote}>
-                            <Text style={styles.screenNoteTitle}>Your Meetups</Text>
-                            <Text style={styles.screenNoteText}>
-                                Meetups you create appear here right away and stay in sync with the public list.
-                            </Text>
-                        </View>
+                        <InfoNoticeCard
+                            title="Your Meetups"
+                            description="Meetups you create appear here right away and stay in sync with the public list."
+                            style={styles.screenNote}
+                        />
 
                         {!!successMessage && <Text style={styles.successTextInline}>{successMessage}</Text>}
                     </>
@@ -976,7 +972,7 @@ export function MeetupsScreen({ isActive, onOpenUserProfile, onOpenMeetup }: Mee
                     tintColor={Colors.primary}
                 />
             }
-            contentContainerStyle={styles.list}
+            contentContainerStyle={screenStandards.listContent}
             keyboardShouldPersistTaps="handled"
             ListHeaderComponent={
                 <>
@@ -990,12 +986,11 @@ export function MeetupsScreen({ isActive, onOpenUserProfile, onOpenMeetup }: Mee
                         ]}
                     />
 
-                    <View style={styles.screenNote}>
-                        <Text style={styles.screenNoteTitle}>Meetups</Text>
-                        <Text style={styles.screenNoteText}>
-                            Browse public sober meetups, RSVP from the list, or create one in your city.
-                        </Text>
-                    </View>
+                    <InfoNoticeCard
+                        title="Meetups"
+                        description="Browse public sober meetups, RSVP from the list, or create one in your city."
+                        style={styles.screenNote}
+                    />
 
                     <SearchBar
                         style={styles.searchBar}
@@ -1053,24 +1048,9 @@ export function MeetupsScreen({ isActive, onOpenUserProfile, onOpenMeetup }: Mee
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: Colors.light.background },
     center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-    list: { padding: Spacing.md, paddingBottom: 32 },
     footerLoader: { paddingVertical: Spacing.md },
-    formContent: { padding: Spacing.md, paddingBottom: 40 },
     headerCard: { marginBottom: Spacing.md },
-    previewHeader: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginBottom: Spacing.lg,
-    },
-    previewBack: { padding: 4 },
-    previewBackSpacer: { width: 30 },
-    previewTitle: {
-        flex: 1,
-        textAlign: 'center',
-        fontSize: Typography.sizes.lg,
-        fontWeight: '600',
-        color: Colors.light.textPrimary,
-    },
+    previewHeader: { marginBottom: Spacing.lg },
     previewCard: {
         backgroundColor: Colors.light.backgroundSecondary,
         borderRadius: Radii.lg,
@@ -1150,26 +1130,7 @@ const styles = StyleSheet.create({
         fontWeight: '700',
         color: Colors.textOn.warning,
     },
-    screenNote: {
-        backgroundColor: Colors.light.backgroundSecondary,
-        borderRadius: Radii.md,
-        borderWidth: 0.5,
-        borderColor: Colors.light.border,
-        paddingHorizontal: Spacing.md,
-        paddingVertical: Spacing.sm,
-        gap: 4,
-        marginBottom: Spacing.md,
-    },
-    screenNoteTitle: {
-        fontSize: Typography.sizes.md,
-        fontWeight: '600',
-        color: Colors.light.textPrimary,
-    },
-    screenNoteText: {
-        fontSize: Typography.sizes.sm,
-        color: Colors.light.textTertiary,
-        lineHeight: 18,
-    },
+    screenNote: { marginBottom: Spacing.md },
     searchBar: {
         marginBottom: Spacing.md,
     },

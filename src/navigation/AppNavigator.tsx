@@ -394,8 +394,7 @@ const styles = StyleSheet.create({
     },
     wordmarkAccent: { color: Colors.primary },
     pageTitle: {
-        fontSize: Typography.sizes.lg,
-        fontWeight: '500',
+        ...Typography.screenTitle,
         color: Colors.light.textPrimary,
     },
 

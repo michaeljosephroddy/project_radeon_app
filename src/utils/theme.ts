@@ -1,4 +1,7 @@
 export {
+  Composer,
+  ContentInsets,
+  Header,
   Typography,
   Spacing,
   getAvatarColors,

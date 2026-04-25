@@ -20,6 +20,7 @@ export const Colors = {
   },
 
   primary:   '#0d6efd',
+  primarySubtle: 'rgba(13,110,253,0.12)',
   success:   '#198754',
   danger:    '#dc3545',
   warning:   '#ffc107',

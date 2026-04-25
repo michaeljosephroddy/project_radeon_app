@@ -8,6 +8,29 @@ export const Typography = {
   small: { fontSize: 13, fontWeight: '400' as const, color: Colors.text.muted,     lineHeight: 18 },
   label: { fontSize: 12, fontWeight: '500' as const, color: Colors.text.muted,     letterSpacing: 0.4 },
   mono:  { fontSize: 13, fontFamily: 'monospace' as const, color: Colors.text.secondary },
+  screenTitle: {
+    fontSize: 15,
+    fontWeight: '500' as const,
+    color: Colors.text.primary,
+    lineHeight: 20,
+  },
+  sectionLabel: {
+    fontSize: 10,
+    fontWeight: '600' as const,
+    color: Colors.text.muted,
+    letterSpacing: 0.7,
+  },
+  formLabel: {
+    fontSize: 11,
+    fontWeight: '500' as const,
+    color: Colors.text.secondary,
+  },
+  meta: {
+    fontSize: 11,
+    fontWeight: '400' as const,
+    color: Colors.text.muted,
+    lineHeight: 18,
+  },
 
   // Backward-compat size map used throughout existing screens
   sizes: {

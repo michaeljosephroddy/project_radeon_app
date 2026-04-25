@@ -51,7 +51,7 @@ Screens → useAuth hook / API client → Go backend
 
 **`src/components/`** — Shared UI: `Avatar` (initials + deterministic color from name hash), `ProfileSheet`, `ConnectionSheet`.
 
-**`src/utils/theme.ts`** — Single source of truth for design tokens: colors (`#7F77DD` primary purple), typography, spacing, border radii, avatar palette, and helpers (`getInitials`, `getAvatarColors`, `timeAgo`).
+**`src/utils/theme.ts`** — Screen-facing theme entry point and compatibility shim over `src/theme/*`, which holds the authoritative design tokens (current primary `#0d6efd`), typography, spacing, border radii, avatar palette, and helpers (`getInitials`, `getAvatarColors`, `timeAgo`).
 
 ### Key patterns
 

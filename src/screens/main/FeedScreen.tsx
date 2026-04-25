@@ -10,6 +10,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import { Avatar } from '../../components/Avatar';
 import { EmptyState } from '../../components/ui/EmptyState';
+import { InfoNoticeCard } from '../../components/ui/InfoNoticeCard';
 import { ScrollToTopButton } from '../../components/ui/ScrollToTopButton';
 import * as api from '../../api/client';
 import { useCreatePostMutation } from '../../hooks/queries/useCreatePostMutation';
@@ -22,10 +23,12 @@ import { useAuth } from '../../hooks/useAuth';
 import { resetInfiniteQueryToFirstPage } from '../../query/infiniteQueryPolicy';
 import { queryKeys } from '../../query/queryKeys';
 import { getListPerformanceProps } from '../../utils/listPerformance';
-import { Colors, Typography, Spacing, Radii } from '../../utils/theme';
+import { Colors, Typography, Spacing, Radii, Composer as ComposerMetrics } from '../../utils/theme';
 import { formatUsername } from '../../utils/identity';
 import { dedupeById } from '../../utils/list';
 import { formatReadableTimestamp } from '../../utils/date';
+import { composerStandards } from '../../styles/composerStandards';
+import { screenStandards } from '../../styles/screenStandards';
 
 interface PostCardProps {
     post: api.Post;
@@ -443,7 +446,7 @@ export function FeedScreen({
                         <View style={styles.composeBar}>
                             {user && <Avatar username={user.username} avatarUrl={user.avatar_url} size={28} />}
                             {composing ? (
-                                <View style={styles.composeExpanded}>
+                                <View style={[styles.composeField, styles.composeExpanded]}>
                                     <TextInput
                                         style={styles.composeInput}
                                         placeholder="What's on your mind?"
@@ -472,26 +475,27 @@ export function FeedScreen({
                                     ) : null}
                                 </View>
                             ) : (
-                                <TouchableOpacity style={styles.composeTrigger} onPress={() => setComposing(true)}>
+                                <TouchableOpacity style={styles.composeField} onPress={() => setComposing(true)}>
                                     <Text style={styles.composePlaceholder}>What's on your mind?</Text>
                                 </TouchableOpacity>
                             )}
-                            <TouchableOpacity style={styles.attachImageButton} onPress={handlePickPostImage}>
+                            <TouchableOpacity style={composerStandards.iconButton} onPress={handlePickPostImage}>
                                 <Ionicons name="image-outline" size={18} color={Colors.primary} />
                             </TouchableOpacity>
                             {composing && (
-                                <TouchableOpacity style={styles.postBtn} onPress={handlePost}>
-                                    <Text style={styles.postBtnText}>Post</Text>
+                                <TouchableOpacity
+                                    style={[composerStandards.actionButton, composerStandards.actionButtonSuccess, styles.postBtn]}
+                                    onPress={handlePost}
+                                >
+                                    <Text style={composerStandards.actionButtonText}>Post</Text>
                                 </TouchableOpacity>
                             )}
                         </View>
 
-                        <View style={styles.feedNotice}>
-                            <Text style={styles.feedNoticeTitle}>Community Feed</Text>
-                            <Text style={styles.feedNoticeText}>
-                                Posts here come from the wider community as well as your friends.
-                            </Text>
-                        </View>
+                        <InfoNoticeCard
+                            title="Community Feed"
+                            description="Posts here come from the wider community as well as your friends."
+                        />
                     </View>
                 }
                 ListEmptyComponent={
@@ -502,7 +506,7 @@ export function FeedScreen({
                 }
                 renderItem={renderItem}
                 ListFooterComponent={feedQuery.isFetchingNextPage ? <ActivityIndicator style={styles.footerLoader} color={Colors.primary} /> : null}
-                contentContainerStyle={[styles.list, { paddingBottom: listPaddingBottom }]}
+                contentContainerStyle={[screenStandards.listContent, { paddingBottom: listPaddingBottom }]}
             />
 
             {isActive && feedScrollToTop.isVisible ? (
@@ -560,27 +564,7 @@ async function buildSelectedPostImage(asset: ImagePicker.ImagePickerAsset): Prom
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: Colors.light.background },
     center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-    list: { padding: Spacing.md, paddingBottom: 32 },
     listHeader: { gap: Spacing.sm, marginBottom: Spacing.md },
-    feedNotice: {
-        backgroundColor: Colors.light.backgroundSecondary,
-        borderRadius: Radii.md,
-        borderWidth: 0.5,
-        borderColor: Colors.light.border,
-        paddingHorizontal: Spacing.md,
-        paddingVertical: Spacing.sm,
-        gap: 4,
-    },
-    feedNoticeTitle: {
-        fontSize: Typography.sizes.md,
-        fontWeight: '600',
-        color: Colors.light.textPrimary,
-    },
-    feedNoticeText: {
-        fontSize: Typography.sizes.sm,
-        color: Colors.light.textTertiary,
-        lineHeight: 18,
-    },
     composeBar: {
         backgroundColor: Colors.light.backgroundSecondary,
         borderRadius: Radii.md,
@@ -589,19 +573,31 @@ const styles = StyleSheet.create({
         alignItems: 'flex-end',
         gap: Spacing.sm,
     },
-    composeTrigger: { flex: 1 },
-    composeExpanded: { flex: 1, gap: Spacing.sm },
-    composeInput: { flex: 1, fontSize: Typography.sizes.base, color: Colors.light.textPrimary, maxHeight: 100 },
-    composePlaceholder: { flex: 1, fontSize: Typography.sizes.base, color: Colors.light.textTertiary, textAlignVertical: 'center' },
-    attachImageButton: {
-        width: 34,
-        height: 34,
-        borderRadius: 17,
-        alignItems: 'center',
-        justifyContent: 'center',
+    composeField: {
+        flex: 1,
+        minHeight: ComposerMetrics.minHeight,
+        borderRadius: Radii.pill,
         backgroundColor: Colors.light.background,
         borderWidth: 0.5,
         borderColor: Colors.light.border,
+        paddingHorizontal: ComposerMetrics.inputHorizontal,
+        paddingVertical: ComposerMetrics.inputVertical,
+        justifyContent: 'center',
+    },
+    composeExpanded: { gap: Spacing.sm },
+    composeInput: {
+        flex: 1,
+        maxHeight: ComposerMetrics.maxHeight,
+        fontSize: Typography.body.fontSize,
+        lineHeight: Typography.body.lineHeight,
+        color: Colors.light.textPrimary,
+        padding: 0,
+        textAlignVertical: 'top',
+    },
+    composePlaceholder: {
+        fontSize: Typography.body.fontSize,
+        lineHeight: Typography.body.lineHeight,
+        color: Colors.light.textTertiary,
     },
     composeImagePreviewWrap: {
         position: 'relative',
@@ -639,8 +635,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
     },
-    postBtn: { backgroundColor: Colors.success, borderRadius: Radii.sm, paddingHorizontal: Spacing.md, paddingVertical: 6 },
-    postBtnText: { color: Colors.textOn.primary, fontSize: Typography.sizes.sm, fontWeight: '600' },
+    postBtn: { minWidth: 72 },
     postCard: {
         backgroundColor: Colors.light.background,
         borderRadius: Radii.lg,

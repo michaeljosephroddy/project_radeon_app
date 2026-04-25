@@ -9,7 +9,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { Avatar } from '../../components/Avatar';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { HeroCard } from '../../components/ui/HeroCard';
+import { InfoNoticeCard } from '../../components/ui/InfoNoticeCard';
 import { PrimaryButton } from '../../components/ui/PrimaryButton';
+import { ScreenHeader } from '../../components/ui/ScreenHeader';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { ScrollToTopButton } from '../../components/ui/ScrollToTopButton';
 import { TextField } from '../../components/ui/TextField';
@@ -26,6 +28,7 @@ import { dedupeById } from '../../utils/list';
 import { getListPerformanceProps } from '../../utils/listPerformance';
 import { Colors, Typography, Spacing, Radii } from '../../utils/theme';
 import { formatUsername } from '../../utils/identity';
+import { screenStandards } from '../../styles/screenStandards';
 
 type SupportType = api.SupportRequest['type'];
 type SupportUrgency = api.SupportRequest['urgency'];
@@ -742,7 +745,7 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
         };
 
         return (
-            <ScrollView contentContainerStyle={styles.list}>
+            <ScrollView contentContainerStyle={screenStandards.detailContent}>
                 <SegmentedControl
                     activeKey="check-in"
                     onChange={(key) => {
@@ -873,14 +876,8 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
 
     if (subView === 'preview') {
         return (
-            <ScrollView contentContainerStyle={styles.list}>
-                <View style={styles.previewHeader}>
-                    <TouchableOpacity onPress={() => setSubView('create')} style={styles.previewBack}>
-                        <Ionicons name="chevron-back" size={22} color={Colors.primary} />
-                    </TouchableOpacity>
-                    <Text style={styles.previewTitle}>Review your request</Text>
-                    <View style={styles.previewBackSpacer} />
-                </View>
+            <ScrollView contentContainerStyle={screenStandards.detailContent}>
+                <ScreenHeader onBack={() => setSubView('create')} title="Review your request" style={styles.previewHeader} />
 
                 <View style={styles.previewCard}>
                     <View style={styles.previewTypeRow}>
@@ -923,7 +920,7 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
 
     if (subView === 'create') {
         return (
-            <ScrollView contentContainerStyle={styles.list}>
+            <ScrollView contentContainerStyle={screenStandards.detailContent}>
                 <SegmentedControl
                     activeKey="create"
                     onChange={(key) => setSubView(key as SupportSubView)}
@@ -934,10 +931,11 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
                     ]}
                 />
 
-                <View style={styles.screenNote}>
-                    <Text style={styles.screenNoteTitle}>Ask the community for support.</Text>
-                    <Text style={styles.screenNoteText}>Keep it short so people know how to show up for you.</Text>
-                </View>
+                <InfoNoticeCard
+                    title="Ask the community for support."
+                    description="Keep it short so people know how to show up for you."
+                    style={styles.screenNote}
+                />
 
                 <Text style={styles.formLabel}>What do you need?</Text>
                 <View style={styles.selectorWrap}>
@@ -1012,7 +1010,7 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
                     tintColor={Colors.primary}
                 />
             }
-            contentContainerStyle={styles.list}
+            contentContainerStyle={screenStandards.listContent}
             ListHeaderComponent={
                 <>
                     <SegmentedControl
@@ -1025,16 +1023,13 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
                         ]}
                     />
 
-                    <View style={styles.screenNote}>
-                        <Text style={styles.screenNoteTitle}>
-                            {isMineView ? 'Your Support Requests' : 'Support Requests'}
-                        </Text>
-                        <Text style={styles.screenNoteText}>
-                            {isMineView
-                                ? 'See how people responded, open a chat that fits, and close the request once you are okay.'
-                                : 'Open requests from the community show up here so you can respond when you can genuinely help.'}
-                        </Text>
-                    </View>
+                    <InfoNoticeCard
+                        title={isMineView ? 'Your Support Requests' : 'Support Requests'}
+                        description={isMineView
+                            ? 'See how people responded, open a chat that fits, and close the request once you are okay.'
+                            : 'Open requests from the community show up here so you can respond when you can genuinely help.'}
+                        style={styles.screenNote}
+                    />
                     {!isMineView ? (
                         <View style={styles.statsRow}>
                             <View style={styles.statCard}>
@@ -1090,28 +1085,8 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: Colors.light.background },
     center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.light.background },
-    list: { padding: Spacing.md, paddingBottom: 32 },
     headerCard: { marginBottom: Spacing.md },
-    screenNote: {
-        backgroundColor: Colors.light.backgroundSecondary,
-        borderRadius: Radii.md,
-        borderWidth: 0.5,
-        borderColor: Colors.light.border,
-        paddingHorizontal: Spacing.md,
-        paddingVertical: Spacing.sm,
-        gap: 4,
-        marginBottom: Spacing.md,
-    },
-    screenNoteTitle: {
-        fontSize: Typography.sizes.md,
-        fontWeight: '600',
-        color: Colors.light.textPrimary,
-    },
-    screenNoteText: {
-        fontSize: Typography.sizes.sm,
-        color: Colors.light.textTertiary,
-        lineHeight: 18,
-    },
+    screenNote: { marginBottom: Spacing.md },
     statsRow: {
         flexDirection: 'row',
         gap: Spacing.sm,
@@ -1252,22 +1227,7 @@ const styles = StyleSheet.create({
         color: Colors.textOn.primary,
     },
     previewHeader: {
-        flexDirection: 'row',
-        alignItems: 'center',
         marginBottom: Spacing.lg,
-    },
-    previewBack: {
-        padding: 4,
-    },
-    previewBackSpacer: {
-        width: 30,
-    },
-    previewTitle: {
-        flex: 1,
-        textAlign: 'center',
-        fontSize: Typography.sizes.lg,
-        fontWeight: '600',
-        color: Colors.light.textPrimary,
     },
     previewCard: {
         backgroundColor: Colors.light.backgroundSecondary,

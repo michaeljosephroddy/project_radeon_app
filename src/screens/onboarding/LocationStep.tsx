@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
-    View, Text, TextInput,
+    View, Text,
     StyleSheet, KeyboardAvoidingView, Platform, Alert, Keyboard, ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -8,9 +8,10 @@ import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import { PrimaryButton } from '../../components/ui/PrimaryButton';
+import { TextField } from '../../components/ui/TextField';
 import { useAuth } from '../../hooks/useAuth';
 import * as api from '../../api/client';
-import { Colors, Typography, Spacing, Radii } from '../../utils/theme';
+import { Colors, Typography, Spacing } from '../../utils/theme';
 import type { OnboardingStepProps } from '../../navigation/OnboardingNavigator';
 
 type LocationStepProps = OnboardingStepProps;
@@ -97,7 +98,7 @@ export function LocationStep({ onNext, dotIndex, dotTotal }: LocationStepProps) 
 
                     <View style={styles.form}>
                         <Text style={styles.label}>City</Text>
-                        <TextInput
+                        <TextField
                             style={styles.input}
                             placeholder="Dublin"
                             placeholderTextColor={Colors.light.textTertiary}
@@ -109,7 +110,7 @@ export function LocationStep({ onNext, dotIndex, dotTotal }: LocationStepProps) 
                         />
 
                         <Text style={styles.label}>Country</Text>
-                        <TextInput
+                        <TextField
                             style={styles.input}
                             placeholder="Ireland"
                             placeholderTextColor={Colors.light.textTertiary}
@@ -175,22 +176,12 @@ const styles = StyleSheet.create({
     },
     form: { gap: Spacing.xs },
     label: {
-        fontSize: Typography.sizes.md,
-        fontWeight: '500',
+        ...Typography.formLabel,
         color: Colors.light.textSecondary,
         marginBottom: 4,
         marginTop: Spacing.sm,
     },
-    input: {
-        backgroundColor: Colors.light.backgroundSecondary,
-        borderRadius: Radii.md,
-        borderWidth: 0.5,
-        borderColor: Colors.light.border,
-        paddingHorizontal: Spacing.md,
-        paddingVertical: 13,
-        fontSize: Typography.sizes.lg,
-        color: Colors.light.textPrimary,
-    },
+    input: { fontSize: Typography.sizes.lg },
     footer: {
         paddingHorizontal: Spacing.xl,
         paddingBottom: Spacing.lg,

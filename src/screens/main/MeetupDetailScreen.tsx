@@ -7,10 +7,13 @@ import { InfiniteData, useQueryClient } from '@tanstack/react-query';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as api from '../../api/client';
 import { PrimaryButton } from '../../components/ui/PrimaryButton';
+import { ScreenHeader } from '../../components/ui/ScreenHeader';
+import { SectionLabel } from '../../components/ui/SectionLabel';
 import { SurfaceCard } from '../../components/ui/SurfaceCard';
 import { Colors, Typography, Spacing, Radii, getAvatarColors } from '../../utils/theme';
 import { formatUsername } from '../../utils/identity';
 import { useAuth } from '../../hooks/useAuth';
+import { screenStandards } from '../../styles/screenStandards';
 
 function formatMeetupDate(dateStr: string) {
   const date = new Date(dateStr);
@@ -203,15 +206,9 @@ export function MeetupDetailScreen({
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={onBack} style={styles.headerSide}>
-          <Text style={styles.backIcon}>←</Text>
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Meetup Details</Text>
-        <View style={styles.headerSide} />
-      </View>
+      <ScreenHeader onBack={onBack} title="Meetup Details" />
 
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView contentContainerStyle={screenStandards.detailContent}>
         <SurfaceCard padding="lg" style={styles.eventCard}>
           <Text style={styles.eventEyebrow}>EVENT</Text>
           <Text style={styles.title}>{meetup.title}</Text>
@@ -253,7 +250,7 @@ export function MeetupDetailScreen({
 
         {!!meetup.description && (
           <>
-            <Text style={styles.sectionLabel}>ABOUT</Text>
+            <SectionLabel style={styles.sectionLabel}>ABOUT</SectionLabel>
             <SurfaceCard style={styles.sectionCard}>
               <Text style={styles.bodyText}>{meetup.description}</Text>
             </SurfaceCard>
@@ -342,26 +339,6 @@ export function MeetupDetailScreen({
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.light.background },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: Spacing.md,
-    paddingVertical: 12,
-    borderBottomWidth: 0.5,
-    borderBottomColor: Colors.light.border,
-  },
-  headerSide: { width: 40 },
-  backIcon: { fontSize: 20, color: Colors.primary },
-  headerTitle: {
-    fontSize: Typography.sizes.lg,
-    fontWeight: '600',
-    color: Colors.light.textPrimary,
-  },
-  content: {
-    padding: Spacing.md,
-    paddingBottom: 40,
-  },
   eventCard: {
     gap: Spacing.md,
   },
@@ -408,14 +385,7 @@ const styles = StyleSheet.create({
   primaryButtonTextActive: {
     color: Colors.success,
   },
-  sectionLabel: {
-    fontSize: Typography.sizes.xs,
-    fontWeight: '600',
-    color: Colors.light.textTertiary,
-    letterSpacing: 0.8,
-    marginTop: Spacing.lg,
-    marginBottom: Spacing.sm,
-  },
+  sectionLabel: { marginTop: Spacing.lg, marginBottom: Spacing.sm },
   sectionLabelInline: {
     fontSize: Typography.sizes.lg,
     fontWeight: '700',

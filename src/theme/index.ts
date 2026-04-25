@@ -1,6 +1,6 @@
 export { Colors }          from './colors';
 export { Typography }      from './typography';
-export { Spacing, Radius } from './layout';
+export { Composer, ContentInsets, Header, Spacing, Radius } from './layout';
 
 import { Colors } from './colors';
 

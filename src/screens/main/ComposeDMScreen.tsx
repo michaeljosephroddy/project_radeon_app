@@ -6,9 +6,11 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Avatar } from '../../components/Avatar';
+import { ScreenHeader } from '../../components/ui/ScreenHeader';
 import * as api from '../../api/client';
-import { Colors, Typography, Spacing, Radii } from '../../utils/theme';
+import { Colors, Typography, Spacing } from '../../utils/theme';
 import { formatUsername } from '../../utils/identity';
+import { composerStandards } from '../../styles/composerStandards';
 
 interface ComposeDMScreenProps {
     recipientId: string;
@@ -52,13 +54,15 @@ export function ComposeDMScreen({
 
     return (
         <SafeAreaView style={styles.container} edges={['bottom']}>
-            <View style={styles.header}>
-                <TouchableOpacity onPress={onBack} style={styles.backBtn} disabled={sending}>
-                    <Text style={styles.backIcon}>←</Text>
-                </TouchableOpacity>
-                <Avatar username={username} avatarUrl={avatarUrl} size={32} fontSize={12} />
-                <Text style={styles.headerName} numberOfLines={1}>{formatUsername(username)}</Text>
-            </View>
+            <ScreenHeader
+                onBack={onBack}
+                centerContent={(
+                    <View style={styles.headerIdentity}>
+                        <Avatar username={username} avatarUrl={avatarUrl} size={32} fontSize={12} />
+                        <Text style={styles.headerName} numberOfLines={1}>{formatUsername(username)}</Text>
+                    </View>
+                )}
+            />
 
             <View style={styles.body}>
                 <Text style={styles.placeholder}>
@@ -69,10 +73,10 @@ export function ComposeDMScreen({
             <KeyboardAvoidingView
                 behavior={Platform.OS === 'ios' ? 'padding' : undefined}
             >
-                <View style={styles.toolbar}>
+                <View style={composerStandards.row}>
                     <TextInput
                         ref={inputRef}
-                        style={styles.input}
+                        style={composerStandards.input}
                         placeholder="Message"
                         placeholderTextColor={Colors.light.textTertiary}
                         value={body}
@@ -83,7 +87,7 @@ export function ComposeDMScreen({
                         editable={!sending}
                     />
                     <TouchableOpacity
-                        style={[styles.sendBtn, !canSend && styles.sendBtnDisabled]}
+                        style={[composerStandards.sendButton, !canSend && composerStandards.sendButtonDisabled]}
                         onPress={handleSend}
                         disabled={!canSend}
                     >
@@ -100,21 +104,15 @@ export function ComposeDMScreen({
 
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: Colors.light.background },
-    header: {
+    headerIdentity: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingHorizontal: Spacing.md,
-        paddingVertical: 12,
-        borderBottomWidth: 0.5,
-        borderBottomColor: Colors.light.border,
         gap: Spacing.sm,
+        justifyContent: 'center',
     },
-    backBtn: { padding: 4 },
-    backIcon: { fontSize: 20, color: Colors.primary },
     headerName: {
-        flex: 1,
-        fontSize: Typography.sizes.lg,
-        fontWeight: '500',
+        flexShrink: 1,
+        ...Typography.screenTitle,
         color: Colors.light.textPrimary,
     },
     body: {
@@ -127,42 +125,5 @@ const styles = StyleSheet.create({
         fontSize: Typography.sizes.lg,
         color: Colors.light.textTertiary,
         textAlign: 'center',
-    },
-    toolbar: {
-        flexDirection: 'row',
-        alignItems: 'flex-end',
-        gap: Spacing.sm,
-        paddingHorizontal: Spacing.sm,
-        paddingTop: Spacing.sm,
-        paddingBottom: Spacing.sm,
-        borderTopWidth: 0.5,
-        borderTopColor: Colors.light.border,
-        backgroundColor: Colors.light.background,
-    },
-    input: {
-        flex: 1,
-        minHeight: 44,
-        maxHeight: 120,
-        borderRadius: Radii.pill,
-        backgroundColor: Colors.light.backgroundSecondary,
-        borderWidth: 0.5,
-        borderColor: Colors.light.border,
-        color: Colors.light.textPrimary,
-        fontSize: Typography.sizes.lg,
-        lineHeight: 20,
-        paddingHorizontal: Spacing.md,
-        paddingTop: Spacing.sm,
-        paddingBottom: Spacing.sm,
-    },
-    sendBtn: {
-        width: 42,
-        height: 42,
-        borderRadius: 21,
-        backgroundColor: Colors.primary,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    sendBtnDisabled: {
-        backgroundColor: Colors.secondary,
     },
 });

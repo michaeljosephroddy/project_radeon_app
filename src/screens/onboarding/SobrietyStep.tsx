@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import {
-    View, Text, TextInput, TouchableOpacity,
+    View, Text, TouchableOpacity,
     StyleSheet, ScrollView, KeyboardAvoidingView, Platform, Alert, Keyboard,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -8,6 +8,7 @@ import { StatusBar } from 'expo-status-bar';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { Ionicons } from '@expo/vector-icons';
 import { PrimaryButton } from '../../components/ui/PrimaryButton';
+import { TextField } from '../../components/ui/TextField';
 import { useAuth } from '../../hooks/useAuth';
 import * as api from '../../api/client';
 import { formatSobrietyDate } from '../../utils/date';
@@ -126,7 +127,7 @@ export function SobrietyStep({ onNext, dotIndex, dotTotal }: SobrietyStepProps) 
                                 {bio.length}/{MAX_BIO}
                             </Text>
                         </View>
-                        <TextInput
+                        <TextField
                             style={styles.bioInput}
                             placeholder="Tell the community a bit about yourself…"
                             placeholderTextColor={Colors.light.textTertiary}
@@ -195,8 +196,7 @@ const styles = StyleSheet.create({
         marginBottom: Spacing.sm,
     },
     label: {
-        fontSize: Typography.sizes.md,
-        fontWeight: '500',
+        ...Typography.formLabel,
         color: Colors.light.textSecondary,
         marginBottom: Spacing.sm,
     },
@@ -229,12 +229,6 @@ const styles = StyleSheet.create({
     },
     dateDisplayPlaceholder: { color: Colors.light.textTertiary },
     bioInput: {
-        backgroundColor: Colors.light.backgroundSecondary,
-        borderRadius: Radii.md,
-        borderWidth: 0.5,
-        borderColor: Colors.light.border,
-        paddingHorizontal: Spacing.md,
-        paddingVertical: Spacing.md,
         fontSize: Typography.sizes.lg,
         color: Colors.light.textPrimary,
         minHeight: 100,

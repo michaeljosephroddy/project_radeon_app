@@ -1,13 +1,16 @@
 import React, { useState } from 'react';
 import {
-    View, Text, TextInput, TouchableOpacity,
+    View, Text, TouchableOpacity,
     StyleSheet, KeyboardAvoidingView, Platform,
-    ScrollView, ActivityIndicator, Alert,
+    ScrollView, Alert,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { PrimaryButton } from '../../components/ui/PrimaryButton';
+import { TextField } from '../../components/ui/TextField';
 import { useAuth } from '../../hooks/useAuth';
-import { Colors, Typography, Spacing, Radii } from '../../utils/theme';
+import { Colors, Typography, Spacing } from '../../utils/theme';
+import { screenStandards } from '../../styles/screenStandards';
 
 interface LoginScreenProps {
     onGoToRegister: () => void;
@@ -44,7 +47,7 @@ export function LoginScreen({ onGoToRegister }: LoginScreenProps) {
             style={styles.flex}
             behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         >
-        <ScrollView contentContainerStyle={styles.inner} keyboardShouldPersistTaps="handled">
+        <ScrollView contentContainerStyle={screenStandards.authContent} keyboardShouldPersistTaps="handled">
                 <View style={styles.header}>
                     <Text style={styles.wordmark}>
                         Sober<Text style={styles.wordmarkAccent}>Space</Text>
@@ -54,7 +57,7 @@ export function LoginScreen({ onGoToRegister }: LoginScreenProps) {
 
                 <View style={styles.form}>
                     <Text style={styles.label}>Email</Text>
-                    <TextInput
+                    <TextField
                         style={styles.input}
                         placeholder="you@example.com"
                         placeholderTextColor={Colors.light.textTertiary}
@@ -65,7 +68,7 @@ export function LoginScreen({ onGoToRegister }: LoginScreenProps) {
                     />
 
                     <Text style={styles.label}>Password</Text>
-                    <TextInput
+                    <TextField
                         style={styles.input}
                         placeholder="••••••••"
                         placeholderTextColor={Colors.light.textTertiary}
@@ -74,16 +77,14 @@ export function LoginScreen({ onGoToRegister }: LoginScreenProps) {
                         onChangeText={setPassword}
                     />
 
-                    <TouchableOpacity
-                        style={[styles.btn, loading && styles.btnDisabled]}
+                    <PrimaryButton
+                        label="Sign in"
                         onPress={handleLogin}
+                        loading={loading}
                         disabled={loading}
-                    >
-                        {loading
-                            ? <ActivityIndicator color={Colors.textOn.primary} />
-                            : <Text style={styles.btnText}>Sign in</Text>
-                        }
-                    </TouchableOpacity>
+                        variant="success"
+                        style={styles.btn}
+                    />
 
                     <TouchableOpacity style={styles.switchLink} onPress={onGoToRegister}>
                         <Text style={styles.switchText}>
@@ -100,47 +101,29 @@ export function LoginScreen({ onGoToRegister }: LoginScreenProps) {
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: Colors.light.background },
     flex: { flex: 1 },
-    inner: { flexGrow: 1, justifyContent: 'center', padding: Spacing.xl },
     header: { marginBottom: 40 },
     wordmark: {
-        fontSize: 28,
+        ...Typography.h1,
         fontWeight: '600',
         color: Colors.light.textPrimary,
         letterSpacing: -0.5,
     },
     wordmarkAccent: { color: Colors.primary },
     tagline: {
-        fontSize: Typography.sizes.md,
+        fontSize: Typography.body.fontSize,
+        lineHeight: Typography.body.lineHeight,
         color: Colors.light.textTertiary,
         marginTop: Spacing.sm,
     },
     form: { gap: Spacing.sm },
     label: {
-        fontSize: Typography.sizes.sm,
-        fontWeight: '500',
+        ...Typography.formLabel,
         color: Colors.light.textSecondary,
         marginBottom: 2,
         marginTop: Spacing.sm,
     },
-    input: {
-        backgroundColor: Colors.light.backgroundSecondary,
-        borderRadius: Radii.md,
-        paddingHorizontal: Spacing.md,
-        paddingVertical: 13,
-        fontSize: Typography.sizes.md,
-        color: Colors.light.textPrimary,
-        borderWidth: 0.5,
-        borderColor: Colors.light.border,
-    },
-    btn: {
-        backgroundColor: Colors.success,
-        borderRadius: Radii.md,
-        paddingVertical: 14,
-        alignItems: 'center',
-        marginTop: Spacing.md,
-    },
-    btnDisabled: { opacity: 0.6 },
-    btnText: { color: Colors.textOn.primary, fontWeight: '600', fontSize: Typography.sizes.md },
+    input: { fontSize: Typography.sizes.md },
+    btn: { marginTop: Spacing.md },
     switchLink: { alignItems: 'center', marginTop: Spacing.lg },
     switchText: { fontSize: Typography.sizes.base, color: Colors.light.textTertiary },
     switchAccent: { color: Colors.primary, fontWeight: '500' },

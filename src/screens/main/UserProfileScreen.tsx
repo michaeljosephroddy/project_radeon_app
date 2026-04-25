@@ -6,7 +6,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Avatar } from '../../components/Avatar';
 import { EmptyState } from '../../components/ui/EmptyState';
+import { ScreenHeader } from '../../components/ui/ScreenHeader';
 import { ScrollToTopButton } from '../../components/ui/ScrollToTopButton';
+import { SectionLabel } from '../../components/ui/SectionLabel';
 import * as api from '../../api/client';
 import { useGuardedEndReached } from '../../hooks/useGuardedEndReached';
 import { useUserProfile } from '../../hooks/queries/useUserProfile';
@@ -16,7 +18,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { resetInfiniteQueryToFirstPage } from '../../query/infiniteQueryPolicy';
 import { queryKeys } from '../../query/queryKeys';
 import { getListPerformanceProps } from '../../utils/listPerformance';
-import { Colors, Typography, Spacing, Radii } from '../../utils/theme';
+import { Colors, Typography, Spacing, Radii, ContentInsets } from '../../utils/theme';
 import { formatUsername } from '../../utils/identity';
 import { formatRecoveryDuration, formatSobrietyDate, getRecoveryMilestone } from '../../utils/date';
 
@@ -136,7 +138,7 @@ export function UserProfileScreen({
                 <Text style={styles.name}>{formatUsername(username)}</Text>
 
                 {loading ? (
-                    <ActivityIndicator color={Colors.primary} style={{ marginTop: Spacing.sm }} />
+                    <ActivityIndicator color={Colors.primary} style={styles.profileLoader} />
                 ) : (
                     <>
                         {profile?.bio ? (
@@ -194,20 +196,14 @@ export function UserProfileScreen({
                     </TouchableOpacity>
                 </View>
 
-                <Text style={styles.postsLabel}>POSTS</Text>
+                <SectionLabel style={styles.postsLabel}>POSTS</SectionLabel>
             </View>
         </View>
     );
 
     return (
         <SafeAreaView style={styles.container} edges={['bottom']}>
-            <View style={styles.header}>
-                <TouchableOpacity onPress={onBack} style={styles.backBtn}>
-                    <Text style={styles.backIcon}>←</Text>
-                </TouchableOpacity>
-                <Text style={styles.headerTitle}>{formatUsername(username)}</Text>
-                <View style={styles.backBtn} />
-            </View>
+            <ScreenHeader onBack={onBack} title={formatUsername(username)} />
 
             <FlatList
                 ref={flatListRef}
@@ -276,25 +272,7 @@ export function UserProfileScreen({
 
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: Colors.light.background },
-
-    header: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        paddingHorizontal: Spacing.md,
-        paddingVertical: 12,
-        borderBottomWidth: 0.5,
-        borderBottomColor: Colors.light.border,
-    },
-    backBtn: { width: 40 },
-    backIcon: { fontSize: 20, color: Colors.primary },
-    headerTitle: {
-        fontSize: Typography.sizes.base,
-        fontWeight: '600',
-        color: Colors.light.textPrimary,
-    },
-
-    list: { paddingBottom: 32 },
+    list: { paddingBottom: ContentInsets.listBottom },
     footerLoader: { paddingVertical: Spacing.md },
 
     profileHeader: {
@@ -332,6 +310,9 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         paddingHorizontal: Spacing.md,
         gap: 6,
+    },
+    profileLoader: {
+        marginTop: Spacing.sm,
     },
     name: {
         fontSize: Typography.sizes.xl,
@@ -439,10 +420,6 @@ const styles = StyleSheet.create({
 
     postsLabel: {
         alignSelf: 'flex-start',
-        fontSize: Typography.sizes.xs,
-        fontWeight: '600',
-        color: Colors.light.textTertiary,
-        letterSpacing: 0.7,
         marginTop: Spacing.md,
     },
 

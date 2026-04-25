@@ -4,11 +4,13 @@ import {
     StyleSheet, RefreshControl, ActivityIndicator, Alert,
 } from 'react-native';
 import { InfiniteData, useQueryClient } from '@tanstack/react-query';
+import { Ionicons } from '@expo/vector-icons';
 import { Swipeable } from 'react-native-gesture-handler';
 import { Avatar } from '../../components/Avatar';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { SearchBar } from '../../components/ui/SearchBar';
 import { ScrollToTopButton } from '../../components/ui/ScrollToTopButton';
+import { SectionLabel } from '../../components/ui/SectionLabel';
 import * as api from '../../api/client';
 import { useGuardedEndReached } from '../../hooks/useGuardedEndReached';
 import { useLazyActivation } from '../../hooks/useLazyActivation';
@@ -22,6 +24,7 @@ import { dedupeById } from '../../utils/list';
 import { getListPerformanceProps } from '../../utils/listPerformance';
 import { Colors, Typography, Spacing, Radii } from '../../utils/theme';
 import { formatUsername } from '../../utils/identity';
+import { screenStandards } from '../../styles/screenStandards';
 
 // Formats chat timestamps into short labels that fit the list layout.
 function timeLabel(dateStr?: string): string {
@@ -217,6 +220,7 @@ export function ChatsScreen({ isActive, onOpenChat }: ChatsScreenProps) {
             actionPending={pendingDeleteIds.has(item.id)}
         />
     ), [handleDeleteChat, onOpenChat, pendingDeleteIds, user?.id]);
+    const ItemSeparator = useCallback(() => <View style={styles.separator} />, []);
 
     if (chatsQuery.isLoading && chats.length === 0) {
         return <View style={styles.center}><ActivityIndicator color={Colors.primary} /></View>;
@@ -236,7 +240,7 @@ export function ChatsScreen({ isActive, onOpenChat }: ChatsScreenProps) {
                     tintColor={Colors.primary}
                 />
             }
-            contentContainerStyle={styles.list}
+            contentContainerStyle={screenStandards.listContent}
             keyboardShouldPersistTaps="handled"
             onEndReached={chatsListPagination.onEndReached}
             onEndReachedThreshold={0.4}
@@ -248,7 +252,8 @@ export function ChatsScreen({ isActive, onOpenChat }: ChatsScreenProps) {
                 <>
                     <SearchBar
                         style={styles.searchBar}
-                        leading={<Text style={styles.searchIcon}>⌕</Text>}
+                        variant="pill"
+                        leading={<Ionicons name="search-outline" size={18} color={Colors.light.textTertiary} />}
                         primaryField={{
                             value: query,
                             onChangeText: setQuery,
@@ -259,7 +264,7 @@ export function ChatsScreen({ isActive, onOpenChat }: ChatsScreenProps) {
                     />
 
                     {chats.length > 0 && (
-                        <Text style={styles.sectionLabel}>CHATS</Text>
+                        <SectionLabel>CHATS</SectionLabel>
                     )}
                 </>
             }
@@ -273,6 +278,7 @@ export function ChatsScreen({ isActive, onOpenChat }: ChatsScreenProps) {
             }
             ListFooterComponent={chatsQuery.isFetchingNextPage ? <ActivityIndicator style={styles.footerLoader} color={Colors.primary} /> : null}
             renderItem={renderItem}
+            ItemSeparatorComponent={ItemSeparator}
             />
             {isActive && chatsScrollToTop.isVisible ? (
                 <ScrollToTopButton onPress={() => flatListRef.current?.scrollToOffset({ offset: 0, animated: true })} />
@@ -292,18 +298,9 @@ function areChatItemPropsEqual(prev: ChatItemProps, next: ChatItemProps) {
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: Colors.light.background },
     center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-    list: { padding: Spacing.md, paddingBottom: 32 },
 
     searchBar: {
         marginBottom: Spacing.md,
-    },
-    searchIcon: { fontSize: 14, color: Colors.light.textTertiary },
-
-    sectionLabel: {
-        fontSize: Typography.sizes.xs,
-        fontWeight: '500',
-        color: Colors.light.textTertiary,
-        letterSpacing: 0.7,
     },
 
     item: {
@@ -311,9 +308,11 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         gap: 10,
         paddingVertical: 11,
-        borderBottomWidth: 0.5,
-        borderBottomColor: Colors.light.border,
         backgroundColor: Colors.light.background,
+    },
+    separator: {
+        height: StyleSheet.hairlineWidth,
+        backgroundColor: Colors.light.border,
     },
     deleteAction: {
         width: 68,

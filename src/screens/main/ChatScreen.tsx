@@ -23,6 +23,7 @@ import {
 } from '../../vendor/giftedChat';
 import { Ionicons } from '@expo/vector-icons';
 import { ChatHeader } from './chat/ChatHeader';
+import { composerStandards } from '../../styles/composerStandards';
 import {
     ChatGiftedMessage,
     toGiftedChatMessages,
@@ -277,7 +278,7 @@ export function ChatScreen({ chat, onBack }: ChatScreenProps) {
                             isSupportAccepted ? (
                                 <InputToolbar
                                     {...props}
-                                    containerStyle={styles.toolbarContainer}
+                                    containerStyle={[composerStandards.row, styles.toolbarContainer]}
                                     primaryStyle={styles.toolbarPrimary}
                                     renderComposer={(composerProps) => (
                                         <Composer
@@ -287,6 +288,7 @@ export function ChatScreen({ chat, onBack }: ChatScreenProps) {
                                                 placeholder: 'Message',
                                                 placeholderTextColor: Colors.light.textTertiary,
                                                 style: [
+                                                    composerStandards.input,
                                                     styles.composerInput,
                                                     composerProps.textInputProps?.style,
                                                 ],
@@ -301,8 +303,8 @@ export function ChatScreen({ chat, onBack }: ChatScreenProps) {
                                                 ...sendProps.sendButtonProps,
                                                 enabled: sending ? false : sendProps.sendButtonProps?.enabled,
                                                 style: [
-                                                    styles.sendButton,
-                                                    !sendProps.text?.trim() && styles.sendButtonDisabled,
+                                                    composerStandards.sendButton,
+                                                    !sendProps.text?.trim() && composerStandards.sendButtonDisabled,
                                                     sendProps.sendButtonProps?.style,
                                                 ],
                                             }}
@@ -547,28 +549,12 @@ const styles = StyleSheet.create({
         fontWeight: Typography.weights.medium,
     },
     toolbarContainer: {
-        borderTopWidth: StyleSheet.hairlineWidth,
-        borderTopColor: Colors.border.default,
-        backgroundColor: Colors.bg.page,
-        paddingHorizontal: Spacing.sm,
-        paddingTop: Spacing.sm,
         paddingBottom: Spacing.sm,
     },
     toolbarPrimary: {
         alignItems: 'flex-end',
     },
     composerInput: {
-        minHeight: 44,
-        borderRadius: Radii.full,
-        backgroundColor: Colors.bg.surface,
-        borderWidth: StyleSheet.hairlineWidth,
-        borderColor: Colors.border.default,
-        color: Colors.text.primary,
-        fontSize: Typography.sizes.lg,
-        lineHeight: 20,
-        paddingHorizontal: Spacing.md,
-        paddingTop: Spacing.sm,
-        paddingBottom: Spacing.sm,
         marginLeft: 0,
         marginTop: 0,
     },
@@ -576,16 +562,5 @@ const styles = StyleSheet.create({
         justifyContent: 'flex-end',
         marginLeft: Spacing.sm,
         marginBottom: 2,
-    },
-    sendButton: {
-        width: 42,
-        height: 42,
-        borderRadius: 21,
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: Colors.primary,
-    },
-    sendButtonDisabled: {
-        backgroundColor: Colors.secondary,
     },
 });

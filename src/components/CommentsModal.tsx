@@ -11,10 +11,12 @@ import Reanimated, {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Avatar } from './Avatar';
+import { ScreenHeader } from './ui/ScreenHeader';
 import * as api from '../api/client';
-import { Colors, Typography, Spacing, Radii } from '../utils/theme';
+import { Colors, Header, Typography, Spacing, Radii } from '../utils/theme';
 import { formatUsername } from '../utils/identity';
 import { formatReadableTimestamp } from '../utils/date';
+import { composerStandards } from '../styles/composerStandards';
 
 const INITIAL_VISIBLE = 20;
 const PAGE_VISIBLE = 20;
@@ -192,7 +194,7 @@ function ComposerPadding({ basePadding, children }: { basePadding: number; child
     const style = useAnimatedStyle(() => ({
         paddingBottom: Math.max(basePadding + height.value, Spacing.sm),
     }));
-    return <Reanimated.View style={[styles.composer, style]}>{children}</Reanimated.View>;
+    return <Reanimated.View style={[composerStandards.row, styles.composer, style]}>{children}</Reanimated.View>;
 }
 
 const EMPTY_SUGGESTIONS: api.User[] = [];
@@ -410,19 +412,22 @@ export function CommentsModal({
         ? `${post.comment_count} Comment${post.comment_count === 1 ? '' : 's'}`
         : 'Comments';
 
-    const topPad = insets.top + Spacing.sm;
+    const topPad = insets.top + Header.paddingVertical;
     const bottomPad = insets.bottom + Spacing.sm;
 
     return (
         <Reanimated.View style={[styles.container, animatedStyle]}>
             <KeyboardProvider statusBarTranslucent navigationBarTranslucent>
                 {/* Header stays outside KAV so it doesn't move with the keyboard */}
-                <View style={[styles.header, { paddingTop: topPad }]}>
-                    <Text style={styles.headerTitle}>{headerTitle}</Text>
-                    <TouchableOpacity onPress={handleClose} style={styles.closeButton} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                        <Ionicons name="close" size={22} color={Colors.light.textPrimary} />
-                    </TouchableOpacity>
-                </View>
+                <ScreenHeader
+                    title={headerTitle}
+                    style={[styles.header, { paddingTop: topPad }]}
+                    trailing={(
+                        <TouchableOpacity onPress={handleClose} style={styles.closeButton} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                            <Ionicons name="close" size={22} color={Colors.light.textPrimary} />
+                        </TouchableOpacity>
+                    )}
+                />
 
                 {/* List + mention panel + composer rise together with the keyboard */}
                 <KeyboardAvoidingView
@@ -480,7 +485,7 @@ export function CommentsModal({
                         />
                         <TextInput
                             ref={inputRef}
-                            style={styles.composerInput}
+                            style={[composerStandards.input, styles.composerInput]}
                             placeholder="Write a comment…"
                             placeholderTextColor={Colors.light.textTertiary}
                             value={draft}
@@ -493,7 +498,11 @@ export function CommentsModal({
                             textAlignVertical="top"
                         />
                         <TouchableOpacity
-                            style={[styles.sendButton, (!draft.trim() || submitting) && styles.sendButtonDisabled]}
+                            style={[
+                                composerStandards.sendButton,
+                                (!draft.trim() || submitting) && composerStandards.sendButtonDisabled,
+                                (!draft.trim() || submitting) && styles.sendButtonDisabled,
+                            ]}
                             onPress={handleSubmit}
                             disabled={!draft.trim() || submitting}
                         >
@@ -518,18 +527,7 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     header: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingHorizontal: Spacing.md,
         paddingBottom: Spacing.sm,
-        borderBottomWidth: 0.5,
-        borderBottomColor: Colors.light.border,
-    },
-    headerTitle: {
-        flex: 1,
-        fontSize: Typography.sizes.md,
-        fontWeight: '600',
-        color: Colors.light.textPrimary,
     },
     closeButton: {
         padding: 4,
@@ -585,36 +583,10 @@ const styles = StyleSheet.create({
         paddingVertical: 8,
     },
     composer: {
-        flexDirection: 'row',
-        alignItems: 'flex-end',
-        gap: Spacing.sm,
         paddingHorizontal: Spacing.md,
-        paddingTop: Spacing.sm,
-        borderTopWidth: 0.5,
-        borderTopColor: Colors.light.border,
-        backgroundColor: Colors.light.background,
     },
     composerInput: {
-        flex: 1,
-        backgroundColor: Colors.light.backgroundSecondary,
-        borderRadius: 20,
-        borderWidth: 0.5,
-        borderColor: Colors.light.border,
-        paddingHorizontal: 14,
-        paddingTop: 10,
-        paddingBottom: 10,
-        fontSize: Typography.sizes.sm,
-        color: Colors.light.textPrimary,
-        minHeight: 40,
         maxHeight: 100,
-    },
-    sendButton: {
-        width: 38,
-        height: 38,
-        borderRadius: 19,
-        backgroundColor: Colors.primary,
-        alignItems: 'center',
-        justifyContent: 'center',
     },
     sendButtonDisabled: {
         opacity: 0.4,

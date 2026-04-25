@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
-    View, Text, TextInput, TouchableOpacity, Image,
+    View, Text, TouchableOpacity, Image,
     StyleSheet, ScrollView, FlatList, ActivityIndicator, Alert, Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -8,6 +8,11 @@ import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/dat
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import { Avatar } from '../../components/Avatar';
+import { PrimaryButton } from '../../components/ui/PrimaryButton';
+import { ScreenHeader } from '../../components/ui/ScreenHeader';
+import { SectionLabel } from '../../components/ui/SectionLabel';
+import { SegmentedControl } from '../../components/ui/SegmentedControl';
+import { TextField } from '../../components/ui/TextField';
 import { SettingsScreen } from './SettingsScreen';
 import * as api from '../../api/client';
 import { useGuardedEndReached } from '../../hooks/useGuardedEndReached';
@@ -16,6 +21,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { Colors, Typography, Spacing, Radii } from '../../utils/theme';
 import { formatUsername } from '../../utils/identity';
 import { formatRecoveryDuration, formatSobrietyDate, getRecoveryMilestone } from '../../utils/date';
+import { screenStandards } from '../../styles/screenStandards';
 
 type SubView = 'profile' | 'friends' | 'requests' | 'settings';
 type RequestsSubView = 'incoming' | 'outgoing';
@@ -398,13 +404,7 @@ export function ProfileTabScreen({ isActive, onOpenUserProfile, onBack }: Profil
     if (subView === 'friends') {
         return (
             <SafeAreaView style={styles.container} edges={['bottom']}>
-                <View style={styles.subHeader}>
-                    <TouchableOpacity onPress={() => setSubView('profile')} style={styles.subHeaderSide}>
-                        <Text style={styles.backIcon}>←</Text>
-                    </TouchableOpacity>
-                    <Text style={styles.subHeaderTitle}>Friends</Text>
-                    <View style={styles.subHeaderSide} />
-                </View>
+                <ScreenHeader onBack={() => setSubView('profile')} title="Friends" />
                 <FlatList
                     data={friends}
                     keyExtractor={item => item.user_id}
@@ -443,27 +443,24 @@ export function ProfileTabScreen({ isActive, onOpenUserProfile, onBack }: Profil
     if (subView === 'requests') {
         return (
             <SafeAreaView style={styles.container} edges={['bottom']}>
-                <View style={styles.subHeader}>
-                    <TouchableOpacity onPress={() => setSubView('profile')} style={styles.subHeaderSide}>
-                        <Text style={styles.backIcon}>←</Text>
-                    </TouchableOpacity>
-                    <Text style={styles.subHeaderTitle}>Requests</Text>
-                    <View style={styles.subHeaderSide} />
-                </View>
-                <View style={styles.requestTabs}>
-                    <TouchableOpacity
-                        style={[styles.requestTab, requestsSubView === 'incoming' && styles.requestTabActive]}
-                        onPress={() => setRequestsSubView('incoming')}
-                    >
-                        <Text style={[styles.requestTabText, requestsSubView === 'incoming' && styles.requestTabTextActive]}>Incoming</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                        style={[styles.requestTab, requestsSubView === 'outgoing' && styles.requestTabActive]}
-                        onPress={() => setRequestsSubView('outgoing')}
-                    >
-                        <Text style={[styles.requestTabText, requestsSubView === 'outgoing' && styles.requestTabTextActive]}>Sent</Text>
-                    </TouchableOpacity>
-                </View>
+                <ScreenHeader onBack={() => setSubView('profile')} title="Requests" />
+                <SegmentedControl
+                    activeKey={requestsSubView}
+                    onChange={(key) => setRequestsSubView(key as RequestsSubView)}
+                    style={styles.requestTabs}
+                    items={[
+                        {
+                            key: 'incoming',
+                            label: 'Incoming',
+                            badgeLabel: incomingRequests.length > 0 ? String(incomingRequests.length) : undefined,
+                        },
+                        {
+                            key: 'outgoing',
+                            label: 'Sent',
+                            badgeLabel: outgoingRequests.length > 0 ? String(outgoingRequests.length) : undefined,
+                        },
+                    ]}
+                />
                 <FlatList
                     data={requestsSubView === 'incoming' ? incomingRequests : outgoingRequests}
                     key={requestsSubView}
@@ -509,19 +506,15 @@ export function ProfileTabScreen({ isActive, onOpenUserProfile, onBack }: Profil
 
     return (
         <SafeAreaView style={styles.container} edges={['bottom']}>
-            <View style={styles.topBar}>
-                {onBack ? (
-                    <TouchableOpacity onPress={onBack} style={styles.topBarSide}>
-                        <Text style={styles.backIcon}>←</Text>
+            <ScreenHeader
+                onBack={onBack}
+                title="Profile"
+                trailing={(
+                    <TouchableOpacity onPress={() => setSubView('settings')} style={styles.settingsBtn}>
+                        <Text style={styles.settingsIcon}>⚙</Text>
                     </TouchableOpacity>
-                ) : (
-                    <View style={styles.topBarSide} />
                 )}
-                <Text style={styles.topBarTitle}>Profile</Text>
-                <TouchableOpacity onPress={() => setSubView('settings')} style={styles.settingsBtn}>
-                    <Text style={styles.settingsIcon}>⚙</Text>
-                </TouchableOpacity>
-            </View>
+            />
 
             <ScrollView style={styles.scroll} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
                 <TouchableOpacity onPress={handlePickBanner} disabled={uploadingBanner} activeOpacity={0.85} style={styles.bannerTouch}>
@@ -570,7 +563,9 @@ export function ProfileTabScreen({ isActive, onOpenUserProfile, onBack }: Profil
                         </TouchableOpacity>
                     </View>
 
-                    <Text style={styles.sectionLabel}>BIO</Text>
+                    <View style={screenStandards.sectionLabelBlock}>
+                        <SectionLabel>BIO</SectionLabel>
+                    </View>
                     <View style={styles.fieldGroup}>
                         <View style={styles.sectionCardHeader}>
                             <Text style={styles.sectionCardTitle}>Short bio</Text>
@@ -586,7 +581,7 @@ export function ProfileTabScreen({ isActive, onOpenUserProfile, onBack }: Profil
                         </View>
                         {editingSection === 'bio' ? (
                             <>
-                                <TextInput
+                                <TextField
                                     style={styles.bioInput}
                                     value={bio}
                                     onChangeText={setBio}
@@ -600,15 +595,13 @@ export function ProfileTabScreen({ isActive, onOpenUserProfile, onBack }: Profil
                                     <TouchableOpacity style={styles.sectionSecondaryButton} onPress={handleCancelEditSection}>
                                         <Text style={styles.sectionSecondaryButtonText}>Cancel</Text>
                                     </TouchableOpacity>
-                                    <TouchableOpacity
-                                        style={[styles.sectionPrimaryButton, savingSection === 'bio' && styles.saveBtnDisabled]}
+                                    <PrimaryButton
+                                        label="Save"
                                         onPress={handleSaveBio}
+                                        loading={savingSection === 'bio'}
                                         disabled={savingSection === 'bio' || bio.length > MAX_BIO_LENGTH}
-                                    >
-                                        {savingSection === 'bio'
-                                            ? <ActivityIndicator size="small" color={Colors.textOn.primary} />
-                                            : <Text style={styles.sectionPrimaryButtonText}>Save</Text>}
-                                    </TouchableOpacity>
+                                        style={styles.sectionPrimaryButton}
+                                    />
                                 </View>
                             </>
                         ) : (
@@ -616,7 +609,9 @@ export function ProfileTabScreen({ isActive, onOpenUserProfile, onBack }: Profil
                         )}
                     </View>
 
-                    <Text style={styles.sectionLabel}>LOCATION</Text>
+                    <View style={screenStandards.sectionLabelBlock}>
+                        <SectionLabel>LOCATION</SectionLabel>
+                    </View>
                     <View style={styles.fieldGroup}>
                         <View style={styles.sectionCardHeader}>
                             <Text style={styles.sectionCardTitle}>Location</Text>
@@ -628,28 +623,39 @@ export function ProfileTabScreen({ isActive, onOpenUserProfile, onBack }: Profil
                         </View>
                         {editingSection === 'location' ? (
                             <>
-                                <View style={styles.fieldRow}>
-                                    <Text style={styles.fieldLabel}>City</Text>
-                                    <TextInput style={styles.fieldInput} value={city} onChangeText={setCity} placeholder="City" placeholderTextColor={Colors.light.textTertiary} />
+                                <View style={styles.fieldEditor}>
+                                    <Text style={styles.editFieldLabel}>City</Text>
+                                    <TextField
+                                        style={styles.editFieldInput}
+                                        value={city}
+                                        onChangeText={setCity}
+                                        placeholder="City"
+                                        placeholderTextColor={Colors.light.textTertiary}
+                                        autoCapitalize="words"
+                                    />
                                 </View>
-                                <View style={styles.fieldDivider} />
-                                <View style={styles.fieldRow}>
-                                    <Text style={styles.fieldLabel}>Country</Text>
-                                    <TextInput style={styles.fieldInput} value={country} onChangeText={setCountry} placeholder="Country" placeholderTextColor={Colors.light.textTertiary} />
+                                <View style={styles.fieldEditor}>
+                                    <Text style={styles.editFieldLabel}>Country</Text>
+                                    <TextField
+                                        style={styles.editFieldInput}
+                                        value={country}
+                                        onChangeText={setCountry}
+                                        placeholder="Country"
+                                        placeholderTextColor={Colors.light.textTertiary}
+                                        autoCapitalize="words"
+                                    />
                                 </View>
                                 <View style={styles.sectionActions}>
                                     <TouchableOpacity style={styles.sectionSecondaryButton} onPress={handleCancelEditSection}>
                                         <Text style={styles.sectionSecondaryButtonText}>Cancel</Text>
                                     </TouchableOpacity>
-                                    <TouchableOpacity
-                                        style={[styles.sectionPrimaryButton, savingSection === 'location' && styles.saveBtnDisabled]}
+                                    <PrimaryButton
+                                        label="Save"
                                         onPress={handleSaveLocation}
+                                        loading={savingSection === 'location'}
                                         disabled={savingSection === 'location'}
-                                    >
-                                        {savingSection === 'location'
-                                            ? <ActivityIndicator size="small" color={Colors.textOn.primary} />
-                                            : <Text style={styles.sectionPrimaryButtonText}>Save</Text>}
-                                    </TouchableOpacity>
+                                        style={styles.sectionPrimaryButton}
+                                    />
                                 </View>
                             </>
                         ) : (
@@ -662,7 +668,9 @@ export function ProfileTabScreen({ isActive, onOpenUserProfile, onBack }: Profil
                         )}
                     </View>
 
-                    <Text style={styles.sectionLabel}>INTERESTS</Text>
+                    <View style={screenStandards.sectionLabelBlock}>
+                        <SectionLabel>INTERESTS</SectionLabel>
+                    </View>
                     <View style={styles.fieldGroup}>
                         <View style={styles.sectionCardHeader}>
                             <Text style={styles.sectionCardTitle}>Interests</Text>
@@ -696,15 +704,13 @@ export function ProfileTabScreen({ isActive, onOpenUserProfile, onBack }: Profil
                                     <TouchableOpacity style={styles.sectionSecondaryButton} onPress={handleCancelEditSection}>
                                         <Text style={styles.sectionSecondaryButtonText}>Cancel</Text>
                                     </TouchableOpacity>
-                                    <TouchableOpacity
-                                        style={[styles.sectionPrimaryButton, savingSection === 'interests' && styles.saveBtnDisabled]}
+                                    <PrimaryButton
+                                        label="Save"
                                         onPress={handleSaveInterests}
+                                        loading={savingSection === 'interests'}
                                         disabled={savingSection === 'interests'}
-                                    >
-                                        {savingSection === 'interests'
-                                            ? <ActivityIndicator size="small" color={Colors.textOn.primary} />
-                                            : <Text style={styles.sectionPrimaryButtonText}>Save</Text>}
-                                    </TouchableOpacity>
+                                        style={styles.sectionPrimaryButton}
+                                    />
                                 </View>
                             </>
                         ) : user.interests.length > 0 ? (
@@ -720,7 +726,9 @@ export function ProfileTabScreen({ isActive, onOpenUserProfile, onBack }: Profil
                         )}
                     </View>
 
-                    <Text style={styles.sectionLabel}>SOBRIETY</Text>
+                    <View style={screenStandards.sectionLabelBlock}>
+                        <SectionLabel>SOBRIETY</SectionLabel>
+                    </View>
                     <View style={styles.fieldGroup}>
                         {formattedSobrietyDate && recoveryMilestone && (
                             <>
@@ -786,15 +794,13 @@ export function ProfileTabScreen({ isActive, onOpenUserProfile, onBack }: Profil
                                     <TouchableOpacity style={styles.sectionSecondaryButton} onPress={handleCancelEditSection}>
                                         <Text style={styles.sectionSecondaryButtonText}>Cancel</Text>
                                     </TouchableOpacity>
-                                    <TouchableOpacity
-                                        style={[styles.sectionPrimaryButton, savingSection === 'sobriety' && styles.saveBtnDisabled]}
+                                    <PrimaryButton
+                                        label="Save"
                                         onPress={handleSaveSobriety}
+                                        loading={savingSection === 'sobriety'}
                                         disabled={savingSection === 'sobriety'}
-                                    >
-                                        {savingSection === 'sobriety'
-                                            ? <ActivityIndicator size="small" color={Colors.textOn.primary} />
-                                            : <Text style={styles.sectionPrimaryButtonText}>Save</Text>}
-                                    </TouchableOpacity>
+                                        style={styles.sectionPrimaryButton}
+                                    />
                                 </View>
                             </>
                         ) : null}
@@ -809,41 +815,8 @@ export function ProfileTabScreen({ isActive, onOpenUserProfile, onBack }: Profil
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: Colors.light.background },
     scroll: { flex: 1 },
-
-    topBar: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        paddingHorizontal: Spacing.md,
-        paddingVertical: 12,
-        borderBottomWidth: 0.5,
-        borderBottomColor: Colors.light.border,
-    },
-    topBarSide: { width: 40 },
-    topBarTitle: {
-        fontSize: Typography.sizes.lg,
-        fontWeight: '500',
-        color: Colors.light.textPrimary,
-    },
-    settingsBtn: { padding: 4, width: 40, alignItems: 'flex-end' },
+    settingsBtn: { padding: 4 },
     settingsIcon: { fontSize: 20, color: Colors.light.textTertiary },
-
-    subHeader: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        paddingHorizontal: Spacing.md,
-        paddingVertical: 12,
-        borderBottomWidth: 0.5,
-        borderBottomColor: Colors.light.border,
-    },
-    subHeaderSide: { width: 40 },
-    subHeaderTitle: {
-        fontSize: Typography.sizes.lg,
-        fontWeight: '500',
-        color: Colors.light.textPrimary,
-    },
-    backIcon: { fontSize: 20, color: Colors.primary },
 
     listContent: { paddingVertical: Spacing.sm },
     listEmpty: {
@@ -861,31 +834,9 @@ const styles = StyleSheet.create({
     },
     footerLoader: { paddingVertical: Spacing.md },
     requestTabs: {
-        flexDirection: 'row',
-        gap: Spacing.sm,
         paddingHorizontal: Spacing.md,
         paddingTop: Spacing.md,
-    },
-    requestTab: {
-        flex: 1,
-        alignItems: 'center',
-        paddingVertical: 10,
-        borderRadius: Radii.full,
-        borderWidth: 1,
-        borderColor: Colors.light.border,
-        backgroundColor: Colors.light.backgroundSecondary,
-    },
-    requestTabActive: {
-        backgroundColor: Colors.primary,
-        borderColor: Colors.primary,
-    },
-    requestTabText: {
-        fontSize: Typography.sizes.sm,
-        fontWeight: '600',
-        color: Colors.light.textSecondary,
-    },
-    requestTabTextActive: {
-        color: Colors.textOn.primary,
+        marginBottom: 0,
     },
 
     row: {
@@ -927,7 +878,6 @@ const styles = StyleSheet.create({
 
     bannerTouch: {
         marginHorizontal: Spacing.md,
-        marginTop: Spacing.md,
         borderRadius: Radii.lg,
         overflow: 'hidden',
     },
@@ -1001,14 +951,6 @@ const styles = StyleSheet.create({
     statLabel: { fontSize: Typography.sizes.xs, color: Colors.light.textTertiary, letterSpacing: 0.4 },
     statDivider: { width: 0.5, backgroundColor: Colors.light.border, marginVertical: 12 },
 
-    sectionLabel: {
-        fontSize: Typography.sizes.xs,
-        fontWeight: '500',
-        color: Colors.light.textTertiary,
-        letterSpacing: 0.7,
-        marginBottom: Spacing.sm,
-        marginTop: Spacing.md,
-    },
     fieldGroup: { backgroundColor: Colors.light.backgroundSecondary, borderRadius: Radii.md, overflow: 'hidden' },
     sectionCardHeader: {
         flexDirection: 'row',
@@ -1044,10 +986,19 @@ const styles = StyleSheet.create({
         fontSize: Typography.sizes.sm,
         color: Colors.light.textSecondary,
     },
-    fieldRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: Spacing.md, paddingVertical: 13, gap: Spacing.sm },
+    fieldEditor: {
+        gap: Spacing.sm,
+        paddingHorizontal: Spacing.md,
+        paddingBottom: Spacing.md,
+    },
     fieldDivider: { height: 0.5, backgroundColor: Colors.light.border, marginLeft: Spacing.md },
-    fieldLabel: { width: 90, fontSize: Typography.sizes.sm, color: Colors.light.textTertiary },
-    fieldInput: { flex: 1, fontSize: Typography.sizes.base, color: Colors.light.textPrimary, textAlign: 'right', padding: 0 },
+    editFieldLabel: {
+        ...Typography.formLabel,
+        color: Colors.light.textSecondary,
+    },
+    editFieldInput: {
+        fontSize: Typography.sizes.base,
+    },
     inlineDatePickerWrap: {
         borderTopWidth: 0.5,
         borderTopColor: Colors.light.border,
@@ -1065,15 +1016,9 @@ const styles = StyleSheet.create({
         minHeight: 96,
         marginHorizontal: Spacing.md,
         marginBottom: Spacing.md,
-        borderRadius: Radii.md,
-        borderWidth: 1,
-        borderColor: Colors.light.border,
-        backgroundColor: Colors.light.background,
-        paddingHorizontal: Spacing.md,
-        paddingVertical: Spacing.md,
         fontSize: Typography.sizes.base,
         lineHeight: 20,
-        color: Colors.light.textPrimary,
+        textAlignVertical: 'top',
     },
     interestsCount: {
         fontSize: Typography.sizes.sm,
@@ -1129,17 +1074,7 @@ const styles = StyleSheet.create({
         color: Colors.light.textSecondary,
     },
     sectionPrimaryButton: {
-        borderRadius: Radii.md,
-        paddingHorizontal: Spacing.md,
-        paddingVertical: 10,
-        backgroundColor: Colors.primary,
         minWidth: 82,
-        alignItems: 'center',
-    },
-    sectionPrimaryButtonText: {
-        fontSize: Typography.sizes.sm,
-        fontWeight: '600',
-        color: Colors.textOn.primary,
     },
     sobrietySummary: {
         paddingHorizontal: Spacing.md,
