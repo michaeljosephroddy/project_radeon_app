@@ -6,6 +6,7 @@ import { getDeviceCoords, reverseGeocode } from '../utils/location';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { CommentsModal } from '../components/CommentsModal';
 import { FeedScreen } from '../screens/main/FeedScreen';
 import { DiscoverScreen } from '../screens/main/DiscoverScreen';
 import { SupportScreen } from '../screens/main/SupportScreen';
@@ -82,6 +83,7 @@ export function AppNavigator() {
     const [pendingDM, setPendingDM] = useState<{ recipientId: string; username: string; avatarUrl?: string } | null>(null);
     const [ownProfileOpen, setOwnProfileOpen] = useState(false);
     const [openMeetup, setOpenMeetup] = useState<api.Meetup | null>(null);
+    const [openComments, setOpenComments] = useState<{ post: api.Post; focusComposer: boolean } | null>(null);
     const [keyboardVisible, setKeyboardVisible] = useState(false);
     const [feedFocusRequest, setFeedFocusRequest] = useState<{ postId: string; commentId?: string; nonce: number } | null>(null);
     const insets = useSafeAreaInsets();
@@ -91,6 +93,7 @@ export function AppNavigator() {
     const inOwnProfile = ownProfileOpen;
     const inComposeDM = pendingDM !== null;
     const inMeetupDetail = openMeetup !== null;
+    const inComments = openComments !== null;
 
     const handleOpenUserProfile = useCallback((profile: OpenUserProfile) => {
         setOpenUserProfile(profile);
@@ -218,7 +221,7 @@ export function AppNavigator() {
     }, [consumeIntent, intent]);
 
     const header = useMemo(() => {
-        if (inChat || inUserProfile || inOwnProfile || inComposeDM || inMeetupDetail) return null;
+        if (inChat || inUserProfile || inOwnProfile || inComposeDM || inMeetupDetail || inComments) return null;
 
         const titles: Record<Tab, React.ReactNode> = {
             community: (
@@ -307,7 +310,7 @@ export function AppNavigator() {
         handleComposeDM, handleComposeDMComplete, handleCloseMeetup,
     ]);
 
-    const isOverlayOpen = inChat || inUserProfile || inOwnProfile || inComposeDM || inMeetupDetail;
+    const isOverlayOpen = inChat || inUserProfile || inOwnProfile || inComposeDM || inMeetupDetail || inComments;
 
     return (
         <>
@@ -319,6 +322,7 @@ export function AppNavigator() {
                         <FeedScreen
                             isActive={activeTab === 'community' && !isOverlayOpen}
                             onOpenUserProfile={handleOpenUserProfile}
+                            onOpenComments={(post, focusComposer) => setOpenComments({ post, focusComposer })}
                             focusRequest={feedFocusRequest}
                         />
                     </View>
@@ -333,7 +337,7 @@ export function AppNavigator() {
                     {overlays}
                 </View>
 
-                {!inChat && !inUserProfile && !inOwnProfile && !inComposeDM && !inMeetupDetail && !keyboardVisible && (
+                {!inChat && !inUserProfile && !inOwnProfile && !inComposeDM && !inMeetupDetail && !inComments && !keyboardVisible && (
                     <View style={[styles.tabBar, { paddingBottom: insets.bottom + 6 }]}>
                         {TABS.map(tab => (
                             <TouchableOpacity
@@ -354,6 +358,18 @@ export function AppNavigator() {
                     </View>
                 )}
             </SafeAreaView>
+
+            {inComments && user && (
+                <View style={StyleSheet.absoluteFillObject}>
+                    <CommentsModal
+                        post={openComments!.post}
+                        currentUser={user}
+                        focusComposer={openComments!.focusComposer}
+                        onClose={() => setOpenComments(null)}
+                        onPressUser={handleOpenUserProfile}
+                    />
+                </View>
+            )}
         </>
     );
 }
