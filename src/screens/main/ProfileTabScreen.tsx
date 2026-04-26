@@ -20,6 +20,7 @@ import { useInterests } from '../../hooks/queries/useInterests';
 import { useAuth } from '../../hooks/useAuth';
 import { Colors, Typography, Spacing, Radii } from '../../utils/theme';
 import { formatUsername } from '../../utils/identity';
+import { formatBirthDateValue, GENDER_SEGMENTS, getGenderLabel } from '../../utils/profileIdentity';
 import { formatRecoveryDuration, formatSobrietyDate, getRecoveryMilestone } from '../../utils/date';
 import { screenStandards } from '../../styles/screenStandards';
 
@@ -29,29 +30,6 @@ type EditableSection = 'bio' | 'location' | 'identity' | 'interests' | 'sobriety
 type EditableGender = api.UserGender | '';
 const MAX_BIO_LENGTH = 160;
 const MAX_INTERESTS = 5;
-const GENDER_SEGMENTS = [
-    { key: 'woman', label: 'Women' },
-    { key: 'man', label: 'Men' },
-    { key: 'non_binary', label: 'Non-binary' },
-] as const;
-
-function getGenderLabel(gender?: api.UserGender | null): string {
-    switch (gender) {
-        case 'woman':
-            return 'Women';
-        case 'man':
-            return 'Men';
-        case 'non_binary':
-            return 'Non-binary';
-        default:
-            return 'Not set';
-    }
-}
-
-function formatBirthDateValue(raw?: string | null): string {
-    if (!raw) return 'Not set';
-    return raw;
-}
 
 interface ProfileTabScreenProps {
     isActive: boolean;

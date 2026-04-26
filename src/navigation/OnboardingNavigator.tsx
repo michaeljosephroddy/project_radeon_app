@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { WelcomeStep } from '../screens/onboarding/WelcomeStep';
 import { PhotoStep } from '../screens/onboarding/PhotoStep';
+import { IdentityStep } from '../screens/onboarding/IdentityStep';
 import { SobrietyStep } from '../screens/onboarding/SobrietyStep';
 import { LocationStep } from '../screens/onboarding/LocationStep';
 import { InterestsStep } from '../screens/onboarding/InterestsStep';
@@ -15,7 +16,7 @@ export interface OnboardingStepProps {
     dotTotal: number;
 }
 
-const DOT_TOTAL = 5;
+const DOT_TOTAL = 6;
 
 export function OnboardingNavigator() {
     const { completeOnboarding } = useAuth();
@@ -31,11 +32,12 @@ export function OnboardingNavigator() {
     switch (step) {
         case 0: return <WelcomeStep onNext={next} />;
         case 1: return <PhotoStep onNext={next} onSkip={next} {...dotProps(1)} />;
-        case 2: return <SobrietyStep onNext={next} onSkip={next} {...dotProps(2)} />;
-        case 3: return <LocationStep onNext={next} onSkip={next} {...dotProps(3)} />;
-        case 4: return <InterestsStep onNext={next} onSkip={next} {...dotProps(4)} />;
-        case 5: return <PlusStep onNext={next} onSkip={next} {...dotProps(5)} />;
-        case 6: return <ReadyStep onComplete={completeOnboarding} />;
+        case 2: return <IdentityStep onNext={next} onSkip={next} {...dotProps(2)} />;
+        case 3: return <SobrietyStep onNext={next} onSkip={next} {...dotProps(3)} />;
+        case 4: return <LocationStep onNext={next} onSkip={next} {...dotProps(4)} />;
+        case 5: return <InterestsStep onNext={next} onSkip={next} {...dotProps(5)} />;
+        case 6: return <PlusStep onNext={next} onSkip={next} {...dotProps(6)} />;
+        case 7: return <ReadyStep onComplete={completeOnboarding} />;
         default: completeOnboarding(); return null;
     }
 }

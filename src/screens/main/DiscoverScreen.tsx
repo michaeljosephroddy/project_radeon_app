@@ -1,4 +1,4 @@
-import React, { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
@@ -18,11 +18,14 @@ import { DiscoverActiveFiltersBar } from '../../components/discover/DiscoverActi
 import { DiscoverEmptyState } from '../../components/discover/DiscoverEmptyState';
 import { DiscoverFilterSheet } from '../../components/discover/DiscoverFilterSheet';
 import { SearchBar } from '../../components/ui/SearchBar';
+import { ScrollToTopButton } from '../../components/ui/ScrollToTopButton';
 import * as api from '../../api/client';
 import { useAuth } from '../../hooks/useAuth';
+import { useGuardedEndReached } from '../../hooks/useGuardedEndReached';
 import { useLazyActivation } from '../../hooks/useLazyActivation';
 import { useInterests } from '../../hooks/queries/useInterests';
 import { useDiscoverPreview } from '../../hooks/queries/useDiscoverPreview';
+import { useScrollToTopButton } from '../../hooks/useScrollToTopButton';
 import {
     applyDiscoverPreviewEffectiveFilters,
     clearDiscoverChip,
@@ -48,7 +51,6 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CARD_GAP = Spacing.md;
 const CARD_WIDTH = (SCREEN_WIDTH - Spacing.md * 2 - CARD_GAP) / 2;
 const CARD_HEIGHT = CARD_WIDTH * 1.34;
-const GRID_ROW_HEIGHT = CARD_HEIGHT + Spacing.md;
 
 interface DiscoverScreenProps {
     isActive: boolean;
@@ -235,7 +237,9 @@ export function DiscoverScreen({ isActive, onOpenUserProfile, onOpenPlus }: Disc
     const [filterSheetVisible, setFilterSheetVisible] = useState(false);
     const [coords, setCoords] = useState<{ latitude: number; longitude: number } | null>(null);
     const [friendedIds, setFriendedIds] = useState<Set<string>>(new Set());
+    const listRef = useRef<FlatList<api.User>>(null);
     const canUseAdvancedFilters = hasPlusAccess(user);
+    const discoverScrollToTop = useScrollToTopButton({ threshold: 520 });
 
     const {
         draftFilters,
@@ -327,11 +331,13 @@ export function DiscoverScreen({ isActive, onOpenUserProfile, onOpenPlus }: Disc
         void discoverQuery.refetch();
     }, [discoverQuery]);
 
-    const handleEndReached = useCallback(() => {
-        if (discoverQuery.hasNextPage && !discoverQuery.isFetchingNextPage) {
-            void discoverQuery.fetchNextPage();
+    const handleLoadMore = useCallback(async () => {
+        if (!isActive || !discoverQuery.hasNextPage || discoverQuery.isFetchingNextPage || discoverQuery.isRefetching) {
+            return;
         }
-    }, [discoverQuery]);
+        await discoverQuery.fetchNextPage();
+    }, [discoverQuery, isActive]);
+    const discoverListPagination = useGuardedEndReached(handleLoadMore);
 
     const handleOpenFilters = useCallback(() => {
         syncDraftToApplied();
@@ -466,13 +472,6 @@ export function DiscoverScreen({ isActive, onOpenUserProfile, onOpenPlus }: Disc
                 />
             </View>
 
-            {discoverQuery.isFetching && discoverQuery.users.length > 0 ? (
-                <View style={styles.inlineLoading}>
-                    <ActivityIndicator size="small" color={Colors.primary} />
-                    <Text style={styles.inlineLoadingText}>Updating results...</Text>
-                </View>
-            ) : null}
-
             {discoverQuery.users.length === 0 && !discoverQuery.isLoading ? (
                 <DiscoverEmptyState
                     title={noResultsCopy.title}
@@ -484,6 +483,7 @@ export function DiscoverScreen({ isActive, onOpenUserProfile, onOpenPlus }: Disc
                 />
             ) : isSearching ? (
                 <FlatList
+                    ref={listRef}
                     key="discover-search-list"
                     data={discoverQuery.users}
                     keyExtractor={keyExtractor}
@@ -497,19 +497,23 @@ export function DiscoverScreen({ isActive, onOpenUserProfile, onOpenPlus }: Disc
                     )}
                     ListHeaderComponent={resultsHeader}
                     renderItem={renderSearchItem}
-                    onEndReached={handleEndReached}
+                    onEndReached={discoverListPagination.onEndReached}
                     onEndReachedThreshold={0.35}
+                    onMomentumScrollBegin={discoverListPagination.onMomentumScrollBegin}
+                    onScrollBeginDrag={discoverListPagination.onScrollBeginDrag}
+                    onScroll={discoverScrollToTop.onScroll}
+                    scrollEventThrottle={16}
                     keyboardShouldPersistTaps="handled"
                     initialNumToRender={10}
                     maxToRenderPerBatch={8}
                     windowSize={9}
-                    removeClippedSubviews
                     ListFooterComponent={discoverQuery.isFetchingNextPage
                         ? <ActivityIndicator color={Colors.primary} style={styles.listFooter} />
                         : null}
                 />
             ) : (
                 <FlatList
+                    ref={listRef}
                     key="discover-grid-list"
                     data={discoverQuery.users}
                     keyExtractor={keyExtractor}
@@ -525,22 +529,24 @@ export function DiscoverScreen({ isActive, onOpenUserProfile, onOpenPlus }: Disc
                     )}
                     ListHeaderComponent={resultsHeader}
                     renderItem={renderGridItem}
-                    getItemLayout={(_, index) => ({
-                        length: GRID_ROW_HEIGHT,
-                        offset: GRID_ROW_HEIGHT * Math.floor(index / 2),
-                        index,
-                    })}
                     initialNumToRender={8}
                     maxToRenderPerBatch={6}
                     windowSize={7}
-                    removeClippedSubviews
-                    onEndReached={handleEndReached}
+                    onEndReached={discoverListPagination.onEndReached}
                     onEndReachedThreshold={0.4}
+                    onMomentumScrollBegin={discoverListPagination.onMomentumScrollBegin}
+                    onScrollBeginDrag={discoverListPagination.onScrollBeginDrag}
+                    onScroll={discoverScrollToTop.onScroll}
+                    scrollEventThrottle={16}
                     ListFooterComponent={discoverQuery.isFetchingNextPage
                         ? <ActivityIndicator color={Colors.primary} style={styles.listFooter} />
                         : null}
                 />
             )}
+
+            {isActive && discoverScrollToTop.isVisible ? (
+                <ScrollToTopButton onPress={() => listRef.current?.scrollToOffset({ offset: 0, animated: true })} />
+            ) : null}
 
             <DiscoverFilterSheet
                 visible={filterSheetVisible}
@@ -638,17 +644,6 @@ const styles = StyleSheet.create({
         fontSize: Typography.sizes.base,
         color: Colors.light.textSecondary,
         lineHeight: 20,
-    },
-    inlineLoading: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: Spacing.sm,
-        paddingBottom: Spacing.sm,
-    },
-    inlineLoadingText: {
-        fontSize: Typography.sizes.sm,
-        color: Colors.light.textSecondary,
     },
     sectionHeadingRow: {
         flexDirection: 'row',

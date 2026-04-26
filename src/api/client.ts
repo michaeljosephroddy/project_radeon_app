@@ -369,17 +369,21 @@ export interface UpdateMeInput {
     lng?: number;
 }
 
-// ── Auth ───────────────────────────────────────────────────────────────────
-
-// Creates a new user account and returns the initial auth payload.
-export async function register(data: {
+export interface RegisterInput {
     username: string;
     email: string;
     password: string;
     city?: string;
     country?: string;
+    gender?: UserGender;
+    birth_date?: string;
     sober_since?: string;
-}): Promise<{ token: string; user_id: string }> {
+}
+
+// ── Auth ───────────────────────────────────────────────────────────────────
+
+// Creates a new user account and returns the initial auth payload.
+export async function register(data: RegisterInput): Promise<{ token: string; user_id: string }> {
     return request('/auth/register', { method: 'POST', body: JSON.stringify(data) }, false);
 }
 
