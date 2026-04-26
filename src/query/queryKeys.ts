@@ -6,10 +6,26 @@ export const queryKeys = {
     userPosts: (userId: string, limit = 20) => ['user-posts', userId, { limit }] as const,
     chats: (params?: { query?: string; limit?: number }) => ['chats', params ?? {}] as const,
     chatMessages: (chatId: string) => ['chat-messages', chatId] as const,
-    meetups: (filters?: { q?: string; city?: string; limit?: number }) => ['meetups', filters ?? {}] as const,
-    myMeetups: (params?: { limit?: number }) => ['my-meetups', params ?? {}] as const,
+    meetupCategories: () => ['meetup-categories'] as const,
+    meetups: (filters?: {
+        q?: string;
+        category?: string;
+        city?: string;
+        distance_km?: number;
+        event_type?: string;
+        date_preset?: string;
+        date_from?: string;
+        date_to?: string;
+        day_of_week?: number[];
+        time_of_day?: string[];
+        open_spots_only?: boolean;
+        sort?: string;
+        limit?: number;
+    }) => ['meetups', filters ?? {}] as const,
+    myMeetups: (params?: { scope?: string; limit?: number }) => ['my-meetups', params ?? {}] as const,
     meetup: (meetupId: string) => ['meetup', meetupId] as const,
     meetupAttendees: (meetupId: string) => ['meetup-attendees', meetupId] as const,
+    meetupWaitlist: (meetupId: string) => ['meetup-waitlist', meetupId] as const,
     discoverSuggested: (params?: {
         lat?: number;
         lng?: number;

@@ -1,40 +1,48 @@
-import { useInfiniteQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import * as api from '../../api/client';
 import { getInfiniteQueryPolicy } from '../../query/queryPolicies';
 import { queryKeys } from '../../query/queryKeys';
 
 const MEETUPS_STALE_TIME = 1000 * 60 * 2;
 
-export function useMeetups(params: { q?: string; city?: string; limit?: number }, enabled = true) {
+export function useMeetupCategories(enabled = true) {
+    return useQuery({
+        queryKey: queryKeys.meetupCategories(),
+        queryFn: () => api.getMeetupCategories(),
+        staleTime: 1000 * 60 * 30,
+        enabled,
+    });
+}
+
+export function useMeetups(params: api.MeetupFilters & { limit?: number }, enabled = true) {
     const limit = params.limit ?? 20;
-    const queryKey = queryKeys.meetups({ q: params.q, city: params.city, limit });
+    const queryKey = queryKeys.meetups({ ...params, limit });
     const policy = getInfiniteQueryPolicy(queryKey);
 
     return useInfiniteQuery({
         queryKey,
         queryFn: ({ pageParam }) => api.getMeetups({
-            q: params.q,
-            city: params.city,
-            page: pageParam as number | undefined,
+            ...params,
+            cursor: pageParam as string | undefined,
             limit,
         }),
-        initialPageParam: 1,
-        getNextPageParam: (lastPage) => lastPage.has_more ? lastPage.page + 1 : undefined,
+        initialPageParam: undefined as string | undefined,
+        getNextPageParam: (lastPage) => lastPage.next_cursor ?? undefined,
         staleTime: MEETUPS_STALE_TIME,
         refetchOnMount: policy?.refetchOnMount,
         enabled,
     });
 }
 
-export function useMyMeetups(limit = 20, enabled = true) {
-    const queryKey = queryKeys.myMeetups({ limit });
+export function useMyMeetups(scope: api.MyMeetupScope, limit = 20, enabled = true) {
+    const queryKey = queryKeys.myMeetups({ scope, limit });
     const policy = getInfiniteQueryPolicy(queryKey);
 
     return useInfiniteQuery({
         queryKey,
-        queryFn: ({ pageParam }) => api.getMyMeetups(pageParam as number | undefined, limit),
-        initialPageParam: 1,
-        getNextPageParam: (lastPage) => lastPage.has_more ? lastPage.page + 1 : undefined,
+        queryFn: ({ pageParam }) => api.getMyMeetups(scope, pageParam as string | undefined, limit),
+        initialPageParam: undefined as string | undefined,
+        getNextPageParam: (lastPage) => lastPage.next_cursor ?? undefined,
         staleTime: MEETUPS_STALE_TIME,
         refetchOnMount: policy?.refetchOnMount,
         enabled,

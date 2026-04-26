@@ -180,21 +180,69 @@ export interface Reaction {
     type: string;
 }
 
+export interface MeetupCategory {
+    slug: string;
+    label: string;
+    sort_order: number;
+}
+
+export type MeetupEventType = 'in_person' | 'online' | 'hybrid';
+export type MeetupStatus = 'draft' | 'published' | 'cancelled' | 'completed';
+export type MeetupVisibility = 'public' | 'unlisted';
+export type MeetupSort = 'recommended' | 'soonest' | 'distance' | 'popular' | 'newest';
+export type MeetupDatePreset = 'today' | 'tomorrow' | 'this_week' | 'this_weekend' | 'custom';
+export type MeetupTimeOfDay = 'morning' | 'afternoon' | 'evening' | 'night';
+export type MyMeetupScope = 'hosting' | 'going' | 'drafts' | 'past';
+
+export interface MeetupPersonPreview {
+    id: string;
+    username: string;
+    avatar_url?: string | null;
+}
+
+export interface MeetupHost extends MeetupPersonPreview {
+    role: string;
+}
+
 export interface Meetup {
     id: string;
     organizer_id: string;
+    organizer_username: string;
+    organizer_avatar_url?: string | null;
     title: string;
     description?: string | null;
+    category_slug: string;
+    category_label: string;
+    event_type: MeetupEventType;
+    status: MeetupStatus;
+    visibility: MeetupVisibility;
     city: string;
+    country?: string | null;
+    venue_name?: string | null;
+    address_line_1?: string | null;
+    address_line_2?: string | null;
+    how_to_find_us?: string | null;
+    online_url?: string | null;
+    cover_image_url?: string | null;
     starts_at: string;
+    ends_at?: string | null;
+    timezone: string;
+    lat?: number | null;
+    lng?: number | null;
+    distance_km?: number | null;
     capacity?: number | null;
     attendee_count: number;
+    waitlist_enabled: boolean;
+    waitlist_count: number;
+    saved_count: number;
     is_attending: boolean;
-    attendee_preview?: Array<{
-        id: string;
-        username: string;
-        avatar_url?: string | null;
-    }>;
+    is_waitlisted: boolean;
+    can_manage: boolean;
+    attendee_preview?: MeetupPersonPreview[];
+    hosts?: MeetupHost[];
+    published_at?: string | null;
+    updated_at: string;
+    created_at: string;
 }
 
 export interface MeetupAttendee {
@@ -203,6 +251,53 @@ export interface MeetupAttendee {
     avatar_url?: string | null;
     city?: string | null;
     rsvp_at: string;
+}
+
+export interface MeetupRsvpResult {
+    state: 'none' | 'going' | 'waitlisted';
+    attending: boolean;
+    waitlisted: boolean;
+    attendee_count: number;
+    waitlist_count: number;
+}
+
+export interface MeetupFilters {
+    q?: string;
+    category?: string;
+    city?: string;
+    distance_km?: number;
+    event_type?: MeetupEventType;
+    date_preset?: MeetupDatePreset;
+    date_from?: string;
+    date_to?: string;
+    day_of_week?: number[];
+    time_of_day?: MeetupTimeOfDay[];
+    open_spots_only?: boolean;
+    sort?: MeetupSort;
+}
+
+export interface MeetupUpsertInput {
+    title: string;
+    description?: string | null;
+    category_slug: string;
+    event_type: MeetupEventType;
+    status: Extract<MeetupStatus, 'draft' | 'published'>;
+    visibility: MeetupVisibility;
+    city: string;
+    country?: string | null;
+    venue_name?: string | null;
+    address_line_1?: string | null;
+    address_line_2?: string | null;
+    how_to_find_us?: string | null;
+    online_url?: string | null;
+    cover_image_url?: string | null;
+    starts_at: string;
+    ends_at?: string | null;
+    timezone: string;
+    lat?: number | null;
+    lng?: number | null;
+    capacity?: number | null;
+    waitlist_enabled: boolean;
 }
 
 export interface SupportProfile {
@@ -434,6 +529,26 @@ export async function uploadBanner(uri: string): Promise<{ banner_url: string }>
     return parseDataResponse<{ banner_url: string }>(res);
 }
 
+export async function uploadMeetupCoverImage(input: {
+    uri: string;
+    mimeType?: string;
+    fileName?: string;
+}): Promise<{ cover_image_url: string }> {
+    const token = await getToken();
+    const form = new FormData();
+    form.append('cover', {
+        uri: input.uri,
+        name: input.fileName ?? 'meetup-cover.jpg',
+        type: input.mimeType ?? 'image/jpeg',
+    } as unknown as Blob);
+    const res = await fetch(`${BASE_URL}/meetups/images`, {
+        method: 'POST',
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        body: form,
+    });
+    return parseDataResponse<{ cover_image_url: string }>(res);
+}
+
 // Silently records the caller's live GPS position and reverse-geocoded city.
 export async function updateMyCurrentLocation(data: { lat: number; lng: number; city: string }): Promise<void> {
     await request('/users/me/location', { method: 'PATCH', body: JSON.stringify(data) });
@@ -630,6 +745,9 @@ function normalizeMeetup(meetup: Meetup): Meetup {
         attendee_preview: meetup.attendee_preview
             ? dedupeById(meetup.attendee_preview)
             : meetup.attendee_preview,
+        hosts: meetup.hosts
+            ? dedupeById(meetup.hosts)
+            : meetup.hosts,
     };
 }
 
@@ -637,35 +755,64 @@ function normalizeMeetupAttendee(attendee: MeetupAttendee): MeetupAttendee {
     return attendee;
 }
 
-// Fetches meetup events, optionally filtered by city and search query.
-export async function getMeetups(params?: { q?: string; city?: string; page?: number; limit?: number }): Promise<PaginatedResponse<Meetup>> {
+// Fetches meetup events using cursor pagination and rich discovery filters.
+export async function getMeetups(params?: MeetupFilters & { cursor?: string; limit?: number }): Promise<CursorResponse<Meetup>> {
     const search = new URLSearchParams();
     if (params?.q) search.set('q', params.q);
+    if (params?.category) search.set('category', params.category);
     if (params?.city) search.set('city', params.city);
-    if (params?.page) search.set('page', String(params.page));
+    if (params?.distance_km !== undefined) search.set('distance_km', String(params.distance_km));
+    if (params?.event_type) search.set('event_type', params.event_type);
+    if (params?.date_preset) search.set('date_preset', params.date_preset);
+    if (params?.date_from) search.set('date_from', params.date_from);
+    if (params?.date_to) search.set('date_to', params.date_to);
+    if (params?.day_of_week?.length) search.set('day_of_week', params.day_of_week.join(','));
+    if (params?.time_of_day?.length) search.set('time_of_day', params.time_of_day.join(','));
+    if (params?.open_spots_only) search.set('open_spots_only', 'true');
+    if (params?.sort) search.set('sort', params.sort);
+    if (params?.cursor) search.set('cursor', params.cursor);
     if (params?.limit) search.set('limit', String(params.limit));
     const suffix = search.toString() ? `?${search.toString()}` : '';
-    const page = await request<PaginatedResponse<Meetup>>(`/meetups${suffix}`);
+    const page = await request<CursorResponse<Meetup>>(`/meetups${suffix}`);
     return {
         ...page,
         items: (page.items ?? []).map(normalizeMeetup),
     };
 }
 
+// Loads available meetup categories for discovery and creation.
+export async function getMeetupCategories(): Promise<MeetupCategory[]> {
+    return request('/meetups/categories');
+}
+
+// Loads a single meetup detail record.
+export async function getMeetup(id: string): Promise<Meetup> {
+    return normalizeMeetup(await request<Meetup>(`/meetups/${id}`));
+}
+
 // Creates a new meetup with the provided event details.
-export async function createMeetup(data: {
-    title: string;
-    description?: string | null;
-    city: string;
-    starts_at: string;
-    capacity?: number | null;
-}): Promise<Meetup> {
+export async function createMeetup(data: MeetupUpsertInput): Promise<Meetup> {
     return normalizeMeetup(await request<Meetup>('/meetups', { method: 'POST', body: JSON.stringify(data) }));
 }
 
-// Loads meetups created by the currently authenticated user.
-export async function getMyMeetups(page = 1, limit = 20): Promise<PaginatedResponse<Meetup>> {
-    const pageData = await request<PaginatedResponse<Meetup>>(`/users/me/meetups?page=${page}&limit=${limit}`);
+// Updates a meetup owned by the current user.
+export async function updateMeetup(id: string, data: MeetupUpsertInput): Promise<Meetup> {
+    return normalizeMeetup(await request<Meetup>(`/meetups/${id}`, { method: 'PATCH', body: JSON.stringify(data) }));
+}
+
+export async function publishMeetup(id: string): Promise<Meetup> {
+    return normalizeMeetup(await request<Meetup>(`/meetups/${id}/publish`, { method: 'POST' }));
+}
+
+export async function cancelMeetup(id: string): Promise<Meetup> {
+    return normalizeMeetup(await request<Meetup>(`/meetups/${id}/cancel`, { method: 'POST' }));
+}
+
+// Loads meetups for the current user by organizer/attendance scope.
+export async function getMyMeetups(scope: MyMeetupScope, cursor?: string, limit = 20): Promise<CursorResponse<Meetup>> {
+    const search = new URLSearchParams({ scope, limit: String(limit) });
+    if (cursor) search.set('cursor', cursor);
+    const pageData = await request<CursorResponse<Meetup>>(`/users/me/meetups?${search.toString()}`);
     return {
         ...pageData,
         items: (pageData.items ?? []).map(normalizeMeetup),
@@ -749,14 +896,26 @@ export async function getSupportRequestResponses(id: string): Promise<SupportRes
     return [];
 }
 
-// Toggles the current user's RSVP state for a meetup.
-export async function rsvpMeetup(id: string): Promise<{ attending: boolean }> {
+// Toggles the current user's RSVP or waitlist state for a meetup.
+export async function rsvpMeetup(id: string): Promise<MeetupRsvpResult> {
     return request(`/meetups/${id}/rsvp`, { method: 'POST' });
 }
 
 // Loads the attendee list for a specific meetup.
-export async function getMeetupAttendees(id: string, page = 1, limit = 50): Promise<PaginatedResponse<MeetupAttendee>> {
-    const pageData = await request<PaginatedResponse<MeetupAttendee>>(`/meetups/${id}/attendees?page=${page}&limit=${limit}`);
+export async function getMeetupAttendees(id: string, cursor?: string, limit = 50): Promise<CursorResponse<MeetupAttendee>> {
+    const search = new URLSearchParams({ limit: String(limit) });
+    if (cursor) search.set('cursor', cursor);
+    const pageData = await request<CursorResponse<MeetupAttendee>>(`/meetups/${id}/attendees?${search.toString()}`);
+    return {
+        ...pageData,
+        items: dedupeById((pageData.items ?? []).map(normalizeMeetupAttendee)),
+    };
+}
+
+export async function getMeetupWaitlist(id: string, cursor?: string, limit = 50): Promise<CursorResponse<MeetupAttendee>> {
+    const search = new URLSearchParams({ limit: String(limit) });
+    if (cursor) search.set('cursor', cursor);
+    const pageData = await request<CursorResponse<MeetupAttendee>>(`/meetups/${id}/waitlist?${search.toString()}`);
     return {
         ...pageData,
         items: dedupeById((pageData.items ?? []).map(normalizeMeetupAttendee)),
