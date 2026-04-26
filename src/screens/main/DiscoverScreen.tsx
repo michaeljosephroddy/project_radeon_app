@@ -1,112 +1,59 @@
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import {
-    View,
-    Text,
-    Image,
-    TouchableOpacity,
+    ActivityIndicator,
+    Alert,
+    Dimensions,
     FlatList,
+    Image,
     RefreshControl,
     StyleSheet,
-    ActivityIndicator,
-    Dimensions,
+    Text,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import Slider from '@react-native-community/slider';
 import { Avatar } from '../../components/Avatar';
-import { PrimaryButton } from '../../components/ui/PrimaryButton';
-import { PlusFeatureSheet } from '../../components/ui/PlusFeatureSheet';
+import { DiscoverActiveFiltersBar } from '../../components/discover/DiscoverActiveFiltersBar';
+import { DiscoverEmptyState } from '../../components/discover/DiscoverEmptyState';
+import { DiscoverFilterSheet } from '../../components/discover/DiscoverFilterSheet';
 import { SearchBar } from '../../components/ui/SearchBar';
-import { TextField } from '../../components/ui/TextField';
 import * as api from '../../api/client';
 import { useAuth } from '../../hooks/useAuth';
-import { useDiscover } from '../../hooks/queries/useDiscover';
 import { useLazyActivation } from '../../hooks/useLazyActivation';
+import { useInterests } from '../../hooks/queries/useInterests';
+import { useDiscoverPreview } from '../../hooks/queries/useDiscoverPreview';
+import {
+    applyDiscoverPreviewEffectiveFilters,
+    clearDiscoverChip,
+    createDefaultDiscoverDraftFilters,
+    createDiscoverDraftFromApplied,
+    getDiscoverActiveChips,
+    getDiscoverFiltersSummary,
+    getDiscoverRelaxedCopy,
+    hasNonDefaultDiscoverFilters,
+    toDiscoverApiFilters,
+    useDiscoverFilters,
+    validateDiscoverDraft,
+    type DiscoverAppliedFilters,
+} from '../../hooks/useDiscoverFilters';
+import { useDiscoverResults as useDiscoverResultsQuery } from '../../hooks/queries/useDiscoverResults';
 import { getDeviceCoords } from '../../utils/location';
 import { getRecoveryMilestone } from '../../utils/date';
 import { formatUsername } from '../../utils/identity';
-import { dedupeById } from '../../utils/list';
-import { Colors, Typography, Spacing, Radii, getAvatarColors } from '../../utils/theme';
+import { Colors, Spacing, Typography, Radii, getAvatarColors } from '../../utils/theme';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 const CARD_GAP = Spacing.md;
 const CARD_WIDTH = (SCREEN_WIDTH - Spacing.md * 2 - CARD_GAP) / 2;
 const CARD_HEIGHT = CARD_WIDTH * 1.34;
-
-const FILTER_UPGRADE_ITEMS: Array<{ icon: keyof typeof Ionicons.glyphMap; label: string; description: string }> = [
-    { icon: 'person-outline', label: 'Advanced matching', description: 'Filter by gender and age preferences.' },
-    { icon: 'location-outline', label: 'Distance control', description: 'Limit results by how close people are to you.' },
-    { icon: 'trophy-outline', label: 'Recovery milestones', description: 'Browse by sobriety stage with SoberSpace Plus.' },
-];
-
-const GENDER_OPTIONS = ['Any', 'Women', 'Men', 'Non-binary'] as const;
-const SOBRIETY_OPTIONS = ['Any', '30+ days', '90+ days', '1+ year', '5+ years'] as const;
-
-type GenderOption = typeof GENDER_OPTIONS[number];
-type SobrietyOption = typeof SOBRIETY_OPTIONS[number];
-
-interface DiscoverFiltersState {
-    gender: GenderOption;
-    ageMin: string;
-    ageMax: string;
-    distanceKm: number;
-    sobriety: SobrietyOption;
-}
+const GRID_ROW_HEIGHT = CARD_HEIGHT + Spacing.md;
 
 interface DiscoverScreenProps {
     isActive: boolean;
     onOpenUserProfile: (profile: { userId: string; username: string; avatarUrl?: string }) => void;
-}
-
-function PlusButtonBadge() {
-    return (
-        <View style={styles.buttonPlusBadge}>
-            <Text style={styles.buttonPlusBadgeText}>Plus</Text>
-        </View>
-    );
-}
-
-function FilterChip({
-    label,
-    selected,
-    onPress,
-}: {
-    label: string;
-    selected: boolean;
-    onPress: () => void;
-}) {
-    return (
-        <TouchableOpacity
-            style={[styles.filterChip, selected && styles.filterChipActive]}
-            onPress={onPress}
-            activeOpacity={0.85}
-        >
-            <Text style={[styles.filterChipText, selected && styles.filterChipTextActive]}>{label}</Text>
-        </TouchableOpacity>
-    );
-}
-
-function hasPlusAccess(user: api.User | null): boolean {
-    if (!user) return false;
-    if (user.is_plus) return true;
-    return user.subscription_tier === 'plus';
-}
-
-function getDistanceLabel(distanceKm: number): string {
-    if (distanceKm === 0) return 'Anywhere';
-    return `${distanceKm} km`;
-}
-
-function getFiltersSummary(filters: DiscoverFiltersState): string {
-    const parts = [
-        filters.gender !== 'Any' ? filters.gender : null,
-        filters.ageMin || filters.ageMax ? `Age ${filters.ageMin || '18'}-${filters.ageMax || '99'}` : null,
-        getDistanceLabel(filters.distanceKm),
-        filters.sobriety !== 'Any' ? filters.sobriety : null,
-    ].filter(Boolean);
-
-    return parts.join(' · ') || 'Gender · Age · Distance · Sobriety';
+    onOpenPlus: () => void;
 }
 
 interface DiscoverCardProps {
@@ -116,7 +63,31 @@ interface DiscoverCardProps {
     onFriend: () => void;
 }
 
-function DiscoverCard({ user, isFriended, onPress, onFriend }: DiscoverCardProps) {
+interface SearchResultRowProps {
+    user: api.User;
+    isFriended: boolean;
+    onOpenUserProfile: (profile: { userId: string; username: string; avatarUrl?: string }) => void;
+    onFriend: (id: string) => void;
+}
+
+function hasPlusAccess(user: api.User | null): boolean {
+    if (!user) return false;
+    if (user.is_plus) return true;
+    return user.subscription_tier === 'plus' && user.subscription_status === 'active';
+}
+
+function useDebounce<T>(value: T, delay: number): T {
+    const [debounced, setDebounced] = useState(value);
+
+    useEffect(() => {
+        const id = setTimeout(() => setDebounced(value), delay);
+        return () => clearTimeout(id);
+    }, [value, delay]);
+
+    return debounced;
+}
+
+const DiscoverCard = memo(function DiscoverCard({ user, isFriended, onPress, onFriend }: DiscoverCardProps) {
     const avatarColors = getAvatarColors(user.username);
     const milestone = getRecoveryMilestone(user.sober_since);
 
@@ -128,23 +99,21 @@ function DiscoverCard({ user, isFriended, onPress, onFriend }: DiscoverCardProps
                 <View style={[StyleSheet.absoluteFill, { backgroundColor: avatarColors.bg }]} />
             )}
 
-            {!user.avatar_url && (
+            {!user.avatar_url ? (
                 <View style={styles.cardInitials}>
-                    <Text style={styles.cardInitialsText}>
-                        {user.username.slice(0, 2).toUpperCase()}
-                    </Text>
+                    <Text style={styles.cardInitialsText}>{user.username.slice(0, 2).toUpperCase()}</Text>
                 </View>
-            )}
+            ) : null}
 
-            <LinearGradient
-                colors={['transparent', 'rgba(0,0,0,0.72)']}
-                style={styles.cardScrim}
-            />
+            <LinearGradient colors={['transparent', 'rgba(0,0,0,0.72)']} style={styles.cardScrim} />
 
             {user.friendship_status !== 'self' ? (
                 <TouchableOpacity
                     style={[styles.cardAddBtn, isFriended && styles.cardAddBtnDone]}
-                    onPress={(e) => { e.stopPropagation(); if (!isFriended) onFriend(); }}
+                    onPress={(event) => {
+                        event.stopPropagation();
+                        if (!isFriended) onFriend();
+                    }}
                     disabled={isFriended}
                     hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
                 >
@@ -163,22 +132,13 @@ function DiscoverCard({ user, isFriended, onPress, onFriend }: DiscoverCardProps
                         <Text style={styles.cardMilestoneText}>{milestone.currentLabel}</Text>
                     </View>
                 ) : null}
-                <Text style={styles.cardName} numberOfLines={1}>
-                    {formatUsername(user.username)}
-                </Text>
+                <Text style={styles.cardName} numberOfLines={1}>{formatUsername(user.username)}</Text>
             </View>
         </TouchableOpacity>
     );
-}
+});
 
-interface SearchResultRowProps {
-    user: api.User;
-    isFriended: boolean;
-    onOpenUserProfile: (p: { userId: string; username: string; avatarUrl?: string }) => void;
-    onFriend: (id: string) => void;
-}
-
-function SearchResultRow({ user, isFriended, onOpenUserProfile, onFriend }: SearchResultRowProps) {
+const SearchResultRow = memo(function SearchResultRow({ user, isFriended, onOpenUserProfile, onFriend }: SearchResultRowProps) {
     const milestone = getRecoveryMilestone(user.sober_since);
     const locationLabel = user.city
         ? `${user.city}${user.country ? `, ${user.country}` : ''}`
@@ -188,7 +148,7 @@ function SearchResultRow({ user, isFriended, onOpenUserProfile, onFriend }: Sear
         <TouchableOpacity
             style={styles.resultRow}
             onPress={() => onOpenUserProfile({ userId: user.id, username: user.username, avatarUrl: user.avatar_url })}
-            activeOpacity={0.7}
+            activeOpacity={0.8}
         >
             <Avatar username={user.username} avatarUrl={user.avatar_url} size={44} fontSize={16} />
             <View style={styles.resultInfo}>
@@ -202,7 +162,9 @@ function SearchResultRow({ user, isFriended, onOpenUserProfile, onFriend }: Sear
             {user.friendship_status !== 'self' ? (
                 <TouchableOpacity
                     style={[styles.resultFriendBtn, isFriended && styles.resultFriendBtnDone]}
-                    onPress={() => { if (!isFriended) onFriend(user.id); }}
+                    onPress={() => {
+                        if (!isFriended) onFriend(user.id);
+                    }}
                     disabled={isFriended}
                     hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 >
@@ -215,82 +177,150 @@ function SearchResultRow({ user, isFriended, onOpenUserProfile, onFriend }: Sear
             ) : null}
         </TouchableOpacity>
     );
+});
+
+function getResultsHeading(isSearching: boolean, hasFilters: boolean, broadened: boolean): string {
+    if (isSearching && hasFilters) {
+        return broadened ? 'Close matches in search' : 'Filtered search results';
+    }
+    if (isSearching) {
+        return 'Search results';
+    }
+    if (hasFilters) {
+        return broadened ? 'Close matches' : 'Filtered people';
+    }
+    return 'Suggested for you';
 }
 
-function useDebounce<T>(value: T, delay: number): T {
-    const [debounced, setDebounced] = useState(value);
-    useEffect(() => {
-        const id = setTimeout(() => setDebounced(value), delay);
-        return () => clearTimeout(id);
-    }, [value, delay]);
-    return debounced;
+function getNoResultsCopy(
+    isSearching: boolean,
+    query: string,
+    appliedFilters: DiscoverAppliedFilters,
+    broadened: boolean,
+): { title: string; description: string } {
+    if (isSearching) {
+        return {
+            title: `No people found for "${query}"`,
+            description: hasNonDefaultDiscoverFilters(appliedFilters)
+                ? 'Try removing a filter or broadening your match pool.'
+                : 'Try a shorter username or clear the search.',
+        };
+    }
+
+    if (broadened) {
+        return {
+            title: 'No close matches right now',
+            description: 'Your broadened search still came up empty. Try clearing one or two filters and check back later.',
+        };
+    }
+
+    if (hasNonDefaultDiscoverFilters(appliedFilters)) {
+        return {
+            title: 'No exact matches yet',
+            description: 'Try widening distance, easing your age range, or letting the app broaden results when inventory is low.',
+        };
+    }
+
+    return {
+        title: 'No one here yet',
+        description: 'Check back later for new members in the community.',
+    };
 }
 
-export function DiscoverScreen({ isActive, onOpenUserProfile }: DiscoverScreenProps) {
+export function DiscoverScreen({ isActive, onOpenUserProfile, onOpenPlus }: DiscoverScreenProps) {
     const hasActivated = useLazyActivation(isActive);
     const { user } = useAuth();
     const [searchText, setSearchText] = useState('');
     const debouncedQuery = useDebounce(searchText.trim(), 400);
-    const isSearching = debouncedQuery.length > 0;
-    const [filtersExpanded, setFiltersExpanded] = useState(false);
-    const [draftFilters, setDraftFilters] = useState<DiscoverFiltersState>({
-        gender: 'Any',
-        ageMin: '',
-        ageMax: '',
-        distanceKm: 50,
-        sobriety: 'Any',
-    });
-    const [appliedFilters, setAppliedFilters] = useState<DiscoverFiltersState>({
-        gender: 'Any',
-        ageMin: '',
-        ageMax: '',
-        distanceKm: 50,
-        sobriety: 'Any',
-    });
-
+    const [filterSheetVisible, setFilterSheetVisible] = useState(false);
     const [coords, setCoords] = useState<{ latitude: number; longitude: number } | null>(null);
+    const [friendedIds, setFriendedIds] = useState<Set<string>>(new Set());
+    const canUseAdvancedFilters = hasPlusAccess(user);
+
+    const {
+        draftFilters,
+        setDraftFilters,
+        appliedState,
+        setAppliedState,
+        resetFilters,
+        syncDraftToApplied,
+    } = useDiscoverFilters();
 
     useEffect(() => {
         if (!hasActivated) return;
         getDeviceCoords().then(setCoords);
     }, [hasActivated]);
 
-    // Round to 2 decimal places (~1 km) so minor GPS drift doesn't bust the cache.
     const discoverLat = coords ? Math.round(coords.latitude * 100) / 100 : undefined;
     const discoverLng = coords ? Math.round(coords.longitude * 100) / 100 : undefined;
+    const isSearching = debouncedQuery.length > 0;
+    const hasAppliedFilters = hasNonDefaultDiscoverFilters(appliedState.requested);
+    const activeChips = useMemo(() => getDiscoverActiveChips(appliedState.requested), [appliedState.requested]);
+    const broadenedCopy = appliedState.broadened ? getDiscoverRelaxedCopy(appliedState.relaxedFields) : null;
+    const filterSummary = hasAppliedFilters
+        ? getDiscoverFiltersSummary(appliedState.requested)
+        : 'Keep suggestions smooth, then refine when you want to narrow the pool.';
+    const filterCount = activeChips.length;
 
-    const discoverQuery = useDiscover({
-        limit: 20,
-        query: isSearching ? debouncedQuery : undefined,
-        gender: appliedFilters.gender !== 'Any' ? appliedFilters.gender : undefined,
-        ageMin: appliedFilters.ageMin ? Number(appliedFilters.ageMin) : undefined,
-        ageMax: appliedFilters.ageMax ? Number(appliedFilters.ageMax) : undefined,
-        distanceKm: appliedFilters.distanceKm,
-        sobriety: appliedFilters.sobriety !== 'Any' ? appliedFilters.sobriety : undefined,
-        lat: isSearching ? undefined : discoverLat,
-        lng: isSearching ? undefined : discoverLng,
-    }, hasActivated);
-    const [friendedIds, setFriendedIds] = useState<Set<string>>(new Set());
-    const [upgradeVisible, setUpgradeVisible] = useState(false);
-
-    const users = useMemo(
-        () => dedupeById(
-            (discoverQuery.data?.pages ?? [])
-                .flatMap(p => p.items ?? [])
-                .filter(u => u.friendship_status !== 'self')
-        ),
-        [discoverQuery.data?.pages],
+    const validatedDraft = useMemo(() => validateDiscoverDraft(draftFilters), [draftFilters]);
+    const draftApiFilters = useMemo(
+        () => validatedDraft.normalized ? toDiscoverApiFilters(validatedDraft.normalized) : undefined,
+        [validatedDraft.normalized],
     );
 
-    const handleFriend = useCallback((id: string) => {
-        setFriendedIds(prev => new Set([...prev, id]));
-        void api.sendFriendRequest(id);
+    const interestOptionsQuery = useInterests(hasActivated && filterSheetVisible);
+
+    const previewQuery = useDiscoverPreview({
+        query: isSearching ? debouncedQuery : undefined,
+        ...draftApiFilters,
+        lat: discoverLat,
+        lng: discoverLng,
+    }, Boolean(
+        hasActivated
+        && filterSheetVisible
+        && canUseAdvancedFilters
+        && validatedDraft.normalized
+        && hasNonDefaultDiscoverFilters(validatedDraft.normalized),
+    ));
+
+    const effectiveApiFilters = useMemo(
+        () => hasAppliedFilters ? toDiscoverApiFilters(appliedState.effective) : {},
+        [appliedState.effective, hasAppliedFilters],
+    );
+
+    const discoverMode: 'suggested' | 'search' | 'filtered' = isSearching
+        ? 'search'
+        : hasAppliedFilters
+            ? 'filtered'
+            : 'suggested';
+
+    const discoverQuery = useDiscoverResultsQuery({
+        mode: discoverMode,
+        query: isSearching ? debouncedQuery : undefined,
+        ...effectiveApiFilters,
+        lat: discoverLat,
+        lng: discoverLng,
+        limit: 20,
+    }, hasActivated);
+
+    const handleFriend = useCallback(async (id: string) => {
+        setFriendedIds((current) => new Set([...current, id]));
+        try {
+            await api.sendFriendRequest(id);
+        } catch (error) {
+            setFriendedIds((current) => {
+                const next = new Set(current);
+                next.delete(id);
+                return next;
+            });
+            Alert.alert('Could not send request', error instanceof Error ? error.message : 'Please try again.');
+        }
     }, []);
 
-    const isFriendedFor = useCallback((user: api.User) =>
-        friendedIds.has(user.id) ||
-        user.friendship_status === 'outgoing' ||
-        user.friendship_status === 'friends',
+    const isFriendedFor = useCallback((profile: api.User) =>
+        friendedIds.has(profile.id)
+        || profile.friendship_status === 'outgoing'
+        || profile.friendship_status === 'friends',
     [friendedIds]);
 
     const handleRefresh = useCallback(() => {
@@ -303,17 +333,87 @@ export function DiscoverScreen({ isActive, onOpenUserProfile }: DiscoverScreenPr
         }
     }, [discoverQuery]);
 
+    const handleOpenFilters = useCallback(() => {
+        syncDraftToApplied();
+        setFilterSheetVisible(true);
+    }, [syncDraftToApplied]);
+
+    const handleCloseFilters = useCallback(() => {
+        setFilterSheetVisible(false);
+    }, []);
+
     const handleApplyFilters = useCallback(() => {
-        if (hasPlusAccess(user)) {
-            setAppliedFilters(draftFilters);
-            setFiltersExpanded(false);
+        if (validatedDraft.error) {
+            Alert.alert('Invalid filters', validatedDraft.error);
             return;
         }
 
-        setUpgradeVisible(true);
-    }, [draftFilters, user]);
+        if (!canUseAdvancedFilters) {
+            onOpenPlus();
+            return;
+        }
 
-    if (discoverQuery.isLoading && users.length === 0) {
+        if (!validatedDraft.normalized) {
+            return;
+        }
+
+        const nextState = applyDiscoverPreviewEffectiveFilters(validatedDraft.normalized, previewQuery.data);
+        setAppliedState(nextState);
+        setDraftFilters(createDiscoverDraftFromApplied(validatedDraft.normalized));
+        setFilterSheetVisible(false);
+    }, [canUseAdvancedFilters, onOpenPlus, previewQuery.data, setAppliedState, setDraftFilters, validatedDraft]);
+
+    const handleClearAllFilters = useCallback(() => {
+        resetFilters();
+    }, [resetFilters]);
+
+    const handleClearChip = useCallback((chipKey: ReturnType<typeof getDiscoverActiveChips>[number]['key']) => {
+        setAppliedState((current) => {
+            const nextRequested = clearDiscoverChip(current.requested, chipKey);
+            setDraftFilters(createDiscoverDraftFromApplied(nextRequested));
+            return {
+                requested: nextRequested,
+                effective: nextRequested,
+                broadened: false,
+                relaxedFields: [],
+            };
+        });
+    }, [setAppliedState, setDraftFilters]);
+
+    const resultsHeading = getResultsHeading(isSearching, hasAppliedFilters, appliedState.broadened);
+    const noResultsCopy = getNoResultsCopy(isSearching, debouncedQuery, appliedState.requested, appliedState.broadened);
+    const keyExtractor = useCallback((item: api.User) => item.id, []);
+    const resultsHeader = useMemo(() => (
+        <View style={styles.sectionHeadingRow}>
+            <Text style={styles.sectionHeading}>{resultsHeading}</Text>
+            <Text style={styles.sectionCount}>
+                {discoverQuery.users.length}
+                {discoverQuery.hasNextPage ? '+' : ''}
+            </Text>
+        </View>
+    ), [discoverQuery.hasNextPage, discoverQuery.users.length, resultsHeading]);
+    const renderSearchItem = useCallback(({ item }: { item: api.User }) => (
+        <SearchResultRow
+            user={item}
+            isFriended={isFriendedFor(item)}
+            onOpenUserProfile={onOpenUserProfile}
+            onFriend={handleFriend}
+        />
+    ), [handleFriend, isFriendedFor, onOpenUserProfile]);
+    const renderGridItem = useCallback(({ item }: { item: api.User }) => (
+        <DiscoverCard
+            user={item}
+            isFriended={isFriendedFor(item)}
+            onPress={() => onOpenUserProfile({
+                userId: item.id,
+                username: item.username,
+                avatarUrl: item.avatar_url,
+            })}
+            onFriend={() => handleFriend(item.id)}
+        />
+    ), [handleFriend, isFriendedFor, onOpenUserProfile]);
+
+    if (discoverQuery.isLoading && discoverQuery.users.length === 0) {
         return (
             <View style={styles.center}>
                 <ActivityIndicator color={Colors.primary} size="large" />
@@ -323,227 +423,138 @@ export function DiscoverScreen({ isActive, onOpenUserProfile }: DiscoverScreenPr
 
     return (
         <View style={styles.container}>
-            <PlusFeatureSheet
-                visible={upgradeVisible}
-                title="Advanced Filters"
-                items={FILTER_UPGRADE_ITEMS}
-                onClose={() => setUpgradeVisible(false)}
-            />
-
             <View style={styles.controls}>
-                <SearchBar
-                    style={styles.searchBar}
-                    variant="pill"
-                    leading={<Ionicons name="search-outline" size={18} color={Colors.light.textTertiary} />}
-                    primaryField={{
-                        value: searchText,
-                        onChangeText: setSearchText,
-                        placeholder: 'Search by username...',
-                        autoCapitalize: 'none',
-                        autoCorrect: false,
-                        returnKeyType: 'search',
-                        clearButtonMode: 'while-editing',
-                    }}
-                />
+                <View style={styles.searchRow}>
+                    <SearchBar
+                        style={styles.searchBar}
+                        variant="pill"
+                        leading={<Ionicons name="search-outline" size={18} color={Colors.light.textTertiary} />}
+                        primaryField={{
+                            value: searchText,
+                            onChangeText: setSearchText,
+                            placeholder: 'Search by username...',
+                            autoCapitalize: 'none',
+                            autoCorrect: false,
+                            returnKeyType: 'search',
+                            clearButtonMode: 'while-editing',
+                        }}
+                    />
 
-                {!isSearching ? (
-                    <TouchableOpacity style={styles.filterBar} onPress={() => setFiltersExpanded((current) => !current)} activeOpacity={0.85}>
-                        <View style={styles.filterBarLeft}>
-                            <View style={styles.filterBarIcon}>
-                                <Ionicons name="options-outline" size={18} color={Colors.light.textSecondary} />
+                    <TouchableOpacity style={styles.filterButton} onPress={handleOpenFilters} activeOpacity={0.85}>
+                        <Ionicons name="options-outline" size={20} color={Colors.light.textPrimary} />
+                        {filterCount > 0 ? (
+                            <View style={styles.filterBadge}>
+                                <Text style={styles.filterBadgeText}>{filterCount}</Text>
                             </View>
-                            <View style={styles.filterBarCopy}>
-                                <Text style={styles.filterBarLabel}>Filters</Text>
-                                <Text style={styles.filterBarSub}>Gender · Age · Distance · Sobriety</Text>
-                            </View>
-                        </View>
-                        <View style={styles.filterBarRight}>
-                            <Ionicons
-                                name={filtersExpanded ? 'chevron-up' : 'chevron-down'}
-                                size={16}
-                                color={Colors.light.textTertiary}
-                            />
-                        </View>
+                        ) : null}
                     </TouchableOpacity>
-                ) : null}
+                </View>
 
-                {!isSearching && filtersExpanded ? (
-                    <View style={styles.filtersPanel}>
-                        <View style={styles.filtersSection}>
-                            <Text style={styles.filtersSectionTitle}>Gender</Text>
-                            <View style={styles.filterChipWrap}>
-                                {GENDER_OPTIONS.map((option) => (
-                                    <FilterChip
-                                        key={option}
-                                        label={option}
-                                        selected={draftFilters.gender === option}
-                                        onPress={() => setDraftFilters((current) => ({ ...current, gender: option }))}
-                                    />
-                                ))}
-                            </View>
-                        </View>
-
-                        <View style={styles.filtersSection}>
-                            <Text style={styles.filtersSectionTitle}>Age Range</Text>
-                            <View style={styles.ageRow}>
-                                <View style={styles.ageField}>
-                                    <Text style={styles.ageLabel}>Min</Text>
-                                    <TextField
-                                        value={draftFilters.ageMin}
-                                        onChangeText={(value) => setDraftFilters((current) => ({ ...current, ageMin: value.replace(/[^0-9]/g, '') }))}
-                                        placeholder="18"
-                                        keyboardType="number-pad"
-                                    />
-                                </View>
-                                <View style={styles.ageField}>
-                                    <Text style={styles.ageLabel}>Max</Text>
-                                    <TextField
-                                        value={draftFilters.ageMax}
-                                        onChangeText={(value) => setDraftFilters((current) => ({ ...current, ageMax: value.replace(/[^0-9]/g, '') }))}
-                                        placeholder="99"
-                                        keyboardType="number-pad"
-                                    />
-                                </View>
-                            </View>
-                        </View>
-
-                        <View style={styles.filtersSection}>
-                            <View style={styles.distanceHeader}>
-                                <Text style={styles.filtersSectionTitle}>Distance</Text>
-                                <Text style={styles.distanceValue}>{getDistanceLabel(draftFilters.distanceKm)}</Text>
-                            </View>
-                            <Slider
-                                style={styles.distanceSlider}
-                                minimumValue={0}
-                                maximumValue={200}
-                                step={10}
-                                minimumTrackTintColor={Colors.primary}
-                                maximumTrackTintColor={Colors.light.border}
-                                thumbTintColor={Colors.primary}
-                                value={draftFilters.distanceKm}
-                                onValueChange={(value) => setDraftFilters((current) => ({ ...current, distanceKm: value }))}
-                            />
-                            <View style={styles.distanceMarks}>
-                                <Text style={styles.distanceMarkText}>0</Text>
-                                <Text style={styles.distanceMarkText}>100</Text>
-                                <Text style={styles.distanceMarkText}>200</Text>
-                            </View>
-                        </View>
-
-                        <View style={styles.filtersSection}>
-                            <Text style={styles.filtersSectionTitle}>Sobriety</Text>
-                            <View style={styles.filterChipWrap}>
-                                {SOBRIETY_OPTIONS.map((option) => (
-                                    <FilterChip
-                                        key={option}
-                                        label={option}
-                                        selected={draftFilters.sobriety === option}
-                                        onPress={() => setDraftFilters((current) => ({ ...current, sobriety: option }))}
-                                    />
-                                ))}
-                            </View>
-                        </View>
-
-                        <PrimaryButton
-                            label="Apply Filters"
-                            variant="warning"
-                            onPress={handleApplyFilters}
-                            leftAdornment={<Ionicons name="star" size={15} color={Colors.textOn.warning} />}
-                            rightAdornment={!hasPlusAccess(user) ? <PlusButtonBadge /> : undefined}
-                            style={styles.applyFiltersBtn}
-                        />
+                <TouchableOpacity style={styles.filterSummaryCard} onPress={handleOpenFilters} activeOpacity={0.85}>
+                    <View style={styles.filterSummaryCopy}>
+                        <Text style={styles.filterSummaryLabel}>Filters</Text>
+                        <Text style={styles.filterSummaryText}>{filterSummary}</Text>
                     </View>
-                ) : null}
+                    <Ionicons name="chevron-forward" size={16} color={Colors.light.textTertiary} />
+                </TouchableOpacity>
+
+                <DiscoverActiveFiltersBar
+                    chips={activeChips}
+                    broadenedCopy={broadenedCopy}
+                    onRemoveChip={handleClearChip}
+                    onClearAll={handleClearAllFilters}
+                />
             </View>
 
-            {isSearching ? (
-                <View style={styles.flex}>
-                    {discoverQuery.isLoading ? (
-                        <View style={styles.center}>
-                            <ActivityIndicator color={Colors.primary} />
-                        </View>
-                    ) : users.length === 0 ? (
-                        <View style={styles.center}>
-                            <Text style={styles.emptySub}>No users found for "{debouncedQuery}"</Text>
-                        </View>
-                    ) : (
-                        <FlatList
-                            data={users}
-                            keyExtractor={u => u.id}
-                            contentContainerStyle={styles.resultsContent}
-                            refreshControl={
-                                <RefreshControl
-                                    refreshing={discoverQuery.isRefetching && !discoverQuery.isFetchingNextPage}
-                                    onRefresh={handleRefresh}
-                                    tintColor={Colors.primary}
-                                />
-                            }
-                            renderItem={({ item }) => (
-                                <SearchResultRow
-                                    user={item}
-                                    isFriended={isFriendedFor(item)}
-                                    onOpenUserProfile={onOpenUserProfile}
-                                    onFriend={handleFriend}
-                                />
-                            )}
-                            onEndReached={handleEndReached}
-                            onEndReachedThreshold={0.3}
-                            ListFooterComponent={discoverQuery.isFetchingNextPage
-                                ? <ActivityIndicator color={Colors.primary} style={styles.listFooter} />
-                                : null}
-                            keyboardShouldPersistTaps="handled"
-                        />
-                    )}
+            {discoverQuery.isFetching && discoverQuery.users.length > 0 ? (
+                <View style={styles.inlineLoading}>
+                    <ActivityIndicator size="small" color={Colors.primary} />
+                    <Text style={styles.inlineLoadingText}>Updating results...</Text>
                 </View>
-            ) : (
-                <>
-                    {users.length === 0 && !discoverQuery.isLoading ? (
-                        <View style={styles.center}>
-                            <Ionicons name="people-outline" size={52} color={Colors.light.textTertiary} />
-                            <Text style={styles.emptyTitle}>No one here yet</Text>
-                            <Text style={styles.emptySub}>Check back later for new members.</Text>
-                        </View>
-                    ) : (
-                        <FlatList
-                            data={users}
-                            keyExtractor={u => u.id}
-                            numColumns={2}
-                            columnWrapperStyle={styles.gridRow}
-                            contentContainerStyle={styles.gridContent}
-                            refreshControl={
-                                <RefreshControl
-                                    refreshing={discoverQuery.isRefetching && !discoverQuery.isFetchingNextPage}
-                                    onRefresh={handleRefresh}
-                                    tintColor={Colors.primary}
-                                />
-                            }
-                            ListHeaderComponent={
-                                <View style={styles.sectionHeadingRow}>
-                                    <Text style={styles.sectionHeading}>People you might know</Text>
-                                    <Text style={styles.sectionCount}>{users.length}{discoverQuery.hasNextPage ? '+' : ''} results</Text>
-                                </View>
-                            }
-                            renderItem={({ item }) => (
-                                <DiscoverCard
-                                    user={item}
-                                    isFriended={isFriendedFor(item)}
-                                    onPress={() => onOpenUserProfile({
-                                        userId: item.id,
-                                        username: item.username,
-                                        avatarUrl: item.avatar_url,
-                                    })}
-                                    onFriend={() => handleFriend(item.id)}
-                                />
-                            )}
-                            onEndReached={handleEndReached}
-                            onEndReachedThreshold={0.4}
-                            ListFooterComponent={discoverQuery.isFetchingNextPage
-                                ? <ActivityIndicator color={Colors.primary} style={styles.listFooter} />
-                                : null}
+            ) : null}
+
+            {discoverQuery.users.length === 0 && !discoverQuery.isLoading ? (
+                <DiscoverEmptyState
+                    title={noResultsCopy.title}
+                    description={noResultsCopy.description}
+                    primaryLabel={hasAppliedFilters ? 'Edit filters' : undefined}
+                    onPrimaryPress={hasAppliedFilters ? handleOpenFilters : undefined}
+                    secondaryLabel={hasAppliedFilters ? 'Clear filters' : undefined}
+                    onSecondaryPress={hasAppliedFilters ? handleClearAllFilters : undefined}
+                />
+            ) : isSearching ? (
+                <FlatList
+                    key="discover-search-list"
+                    data={discoverQuery.users}
+                    keyExtractor={keyExtractor}
+                    contentContainerStyle={styles.resultsContent}
+                    refreshControl={(
+                        <RefreshControl
+                            refreshing={discoverQuery.isRefetching && !discoverQuery.isFetchingNextPage}
+                            onRefresh={handleRefresh}
+                            tintColor={Colors.primary}
                         />
                     )}
-                </>
+                    ListHeaderComponent={resultsHeader}
+                    renderItem={renderSearchItem}
+                    onEndReached={handleEndReached}
+                    onEndReachedThreshold={0.35}
+                    keyboardShouldPersistTaps="handled"
+                    initialNumToRender={10}
+                    maxToRenderPerBatch={8}
+                    windowSize={9}
+                    removeClippedSubviews
+                    ListFooterComponent={discoverQuery.isFetchingNextPage
+                        ? <ActivityIndicator color={Colors.primary} style={styles.listFooter} />
+                        : null}
+                />
+            ) : (
+                <FlatList
+                    key="discover-grid-list"
+                    data={discoverQuery.users}
+                    keyExtractor={keyExtractor}
+                    numColumns={2}
+                    columnWrapperStyle={styles.gridRow}
+                    contentContainerStyle={styles.gridContent}
+                    refreshControl={(
+                        <RefreshControl
+                            refreshing={discoverQuery.isRefetching && !discoverQuery.isFetchingNextPage}
+                            onRefresh={handleRefresh}
+                            tintColor={Colors.primary}
+                        />
+                    )}
+                    ListHeaderComponent={resultsHeader}
+                    renderItem={renderGridItem}
+                    getItemLayout={(_, index) => ({
+                        length: GRID_ROW_HEIGHT,
+                        offset: GRID_ROW_HEIGHT * Math.floor(index / 2),
+                        index,
+                    })}
+                    initialNumToRender={8}
+                    maxToRenderPerBatch={6}
+                    windowSize={7}
+                    removeClippedSubviews
+                    onEndReached={handleEndReached}
+                    onEndReachedThreshold={0.4}
+                    ListFooterComponent={discoverQuery.isFetchingNextPage
+                        ? <ActivityIndicator color={Colors.primary} style={styles.listFooter} />
+                        : null}
+                />
             )}
+
+            <DiscoverFilterSheet
+                visible={filterSheetVisible}
+                canUseAdvancedFilters={canUseAdvancedFilters}
+                draftFilters={draftFilters}
+                onChangeFilters={setDraftFilters}
+                preview={previewQuery.data}
+                previewLoading={previewQuery.isFetching}
+                validationError={validatedDraft.error}
+                interestOptions={interestOptionsQuery.data ?? []}
+                onClose={handleCloseFilters}
+                onReset={() => setDraftFilters(createDefaultDiscoverDraftFilters())}
+                onApply={handleApplyFilters}
+            />
         </View>
     );
 }
@@ -553,26 +564,92 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: Colors.light.background,
     },
-    flex: { flex: 1 },
     center: {
         flex: 1,
         alignItems: 'center',
         justifyContent: 'center',
-        gap: Spacing.md,
         backgroundColor: Colors.light.background,
-        paddingHorizontal: Spacing.xl,
     },
-    emptyTitle: {
-        fontSize: Typography.sizes.xl,
-        fontWeight: '600',
+    controls: {
+        paddingHorizontal: Spacing.md,
+        paddingTop: Spacing.xs,
+        paddingBottom: Spacing.md,
+        gap: Spacing.sm,
+    },
+    searchRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: Spacing.sm,
+    },
+    searchBar: {
+        flex: 1,
+        minHeight: 50,
+    },
+    filterButton: {
+        width: 50,
+        height: 50,
+        borderRadius: 25,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderWidth: 1,
+        borderColor: Colors.light.border,
+        backgroundColor: Colors.light.backgroundSecondary,
+    },
+    filterBadge: {
+        position: 'absolute',
+        top: 6,
+        right: 6,
+        minWidth: 18,
+        height: 18,
+        borderRadius: 9,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: Colors.primary,
+        paddingHorizontal: 4,
+    },
+    filterBadgeText: {
+        fontSize: Typography.sizes.xs,
+        fontWeight: '700',
+        color: Colors.textOn.primary,
+    },
+    filterSummaryCard: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: Spacing.sm,
+        borderRadius: Radii.lg,
+        borderWidth: 1,
+        borderColor: Colors.light.border,
+        backgroundColor: Colors.light.backgroundSecondary,
+        paddingHorizontal: Spacing.md,
+        paddingVertical: Spacing.md,
+    },
+    filterSummaryCopy: {
+        flex: 1,
+        gap: 4,
+    },
+    filterSummaryLabel: {
+        fontSize: Typography.sizes.sm,
+        fontWeight: '700',
         color: Colors.light.textPrimary,
+        textTransform: 'uppercase',
+        letterSpacing: 0.5,
     },
-    emptySub: {
+    filterSummaryText: {
         fontSize: Typography.sizes.base,
-        color: Colors.light.textTertiary,
-        textAlign: 'center',
+        color: Colors.light.textSecondary,
+        lineHeight: 20,
     },
-
+    inlineLoading: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: Spacing.sm,
+        paddingBottom: Spacing.sm,
+    },
+    inlineLoadingText: {
+        fontSize: Typography.sizes.sm,
+        color: Colors.light.textSecondary,
+    },
     sectionHeadingRow: {
         flexDirection: 'row',
         alignItems: 'baseline',
@@ -582,167 +659,28 @@ const styles = StyleSheet.create({
     sectionHeading: {
         flex: 1,
         fontSize: Typography.sizes.md,
-        fontWeight: '600',
+        fontWeight: '700',
         color: Colors.light.textPrimary,
     },
     sectionCount: {
         fontSize: Typography.sizes.sm,
         color: Colors.light.textSecondary,
     },
-
-    controls: {
-        paddingHorizontal: Spacing.md,
-        paddingTop: Spacing.xs,
-        paddingBottom: Spacing.md,
-        gap: Spacing.sm,
-    },
-
-    // Search bar
-    searchBar: {
-        minHeight: 50,
-    },
-
-    // Filter bar
-    filterBar: {
-        flexDirection: 'row',
-        alignItems: 'stretch',
-        justifyContent: 'space-between',
-        paddingHorizontal: Spacing.md,
-        paddingVertical: Spacing.md,
-        borderRadius: Radii.lg,
-        borderWidth: 1,
-        borderColor: Colors.light.border,
-        backgroundColor: Colors.light.backgroundSecondary,
-        minHeight: 66,
-    },
-    filterBarLeft: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: Spacing.sm,
-        flex: 1,
-    },
-    filterBarIcon: {
-        width: 36,
-        height: 36,
-        borderRadius: 18,
-        backgroundColor: Colors.light.background,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    filterBarCopy: {
-        flex: 1,
-        gap: 2,
-    },
-    filterBarLabel: {
-        fontSize: Typography.sizes.lg,
-        fontWeight: '600',
-        color: Colors.light.textPrimary,
-    },
-    filterBarSub: {
-        fontSize: Typography.sizes.base,
-        color: Colors.light.textTertiary,
-    },
-    filterBarRight: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: Spacing.sm,
-        marginLeft: Spacing.sm,
-    },
-    filtersPanel: {
-        backgroundColor: Colors.light.backgroundSecondary,
-        borderRadius: Radii.lg,
-        borderWidth: 1,
-        borderColor: Colors.light.border,
-        padding: Spacing.md,
-        gap: Spacing.md,
-    },
-    filtersSection: {
-        gap: Spacing.sm,
-    },
-    filtersSectionTitle: {
-        fontSize: Typography.sizes.sm,
-        fontWeight: '600',
-        color: Colors.light.textPrimary,
-    },
-    filterChipWrap: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        gap: Spacing.sm,
-    },
-    filterChip: {
-        borderRadius: Radii.pill,
-        borderWidth: 1,
-        borderColor: Colors.light.border,
-        backgroundColor: Colors.light.background,
-        paddingHorizontal: Spacing.md,
-        paddingVertical: Spacing.sm,
-    },
-    filterChipActive: {
-        borderColor: Colors.primary,
-        backgroundColor: Colors.primarySubtle,
-    },
-    filterChipText: {
-        fontSize: Typography.sizes.sm,
-        fontWeight: '500',
-        color: Colors.light.textSecondary,
-    },
-    filterChipTextActive: {
-        color: Colors.primary,
-    },
-    ageRow: {
-        flexDirection: 'row',
-        gap: Spacing.sm,
-    },
-    ageField: {
-        flex: 1,
-        gap: Spacing.xs,
-    },
-    ageLabel: {
-        fontSize: Typography.sizes.xs,
-        fontWeight: '600',
-        color: Colors.light.textTertiary,
-    },
-    distanceHeader: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        gap: Spacing.sm,
-    },
-    distanceValue: {
-        fontSize: Typography.sizes.sm,
-        fontWeight: '600',
-        color: Colors.primary,
-    },
-    distanceSlider: {
-        width: '100%',
-        height: 34,
-    },
-    distanceMarks: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        marginTop: -2,
-    },
-    distanceMarkText: {
-        fontSize: Typography.sizes.xs,
-        color: Colors.light.textTertiary,
-    },
-    // Grid
-    gridContent: {
-        paddingHorizontal: Spacing.md,
-        paddingTop: 0,
+    resultsContent: {
         paddingBottom: Spacing.xl,
-        gap: CARD_GAP,
+    },
+    gridContent: {
+        paddingBottom: Spacing.xl,
     },
     gridRow: {
         justifyContent: 'space-between',
-        gap: CARD_GAP,
+        paddingHorizontal: Spacing.md,
+        marginBottom: Spacing.md,
     },
-
-    // Discover card
     card: {
         width: CARD_WIDTH,
         height: CARD_HEIGHT,
-        borderRadius: Radii.xl,
+        borderRadius: Radii.lg,
         overflow: 'hidden',
         backgroundColor: Colors.light.backgroundSecondary,
     },
@@ -752,72 +690,62 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
     },
     cardInitialsText: {
-        fontSize: 48,
+        fontSize: 32,
         fontWeight: '700',
-        color: 'rgba(255,255,255,0.6)',
+        color: '#fff',
         letterSpacing: 2,
     },
     cardScrim: {
+        ...StyleSheet.absoluteFillObject,
+    },
+    cardAddBtn: {
         position: 'absolute',
-        bottom: 0,
-        left: 0,
-        right: 0,
-        height: CARD_HEIGHT * 0.55,
+        top: Spacing.sm,
+        right: Spacing.sm,
+        width: 30,
+        height: 30,
+        borderRadius: 15,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: 'rgba(13,110,253,0.92)',
+    },
+    cardAddBtnDone: {
+        backgroundColor: 'rgba(25,135,84,0.95)',
     },
     cardFooter: {
         position: 'absolute',
-        bottom: 0,
-        left: 0,
-        right: 0,
-        paddingHorizontal: Spacing.md,
-        paddingBottom: Spacing.sm,
-        paddingTop: Spacing.sm,
+        left: Spacing.sm,
+        right: Spacing.sm,
+        bottom: Spacing.sm,
         gap: Spacing.xs,
-        alignItems: 'center',
     },
     cardMilestonePill: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 3,
-        backgroundColor: 'rgba(0,0,0,0.3)',
+        gap: 4,
+        alignSelf: 'flex-start',
+        backgroundColor: 'rgba(255,255,255,0.92)',
         borderRadius: Radii.pill,
-        paddingHorizontal: 6,
-        paddingVertical: 2,
+        paddingHorizontal: 8,
+        paddingVertical: 4,
     },
     cardMilestoneText: {
-        fontSize: Typography.sizes.xs ?? 10,
+        fontSize: Typography.sizes.xs,
         fontWeight: '600',
-        color: '#fff',
+        color: Colors.primary,
     },
     cardName: {
         fontSize: Typography.sizes.md,
         fontWeight: '700',
         color: '#fff',
-        textAlign: 'center',
     },
-    cardAddBtn: {
-        position: 'absolute',
-        top: Spacing.md,
-        right: Spacing.md,
-        width: 30,
-        height: 30,
-        borderRadius: 15,
-        backgroundColor: Colors.primary,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    cardAddBtnDone: {
-        backgroundColor: Colors.success,
-    },
-
-    // Search results list
     resultRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingHorizontal: Spacing.md,
-        paddingVertical: Spacing.sm,
         gap: Spacing.md,
-        borderBottomWidth: 0.5,
+        paddingHorizontal: Spacing.md,
+        paddingVertical: Spacing.md,
+        borderBottomWidth: 1,
         borderBottomColor: Colors.light.borderSecondary,
     },
     resultInfo: {
@@ -825,44 +753,29 @@ const styles = StyleSheet.create({
         gap: 2,
     },
     resultName: {
-        fontSize: Typography.sizes.md,
+        fontSize: Typography.sizes.base,
         fontWeight: '600',
         color: Colors.light.textPrimary,
     },
     resultMeta: {
         fontSize: Typography.sizes.sm,
-        color: Colors.light.textTertiary,
+        color: Colors.light.textSecondary,
     },
     resultFriendBtn: {
-        width: 34,
-        height: 34,
-        borderRadius: 17,
+        width: 36,
+        height: 36,
+        borderRadius: 18,
         alignItems: 'center',
         justifyContent: 'center',
-        borderWidth: 1.5,
+        backgroundColor: Colors.primarySubtle,
+        borderWidth: 1,
         borderColor: Colors.primary,
-        backgroundColor: Colors.light.background,
     },
     resultFriendBtnDone: {
         backgroundColor: Colors.success,
         borderColor: Colors.success,
     },
-    resultsContent: {
-        paddingBottom: Spacing.xl,
-    },
     listFooter: {
-        paddingVertical: Spacing.lg,
-    },
-    applyFiltersBtn: {},
-    buttonPlusBadge: {
-        backgroundColor: 'rgba(255,255,255,0.25)',
-        borderRadius: Radii.pill,
-        paddingHorizontal: Spacing.xs + 2,
-        paddingVertical: 3,
-    },
-    buttonPlusBadgeText: {
-        fontSize: Typography.sizes.xs,
-        fontWeight: '700',
-        color: Colors.textOn.warning,
+        marginVertical: Spacing.lg,
     },
 });

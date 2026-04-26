@@ -275,11 +275,11 @@ const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: Colors.light.background },
     list: { paddingBottom: ContentInsets.listBottom },
     footerLoader: { paddingVertical: Spacing.md },
-
     profileHeader: {
         borderBottomWidth: 0.5,
         borderBottomColor: Colors.light.border,
         marginBottom: Spacing.sm,
+        paddingTop: Spacing.md,
         paddingBottom: Spacing.md,
     },
     banner: {
