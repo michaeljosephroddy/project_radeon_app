@@ -2,6 +2,10 @@ import { StyleSheet } from 'react-native';
 import { ContentInsets, Spacing, Typography } from '../utils/theme';
 
 export const screenStandards = StyleSheet.create({
+    tabControl: {
+        paddingHorizontal: ContentInsets.screenHorizontal,
+        marginTop: Spacing.xs,
+    },
     listContent: {
         padding: ContentInsets.screenHorizontal,
         paddingBottom: ContentInsets.listBottom,
@@ -9,6 +13,15 @@ export const screenStandards = StyleSheet.create({
     detailContent: {
         padding: ContentInsets.screenHorizontal,
         paddingBottom: ContentInsets.detailBottom,
+    },
+    sheetContent: {
+        paddingHorizontal: Spacing.lg,
+        paddingTop: Spacing.md,
+        paddingBottom: Spacing.lg,
+    },
+    scrollContent: {
+        flexGrow: 1,
+        paddingTop: Spacing.md,
     },
     authContent: {
         flexGrow: 1,

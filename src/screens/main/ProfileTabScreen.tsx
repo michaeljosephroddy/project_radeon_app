@@ -494,7 +494,7 @@ export function ProfileTabScreen({ isActive, onOpenUserProfile, onBack }: Profil
                     activeKey={requestsSubView}
                     onChange={(key) => setRequestsSubView(key as RequestsSubView)}
                     tone="primary"
-                    style={styles.requestTabs}
+                    style={[screenStandards.tabControl, styles.requestTabs]}
                     items={[
                         {
                             key: 'incoming',
@@ -563,7 +563,7 @@ export function ProfileTabScreen({ isActive, onOpenUserProfile, onBack }: Profil
                 )}
             />
 
-            <ScrollView style={styles.scroll} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+            <ScrollView style={styles.scroll} contentContainerStyle={[screenStandards.scrollContent, styles.content]} keyboardShouldPersistTaps="handled">
                 <TouchableOpacity onPress={handlePickBanner} disabled={uploadingBanner} activeOpacity={0.85} style={styles.bannerTouch}>
                     {localBannerUrl
                         ? <Image source={{ uri: localBannerUrl }} style={styles.banner} resizeMode="cover" />
@@ -968,8 +968,6 @@ const styles = StyleSheet.create({
     },
     footerLoader: { paddingVertical: Spacing.md },
     requestTabs: {
-        paddingHorizontal: Spacing.md,
-        paddingTop: Spacing.md,
         marginBottom: 0,
     },
 
@@ -1007,7 +1005,7 @@ const styles = StyleSheet.create({
     },
     requestActionSecondaryText: { fontSize: Typography.sizes.sm, fontWeight: '500', color: Colors.light.textSecondary },
 
-    content: { flexGrow: 1, paddingTop: Spacing.md, paddingBottom: Spacing.md },
+    content: { paddingBottom: Spacing.md },
     mainContent: { gap: 0, paddingHorizontal: Spacing.md },
 
     bannerTouch: {

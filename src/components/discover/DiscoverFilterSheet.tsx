@@ -18,7 +18,9 @@ import {
     getDiscoverDistanceLabel,
 } from '../../hooks/useDiscoverFilters';
 import { Colors, Radii, Spacing, Typography } from '../../utils/theme';
+import { screenStandards } from '../../styles/screenStandards';
 import { PrimaryButton } from '../ui/PrimaryButton';
+import { ScreenHeader } from '../ui/ScreenHeader';
 import { TextField } from '../ui/TextField';
 
 interface DiscoverFilterSheetProps {
@@ -125,17 +127,9 @@ export function DiscoverFilterSheet({
     return (
         <Modal visible={visible} animationType="slide" transparent={false} onRequestClose={onClose}>
             <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-                <View style={styles.header}>
-                    <View style={styles.headerCopy}>
-                        <Text style={styles.title}>Advanced filters</Text>
-                        <Text style={styles.subtitle}>Refine your suggested people without losing the ranking quality.</Text>
-                    </View>
-                    <TouchableOpacity style={styles.closeButton} onPress={onClose} activeOpacity={0.8}>
-                        <Ionicons name="close" size={22} color={Colors.light.textPrimary} />
-                    </TouchableOpacity>
-                </View>
+                <ScreenHeader onBack={onClose} title="Advanced filters" />
 
-                <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+                <ScrollView contentContainerStyle={[screenStandards.sheetContent, styles.content]} showsVerticalScrollIndicator={false}>
                     <View style={styles.previewCard}>
                         <Ionicons name="sparkles-outline" size={18} color={Colors.primary} />
                         <Text style={styles.previewText}>{previewCopy}</Text>
@@ -296,42 +290,7 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: Colors.light.background,
     },
-    header: {
-        flexDirection: 'row',
-        alignItems: 'flex-start',
-        justifyContent: 'space-between',
-        paddingHorizontal: Spacing.lg,
-        paddingTop: Spacing.sm,
-        paddingBottom: Spacing.md,
-        gap: Spacing.md,
-    },
-    headerCopy: {
-        flex: 1,
-        gap: 6,
-    },
-    title: {
-        fontSize: Typography.sizes.xxl,
-        fontWeight: '700',
-        color: Colors.light.textPrimary,
-    },
-    subtitle: {
-        fontSize: Typography.sizes.base,
-        color: Colors.light.textSecondary,
-        lineHeight: 21,
-    },
-    closeButton: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: Colors.light.backgroundSecondary,
-        borderWidth: 1,
-        borderColor: Colors.light.border,
-    },
     content: {
-        paddingHorizontal: Spacing.lg,
-        paddingBottom: Spacing.lg,
         gap: Spacing.lg,
     },
     previewCard: {

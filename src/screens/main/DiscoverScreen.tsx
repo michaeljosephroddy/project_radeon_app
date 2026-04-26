@@ -130,7 +130,7 @@ const DiscoverCard = memo(function DiscoverCard({ user, isFriended, onPress, onF
             <View style={styles.cardFooter}>
                 {milestone ? (
                     <View style={styles.cardMilestonePill}>
-                        <Ionicons name="trophy-outline" size={10} color={Colors.warning} />
+                        <Ionicons name="trophy-outline" size={10} color={Colors.textOn.warning} />
                         <Text style={styles.cardMilestoneText}>{milestone.currentLabel}</Text>
                     </View>
                 ) : null}
@@ -390,14 +390,26 @@ export function DiscoverScreen({ isActive, onOpenUserProfile, onOpenPlus }: Disc
     const noResultsCopy = getNoResultsCopy(isSearching, debouncedQuery, appliedState.requested, appliedState.broadened);
     const keyExtractor = useCallback((item: api.User) => item.id, []);
     const resultsHeader = useMemo(() => (
-        <View style={styles.sectionHeadingRow}>
-            <Text style={styles.sectionHeading}>{resultsHeading}</Text>
-            <Text style={styles.sectionCount}>
-                {discoverQuery.users.length}
-                {discoverQuery.hasNextPage ? '+' : ''}
-            </Text>
+        <View style={styles.resultsHeader}>
+            <View style={styles.filterSummaryWrap}>
+                <TouchableOpacity style={styles.filterSummaryCard} onPress={handleOpenFilters} activeOpacity={0.85}>
+                    <View style={styles.filterSummaryCopy}>
+                        <Text style={styles.filterSummaryLabel}>Filters</Text>
+                        <Text style={styles.filterSummaryText}>{filterSummary}</Text>
+                    </View>
+                    <Ionicons name="chevron-forward" size={16} color={Colors.light.textTertiary} />
+                </TouchableOpacity>
+            </View>
+
+            <View style={styles.sectionHeadingRow}>
+                <Text style={styles.sectionHeading}>{resultsHeading}</Text>
+                <Text style={styles.sectionCount}>
+                    {discoverQuery.users.length}
+                    {discoverQuery.hasNextPage ? '+' : ''}
+                </Text>
+            </View>
         </View>
-    ), [discoverQuery.hasNextPage, discoverQuery.users.length, resultsHeading]);
+    ), [discoverQuery.hasNextPage, discoverQuery.users.length, filterSummary, handleOpenFilters, resultsHeading]);
     const renderSearchItem = useCallback(({ item }: { item: api.User }) => (
         <SearchResultRow
             user={item}
@@ -455,14 +467,6 @@ export function DiscoverScreen({ isActive, onOpenUserProfile, onOpenPlus }: Disc
                         ) : null}
                     </TouchableOpacity>
                 </View>
-
-                <TouchableOpacity style={styles.filterSummaryCard} onPress={handleOpenFilters} activeOpacity={0.85}>
-                    <View style={styles.filterSummaryCopy}>
-                        <Text style={styles.filterSummaryLabel}>Filters</Text>
-                        <Text style={styles.filterSummaryText}>{filterSummary}</Text>
-                    </View>
-                    <Ionicons name="chevron-forward" size={16} color={Colors.light.textTertiary} />
-                </TouchableOpacity>
 
                 <DiscoverActiveFiltersBar
                     chips={activeChips}
@@ -579,7 +583,7 @@ const styles = StyleSheet.create({
     controls: {
         paddingHorizontal: Spacing.md,
         paddingTop: Spacing.xs,
-        paddingBottom: Spacing.md,
+        paddingBottom: Spacing.sm,
         gap: Spacing.sm,
     },
     searchRow: {
@@ -645,6 +649,13 @@ const styles = StyleSheet.create({
         color: Colors.light.textSecondary,
         lineHeight: 20,
     },
+    resultsHeader: {
+        paddingTop: 0,
+        gap: Spacing.sm,
+    },
+    filterSummaryWrap: {
+        paddingHorizontal: Spacing.md,
+    },
     sectionHeadingRow: {
         flexDirection: 'row',
         alignItems: 'baseline',
@@ -662,9 +673,11 @@ const styles = StyleSheet.create({
         color: Colors.light.textSecondary,
     },
     resultsContent: {
+        paddingTop: Spacing.xs,
         paddingBottom: Spacing.xl,
     },
     gridContent: {
+        paddingTop: Spacing.xs,
         paddingBottom: Spacing.xl,
     },
     gridRow: {
@@ -727,7 +740,7 @@ const styles = StyleSheet.create({
     cardMilestoneText: {
         fontSize: Typography.sizes.xs,
         fontWeight: '600',
-        color: Colors.warning,
+        color: Colors.textOn.warning,
     },
     cardName: {
         fontSize: Typography.sizes.md,

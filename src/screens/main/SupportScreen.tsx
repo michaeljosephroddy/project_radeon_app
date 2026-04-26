@@ -745,13 +745,14 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
         };
 
         return (
-            <ScrollView contentContainerStyle={screenStandards.detailContent}>
+            <ScrollView contentContainerStyle={[screenStandards.detailContent, screenStandards.scrollContent]}>
                 <SegmentedControl
                     activeKey="check-in"
                     onChange={(key) => {
                         if (key === 'back') closeCheckInLaterComposer();
                     }}
                     tone="primary"
+                    style={screenStandards.tabControl}
                     items={[
                         { key: 'back', label: 'Back' },
                         { key: 'check-in', label: 'Check in later', flex: 2 },
@@ -877,7 +878,7 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
 
     if (subView === 'preview') {
         return (
-            <ScrollView contentContainerStyle={screenStandards.detailContent}>
+            <ScrollView contentContainerStyle={[screenStandards.detailContent, screenStandards.scrollContent]}>
                 <ScreenHeader onBack={() => setSubView('create')} title="Review your request" style={styles.previewHeader} />
 
                 <View style={styles.previewCard}>
@@ -921,11 +922,12 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
 
     if (subView === 'create') {
         return (
-            <ScrollView contentContainerStyle={screenStandards.detailContent}>
+            <ScrollView contentContainerStyle={[screenStandards.detailContent, screenStandards.scrollContent]}>
                 <SegmentedControl
                     activeKey="create"
                     onChange={(key) => setSubView(key as SupportSubView)}
                     tone="primary"
+                    style={screenStandards.tabControl}
                     items={[
                         { key: 'open', label: 'Open' },
                         { key: 'mine', label: 'My requests' },
@@ -1019,6 +1021,7 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
                         activeKey={isMineView ? 'mine' : 'open'}
                         onChange={(key) => setSubView(key as SupportSubView)}
                         tone="primary"
+                        style={screenStandards.tabControl}
                         items={[
                             { key: 'open', label: 'Open' },
                             { key: 'mine', label: 'My requests' },
