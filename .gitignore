@@ -30,6 +30,8 @@ Thumbs.db
 # editor files
 .vscode/
 .idea/
+.claude/
+.codex
 
 # Metro / bundler cache
 .metro-cache/

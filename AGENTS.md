@@ -132,6 +132,7 @@ src/
 - Always plan before writing code
 - Present a plan and wait for approval before implementing
 - Break tasks into steps and confirm each one
+- Create a git branch for new features
 
 ### ExecPlans
 

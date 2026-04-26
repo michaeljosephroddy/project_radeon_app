@@ -1,4 +1,5 @@
 import * as SecureStore from 'expo-secure-store';
+import { dedupeById } from '../utils/list';
 
 const BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:8080';
 const TOKEN_KEY = 'auth_token';
@@ -545,6 +546,19 @@ export async function getComments(postId: string, cursor?: string, limit = 20): 
 
 // ── Meetups ────────────────────────────────────────────────────────────────
 
+function normalizeMeetup(meetup: Meetup): Meetup {
+    return {
+        ...meetup,
+        attendee_preview: meetup.attendee_preview
+            ? dedupeById(meetup.attendee_preview)
+            : meetup.attendee_preview,
+    };
+}
+
+function normalizeMeetupAttendee(attendee: MeetupAttendee): MeetupAttendee {
+    return attendee;
+}
+
 // Fetches meetup events, optionally filtered by city and search query.
 export async function getMeetups(params?: { q?: string; city?: string; page?: number; limit?: number }): Promise<PaginatedResponse<Meetup>> {
     const search = new URLSearchParams();
@@ -553,7 +567,11 @@ export async function getMeetups(params?: { q?: string; city?: string; page?: nu
     if (params?.page) search.set('page', String(params.page));
     if (params?.limit) search.set('limit', String(params.limit));
     const suffix = search.toString() ? `?${search.toString()}` : '';
-    return request(`/meetups${suffix}`);
+    const page = await request<PaginatedResponse<Meetup>>(`/meetups${suffix}`);
+    return {
+        ...page,
+        items: (page.items ?? []).map(normalizeMeetup),
+    };
 }
 
 // Creates a new meetup with the provided event details.
@@ -564,12 +582,16 @@ export async function createMeetup(data: {
     starts_at: string;
     capacity?: number | null;
 }): Promise<Meetup> {
-    return request('/meetups', { method: 'POST', body: JSON.stringify(data) });
+    return normalizeMeetup(await request<Meetup>('/meetups', { method: 'POST', body: JSON.stringify(data) }));
 }
 
 // Loads meetups created by the currently authenticated user.
 export async function getMyMeetups(page = 1, limit = 20): Promise<PaginatedResponse<Meetup>> {
-    return request(`/users/me/meetups?page=${page}&limit=${limit}`);
+    const pageData = await request<PaginatedResponse<Meetup>>(`/users/me/meetups?page=${page}&limit=${limit}`);
+    return {
+        ...pageData,
+        items: (pageData.items ?? []).map(normalizeMeetup),
+    };
 }
 
 // Loads the caller's support-availability settings.
@@ -656,7 +678,11 @@ export async function rsvpMeetup(id: string): Promise<{ attending: boolean }> {
 
 // Loads the attendee list for a specific meetup.
 export async function getMeetupAttendees(id: string, page = 1, limit = 50): Promise<PaginatedResponse<MeetupAttendee>> {
-    return request(`/meetups/${id}/attendees?page=${page}&limit=${limit}`);
+    const pageData = await request<PaginatedResponse<MeetupAttendee>>(`/meetups/${id}/attendees?page=${page}&limit=${limit}`);
+    return {
+        ...pageData,
+        items: dedupeById((pageData.items ?? []).map(normalizeMeetupAttendee)),
+    };
 }
 
 // ── Messages ───────────────────────────────────────────────────────────────

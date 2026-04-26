@@ -17,6 +17,7 @@ import { useScrollToTopButton } from '../../hooks/useScrollToTopButton';
 import { useQueryClient } from '@tanstack/react-query';
 import { resetInfiniteQueryToFirstPage } from '../../query/infiniteQueryPolicy';
 import { queryKeys } from '../../query/queryKeys';
+import { dedupeById } from '../../utils/list';
 import { getListPerformanceProps } from '../../utils/listPerformance';
 import { Colors, Typography, Spacing, Radii, ContentInsets } from '../../utils/theme';
 import { formatUsername } from '../../utils/identity';
@@ -57,7 +58,7 @@ export function UserProfileScreen({
     const userPostsScrollToTop = useScrollToTopButton({ threshold: 320 });
     const [friendActionLoading, setFriendActionLoading] = useState(false);
     const profile = profileQuery.data ?? null;
-    const posts = (userPostsQuery.data?.pages ?? []).flatMap(page => page.items ?? []);
+    const posts = dedupeById((userPostsQuery.data?.pages ?? []).flatMap(page => page.items ?? []));
     const loading = (!profile && profileQuery.isLoading) || (posts.length === 0 && userPostsQuery.isLoading);
     const refreshing = (profileQuery.isRefetching || userPostsQuery.isRefetching) && !userPostsQuery.isFetchingNextPage;
     const loadingMorePosts = userPostsQuery.isFetchingNextPage;

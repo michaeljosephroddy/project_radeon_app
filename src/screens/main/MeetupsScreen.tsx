@@ -199,7 +199,7 @@ interface MeetupCardProps {
 function MeetupCard({ meetup, onPress, onToggleRSVP, rsvpPending = false, actionLabel, actionDisabled = false }: MeetupCardProps) {
     const { day, month, dateTime } = formatMeetupDate(meetup.starts_at);
     const buttonLabel = actionLabel ?? (meetup.is_attending ? 'Going ✓' : 'Going?');
-    const attendeePreview = meetup.attendee_preview ?? [];
+    const attendeePreview = dedupeById(meetup.attendee_preview ?? []);
 
     return (
         <View style={styles.card}>

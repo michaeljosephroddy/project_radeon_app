@@ -10,6 +10,7 @@ import { PrimaryButton } from '../../components/ui/PrimaryButton';
 import { ScreenHeader } from '../../components/ui/ScreenHeader';
 import { SectionLabel } from '../../components/ui/SectionLabel';
 import { SurfaceCard } from '../../components/ui/SurfaceCard';
+import { dedupeById } from '../../utils/list';
 import { Colors, Typography, Spacing, Radii, getAvatarColors } from '../../utils/theme';
 import { formatUsername } from '../../utils/identity';
 import { useAuth } from '../../hooks/useAuth';
@@ -154,7 +155,7 @@ export function MeetupDetailScreen({
     api.getMeetupAttendees(meetup.id)
       .then(page => {
         if (!active) return;
-        setAttendees(page.items ?? []);
+        setAttendees(dedupeById(page.items ?? []));
       })
       .catch((error: unknown) => {
         if (!active) return;

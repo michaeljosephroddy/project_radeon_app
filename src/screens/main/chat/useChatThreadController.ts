@@ -4,6 +4,7 @@ import { Alert } from 'react-native';
 import * as api from '../../../api/client';
 import { useChatMessages } from '../../../hooks/queries/useChatMessages';
 import { queryKeys } from '../../../query/queryKeys';
+import { dedupeById } from '../../../utils/list';
 
 export interface ChatThreadCurrentUser {
     id: string;
@@ -88,9 +89,11 @@ function updateChatsQueryData(
 
 function flattenMessages(data?: InfiniteData<api.MessagePage>): api.Message[] {
     const pages = data?.pages ?? [];
-    return [...pages]
-        .reverse()
-        .flatMap((page) => page.items ?? []);
+    return dedupeById(
+        [...pages]
+            .reverse()
+            .flatMap((page) => page.items ?? []),
+    );
 }
 
 function updateMessagePages(
