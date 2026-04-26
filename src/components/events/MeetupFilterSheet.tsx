@@ -9,7 +9,6 @@ import {
     View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
 import * as api from '../../api/client';
 import {
     MEETUP_DATE_PRESET_OPTIONS,
@@ -21,7 +20,9 @@ import {
     MEETUP_TIME_OPTIONS,
 } from '../../hooks/useMeetupFilters';
 import { Colors, Radii, Spacing, Typography } from '../../utils/theme';
+import { screenStandards } from '../../styles/screenStandards';
 import { PrimaryButton } from '../ui/PrimaryButton';
+import { ScreenHeader } from '../ui/ScreenHeader';
 import { TextField } from '../ui/TextField';
 
 interface MeetupFilterSheetProps {
@@ -66,17 +67,9 @@ export function MeetupFilterSheet({
     return (
         <Modal visible={visible} animationType="slide" transparent={false} onRequestClose={onClose}>
             <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-                <View style={styles.header}>
-                    <View style={styles.headerCopy}>
-                        <Text style={styles.title}>Event filters</Text>
-                        <Text style={styles.subtitle}>Find the right meetup by category, timing, format, and distance.</Text>
-                    </View>
-                    <TouchableOpacity style={styles.closeButton} onPress={onClose} activeOpacity={0.8}>
-                        <Ionicons name="close" size={22} color={Colors.light.textPrimary} />
-                    </TouchableOpacity>
-                </View>
+                <ScreenHeader onBack={onClose} title="Event filters" />
 
-                <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+                <ScrollView contentContainerStyle={[screenStandards.sheetContent, styles.content]} showsVerticalScrollIndicator={false}>
                     <View style={styles.section}>
                         <Text style={styles.sectionTitle}>Category</Text>
                         <View style={styles.wrap}>
@@ -256,38 +249,7 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: Colors.light.background,
     },
-    header: {
-        flexDirection: 'row',
-        alignItems: 'flex-start',
-        justifyContent: 'space-between',
-        paddingHorizontal: Spacing.md,
-        paddingBottom: Spacing.md,
-        borderBottomWidth: 1,
-        borderBottomColor: Colors.light.borderSecondary,
-    },
-    headerCopy: {
-        flex: 1,
-        paddingRight: Spacing.md,
-        gap: 4,
-    },
-    title: {
-        fontSize: Typography.sizes.xl,
-        fontWeight: '700',
-        color: Colors.light.textPrimary,
-    },
-    subtitle: {
-        color: Colors.light.textSecondary,
-        fontSize: Typography.sizes.sm,
-        lineHeight: 20,
-    },
-    closeButton: {
-        width: 36,
-        height: 36,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
     content: {
-        padding: Spacing.md,
         gap: Spacing.lg,
     },
     section: {

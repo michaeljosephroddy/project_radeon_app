@@ -16,8 +16,9 @@ import * as api from '../../api/client';
 import { MeetupCard } from '../../components/events/MeetupCard';
 import { MeetupFilterSheet } from '../../components/events/MeetupFilterSheet';
 import { MeetupForm } from '../../components/events/MeetupForm';
-import { Avatar } from '../../components/Avatar';
+import { MeetupFormValues } from '../../components/events/MeetupFormState';
 import { EmptyState } from '../../components/ui/EmptyState';
+import { InfoNoticeCard } from '../../components/ui/InfoNoticeCard';
 import { SearchBar } from '../../components/ui/SearchBar';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { ScrollToTopButton } from '../../components/ui/ScrollToTopButton';
@@ -36,6 +37,7 @@ import { useMeetupCategories, useMeetups, useMyMeetups } from '../../hooks/queri
 import { useRefetchOnActiveIfStale } from '../../hooks/useRefetchOnActiveIfStale';
 import { useScrollToTopButton } from '../../hooks/useScrollToTopButton';
 import { queryKeys } from '../../query/queryKeys';
+import { MeetupReviewScreen } from './MeetupReviewScreen';
 import { dedupeById } from '../../utils/list';
 import { getListPerformanceProps } from '../../utils/listPerformance';
 import { Colors, Radii, Spacing, Typography } from '../../utils/theme';
@@ -43,38 +45,13 @@ import { screenStandards } from '../../styles/screenStandards';
 
 type MeetupPrimaryView = 'discover' | 'hosting' | 'going' | 'create';
 type HostingScope = Extract<api.MyMeetupScope, 'upcoming' | 'drafts' | 'cancelled' | 'past'>;
+type CreateStage = 'form' | 'review';
 
 interface MeetupsScreenProps {
     isActive: boolean;
     onOpenUserProfile: (profile: { userId: string; username: string; avatarUrl?: string }) => void;
     onOpenMeetup: (meetup: api.Meetup) => void;
     onOpenPlus: () => void;
-}
-
-interface MeetupFormValues {
-    title: string;
-    description: string;
-    category_slug: string;
-    co_host_ids: string[];
-    event_type: api.MeetupEventType;
-    visibility: api.MeetupVisibility;
-    city: string;
-    country: string;
-    venue_name: string;
-    address_line_1: string;
-    address_line_2: string;
-    how_to_find_us: string;
-    online_url: string;
-    cover_image_url: string;
-    starts_on: string;
-    starts_at: string;
-    ends_on: string;
-    ends_at: string;
-    timezone: string;
-    lat: number | null;
-    lng: number | null;
-    capacity: string;
-    waitlist_enabled: boolean;
 }
 
 function hasPlusAccess(user: api.User | null): boolean {
@@ -233,6 +210,13 @@ function canDeleteMeetup(meetup: api.Meetup): boolean {
     return meetup.status === 'published' && meetup.attendee_count <= 1;
 }
 
+function getEditingHostingScope(meetup: api.Meetup | null): HostingScope {
+    if (meetup?.status === 'draft') {
+        return 'drafts';
+    }
+    return 'upcoming';
+}
+
 export function MeetupsScreen({ isActive, onOpenUserProfile, onOpenMeetup, onOpenPlus }: MeetupsScreenProps) {
     const { user } = useAuth();
     const queryClient = useQueryClient();
@@ -245,6 +229,7 @@ export function MeetupsScreen({ isActive, onOpenUserProfile, onOpenMeetup, onOpe
     const [filterOpen, setFilterOpen] = useState(false);
     const [editingMeetup, setEditingMeetup] = useState<api.Meetup | null>(null);
     const [formValues, setFormValues] = useState<MeetupFormValues>(() => defaultFormValues(user));
+    const [createStage, setCreateStage] = useState<CreateStage>('form');
     const [submitting, setSubmitting] = useState(false);
     const [uploadingCover, setUploadingCover] = useState(false);
     const [localCoverPreviewUri, setLocalCoverPreviewUri] = useState<string | null>(null);
@@ -279,18 +264,21 @@ export function MeetupsScreen({ isActive, onOpenUserProfile, onOpenMeetup, onOpe
         () => getMeetupFilterChips(appliedFilters, categories),
         [appliedFilters, categories],
     );
+    const activeCoverPreviewUri = localCoverPreviewUri ?? formValues.cover_image_url;
 
     useEffect(() => {
         if (!editingMeetup) return;
         setFormValues(meetupToFormValues(editingMeetup));
         setLocalCoverPreviewUri(null);
         setFormError('');
+        setCreateStage('form');
     }, [editingMeetup]);
 
     useEffect(() => {
         if (editingMeetup) return;
         setFormValues(defaultFormValues(user));
         setLocalCoverPreviewUri(null);
+        setCreateStage('form');
     }, [user?.city, user?.country, user?.current_city, editingMeetup]);
 
     const invalidateMeetupQueries = () => {
@@ -378,6 +366,7 @@ export function MeetupsScreen({ isActive, onOpenUserProfile, onOpenMeetup, onOpe
             return;
         }
         setEditingMeetup(meetup);
+        setCreateStage('form');
         setActiveView('create');
     };
 
@@ -385,6 +374,9 @@ export function MeetupsScreen({ isActive, onOpenUserProfile, onOpenMeetup, onOpe
         if (key === 'create' && !canCreateMeetups) {
             onOpenPlus();
             return;
+        }
+        if (key === 'create') {
+            setCreateStage('form');
         }
         setActiveView(key as MeetupPrimaryView);
     };
@@ -454,6 +446,7 @@ export function MeetupsScreen({ isActive, onOpenUserProfile, onOpenMeetup, onOpe
             setFormValues(defaultFormValues(user));
             setLocalCoverPreviewUri(null);
             setFormError('');
+            setCreateStage('form');
             setHostingScope(nextStatus === 'draft' ? 'drafts' : 'upcoming');
             setActiveView('hosting');
         } catch (error: unknown) {
@@ -468,6 +461,13 @@ export function MeetupsScreen({ isActive, onOpenUserProfile, onOpenMeetup, onOpe
         setFormValues(defaultFormValues(user));
         setLocalCoverPreviewUri(null);
         setFormError('');
+        setCreateStage('form');
+    };
+
+    const closeCreateEditor = () => {
+        setHostingScope(getEditingHostingScope(editingMeetup));
+        resetEditingState();
+        setActiveView('hosting');
     };
 
     const handleRemoveOrganizerMeetup = (meetup: api.Meetup) => {
@@ -651,22 +651,16 @@ export function MeetupsScreen({ isActive, onOpenUserProfile, onOpenMeetup, onOpe
                     ))}
                 </ScrollView>
             ) : null}
-            <View style={styles.summaryCard}>
-                <View style={styles.summaryCopy}>
-                    <Text style={styles.summaryTitle}>Event discovery</Text>
-                    <Text style={styles.summaryText}>
-                        Browse by category, distance, day of week, format, and availability without losing the flow of the feed.
-                    </Text>
-                </View>
-                <Avatar username={user?.username ?? 'You'} avatarUrl={user?.avatar_url} size={42} fontSize={14} />
-            </View>
+            <InfoNoticeCard
+                title="Event discovery"
+                description="Browse by category, distance, day of week, format, and availability without losing the flow of the feed."
+            />
         </View>
     );
 
     const renderMyHeader = (title: string, body: string, showHostingScope = false) => (
         <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>{title}</Text>
-            <Text style={styles.sectionBody}>{body}</Text>
+            <InfoNoticeCard title={title} description={body} />
             {showHostingScope ? (
                 <SegmentedControl
                     items={[
@@ -750,6 +744,9 @@ export function MeetupsScreen({ isActive, onOpenUserProfile, onOpenMeetup, onOpe
     const formPrimaryActionLabel = formMode === 'published'
         ? 'Save changes'
         : 'Publish event';
+    const formReviewActionLabel = formMode === 'published'
+        ? 'Review changes'
+        : 'Review';
     const formSecondaryActionLabel = formMode === 'published'
         ? undefined
         : 'Save draft';
@@ -793,41 +790,53 @@ export function MeetupsScreen({ isActive, onOpenUserProfile, onOpenMeetup, onOpe
                 activeKey={activeView}
                 onChange={handlePrimaryTabChange}
                 tone="primary"
-                style={styles.primaryControl}
+                style={[screenStandards.tabControl, styles.primaryControl]}
             />
 
             {activeView === 'create' ? (
-                <View style={styles.createPane}>
-                    <MeetupForm
-                        title={editingMeetup?.status === 'published' ? 'Refine your live event without taking it offline.' : editingMeetup ? 'Polish the draft until it is ready to go live.' : 'Build a polished meetup your community will actually want to join.'}
-                        values={formValues}
-                        categories={categories}
-                        friends={friends}
-                        mode={formMode}
-                        loading={submitting}
-                        coverUploading={uploadingCover}
-                        coverPreviewUri={localCoverPreviewUri ?? formValues.cover_image_url}
-                        error={formError}
-                        primaryActionLabel={formPrimaryActionLabel}
-                        primaryActionVariant={formMode === 'published' ? 'primary' : 'success'}
-                        secondaryActionLabel={formSecondaryActionLabel}
-                        destructiveActionLabel={formDestructiveActionLabel}
-                        onChange={handleChangeFormValue}
-                        onPickCover={handlePickCoverImage}
-                        onRemoveCover={handleRemoveCoverImage}
-                        onPrimaryAction={() => void submitMeetup('published')}
-                        onSecondaryAction={formSecondaryActionLabel ? () => void submitMeetup('draft') : undefined}
-                        onDestructiveAction={formMode === 'published' ? handleCancelPublishedEdit : formMode === 'draft' ? handleDeleteDraftEdit : undefined}
-                        onCancelEdit={editingMeetup ? () => {
-                            if (editingMeetup.status === 'draft') {
-                                setHostingScope('drafts');
-                            } else {
-                                setHostingScope('upcoming');
-                            }
-                            resetEditingState();
-                            setActiveView('hosting');
-                        } : undefined}
-                    />
+                <View style={[styles.createPane, createStage === 'review' && styles.createPaneReview]}>
+                    {createStage === 'form' ? (
+                        <MeetupForm
+                            title={editingMeetup?.status === 'published' ? 'Refine your live event without taking it offline.' : editingMeetup ? 'Polish the draft until it is ready to go live.' : 'Build a polished meetup your community will actually want to join.'}
+                            values={formValues}
+                            categories={categories}
+                            friends={friends}
+                            mode={formMode}
+                            loading={submitting}
+                            coverUploading={uploadingCover}
+                            coverPreviewUri={activeCoverPreviewUri}
+                            error={formError}
+                            primaryActionLabel={formReviewActionLabel}
+                            primaryActionVariant={formMode === 'published' ? 'primary' : 'success'}
+                            secondaryActionLabel={formSecondaryActionLabel}
+                            destructiveActionLabel={formDestructiveActionLabel}
+                            onChange={handleChangeFormValue}
+                            onPickCover={handlePickCoverImage}
+                            onRemoveCover={handleRemoveCoverImage}
+                            onPrimaryAction={() => setCreateStage('review')}
+                            onSecondaryAction={formSecondaryActionLabel ? () => void submitMeetup('draft') : undefined}
+                            onDestructiveAction={formMode === 'published' ? handleCancelPublishedEdit : formMode === 'draft' ? handleDeleteDraftEdit : undefined}
+                            onCancelEdit={editingMeetup ? closeCreateEditor : undefined}
+                        />
+                    ) : (
+                        <MeetupReviewScreen
+                            title={editingMeetup?.status === 'published' ? 'Your changes will apply directly to the live event.' : editingMeetup ? 'Check the draft carefully before you publish it.' : 'Review everything before this event goes live.'}
+                            values={formValues}
+                            categories={categories}
+                            friends={friends}
+                            coverPreviewUri={activeCoverPreviewUri}
+                            loading={submitting}
+                            error={formError}
+                            primaryActionLabel={formPrimaryActionLabel}
+                            primaryActionVariant={formMode === 'published' ? 'primary' : 'success'}
+                            secondaryActionLabel={formSecondaryActionLabel}
+                            destructiveActionLabel={formDestructiveActionLabel}
+                            onBack={() => setCreateStage('form')}
+                            onPrimaryAction={() => void submitMeetup('published')}
+                            onSecondaryAction={formSecondaryActionLabel ? () => void submitMeetup('draft') : undefined}
+                            onDestructiveAction={formMode === 'published' ? handleCancelPublishedEdit : formMode === 'draft' ? handleDeleteDraftEdit : undefined}
+                        />
+                    )}
                 </View>
             ) : (
                 <>
@@ -904,8 +913,6 @@ const styles = StyleSheet.create({
         backgroundColor: Colors.light.background,
     },
     primaryControl: {
-        paddingHorizontal: Spacing.md,
-        marginTop: Spacing.xs,
         marginBottom: 0,
     },
     list: {
@@ -930,11 +937,14 @@ const styles = StyleSheet.create({
     },
     createPane: {
         flex: 1,
-        paddingTop: Spacing.md,
+        paddingTop: Spacing.sm,
+    },
+    createPaneReview: {
+        paddingTop: 0,
     },
     discoverHeader: {
         gap: Spacing.md,
-        paddingTop: Spacing.sm,
+        paddingTop: 0,
         paddingBottom: Spacing.md,
     },
     searchRow: {
@@ -1014,44 +1024,10 @@ const styles = StyleSheet.create({
         fontSize: Typography.sizes.sm,
         fontWeight: '700',
     },
-    summaryCard: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: Spacing.md,
-        backgroundColor: Colors.primarySubtle,
-        borderRadius: Radii.xl,
-        padding: Spacing.md,
-        borderWidth: 1,
-        borderColor: Colors.primary,
-    },
-    summaryCopy: {
-        flex: 1,
-        gap: 4,
-    },
-    summaryTitle: {
-        color: Colors.light.textPrimary,
-        fontSize: Typography.sizes.lg,
-        fontWeight: '700',
-    },
-    summaryText: {
-        color: Colors.light.textSecondary,
-        fontSize: Typography.sizes.sm,
-        lineHeight: 19,
-    },
     sectionHeader: {
         gap: Spacing.sm,
-        paddingTop: Spacing.sm,
+        paddingTop: 0,
         paddingBottom: Spacing.md,
-    },
-    sectionTitle: {
-        color: Colors.light.textPrimary,
-        fontSize: Typography.sizes.xxl,
-        fontWeight: '800',
-    },
-    sectionBody: {
-        color: Colors.light.textSecondary,
-        fontSize: Typography.sizes.sm,
-        lineHeight: 20,
     },
     scopeControl: {
         marginTop: Spacing.sm,

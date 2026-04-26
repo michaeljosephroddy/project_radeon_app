@@ -4,34 +4,10 @@ import { Platform, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View 
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import * as api from '../../api/client';
 import { Colors, Radii, Spacing, Typography } from '../../utils/theme';
+import { InfoNoticeCard } from '../ui/InfoNoticeCard';
 import { PrimaryButton } from '../ui/PrimaryButton';
 import { TextField } from '../ui/TextField';
-
-interface MeetupFormValues {
-    title: string;
-    description: string;
-    category_slug: string;
-    co_host_ids: string[];
-    event_type: api.MeetupEventType;
-    visibility: api.MeetupVisibility;
-    city: string;
-    country: string;
-    venue_name: string;
-    address_line_1: string;
-    address_line_2: string;
-    how_to_find_us: string;
-    online_url: string;
-    cover_image_url: string;
-    starts_on: string;
-    starts_at: string;
-    ends_on: string;
-    ends_at: string;
-    timezone: string;
-    lat: number | null;
-    lng: number | null;
-    capacity: string;
-    waitlist_enabled: boolean;
-}
+import { MeetupFormValues } from './MeetupFormState';
 
 interface MeetupFormProps {
     title: string;
@@ -188,10 +164,6 @@ export function MeetupForm({
         onChange(field, formatTimeInput(selectedDate));
     };
 
-    const openPicker = (field: PickerField) => {
-        setActivePicker(field);
-    };
-
     const toggleCoHost = (friend: api.FriendUser) => {
         const next = values.co_host_ids.includes(friend.user_id)
             ? values.co_host_ids.filter((id) => id !== friend.user_id)
@@ -201,11 +173,10 @@ export function MeetupForm({
 
     return (
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-            <View style={styles.hero}>
-                <Text style={styles.heroEyebrow}>{mode === 'published' ? 'MANAGE LIVE EVENT' : mode === 'draft' ? 'EDIT DRAFT' : 'CREATE EVENT'}</Text>
-                <Text style={styles.heroTitle}>{title}</Text>
-                <Text style={styles.heroText}>Build a polished event with format, category, venue, schedule, and attendee rules.</Text>
-            </View>
+            <InfoNoticeCard
+                title={mode === 'published' ? 'Manage live event' : mode === 'draft' ? 'Edit draft' : 'Create event'}
+                description={title}
+            />
 
             {!!error && (
                 <View style={styles.errorCard}>
@@ -254,13 +225,13 @@ export function MeetupForm({
                 <View style={styles.row}>
                     <View style={styles.half}>
                         <Text style={styles.fieldLabel}>Start date</Text>
-                        <TouchableOpacity style={styles.pickerButton} onPress={() => openPicker('starts_on')} activeOpacity={0.82}>
+                        <TouchableOpacity style={styles.pickerButton} onPress={() => setActivePicker('starts_on')} activeOpacity={0.82}>
                             <Text style={styles.pickerButtonText}>{formatDateLabel(values.starts_on)}</Text>
                         </TouchableOpacity>
                     </View>
                     <View style={styles.half}>
                         <Text style={styles.fieldLabel}>Start time</Text>
-                        <TouchableOpacity style={styles.pickerButton} onPress={() => openPicker('starts_at')} activeOpacity={0.82}>
+                        <TouchableOpacity style={styles.pickerButton} onPress={() => setActivePicker('starts_at')} activeOpacity={0.82}>
                             <Text style={styles.pickerButtonText}>{formatTimeLabel(values.starts_at)}</Text>
                         </TouchableOpacity>
                     </View>
@@ -268,13 +239,13 @@ export function MeetupForm({
                 <View style={styles.row}>
                     <View style={styles.half}>
                         <Text style={styles.fieldLabel}>End date</Text>
-                        <TouchableOpacity style={styles.pickerButton} onPress={() => openPicker('ends_on')} activeOpacity={0.82}>
+                        <TouchableOpacity style={styles.pickerButton} onPress={() => setActivePicker('ends_on')} activeOpacity={0.82}>
                             <Text style={styles.pickerButtonText}>{formatDateLabel(values.ends_on)}</Text>
                         </TouchableOpacity>
                     </View>
                     <View style={styles.half}>
                         <Text style={styles.fieldLabel}>End time</Text>
-                        <TouchableOpacity style={styles.pickerButton} onPress={() => openPicker('ends_at')} activeOpacity={0.82}>
+                        <TouchableOpacity style={styles.pickerButton} onPress={() => setActivePicker('ends_at')} activeOpacity={0.82}>
                             <Text style={styles.pickerButtonText}>{formatTimeLabel(values.ends_at)}</Text>
                         </TouchableOpacity>
                     </View>
@@ -439,30 +410,6 @@ const styles = StyleSheet.create({
         padding: Spacing.md,
         gap: Spacing.lg,
     },
-    hero: {
-        borderRadius: Radii.xl,
-        backgroundColor: Colors.light.backgroundSecondary,
-        borderWidth: 1,
-        borderColor: Colors.primary,
-        padding: Spacing.lg,
-        gap: 6,
-    },
-    heroEyebrow: {
-        color: Colors.primary,
-        fontSize: Typography.sizes.xs,
-        fontWeight: '800',
-        letterSpacing: 1.2,
-    },
-    heroTitle: {
-        color: Colors.light.textPrimary,
-        fontSize: Typography.sizes.xxl,
-        fontWeight: '800',
-    },
-    heroText: {
-        color: Colors.light.textSecondary,
-        fontSize: Typography.sizes.sm,
-        lineHeight: 20,
-    },
     errorCard: {
         borderRadius: Radii.lg,
         backgroundColor: Colors.dangerSubtle,
@@ -553,6 +500,15 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         gap: Spacing.md,
     },
+    half: {
+        flex: 1,
+        gap: Spacing.xs,
+    },
+    fieldLabel: {
+        color: Colors.light.textPrimary,
+        fontSize: Typography.sizes.sm,
+        fontWeight: '700',
+    },
     pickerButton: {
         borderRadius: Radii.md,
         paddingHorizontal: Spacing.md,
@@ -569,6 +525,27 @@ const styles = StyleSheet.create({
         borderRadius: Radii.lg,
         backgroundColor: Colors.light.background,
         paddingHorizontal: Spacing.sm,
+    },
+    switchRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        gap: Spacing.md,
+        paddingVertical: Spacing.xs,
+    },
+    switchCopy: {
+        flex: 1,
+        gap: 3,
+    },
+    switchTitle: {
+        color: Colors.light.textPrimary,
+        fontSize: Typography.sizes.md,
+        fontWeight: '700',
+    },
+    switchSubtitle: {
+        color: Colors.light.textSecondary,
+        fontSize: Typography.sizes.sm,
+        lineHeight: 19,
     },
     coverSection: {
         gap: Spacing.sm,
@@ -602,15 +579,12 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     coverActionButton: {
-        flex: 1,
-        minHeight: 44,
-        borderRadius: Radii.md,
+        paddingHorizontal: Spacing.md,
+        paddingVertical: 10,
+        borderRadius: Radii.full,
         backgroundColor: Colors.primarySubtle,
         borderWidth: 1,
         borderColor: Colors.primary,
-        alignItems: 'center',
-        justifyContent: 'center',
-        paddingHorizontal: Spacing.md,
     },
     coverActionText: {
         color: Colors.primary,
@@ -618,78 +592,53 @@ const styles = StyleSheet.create({
         fontWeight: '700',
     },
     coverSecondaryAction: {
-        minHeight: 44,
-        borderRadius: Radii.md,
+        paddingHorizontal: Spacing.md,
+        paddingVertical: 10,
+        borderRadius: Radii.full,
+        backgroundColor: Colors.light.background,
         borderWidth: 1,
         borderColor: Colors.light.border,
-        alignItems: 'center',
-        justifyContent: 'center',
-        paddingHorizontal: Spacing.md,
-        backgroundColor: Colors.light.background,
     },
     coverSecondaryActionText: {
         color: Colors.light.textSecondary,
         fontSize: Typography.sizes.sm,
         fontWeight: '700',
     },
-    half: {
-        flex: 1,
-        gap: Spacing.xs,
-    },
-    fieldLabel: {
-        color: Colors.light.textSecondary,
-        fontSize: Typography.sizes.xs,
-        fontWeight: '700',
-        textTransform: 'uppercase',
-    },
-    switchRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        gap: Spacing.md,
-        borderRadius: Radii.lg,
-        backgroundColor: Colors.light.background,
-        padding: Spacing.md,
-    },
-    switchCopy: {
-        flex: 1,
-        gap: 4,
-    },
-    switchTitle: {
-        color: Colors.light.textPrimary,
-        fontSize: Typography.sizes.md,
-        fontWeight: '700',
-    },
-    switchSubtitle: {
-        color: Colors.light.textSecondary,
-        fontSize: Typography.sizes.sm,
-        lineHeight: 18,
-    },
     footerActions: {
-        gap: Spacing.md,
+        gap: Spacing.sm,
         paddingBottom: Spacing.xl,
     },
     secondaryAction: {
         alignItems: 'center',
         justifyContent: 'center',
-        paddingVertical: 12,
+        minHeight: 48,
+        borderRadius: Radii.md,
+        borderWidth: 1,
+        borderColor: Colors.primary,
+        backgroundColor: Colors.primarySubtle,
+        paddingHorizontal: Spacing.md,
     },
     secondaryActionText: {
         color: Colors.primary,
         fontSize: Typography.sizes.md,
         fontWeight: '700',
     },
+    primaryAction: {
+        width: '100%',
+    },
     destructiveAction: {
         alignItems: 'center',
         justifyContent: 'center',
-        paddingVertical: 12,
+        minHeight: 48,
+        borderRadius: Radii.md,
+        borderWidth: 1,
+        borderColor: Colors.danger,
+        backgroundColor: Colors.dangerSubtle,
+        paddingHorizontal: Spacing.md,
     },
     destructiveActionText: {
         color: Colors.danger,
         fontSize: Typography.sizes.md,
         fontWeight: '700',
-    },
-    primaryAction: {
-        width: '100%',
     },
 });

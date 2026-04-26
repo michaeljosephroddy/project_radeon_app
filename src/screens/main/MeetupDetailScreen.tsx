@@ -108,6 +108,14 @@ export function MeetupDetailScreen({
         detail.event_type.replace('_', ' '),
         detail.distance_km !== undefined && detail.distance_km !== null ? `${Math.round(detail.distance_km)} km away` : null,
     ].filter(Boolean).join(' · ');
+    const locationLine = detail.event_type === 'online'
+        ? (detail.online_url ?? 'Online event')
+        : [
+            detail.venue_name ?? detail.city,
+            detail.address_line_1,
+            detail.address_line_2,
+            [detail.city, detail.country].filter(Boolean).join(', '),
+        ].filter(Boolean).join(' · ');
 
     const handlePrimaryAction = async () => {
         setUpdating(true);
@@ -157,6 +165,7 @@ export function MeetupDetailScreen({
                 <ScrollView
                     contentContainerStyle={[
                         screenStandards.detailContent,
+                        screenStandards.scrollContent,
                         { paddingBottom: Math.max(insets.bottom + Spacing.xs, Spacing.lg) },
                     ]}
                     showsVerticalScrollIndicator={false}
@@ -173,9 +182,7 @@ export function MeetupDetailScreen({
                             <Text style={styles.heroTitle}>{detail.title}</Text>
                             <Text style={styles.heroMeta}>{secondaryMeta}</Text>
                             <Text style={styles.heroSchedule}>{formatRange(detail.starts_at, detail.ends_at)}</Text>
-                            <Text style={styles.heroLocation}>
-                                {detail.event_type === 'online' ? (detail.online_url ?? 'Online event') : `${detail.venue_name ?? detail.city}${detail.country ? `, ${detail.country}` : ''}`}
-                            </Text>
+                            <Text style={styles.heroLocation}>{locationLine}</Text>
                             {detail.status !== 'published' ? (
                                 <View style={styles.statusPill}>
                                     <Text style={styles.statusPillText}>{detail.status.toUpperCase()}</Text>
@@ -225,7 +232,10 @@ export function MeetupDetailScreen({
 
                     <View style={styles.sectionCard}>
                         <Text style={styles.sectionTitle}>Venue</Text>
-                        <Text style={styles.bodyText}>{detail.venue_name ?? detail.city}</Text>
+                        <Text style={styles.bodyText}>{detail.venue_name ?? (detail.event_type === 'online' ? 'Online event' : detail.city)}</Text>
+                        {detail.city || detail.country ? (
+                            <Text style={styles.subtleText}>{[detail.city, detail.country].filter(Boolean).join(', ')}</Text>
+                        ) : null}
                         {detail.address_line_1 ? <Text style={styles.subtleText}>{detail.address_line_1}</Text> : null}
                         {detail.address_line_2 ? <Text style={styles.subtleText}>{detail.address_line_2}</Text> : null}
                         {detail.how_to_find_us ? <Text style={styles.subtleText}>{detail.how_to_find_us}</Text> : null}
