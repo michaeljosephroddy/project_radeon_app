@@ -11,6 +11,7 @@ interface MeetupFormValues {
     title: string;
     description: string;
     category_slug: string;
+    co_host_ids: string[];
     event_type: api.MeetupEventType;
     visibility: api.MeetupVisibility;
     city: string;
@@ -26,6 +27,8 @@ interface MeetupFormValues {
     ends_on: string;
     ends_at: string;
     timezone: string;
+    lat: number | null;
+    lng: number | null;
     capacity: string;
     waitlist_enabled: boolean;
 }
@@ -34,16 +37,22 @@ interface MeetupFormProps {
     title: string;
     values: MeetupFormValues;
     categories: api.MeetupCategory[];
-    editing: boolean;
+    friends: api.FriendUser[];
+    mode: 'create' | 'draft' | 'published';
     loading: boolean;
     coverUploading: boolean;
     coverPreviewUri?: string | null;
     error?: string;
-    onChange: (key: keyof MeetupFormValues, value: string | boolean) => void;
+    primaryActionLabel: string;
+    primaryActionVariant?: 'primary' | 'success' | 'warning';
+    secondaryActionLabel?: string;
+    destructiveActionLabel?: string;
+    onChange: (key: keyof MeetupFormValues, value: string | boolean | string[]) => void;
     onPickCover: () => void;
     onRemoveCover: () => void;
-    onSaveDraft: () => void;
-    onPublish: () => void;
+    onPrimaryAction: () => void;
+    onSecondaryAction?: () => void;
+    onDestructiveAction?: () => void;
     onCancelEdit?: () => void;
 }
 
@@ -111,21 +120,39 @@ export function MeetupForm({
     title,
     values,
     categories,
-    editing,
+    friends,
+    mode,
     loading,
     coverUploading,
     coverPreviewUri,
     error,
+    primaryActionLabel,
+    primaryActionVariant = 'success',
+    secondaryActionLabel,
+    destructiveActionLabel,
     onChange,
     onPickCover,
     onRemoveCover,
-    onSaveDraft,
-    onPublish,
+    onPrimaryAction,
+    onSecondaryAction,
+    onDestructiveAction,
     onCancelEdit,
 }: MeetupFormProps) {
     const [activePicker, setActivePicker] = React.useState<PickerField>(null);
+    const [coHostQuery, setCoHostQuery] = React.useState('');
     const isOnline = values.event_type === 'online';
     const showLocationFields = values.event_type !== 'online';
+    const selectedCoHosts = React.useMemo(
+        () => friends.filter((friend) => values.co_host_ids.includes(friend.user_id)),
+        [friends, values.co_host_ids],
+    );
+    const availableCoHosts = React.useMemo(() => {
+        const query = coHostQuery.trim().toLowerCase();
+        return friends
+            .filter((friend) => !values.co_host_ids.includes(friend.user_id))
+            .filter((friend) => !query || friend.username.toLowerCase().includes(query))
+            .slice(0, 10);
+    }, [coHostQuery, friends, values.co_host_ids]);
     const defaultStart = React.useMemo(() => {
         const start = new Date();
         start.setDate(start.getDate() + 7);
@@ -165,10 +192,17 @@ export function MeetupForm({
         setActivePicker(field);
     };
 
+    const toggleCoHost = (friend: api.FriendUser) => {
+        const next = values.co_host_ids.includes(friend.user_id)
+            ? values.co_host_ids.filter((id) => id !== friend.user_id)
+            : [...values.co_host_ids, friend.user_id];
+        onChange('co_host_ids', next);
+    };
+
     return (
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
             <View style={styles.hero}>
-                <Text style={styles.heroEyebrow}>{editing ? 'EDIT EVENT' : 'CREATE EVENT'}</Text>
+                <Text style={styles.heroEyebrow}>{mode === 'published' ? 'MANAGE LIVE EVENT' : mode === 'draft' ? 'EDIT DRAFT' : 'CREATE EVENT'}</Text>
                 <Text style={styles.heroTitle}>{title}</Text>
                 <Text style={styles.heroText}>Build a polished event with format, category, venue, schedule, and attendee rules.</Text>
             </View>
@@ -268,6 +302,52 @@ export function MeetupForm({
             </View>
 
             <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Co-hosts</Text>
+                <Text style={styles.helperText}>Invite trusted friends to help host the meetup. Organizers stay in full control.</Text>
+                {friends.length ? (
+                    <>
+                        <TextField
+                            value={coHostQuery}
+                            onChangeText={setCoHostQuery}
+                            placeholder="Search your friends"
+                            autoCapitalize="none"
+                        />
+                        {selectedCoHosts.length ? (
+                            <View style={styles.wrap}>
+                                {selectedCoHosts.map((friend) => (
+                                    <TouchableOpacity
+                                        key={friend.user_id}
+                                        style={styles.selectedHostChip}
+                                        onPress={() => toggleCoHost(friend)}
+                                        activeOpacity={0.82}
+                                    >
+                                        <Text style={styles.selectedHostChipText}>{friend.username}</Text>
+                                        <Text style={styles.selectedHostChipRemove}>Remove</Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </View>
+                        ) : null}
+                        <View style={styles.wrap}>
+                            {availableCoHosts.length ? availableCoHosts.map((friend) => (
+                                <ChoiceChip
+                                    key={friend.user_id}
+                                    label={friend.username}
+                                    selected={false}
+                                    onPress={() => toggleCoHost(friend)}
+                                />
+                            )) : (
+                                <Text style={styles.emptyHostsText}>
+                                    {coHostQuery.trim() ? 'No friends match that search.' : 'All available friends are already selected.'}
+                                </Text>
+                            )}
+                        </View>
+                    </>
+                ) : (
+                    <Text style={styles.emptyHostsText}>Add friends first if you want co-host support on this event.</Text>
+                )}
+            </View>
+
+            <View style={styles.section}>
                 <Text style={styles.sectionTitle}>{isOnline ? 'Online setup' : 'Venue and location'}</Text>
                 <TextField value={values.city} onChangeText={(value) => onChange('city', value)} placeholder="City" />
                 <TextField value={values.country} onChangeText={(value) => onChange('country', value)} placeholder="Country" />
@@ -327,8 +407,28 @@ export function MeetupForm({
                         <Text style={styles.secondaryActionText}>Cancel editing</Text>
                     </TouchableOpacity>
                 ) : null}
-                <PrimaryButton label={editing ? 'Save draft changes' : 'Save draft'} onPress={onSaveDraft} loading={loading} style={styles.primaryAction} />
-                <PrimaryButton label={editing ? 'Update and publish' : 'Publish event'} onPress={onPublish} loading={loading} variant="success" style={styles.primaryAction} />
+                {secondaryActionLabel && onSecondaryAction ? (
+                    <TouchableOpacity style={styles.secondaryAction} onPress={onSecondaryAction} activeOpacity={0.8} disabled={loading}>
+                        <Text style={styles.secondaryActionText}>{secondaryActionLabel}</Text>
+                    </TouchableOpacity>
+                ) : null}
+                <PrimaryButton
+                    label={primaryActionLabel}
+                    onPress={onPrimaryAction}
+                    loading={loading}
+                    variant={primaryActionVariant}
+                    style={styles.primaryAction}
+                />
+                {destructiveActionLabel && onDestructiveAction ? (
+                    <TouchableOpacity
+                        style={styles.destructiveAction}
+                        onPress={onDestructiveAction}
+                        activeOpacity={0.8}
+                        disabled={loading}
+                    >
+                        <Text style={styles.destructiveActionText}>{destructiveActionLabel}</Text>
+                    </TouchableOpacity>
+                ) : null}
             </View>
         </ScrollView>
     );
@@ -341,26 +441,27 @@ const styles = StyleSheet.create({
     },
     hero: {
         borderRadius: Radii.xl,
-        backgroundColor: Colors.primary,
+        backgroundColor: Colors.light.backgroundSecondary,
+        borderWidth: 1,
+        borderColor: Colors.primary,
         padding: Spacing.lg,
         gap: 6,
     },
     heroEyebrow: {
-        color: Colors.textOn.primary,
+        color: Colors.primary,
         fontSize: Typography.sizes.xs,
         fontWeight: '800',
         letterSpacing: 1.2,
     },
     heroTitle: {
-        color: Colors.textOn.primary,
+        color: Colors.light.textPrimary,
         fontSize: Typography.sizes.xxl,
         fontWeight: '800',
     },
     heroText: {
-        color: Colors.textOn.primary,
+        color: Colors.light.textSecondary,
         fontSize: Typography.sizes.sm,
         lineHeight: 20,
-        opacity: 0.94,
     },
     errorCard: {
         borderRadius: Radii.lg,
@@ -373,6 +474,11 @@ const styles = StyleSheet.create({
         color: Colors.danger,
         fontSize: Typography.sizes.sm,
         fontWeight: '600',
+    },
+    helperText: {
+        color: Colors.light.textSecondary,
+        fontSize: Typography.sizes.sm,
+        lineHeight: 20,
     },
     section: {
         gap: Spacing.sm,
@@ -401,7 +507,7 @@ const styles = StyleSheet.create({
         backgroundColor: Colors.light.background,
     },
     chipSelected: {
-        backgroundColor: Colors.primary,
+        backgroundColor: Colors.primarySubtle,
         borderColor: Colors.primary,
     },
     chipText: {
@@ -410,7 +516,34 @@ const styles = StyleSheet.create({
         fontWeight: '600',
     },
     chipTextSelected: {
-        color: Colors.textOn.primary,
+        color: Colors.primary,
+    },
+    selectedHostChip: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: Spacing.sm,
+        paddingHorizontal: Spacing.md,
+        paddingVertical: 10,
+        borderRadius: Radii.full,
+        backgroundColor: Colors.secondarySubtle,
+        borderWidth: 1,
+        borderColor: Colors.secondary,
+    },
+    selectedHostChipText: {
+        color: Colors.light.textPrimary,
+        fontSize: Typography.sizes.sm,
+        fontWeight: '700',
+    },
+    selectedHostChipRemove: {
+        color: Colors.light.textSecondary,
+        fontSize: Typography.sizes.xs,
+        fontWeight: '700',
+        opacity: 0.84,
+    },
+    emptyHostsText: {
+        color: Colors.light.textSecondary,
+        fontSize: Typography.sizes.sm,
+        lineHeight: 20,
     },
     multilineField: {
         minHeight: 110,
@@ -472,13 +605,15 @@ const styles = StyleSheet.create({
         flex: 1,
         minHeight: 44,
         borderRadius: Radii.md,
-        backgroundColor: Colors.primary,
+        backgroundColor: Colors.primarySubtle,
+        borderWidth: 1,
+        borderColor: Colors.primary,
         alignItems: 'center',
         justifyContent: 'center',
         paddingHorizontal: Spacing.md,
     },
     coverActionText: {
-        color: Colors.textOn.primary,
+        color: Colors.primary,
         fontSize: Typography.sizes.sm,
         fontWeight: '700',
     },
@@ -541,6 +676,16 @@ const styles = StyleSheet.create({
     },
     secondaryActionText: {
         color: Colors.primary,
+        fontSize: Typography.sizes.md,
+        fontWeight: '700',
+    },
+    destructiveAction: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 12,
+    },
+    destructiveActionText: {
+        color: Colors.danger,
         fontSize: Typography.sizes.md,
         fontWeight: '700',
     },

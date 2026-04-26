@@ -342,7 +342,7 @@ const styles = StyleSheet.create({
         borderWidth: 1.5,
         borderColor: Colors.light.background,
     },
-    groupBadgeText: { fontSize: 8, color: Colors.info, fontWeight: '600' },
+    groupBadgeText: { fontSize: 8, color: Colors.primary, fontWeight: '600' },
     meta: { flex: 1, minWidth: 0 },
     metaTop: { flexDirection: 'row', alignItems: 'center', gap: 5 },
     name: { fontSize: Typography.sizes.md, fontWeight: '500', color: Colors.light.textPrimary },
@@ -352,7 +352,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: 6,
         paddingVertical: 1,
     },
-    groupPillText: { fontSize: 9, color: Colors.info, fontWeight: '500' },
+    groupPillText: { fontSize: 9, color: Colors.primary, fontWeight: '500' },
     pendingPill: {
         backgroundColor: Colors.primary,
         borderRadius: Radii.full,

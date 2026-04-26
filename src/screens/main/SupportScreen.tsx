@@ -751,6 +751,7 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
                     onChange={(key) => {
                         if (key === 'back') closeCheckInLaterComposer();
                     }}
+                    tone="primary"
                     items={[
                         { key: 'back', label: 'Back' },
                         { key: 'check-in', label: 'Check in later', flex: 2 },
@@ -924,6 +925,7 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
                 <SegmentedControl
                     activeKey="create"
                     onChange={(key) => setSubView(key as SupportSubView)}
+                    tone="primary"
                     items={[
                         { key: 'open', label: 'Open' },
                         { key: 'mine', label: 'My requests' },
@@ -1016,6 +1018,7 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
                     <SegmentedControl
                         activeKey={isMineView ? 'mine' : 'open'}
                         onChange={(key) => setSubView(key as SupportSubView)}
+                        tone="primary"
                         items={[
                             { key: 'open', label: 'Open' },
                             { key: 'mine', label: 'My requests' },

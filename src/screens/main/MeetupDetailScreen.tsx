@@ -58,9 +58,11 @@ export function MeetupDetailScreen({
     const [updating, setUpdating] = useState(false);
     const [error, setError] = useState('');
 
-    const load = async () => {
-        setLoading(true);
-        setError('');
+    const load = async (silent = false) => {
+        if (!silent) {
+            setLoading(true);
+            setError('');
+        }
         try {
             const [loadedDetail, loadedAttendees] = await Promise.all([
                 api.getMeetup(meetup.id),
@@ -75,9 +77,13 @@ export function MeetupDetailScreen({
                 setWaitlist([]);
             }
         } catch (nextError: unknown) {
-            setError(nextError instanceof Error ? nextError.message : 'Unable to load this event.');
+            if (!silent) {
+                setError(nextError instanceof Error ? nextError.message : 'Unable to load this event.');
+            }
         } finally {
-            setLoading(false);
+            if (!silent) {
+                setLoading(false);
+            }
         }
     };
 
@@ -124,10 +130,10 @@ export function MeetupDetailScreen({
                     waitlist_count: result.waitlist_count,
                 }));
             }
-            await queryClient.invalidateQueries({ queryKey: ['meetups'] });
-            await queryClient.invalidateQueries({ queryKey: ['my-meetups'] });
-            await queryClient.invalidateQueries({ queryKey: ['meetup', detail.id] });
-            await load();
+            void queryClient.invalidateQueries({ queryKey: ['meetups'] });
+            void queryClient.invalidateQueries({ queryKey: ['my-meetups'] });
+            void queryClient.invalidateQueries({ queryKey: ['meetup', detail.id] });
+            await load(true);
         } catch (nextError: unknown) {
             Alert.alert('Error', nextError instanceof Error ? nextError.message : 'Something went wrong.');
         } finally {
@@ -314,10 +320,10 @@ const styles = StyleSheet.create({
         height: 170,
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: Colors.primary,
+        backgroundColor: Colors.primarySubtle,
     },
     coverFallbackText: {
-        color: Colors.textOn.primary,
+        color: Colors.primary,
         fontSize: Typography.sizes.xxl,
         fontWeight: '800',
     },

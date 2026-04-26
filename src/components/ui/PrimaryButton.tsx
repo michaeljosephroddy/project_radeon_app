@@ -16,7 +16,7 @@ interface PrimaryButtonProps {
     onPress: () => void;
     disabled?: boolean;
     loading?: boolean;
-    variant?: 'primary' | 'success' | 'warning';
+    variant?: 'primary' | 'success' | 'warning' | 'danger' | 'info' | 'secondary';
     style?: StyleProp<ViewStyle>;
     textStyle?: StyleProp<TextStyle>;
     leftAdornment?: React.ReactNode;
@@ -34,12 +34,22 @@ export function PrimaryButton({
     leftAdornment,
     rightAdornment,
 }: PrimaryButtonProps) {
-    const isWarning = variant === 'warning';
+    const isWarning = variant === 'warning' || variant === 'info';
     return (
         <TouchableOpacity
             style={[
                 styles.base,
-                variant === 'success' ? styles.success : isWarning ? styles.warning : styles.primary,
+                variant === 'success'
+                    ? styles.success
+                    : variant === 'warning'
+                        ? styles.warning
+                        : variant === 'danger'
+                            ? styles.danger
+                            : variant === 'info'
+                                ? styles.info
+                                : variant === 'secondary'
+                                    ? styles.secondary
+                                    : styles.primary,
                 (disabled || loading) && styles.disabled,
                 style,
             ]}
@@ -73,6 +83,15 @@ const styles = StyleSheet.create({
     },
     warning: {
         backgroundColor: Colors.warning,
+    },
+    danger: {
+        backgroundColor: Colors.danger,
+    },
+    info: {
+        backgroundColor: Colors.primary,
+    },
+    secondary: {
+        backgroundColor: Colors.secondary,
     },
     warningText: {
         color: Colors.textOn.warning,

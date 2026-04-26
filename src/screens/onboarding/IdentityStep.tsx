@@ -100,6 +100,7 @@ export function IdentityStep({ onNext, dotIndex, dotTotal }: IdentityStepProps) 
                             }))}
                             activeKey={gender || 'none'}
                             onChange={(value) => setGender(value as EditableGender)}
+                            tone="secondary"
                             style={styles.segmentedControl}
                         />
                         {gender ? (
