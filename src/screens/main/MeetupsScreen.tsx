@@ -13,7 +13,6 @@ import { Avatar } from '../../components/Avatar';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { HeroCard } from '../../components/ui/HeroCard';
 import { InfoNoticeCard } from '../../components/ui/InfoNoticeCard';
-import { PlusFeatureSheet } from '../../components/ui/PlusFeatureSheet';
 import { PrimaryButton } from '../../components/ui/PrimaryButton';
 import { ScreenHeader } from '../../components/ui/ScreenHeader';
 import { SearchBar } from '../../components/ui/SearchBar';
@@ -30,7 +29,7 @@ import { resetInfiniteQueryToFirstPage } from '../../query/infiniteQueryPolicy';
 import { queryKeys } from '../../query/queryKeys';
 import { dedupeById } from '../../utils/list';
 import { getListPerformanceProps } from '../../utils/listPerformance';
-import { Colors, Typography, Spacing, Radii } from '../../utils/theme';
+import { Colors, Typography, Spacing, Radii, Header } from '../../utils/theme';
 import { screenStandards } from '../../styles/screenStandards';
 
 type MeetupsSubView = 'browse' | 'my' | 'create' | 'preview';
@@ -270,18 +269,13 @@ interface MeetupsScreenProps {
     isActive: boolean;
     onOpenUserProfile: (profile: { userId: string; username: string; avatarUrl?: string }) => void;
     onOpenMeetup: (meetup: api.Meetup) => void;
+    onOpenPlus: () => void;
 }
-
-const CREATE_PLUS_FEATURES: Array<{ icon: keyof typeof Ionicons.glyphMap; label: string; description: string }> = [
-    { icon: 'calendar-outline', label: 'Host meetups', description: 'Create events for your city and recovery circle.' },
-    { icon: 'people-outline', label: 'Manage attendees', description: 'Keep your guest list and meetup hosting tools in one place.' },
-    { icon: 'star-outline', label: 'Organizer access', description: 'Unlock meetup creation with SoberSpace Plus.' },
-];
 
 function hasPlusAccess(user: api.User | null): boolean {
     if (!user) return false;
     if (user.is_plus) return true;
-    return user.subscription_tier === 'plus';
+    return user.subscription_tier === 'plus' && user.subscription_status === 'active';
 }
 
 function PlusButtonBadge() {
@@ -321,7 +315,7 @@ function updateMeetupPages(
 }
 
 // Renders the meetups tab and keeps RSVP state in sync with the list.
-export function MeetupsScreen({ isActive, onOpenUserProfile, onOpenMeetup }: MeetupsScreenProps) {
+export function MeetupsScreen({ isActive, onOpenUserProfile, onOpenMeetup, onOpenPlus }: MeetupsScreenProps) {
     const { user } = useAuth();
     const queryClient = useQueryClient();
     const flatListRef = useRef<FlatList<api.Meetup> | null>(null);
@@ -335,7 +329,6 @@ export function MeetupsScreen({ isActive, onOpenUserProfile, onOpenMeetup }: Mee
     const [debouncedCityFilter, setDebouncedCityFilter] = useState(() => getBestCity(user).trim());
     const [cityHydrated, setCityHydrated] = useState(() => !!getBestCity(user));
     const [rsvpPendingIds, setRsvpPendingIds] = useState<Set<string>>(new Set());
-    const [showCreatePaywall, setShowCreatePaywall] = useState(false);
     const [submitError, setSubmitError] = useState('');
     const [successMessage, setSuccessMessage] = useState('');
     const [submitting, setSubmitting] = useState(false);
@@ -533,7 +526,7 @@ export function MeetupsScreen({ isActive, onOpenUserProfile, onOpenMeetup }: Mee
     // Persists a new meetup and updates both the public and personal meetup lists.
     const handleCreateMeetup = async () => {
         if (!canCreateMeetups) {
-            setShowCreatePaywall(true);
+            onOpenPlus();
             return;
         }
 
@@ -622,68 +615,62 @@ export function MeetupsScreen({ isActive, onOpenUserProfile, onOpenMeetup }: Mee
             : { day: '--', month: '---', dateTime: `${form.startsOn} ${form.startsAt}` };
 
         return (
-            <ScrollView contentContainerStyle={screenStandards.detailContent}>
-                <PlusFeatureSheet
-                    visible={showCreatePaywall}
-                    title="Create Meetups"
-                    items={CREATE_PLUS_FEATURES}
-                    onClose={() => setShowCreatePaywall(false)}
-                />
-
+            <View style={styles.container}>
                 <ScreenHeader onBack={() => setSubView('create')} title="Review your meetup" style={styles.previewHeader} />
-
-                <View style={styles.previewCard}>
-                    <View style={styles.previewCardTop}>
-                        <View style={styles.previewDateBadge}>
-                            <Text style={styles.previewDateDay}>{day}</Text>
-                            <Text style={styles.previewDateMon}>{month}</Text>
-                        </View>
-                        <View style={styles.previewCardBody}>
-                            <Text style={styles.previewCardTitle}>{form.title.trim()}</Text>
-                            {!!form.description.trim() && (
-                                <Text style={styles.previewCardDescription}>{form.description.trim()}</Text>
-                            )}
-                        </View>
-                    </View>
-
-                    <View style={styles.previewDivider} />
-
-                    <View style={styles.previewDetailRow}>
-                        <Ionicons name="location-outline" size={15} color={Colors.light.textTertiary} />
-                        <View style={styles.previewDetailBody}>
-                            <Text style={styles.previewDetailLabel}>Location</Text>
-                            <Text style={styles.previewDetailValue}>{form.city.trim()}</Text>
-                        </View>
-                    </View>
-                    <View style={styles.previewDetailRow}>
-                        <Ionicons name="calendar-outline" size={15} color={Colors.light.textTertiary} />
-                        <View style={styles.previewDetailBody}>
-                            <Text style={styles.previewDetailLabel}>Date & time</Text>
-                            <Text style={styles.previewDetailValue}>{formattedDateTime}</Text>
-                        </View>
-                    </View>
-                    {!!form.capacity.trim() && (
-                        <View style={styles.previewDetailRow}>
-                            <Ionicons name="people-outline" size={15} color={Colors.light.textTertiary} />
-                            <View style={styles.previewDetailBody}>
-                                <Text style={styles.previewDetailLabel}>Capacity</Text>
-                                <Text style={styles.previewDetailValue}>{form.capacity.trim()} spots</Text>
+                <ScrollView contentContainerStyle={screenStandards.detailContent}>
+                    <View style={styles.previewCard}>
+                        <View style={styles.previewCardTop}>
+                            <View style={styles.previewDateBadge}>
+                                <Text style={styles.previewDateDay}>{day}</Text>
+                                <Text style={styles.previewDateMon}>{month}</Text>
+                            </View>
+                            <View style={styles.previewCardBody}>
+                                <Text style={styles.previewCardTitle}>{form.title.trim()}</Text>
+                                {!!form.description.trim() && (
+                                    <Text style={styles.previewCardDescription}>{form.description.trim()}</Text>
+                                )}
                             </View>
                         </View>
-                    )}
-                </View>
 
-                <PrimaryButton
-                    label="Create Meetup"
-                    onPress={handleCreateMeetup}
-                    disabled={submitting}
-                    loading={submitting}
-                    variant="warning"
-                    style={styles.primaryButton}
-                    leftAdornment={<Ionicons name="star" size={15} color={Colors.textOn.warning} />}
-                    rightAdornment={<PlusButtonBadge />}
-                />
-            </ScrollView>
+                        <View style={styles.previewDivider} />
+
+                        <View style={styles.previewDetailRow}>
+                            <Ionicons name="location-outline" size={15} color={Colors.light.textTertiary} />
+                            <View style={styles.previewDetailBody}>
+                                <Text style={styles.previewDetailLabel}>Location</Text>
+                                <Text style={styles.previewDetailValue}>{form.city.trim()}</Text>
+                            </View>
+                        </View>
+                        <View style={styles.previewDetailRow}>
+                            <Ionicons name="calendar-outline" size={15} color={Colors.light.textTertiary} />
+                            <View style={styles.previewDetailBody}>
+                                <Text style={styles.previewDetailLabel}>Date & time</Text>
+                                <Text style={styles.previewDetailValue}>{formattedDateTime}</Text>
+                            </View>
+                        </View>
+                        {!!form.capacity.trim() && (
+                            <View style={styles.previewDetailRow}>
+                                <Ionicons name="people-outline" size={15} color={Colors.light.textTertiary} />
+                                <View style={styles.previewDetailBody}>
+                                    <Text style={styles.previewDetailLabel}>Capacity</Text>
+                                    <Text style={styles.previewDetailValue}>{form.capacity.trim()} spots</Text>
+                                </View>
+                            </View>
+                        )}
+                    </View>
+
+                    <PrimaryButton
+                        label="Create Meetup"
+                        onPress={handleCreateMeetup}
+                        disabled={submitting}
+                        loading={submitting}
+                        variant="warning"
+                        style={styles.primaryButton}
+                        leftAdornment={<Ionicons name="star" size={15} color={Colors.textOn.warning} />}
+                        rightAdornment={<PlusButtonBadge />}
+                    />
+                </ScrollView>
+            </View>
         );
     }
 
@@ -695,12 +682,6 @@ export function MeetupsScreen({ isActive, onOpenUserProfile, onOpenMeetup }: Mee
                 style={styles.container}
                 behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
             >
-                <PlusFeatureSheet
-                    visible={showCreatePaywall}
-                    title="Create Meetups"
-                    items={CREATE_PLUS_FEATURES}
-                    onClose={() => setShowCreatePaywall(false)}
-                />
                 <ScrollView
                     ref={createFormRef}
                     contentContainerStyle={screenStandards.detailContent}
@@ -870,12 +851,6 @@ export function MeetupsScreen({ isActive, onOpenUserProfile, onOpenMeetup }: Mee
     if (subView === 'my') {
         return (
             <View style={styles.container}>
-                <PlusFeatureSheet
-                    visible={showCreatePaywall}
-                    title="Create Meetups"
-                    items={CREATE_PLUS_FEATURES}
-                    onClose={() => setShowCreatePaywall(false)}
-                />
                 <FlatList
                 ref={flatListRef}
                 data={myMeetups}
@@ -948,12 +923,6 @@ export function MeetupsScreen({ isActive, onOpenUserProfile, onOpenMeetup }: Mee
 
     return (
         <View style={styles.container}>
-            <PlusFeatureSheet
-                visible={showCreatePaywall}
-                title="Create Meetups"
-                items={CREATE_PLUS_FEATURES}
-                onClose={() => setShowCreatePaywall(false)}
-            />
             <FlatList
             ref={flatListRef}
             data={meetups}
@@ -1050,7 +1019,10 @@ const styles = StyleSheet.create({
     center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
     footerLoader: { paddingVertical: Spacing.md },
     headerCard: { marginBottom: Spacing.md },
-    previewHeader: { marginBottom: Spacing.lg },
+    previewHeader: {
+        paddingTop: 0,
+        paddingBottom: Header.paddingVertical,
+    },
     previewCard: {
         backgroundColor: Colors.light.backgroundSecondary,
         borderRadius: Radii.lg,

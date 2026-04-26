@@ -10,6 +10,48 @@ export const queryKeys = {
     myMeetups: (params?: { limit?: number }) => ['my-meetups', params ?? {}] as const,
     meetup: (meetupId: string) => ['meetup', meetupId] as const,
     meetupAttendees: (meetupId: string) => ['meetup-attendees', meetupId] as const,
+    discoverSuggested: (params?: {
+        lat?: number;
+        lng?: number;
+        limit?: number;
+    }) => ['discover-suggested', params ?? {}] as const,
+    discoverSearch: (params?: {
+        query?: string;
+        city?: string;
+        gender?: string;
+        ageMin?: number;
+        ageMax?: number;
+        distanceKm?: number;
+        sobriety?: string;
+        interests?: string[];
+        lat?: number;
+        lng?: number;
+        limit?: number;
+    }) => ['discover-search', params ?? {}] as const,
+    discoverFiltered: (params?: {
+        city?: string;
+        gender?: string;
+        ageMin?: number;
+        ageMax?: number;
+        distanceKm?: number;
+        sobriety?: string;
+        interests?: string[];
+        lat?: number;
+        lng?: number;
+        limit?: number;
+    }) => ['discover-filtered', params ?? {}] as const,
+    discoverPreview: (params?: {
+        query?: string;
+        city?: string;
+        gender?: string;
+        ageMin?: number;
+        ageMax?: number;
+        distanceKm?: number;
+        sobriety?: string;
+        interests?: string[];
+        lat?: number;
+        lng?: number;
+    }) => ['discover-preview', params ?? {}] as const,
     discover: (params?: {
         query?: string;
         city?: string;
@@ -18,10 +60,36 @@ export const queryKeys = {
         ageMax?: number;
         distanceKm?: number;
         sobriety?: string;
+        interests?: string[];
         lat?: number;
         lng?: number;
         limit?: number;
-    }) => ['discover', params ?? {}] as const,
+    }) => {
+        const normalized = params ?? {};
+        if (normalized.query) {
+            return ['discover-search', normalized] as const;
+        }
+
+        const hasAdvancedFilters = Boolean(
+            normalized.city
+            || normalized.gender
+            || normalized.ageMin !== undefined
+            || normalized.ageMax !== undefined
+            || normalized.distanceKm !== undefined
+            || normalized.sobriety
+            || normalized.interests?.length,
+        );
+
+        if (hasAdvancedFilters) {
+            return ['discover-filtered', normalized] as const;
+        }
+
+        return ['discover-suggested', {
+            lat: normalized.lat,
+            lng: normalized.lng,
+            limit: normalized.limit,
+        }] as const;
+    },
     supportRequests: (params?: { scope?: 'open' | 'mine'; limit?: number }) => ['support-requests', params ?? {}] as const,
     supportProfile: () => ['support-profile'] as const,
 };

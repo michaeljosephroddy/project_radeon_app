@@ -12,7 +12,17 @@ const INFINITE_QUERY_POLICIES: Record<string, InfiniteQueryPolicy> = {
         persistedPages: 1,
         refetchOnMount: true,
     },
-    discover: {
+    'discover-suggested': {
+        persist: true,
+        persistedPages: 1,
+        refetchOnMount: true,
+    },
+    'discover-search': {
+        persist: true,
+        persistedPages: 1,
+        refetchOnMount: true,
+    },
+    'discover-filtered': {
         persist: true,
         persistedPages: 1,
         refetchOnMount: true,

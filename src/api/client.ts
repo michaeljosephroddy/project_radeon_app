@@ -90,10 +90,13 @@ export interface User {
     banner_url?: string | null;
     is_plus?: boolean;
     subscription_tier?: string | null;
+    subscription_status?: string | null;
     city?: string;
     country?: string;
     bio?: string | null;
     interests: string[];
+    gender?: UserGender | null;
+    birth_date?: string | null;
     sober_since?: string;
     created_at: string;
     friendship_status: 'self' | 'none' | 'incoming' | 'outgoing' | 'friends';
@@ -323,11 +326,43 @@ export interface NotificationPreferences {
     comment_mentions: boolean;
 }
 
+export type UserGender = 'woman' | 'man' | 'non_binary';
+export type DiscoverSobrietyFilter = 'days_30' | 'days_90' | 'years_1' | 'years_5';
+export type DiscoverRelaxedField = 'distance' | 'age' | 'interests' | 'sobriety';
+export type DiscoverTooNarrowField = DiscoverRelaxedField | 'gender';
+
+export interface DiscoverFiltersPayload {
+    gender?: UserGender;
+    ageMin?: number;
+    ageMax?: number;
+    distanceKm?: number;
+    sobriety?: DiscoverSobrietyFilter;
+    interests?: string[];
+}
+
+export interface DiscoverPreviewResponse {
+    exact_count: number;
+    broadened_count?: number;
+    broadened_available: boolean;
+    relaxed_filters?: DiscoverRelaxedField[];
+    likely_too_narrow_fields?: DiscoverTooNarrowField[];
+    effective_filters: {
+        gender?: UserGender;
+        age_min?: number;
+        age_max?: number;
+        distance_km?: number;
+        sobriety?: DiscoverSobrietyFilter;
+        interests?: string[];
+    };
+}
+
 export interface UpdateMeInput {
     username?: string;
     city?: string;
     country?: string;
+    gender?: UserGender | '';
     bio?: string | null;
+    birth_date?: string;
     interests?: string[];
     sober_since?: string;
     lat?: number;
@@ -415,16 +450,53 @@ export async function getInterests(): Promise<string[]> {
 export async function discoverUsers(params?: {
     query?: string;
     city?: string;
-    gender?: string;
+    gender?: UserGender;
     ageMin?: number;
     ageMax?: number;
     distanceKm?: number;
-    sobriety?: string;
+    sobriety?: DiscoverSobrietyFilter;
+    interests?: string[];
     lat?: number;
     lng?: number;
     page?: number;
     limit?: number;
 }): Promise<PaginatedResponse<User>> {
+    const search = buildDiscoverSearchParams(params);
+    const suffix = search.toString() ? `?${search.toString()}` : '';
+    return request(`/users/discover${suffix}`);
+}
+
+export async function previewDiscoverUsers(params?: {
+    query?: string;
+    city?: string;
+    gender?: UserGender;
+    ageMin?: number;
+    ageMax?: number;
+    distanceKm?: number;
+    sobriety?: DiscoverSobrietyFilter;
+    interests?: string[];
+    lat?: number;
+    lng?: number;
+}): Promise<DiscoverPreviewResponse> {
+    const search = buildDiscoverSearchParams(params);
+    const suffix = search.toString() ? `?${search.toString()}` : '';
+    return request(`/users/discover/preview${suffix}`);
+}
+
+function buildDiscoverSearchParams(params?: {
+    query?: string;
+    city?: string;
+    gender?: UserGender;
+    ageMin?: number;
+    ageMax?: number;
+    distanceKm?: number;
+    sobriety?: DiscoverSobrietyFilter;
+    interests?: string[];
+    lat?: number;
+    lng?: number;
+    page?: number;
+    limit?: number;
+}): URLSearchParams {
     const search = new URLSearchParams();
     if (params?.query?.trim()) search.set('q', params.query.trim());
     if (params?.city?.trim()) search.set('city', params.city.trim());
@@ -433,12 +505,14 @@ export async function discoverUsers(params?: {
     if (typeof params?.ageMax === 'number') search.set('age_max', String(params.ageMax));
     if (typeof params?.distanceKm === 'number') search.set('distance_km', String(params.distanceKm));
     if (params?.sobriety?.trim()) search.set('sobriety', params.sobriety.trim());
+    for (const interest of params?.interests ?? []) {
+        if (interest.trim()) search.append('interest', interest.trim());
+    }
     if (typeof params?.lat === 'number') search.set('lat', String(params.lat));
     if (typeof params?.lng === 'number') search.set('lng', String(params.lng));
     if (params?.page) search.set('page', String(params.page));
     if (params?.limit) search.set('limit', String(params.limit));
-    const suffix = search.toString() ? `?${search.toString()}` : '';
-    return request(`/users/discover${suffix}`);
+    return search;
 }
 
 // ── Feed & Posts ───────────────────────────────────────────────────────────

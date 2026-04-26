@@ -18,6 +18,7 @@ import { ComposeDMScreen } from '../screens/main/ComposeDMScreen';
 import { UserProfileScreen } from '../screens/main/UserProfileScreen';
 import { MeetupDetailScreen } from '../screens/main/MeetupDetailScreen';
 import { Avatar } from '../components/Avatar';
+import { PlusUpsellScreen } from '../components/PlusUpsellScreen';
 import * as api from '../api/client';
 import { Colors, Typography, Spacing } from '../utils/theme';
 import { useAuth } from '../hooks/useAuth';
@@ -42,8 +43,16 @@ const TABS: { key: Tab; label: string; icon: keyof typeof Ionicons.glyphMap; ico
 
 // Each tab is its own memoized component so React skips reconciliation for the
 // three tabs that didn't change when the active tab switches.
-const DiscoverTab = React.memo(function DiscoverTab({ isActive, onOpenUserProfile }: { isActive: boolean; onOpenUserProfile: (p: OpenUserProfile) => void }) {
-    return <View style={isActive ? styles.tabVisible : styles.tabHidden}><DiscoverScreen isActive={isActive} onOpenUserProfile={onOpenUserProfile} /></View>;
+const DiscoverTab = React.memo(function DiscoverTab({
+    isActive,
+    onOpenUserProfile,
+    onOpenPlus,
+}: {
+    isActive: boolean;
+    onOpenUserProfile: (p: OpenUserProfile) => void;
+    onOpenPlus: () => void;
+}) {
+    return <View style={isActive ? styles.tabVisible : styles.tabHidden}><DiscoverScreen isActive={isActive} onOpenUserProfile={onOpenUserProfile} onOpenPlus={onOpenPlus} /></View>;
 });
 
 const SupportTab = React.memo(function SupportTab({ isActive, onOpenChat, onOpenUserProfile }: { isActive: boolean; onOpenChat: (c: Chat) => void; onOpenUserProfile: (p: OpenUserProfile) => void }) {
@@ -54,10 +63,12 @@ const MeetupsTab = React.memo(function MeetupsTab({
     isActive,
     onOpenUserProfile,
     onOpenMeetup,
+    onOpenPlus,
 }: {
     isActive: boolean;
     onOpenUserProfile: (p: OpenUserProfile) => void;
     onOpenMeetup: (meetup: api.Meetup) => void;
+    onOpenPlus: () => void;
 }) {
     return (
         <View style={isActive ? styles.tabVisible : styles.tabHidden}>
@@ -65,6 +76,7 @@ const MeetupsTab = React.memo(function MeetupsTab({
                 isActive={isActive}
                 onOpenUserProfile={onOpenUserProfile}
                 onOpenMeetup={onOpenMeetup}
+                onOpenPlus={onOpenPlus}
             />
         </View>
     );
@@ -83,6 +95,7 @@ export function AppNavigator() {
     const [pendingDM, setPendingDM] = useState<{ recipientId: string; username: string; avatarUrl?: string } | null>(null);
     const [ownProfileOpen, setOwnProfileOpen] = useState(false);
     const [openMeetup, setOpenMeetup] = useState<api.Meetup | null>(null);
+    const [plusUpsellOpen, setPlusUpsellOpen] = useState(false);
     const [openComments, setOpenComments] = useState<{ post: api.Post; focusComposer: boolean } | null>(null);
     const [keyboardVisible, setKeyboardVisible] = useState(false);
     const [feedFocusRequest, setFeedFocusRequest] = useState<{ postId: string; commentId?: string; nonce: number } | null>(null);
@@ -93,6 +106,7 @@ export function AppNavigator() {
     const inOwnProfile = ownProfileOpen;
     const inComposeDM = pendingDM !== null;
     const inMeetupDetail = openMeetup !== null;
+    const inPlusUpsell = plusUpsellOpen;
     const inComments = openComments !== null;
 
     const handleOpenUserProfile = useCallback((profile: OpenUserProfile) => {
@@ -107,6 +121,14 @@ export function AppNavigator() {
 
     const handleCloseMeetup = useCallback(() => {
         setOpenMeetup(null);
+    }, []);
+
+    const openPlusUpsell = useCallback(() => {
+        setPlusUpsellOpen(true);
+    }, []);
+
+    const closePlusUpsell = useCallback(() => {
+        setPlusUpsellOpen(false);
     }, []);
 
     const handleCloseChat = useCallback(() => {
@@ -221,7 +243,7 @@ export function AppNavigator() {
     }, [consumeIntent, intent]);
 
     const header = useMemo(() => {
-        if (inChat || inUserProfile || inOwnProfile || inComposeDM || inMeetupDetail || inComments) return null;
+        if (inChat || inUserProfile || inOwnProfile || inComposeDM || inMeetupDetail || inPlusUpsell || inComments) return null;
 
         const titles: Record<Tab, React.ReactNode> = {
             community: (
@@ -248,7 +270,7 @@ export function AppNavigator() {
                 </TouchableOpacity>
             </View>
         );
-    }, [inChat, inUserProfile, inOwnProfile, inComposeDM, inMeetupDetail, activeTab, user, openOwnProfile]);
+    }, [inChat, inUserProfile, inOwnProfile, inComposeDM, inMeetupDetail, inPlusUpsell, activeTab, user, openOwnProfile]);
 
     const overlays = useMemo(() => (
         <>
@@ -302,15 +324,23 @@ export function AppNavigator() {
                     />
                 </View>
             )}
+            {inPlusUpsell && (
+                <View style={StyleSheet.absoluteFill}>
+                    <PlusUpsellScreen
+                        onPrimary={closePlusUpsell}
+                        onDismiss={closePlusUpsell}
+                    />
+                </View>
+            )}
         </>
     ), [
-        inOwnProfile, inUserProfile, inChat, inComposeDM, inMeetupDetail,
+        inOwnProfile, inUserProfile, inChat, inComposeDM, inMeetupDetail, inPlusUpsell,
         openUserProfile, openChat, pendingDM, openMeetup,
         handleOpenUserProfile, handleCloseChat, closeUserProfile, closeOwnProfile,
-        handleComposeDM, handleComposeDMComplete, handleCloseMeetup,
+        handleComposeDM, handleComposeDMComplete, handleCloseMeetup, closePlusUpsell,
     ]);
 
-    const isOverlayOpen = inChat || inUserProfile || inOwnProfile || inComposeDM || inMeetupDetail || inComments;
+    const isOverlayOpen = inChat || inUserProfile || inOwnProfile || inComposeDM || inMeetupDetail || inPlusUpsell || inComments;
 
     return (
         <>
@@ -326,12 +356,13 @@ export function AppNavigator() {
                             focusRequest={feedFocusRequest}
                         />
                     </View>
-                    <DiscoverTab isActive={activeTab === 'discover' && !isOverlayOpen} onOpenUserProfile={handleOpenUserProfile} />
+                    <DiscoverTab isActive={activeTab === 'discover' && !isOverlayOpen} onOpenUserProfile={handleOpenUserProfile} onOpenPlus={openPlusUpsell} />
                     <SupportTab isActive={activeTab === 'support' && !isOverlayOpen} onOpenChat={setOpenChat} onOpenUserProfile={handleOpenUserProfile} />
                     <MeetupsTab
                         isActive={activeTab === 'meetups' && !isOverlayOpen}
                         onOpenUserProfile={handleOpenUserProfile}
                         onOpenMeetup={handleOpenMeetup}
+                        onOpenPlus={openPlusUpsell}
                     />
                     <ChatsTab isActive={activeTab === 'chats' && !isOverlayOpen} onOpenChat={setOpenChat} />
                     {overlays}

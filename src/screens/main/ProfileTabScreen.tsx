@@ -25,9 +25,33 @@ import { screenStandards } from '../../styles/screenStandards';
 
 type SubView = 'profile' | 'friends' | 'requests' | 'settings';
 type RequestsSubView = 'incoming' | 'outgoing';
-type EditableSection = 'bio' | 'location' | 'interests' | 'sobriety' | null;
+type EditableSection = 'bio' | 'location' | 'identity' | 'interests' | 'sobriety' | null;
+type EditableGender = api.UserGender | '';
 const MAX_BIO_LENGTH = 160;
 const MAX_INTERESTS = 5;
+const GENDER_SEGMENTS = [
+    { key: 'woman', label: 'Women' },
+    { key: 'man', label: 'Men' },
+    { key: 'non_binary', label: 'Non-binary' },
+] as const;
+
+function getGenderLabel(gender?: api.UserGender | null): string {
+    switch (gender) {
+        case 'woman':
+            return 'Women';
+        case 'man':
+            return 'Men';
+        case 'non_binary':
+            return 'Non-binary';
+        default:
+            return 'Not set';
+    }
+}
+
+function formatBirthDateValue(raw?: string | null): string {
+    if (!raw) return 'Not set';
+    return raw;
+}
 
 interface ProfileTabScreenProps {
     isActive: boolean;
@@ -43,9 +67,12 @@ export function ProfileTabScreen({ isActive, onOpenUserProfile, onBack }: Profil
 
     const [city, setCity]             = useState(user?.city ?? '');
     const [country, setCountry]       = useState(user?.country ?? '');
+    const [gender, setGender]         = useState<EditableGender>(user?.gender ?? '');
     const [bio, setBio]               = useState(user?.bio ?? '');
+    const [birthDate, setBirthDate]   = useState(user?.birth_date ?? '');
     const [selectedInterests, setSelectedInterests] = useState<string[]>(user?.interests ?? []);
     const [soberSince, setSoberSince] = useState(user?.sober_since ?? '');
+    const [showBirthDatePicker, setShowBirthDatePicker] = useState(false);
     const [showSoberSincePicker, setShowSoberSincePicker] = useState(false);
     const [editingSection, setEditingSection] = useState<EditableSection>(null);
     const [savingSection, setSavingSection] = useState<EditableSection>(null);
@@ -74,8 +101,11 @@ export function ProfileTabScreen({ isActive, onOpenUserProfile, onBack }: Profil
     const sobrietyFieldValue = formattedSobrietyDate || soberSince || 'Not set';
     const bioCharactersRemaining = MAX_BIO_LENGTH - bio.length;
     const allInterestOptions = Array.from(new Set([...availableInterests, ...selectedInterests])).sort((a, b) => a.localeCompare(b));
+    const birthDatePickerValue = birthDate ? new Date(`${birthDate}T12:00:00Z`) : new Date('1990-01-01T12:00:00Z');
     const soberSincePickerValue = soberSince ? new Date(`${soberSince}T12:00:00Z`) : new Date();
     const savedLocation = user?.city ? `${user.city}${user.country ? `, ${user.country}` : ''}` : 'Add your location';
+    const savedGender = getGenderLabel(user?.gender);
+    const savedBirthDate = formatBirthDateValue(user?.birth_date);
     const savedBio = user?.bio?.trim() ? user.bio : 'Add a short bio';
     const currentCityDisplay = (() => {
         if (!user?.current_city || !user.location_updated_at) return null;
@@ -90,11 +120,14 @@ export function ProfileTabScreen({ isActive, onOpenUserProfile, onBack }: Profil
         if (!user) return;
         setCity(user.city ?? '');
         setCountry(user.country ?? '');
+        setGender(user.gender ?? '');
         setBio(user.bio ?? '');
+        setBirthDate(user.birth_date ?? '');
         setSelectedInterests(user.interests ?? []);
         setSoberSince(user.sober_since ?? '');
         setEditingSection(null);
         setSavingSection(null);
+        setShowBirthDatePicker(false);
         setShowSoberSincePicker(false);
     }, [user]);
 
@@ -245,6 +278,23 @@ export function ProfileTabScreen({ isActive, onOpenUserProfile, onBack }: Profil
         setSoberSince(nextDate);
     };
 
+    const handleBirthDateChange = (event: DateTimePickerEvent, selectedDate?: Date) => {
+        if (Platform.OS === 'android') {
+            setShowBirthDatePicker(false);
+            if (event.type === 'dismissed' || !selectedDate) return;
+        }
+
+        if (!selectedDate) return;
+
+        const nextDate = [
+            selectedDate.getFullYear(),
+            String(selectedDate.getMonth() + 1).padStart(2, '0'),
+            String(selectedDate.getDate()).padStart(2, '0'),
+        ].join('-');
+
+        setBirthDate(nextDate);
+    };
+
     const handleStartEditSection = (section: Exclude<EditableSection, null>) => {
         if (!user) return;
         setEditingSection(section);
@@ -253,12 +303,20 @@ export function ProfileTabScreen({ isActive, onOpenUserProfile, onBack }: Profil
             setCity(user.city ?? '');
             setCountry(user.country ?? '');
         }
+        if (section === 'identity') {
+            setGender(user.gender ?? '');
+            setBirthDate(user.birth_date ?? '');
+            setShowBirthDatePicker(Platform.OS === 'ios');
+        }
         if (section === 'interests') setSelectedInterests(user.interests ?? []);
         if (section === 'sobriety') {
             setSoberSince(user.sober_since ?? '');
             setShowSoberSincePicker(Platform.OS === 'ios');
         } else {
             setShowSoberSincePicker(false);
+        }
+        if (section !== 'identity') {
+            setShowBirthDatePicker(false);
         }
     };
 
@@ -267,8 +325,11 @@ export function ProfileTabScreen({ isActive, onOpenUserProfile, onBack }: Profil
         setBio(user.bio ?? '');
         setCity(user.city ?? '');
         setCountry(user.country ?? '');
+        setGender(user.gender ?? '');
+        setBirthDate(user.birth_date ?? '');
         setSelectedInterests(user.interests ?? []);
         setSoberSince(user.sober_since ?? '');
+        setShowBirthDatePicker(false);
         setShowSoberSincePicker(false);
         setEditingSection(null);
     };
@@ -285,6 +346,13 @@ export function ProfileTabScreen({ isActive, onOpenUserProfile, onBack }: Profil
         await saveSection('location', {
             city: city.trim() || undefined,
             country: country.trim() || undefined,
+        });
+    };
+
+    const handleSaveIdentity = async () => {
+        await saveSection('identity', {
+            gender,
+            birth_date: birthDate || '',
         });
     };
 
@@ -727,6 +795,92 @@ export function ProfileTabScreen({ isActive, onOpenUserProfile, onBack }: Profil
                     </View>
 
                     <View style={screenStandards.sectionLabelBlock}>
+                        <SectionLabel>IDENTITY</SectionLabel>
+                    </View>
+                    <View style={styles.fieldGroup}>
+                        <View style={styles.sectionCardHeader}>
+                            <Text style={styles.sectionCardTitle}>Identity</Text>
+                            {editingSection === 'identity' ? null : (
+                                <TouchableOpacity onPress={() => handleStartEditSection('identity')}>
+                                    <Text style={styles.sectionActionText}>Edit</Text>
+                                </TouchableOpacity>
+                            )}
+                        </View>
+                        {editingSection === 'identity' ? (
+                            <>
+                                <Text style={styles.editFieldLabel}>Gender</Text>
+                                <SegmentedControl
+                                    activeKey={gender || 'none'}
+                                    onChange={(key) => setGender(key as EditableGender)}
+                                    style={styles.identitySegments}
+                                    items={GENDER_SEGMENTS.map((item) => ({
+                                        key: item.key,
+                                        label: item.label,
+                                    }))}
+                                />
+                                <View style={styles.identityInlineActions}>
+                                    <TouchableOpacity onPress={() => setGender('')}>
+                                        <Text style={styles.identityInlineActionText}>Clear gender</Text>
+                                    </TouchableOpacity>
+                                </View>
+                                <View style={styles.fieldEditor}>
+                                    <Text style={styles.editFieldLabel}>Birth date</Text>
+                                    <TouchableOpacity
+                                        onPress={() => setShowBirthDatePicker(true)}
+                                        style={styles.identityValueButton}
+                                        activeOpacity={0.8}
+                                    >
+                                        <Text style={[styles.sectionValueText, !birthDate && styles.sectionValuePlaceholder]}>
+                                            {formatBirthDateValue(birthDate)}
+                                        </Text>
+                                    </TouchableOpacity>
+                                </View>
+                                <View style={styles.identityInlineActions}>
+                                    <TouchableOpacity onPress={() => setBirthDate('')}>
+                                        <Text style={styles.identityInlineActionText}>Clear birth date</Text>
+                                    </TouchableOpacity>
+                                </View>
+                                {Platform.OS === 'ios' ? (
+                                    <View style={styles.inlineDatePickerWrap}>
+                                        <DateTimePicker
+                                            value={birthDatePickerValue}
+                                            mode="date"
+                                            display="spinner"
+                                            maximumDate={new Date()}
+                                            onChange={handleBirthDateChange}
+                                        />
+                                    </View>
+                                ) : showBirthDatePicker ? (
+                                    <DateTimePicker
+                                        value={birthDatePickerValue}
+                                        mode="date"
+                                        display="default"
+                                        maximumDate={new Date()}
+                                        onChange={handleBirthDateChange}
+                                    />
+                                ) : null}
+                                <View style={styles.sectionActions}>
+                                    <TouchableOpacity style={styles.sectionSecondaryButton} onPress={handleCancelEditSection}>
+                                        <Text style={styles.sectionSecondaryButtonText}>Cancel</Text>
+                                    </TouchableOpacity>
+                                    <PrimaryButton
+                                        label="Save"
+                                        onPress={handleSaveIdentity}
+                                        loading={savingSection === 'identity'}
+                                        disabled={savingSection === 'identity'}
+                                        style={styles.sectionPrimaryButton}
+                                    />
+                                </View>
+                            </>
+                        ) : (
+                            <>
+                                <Text style={[styles.sectionValueText, !user?.gender && styles.sectionValuePlaceholder]}>{savedGender}</Text>
+                                <Text style={[styles.sectionMetaText, !user?.birth_date && styles.sectionValuePlaceholder]}>{savedBirthDate}</Text>
+                            </>
+                        )}
+                    </View>
+
+                    <View style={screenStandards.sectionLabelBlock}>
                         <SectionLabel>SOBRIETY</SectionLabel>
                     </View>
                     <View style={styles.fieldGroup}>
@@ -873,7 +1027,7 @@ const styles = StyleSheet.create({
     },
     requestActionSecondaryText: { fontSize: Typography.sizes.sm, fontWeight: '500', color: Colors.light.textSecondary },
 
-    content: { flexGrow: 1, paddingBottom: Spacing.md },
+    content: { flexGrow: 1, paddingTop: Spacing.md, paddingBottom: Spacing.md },
     mainContent: { gap: 0, paddingHorizontal: Spacing.md },
 
     bannerTouch: {
@@ -980,6 +1134,13 @@ const styles = StyleSheet.create({
     sectionValuePlaceholder: {
         color: Colors.light.textTertiary,
     },
+    sectionMetaText: {
+        paddingHorizontal: Spacing.md,
+        paddingBottom: Spacing.md,
+        marginTop: -Spacing.sm,
+        fontSize: Typography.sizes.sm,
+        color: Colors.light.textSecondary,
+    },
     currentCityText: {
         paddingHorizontal: Spacing.md,
         paddingBottom: Spacing.md,
@@ -998,6 +1159,27 @@ const styles = StyleSheet.create({
     },
     editFieldInput: {
         fontSize: Typography.sizes.base,
+    },
+    identitySegments: {
+        paddingHorizontal: Spacing.md,
+        marginBottom: Spacing.md,
+    },
+    identityValueButton: {
+        borderWidth: 1,
+        borderColor: Colors.light.border,
+        borderRadius: Radii.md,
+        backgroundColor: Colors.light.background,
+        paddingTop: Spacing.md,
+    },
+    identityInlineActions: {
+        alignItems: 'flex-end',
+        paddingHorizontal: Spacing.md,
+        paddingBottom: Spacing.sm,
+    },
+    identityInlineActionText: {
+        fontSize: Typography.sizes.sm,
+        fontWeight: '600',
+        color: Colors.primary,
     },
     inlineDatePickerWrap: {
         borderTopWidth: 0.5,
