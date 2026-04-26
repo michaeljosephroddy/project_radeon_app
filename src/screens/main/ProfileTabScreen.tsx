@@ -493,6 +493,7 @@ export function ProfileTabScreen({ isActive, onOpenUserProfile, onBack }: Profil
                 <SegmentedControl
                     activeKey={requestsSubView}
                     onChange={(key) => setRequestsSubView(key as RequestsSubView)}
+                    tone="primary"
                     style={styles.requestTabs}
                     items={[
                         {
@@ -790,6 +791,7 @@ export function ProfileTabScreen({ isActive, onOpenUserProfile, onBack }: Profil
                                 <SegmentedControl
                                     activeKey={gender || 'none'}
                                     onChange={(key) => setGender(key as EditableGender)}
+                                    tone="secondary"
                                     style={styles.identitySegments}
                                     items={GENDER_SEGMENTS.map((item) => ({
                                         key: item.key,

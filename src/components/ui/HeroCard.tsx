@@ -9,12 +9,28 @@ interface HeroCardProps {
     description: string;
     style?: StyleProp<ViewStyle>;
     titleStyle?: StyleProp<TextStyle>;
+    eyebrowTone?: 'primary' | 'info' | 'success' | 'warning' | 'secondary';
 }
 
-export function HeroCard({ eyebrow, title, description, style, titleStyle }: HeroCardProps) {
+function getEyebrowColor(tone: NonNullable<HeroCardProps['eyebrowTone']>): string {
+    switch (tone) {
+        case 'success':
+            return Colors.success;
+        case 'warning':
+            return Colors.warning;
+        case 'secondary':
+            return Colors.light.textSecondary;
+        case 'primary':
+            return Colors.primary;
+        default:
+            return Colors.primary;
+    }
+}
+
+export function HeroCard({ eyebrow, title, description, style, titleStyle, eyebrowTone = 'primary' }: HeroCardProps) {
     return (
         <SurfaceCard padding="lg" style={style}>
-            <Text style={styles.eyebrow}>{eyebrow}</Text>
+            <Text style={[styles.eyebrow, { color: getEyebrowColor(eyebrowTone) }]}>{eyebrow}</Text>
             <Text style={[styles.title, titleStyle]}>{title}</Text>
             <Text style={styles.description}>{description}</Text>
         </SurfaceCard>
@@ -25,7 +41,6 @@ const styles = StyleSheet.create({
     eyebrow: {
         fontSize: Typography.sizes.xs,
         fontWeight: '700',
-        color: Colors.primary,
         letterSpacing: 0.8,
         marginBottom: 6,
     },

@@ -192,7 +192,7 @@ export type MeetupVisibility = 'public' | 'unlisted';
 export type MeetupSort = 'recommended' | 'soonest' | 'distance' | 'popular' | 'newest';
 export type MeetupDatePreset = 'today' | 'tomorrow' | 'this_week' | 'this_weekend' | 'custom';
 export type MeetupTimeOfDay = 'morning' | 'afternoon' | 'evening' | 'night';
-export type MyMeetupScope = 'hosting' | 'going' | 'drafts' | 'past';
+export type MyMeetupScope = 'upcoming' | 'going' | 'drafts' | 'cancelled' | 'past';
 
 export interface MeetupPersonPreview {
     id: string;
@@ -280,6 +280,7 @@ export interface MeetupUpsertInput {
     title: string;
     description?: string | null;
     category_slug: string;
+    co_host_ids?: string[];
     event_type: MeetupEventType;
     status: Extract<MeetupStatus, 'draft' | 'published'>;
     visibility: MeetupVisibility;
@@ -798,6 +799,10 @@ export async function createMeetup(data: MeetupUpsertInput): Promise<Meetup> {
 // Updates a meetup owned by the current user.
 export async function updateMeetup(id: string, data: MeetupUpsertInput): Promise<Meetup> {
     return normalizeMeetup(await request<Meetup>(`/meetups/${id}`, { method: 'PATCH', body: JSON.stringify(data) }));
+}
+
+export async function deleteMeetup(id: string): Promise<{ deleted: boolean }> {
+    return request(`/meetups/${id}`, { method: 'DELETE' });
 }
 
 export async function publishMeetup(id: string): Promise<Meetup> {

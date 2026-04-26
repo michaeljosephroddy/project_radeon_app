@@ -130,7 +130,7 @@ const DiscoverCard = memo(function DiscoverCard({ user, isFriended, onPress, onF
             <View style={styles.cardFooter}>
                 {milestone ? (
                     <View style={styles.cardMilestonePill}>
-                        <Ionicons name="trophy-outline" size={10} color={Colors.primary} />
+                        <Ionicons name="trophy-outline" size={10} color={Colors.warning} />
                         <Text style={styles.cardMilestoneText}>{milestone.currentLabel}</Text>
                     </View>
                 ) : null}
@@ -727,7 +727,7 @@ const styles = StyleSheet.create({
     cardMilestoneText: {
         fontSize: Typography.sizes.xs,
         fontWeight: '600',
-        color: Colors.primary,
+        color: Colors.warning,
     },
     cardName: {
         fontSize: Typography.sizes.md,

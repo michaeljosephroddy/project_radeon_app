@@ -283,19 +283,6 @@ export function AppNavigator() {
                     />
                 </View>
             )}
-            {inUserProfile && (
-                <View style={StyleSheet.absoluteFill}>
-                    <UserProfileScreen
-                        userId={openUserProfile!.userId}
-                        username={openUserProfile!.username}
-                        avatarUrl={openUserProfile!.avatarUrl}
-                        isActive={inUserProfile && !inChat && !inComposeDM}
-                        onBack={closeUserProfile}
-                        onOpenChat={setOpenChat}
-                        onComposeDM={handleComposeDM}
-                    />
-                </View>
-            )}
             {inComposeDM && (
                 <View style={StyleSheet.absoluteFill}>
                     <ComposeDMScreen
@@ -321,6 +308,19 @@ export function AppNavigator() {
                         meetup={openMeetup!}
                         onBack={handleCloseMeetup}
                         onOpenUserProfile={handleOpenUserProfile}
+                    />
+                </View>
+            )}
+            {inUserProfile && (
+                <View style={StyleSheet.absoluteFill}>
+                    <UserProfileScreen
+                        userId={openUserProfile!.userId}
+                        username={openUserProfile!.username}
+                        avatarUrl={openUserProfile!.avatarUrl}
+                        isActive={inUserProfile && !inChat && !inComposeDM}
+                        onBack={closeUserProfile}
+                        onOpenChat={setOpenChat}
+                        onComposeDM={handleComposeDM}
                     />
                 </View>
             )}

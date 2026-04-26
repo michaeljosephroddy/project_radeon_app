@@ -29,6 +29,9 @@ export const Colors = {
 
   successSubtle: 'rgba(25,135,84,0.15)',
   dangerSubtle:  'rgba(220,53,69,0.15)',
+  warningSubtle: 'rgba(255,193,7,0.16)',
+  infoSubtle:    'rgba(13,202,240,0.16)',
+  secondarySubtle: 'rgba(108,117,125,0.16)',
 
   textOn: {
     primary:   '#ffffff',

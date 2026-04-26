@@ -11,13 +11,13 @@ import {
 } from 'react-native';
 import { InfiniteData, useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
+import { Swipeable } from 'react-native-gesture-handler';
 import * as api from '../../api/client';
 import { MeetupCard } from '../../components/events/MeetupCard';
 import { MeetupFilterSheet } from '../../components/events/MeetupFilterSheet';
 import { MeetupForm } from '../../components/events/MeetupForm';
 import { Avatar } from '../../components/Avatar';
 import { EmptyState } from '../../components/ui/EmptyState';
-import { PrimaryButton } from '../../components/ui/PrimaryButton';
 import { SearchBar } from '../../components/ui/SearchBar';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { ScrollToTopButton } from '../../components/ui/ScrollToTopButton';
@@ -25,14 +25,13 @@ import { useAuth } from '../../hooks/useAuth';
 import {
     DEFAULT_MEETUP_FILTERS,
     getMeetupFilterChips,
-    hasMeetupFilters,
     MeetupDraftFilters,
-    MEETUP_DATE_PRESET_OPTIONS,
     removeMeetupFilter,
     toMeetupQueryFilters,
 } from '../../hooks/useMeetupFilters';
 import { useGuardedEndReached } from '../../hooks/useGuardedEndReached';
 import { useLazyActivation } from '../../hooks/useLazyActivation';
+import { useFriends } from '../../hooks/queries/useFriends';
 import { useMeetupCategories, useMeetups, useMyMeetups } from '../../hooks/queries/useMeetups';
 import { useRefetchOnActiveIfStale } from '../../hooks/useRefetchOnActiveIfStale';
 import { useScrollToTopButton } from '../../hooks/useScrollToTopButton';
@@ -43,7 +42,7 @@ import { Colors, Radii, Spacing, Typography } from '../../utils/theme';
 import { screenStandards } from '../../styles/screenStandards';
 
 type MeetupPrimaryView = 'discover' | 'hosting' | 'going' | 'create';
-type HostingScope = Extract<api.MyMeetupScope, 'hosting' | 'drafts' | 'past'>;
+type HostingScope = Extract<api.MyMeetupScope, 'upcoming' | 'drafts' | 'cancelled' | 'past'>;
 
 interface MeetupsScreenProps {
     isActive: boolean;
@@ -56,6 +55,7 @@ interface MeetupFormValues {
     title: string;
     description: string;
     category_slug: string;
+    co_host_ids: string[];
     event_type: api.MeetupEventType;
     visibility: api.MeetupVisibility;
     city: string;
@@ -71,6 +71,8 @@ interface MeetupFormValues {
     ends_on: string;
     ends_at: string;
     timezone: string;
+    lat: number | null;
+    lng: number | null;
     capacity: string;
     waitlist_enabled: boolean;
 }
@@ -118,6 +120,7 @@ function defaultFormValues(user: api.User | null): MeetupFormValues {
         title: '',
         description: '',
         category_slug: '',
+        co_host_ids: [],
         event_type: 'in_person',
         visibility: 'public',
         city: user?.current_city ?? user?.city ?? '',
@@ -133,6 +136,8 @@ function defaultFormValues(user: api.User | null): MeetupFormValues {
         ends_on: formatDateInput(end),
         ends_at: formatTimeInput(end),
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
+        lat: null,
+        lng: null,
         capacity: '',
         waitlist_enabled: true,
     };
@@ -145,6 +150,7 @@ function meetupToFormValues(meetup: api.Meetup): MeetupFormValues {
         title: meetup.title,
         description: meetup.description ?? '',
         category_slug: meetup.category_slug,
+        co_host_ids: meetup.hosts?.filter((host) => host.role !== 'organizer').map((host) => host.id) ?? [],
         event_type: meetup.event_type,
         visibility: meetup.visibility,
         city: meetup.city,
@@ -160,6 +166,8 @@ function meetupToFormValues(meetup: api.Meetup): MeetupFormValues {
         ends_on: formatDateInput(end),
         ends_at: formatTimeInput(end),
         timezone: meetup.timezone,
+        lat: meetup.lat ?? null,
+        lng: meetup.lng ?? null,
         capacity: meetup.capacity ? String(meetup.capacity) : '',
         waitlist_enabled: meetup.waitlist_enabled,
     };
@@ -189,6 +197,7 @@ function validateMeetupForm(form: MeetupFormValues, status: Extract<api.MeetupSt
             title: form.title.trim(),
             description: form.description.trim() || null,
             category_slug: form.category_slug,
+            co_host_ids: form.co_host_ids,
             event_type: form.event_type,
             status,
             visibility: form.visibility,
@@ -203,6 +212,8 @@ function validateMeetupForm(form: MeetupFormValues, status: Extract<api.MeetupSt
             starts_at,
             ends_at: ends_at ?? null,
             timezone: form.timezone.trim() || 'UTC',
+            lat: form.lat,
+            lng: form.lng,
             capacity: form.capacity.trim() ? Number(form.capacity) : null,
             waitlist_enabled: form.waitlist_enabled,
         },
@@ -217,13 +228,18 @@ function getDiscoverActionLabel(meetup: api.Meetup): string {
     return 'RSVP';
 }
 
+function canDeleteMeetup(meetup: api.Meetup): boolean {
+    if (meetup.status === 'draft') return true;
+    return meetup.status === 'published' && meetup.attendee_count <= 1;
+}
+
 export function MeetupsScreen({ isActive, onOpenUserProfile, onOpenMeetup, onOpenPlus }: MeetupsScreenProps) {
     const { user } = useAuth();
     const queryClient = useQueryClient();
     const listRef = useRef<FlatList<api.Meetup> | null>(null);
     const hasActivated = useLazyActivation(isActive);
     const [activeView, setActiveView] = useState<MeetupPrimaryView>('discover');
-    const [hostingScope, setHostingScope] = useState<HostingScope>('hosting');
+    const [hostingScope, setHostingScope] = useState<HostingScope>('upcoming');
     const [draftFilters, setDraftFilters] = useState<MeetupDraftFilters>(DEFAULT_MEETUP_FILTERS);
     const [appliedFilters, setAppliedFilters] = useState<MeetupDraftFilters>(DEFAULT_MEETUP_FILTERS);
     const [filterOpen, setFilterOpen] = useState(false);
@@ -237,6 +253,7 @@ export function MeetupsScreen({ isActive, onOpenUserProfile, onOpenMeetup, onOpe
     const canCreateMeetups = hasPlusAccess(user);
 
     const categoriesQuery = useMeetupCategories(hasActivated);
+    const friendsQuery = useFriends(hasActivated && activeView === 'create', 100);
     const discoverQuery = useMeetups({
         ...toMeetupQueryFilters(appliedFilters),
         limit: 20,
@@ -251,9 +268,13 @@ export function MeetupsScreen({ isActive, onOpenUserProfile, onOpenMeetup, onOpe
     const discoverScroll = useScrollToTopButton({ threshold: 320 });
     const listProps = getListPerformanceProps('detailList');
     const categories = categoriesQuery.data ?? [];
+    const friends = friendsQuery.data ?? [];
     const discoverItems = useMemo(() => flattenCursorPages(discoverQuery.data), [discoverQuery.data]);
     const hostingItems = useMemo(() => flattenCursorPages(hostingQuery.data), [hostingQuery.data]);
-    const goingItems = useMemo(() => flattenCursorPages(goingQuery.data), [goingQuery.data]);
+    const goingItems = useMemo(
+        () => flattenCursorPages(goingQuery.data).filter((meetup) => !meetup.can_manage),
+        [goingQuery.data],
+    );
     const activeFilterChips = useMemo(
         () => getMeetupFilterChips(appliedFilters, categories),
         [appliedFilters, categories],
@@ -278,6 +299,29 @@ export function MeetupsScreen({ isActive, onOpenUserProfile, onOpenMeetup, onOpe
         if (editingMeetup?.id) {
             void queryClient.invalidateQueries({ queryKey: queryKeys.meetup(editingMeetup.id) });
         }
+    };
+
+    const removeMeetupFromCaches = (meetupId: string) => {
+        queryClient.setQueriesData<InfiniteData<api.CursorResponse<api.Meetup>>>(
+            { queryKey: ['meetups'] },
+            (data) => data ? ({
+                ...data,
+                pages: data.pages.map((page) => ({
+                    ...page,
+                    items: (page.items ?? []).filter((meetup) => meetup.id !== meetupId),
+                })),
+            }) : data,
+        );
+        queryClient.setQueriesData<InfiniteData<api.CursorResponse<api.Meetup>>>(
+            { queryKey: ['my-meetups'] },
+            (data) => data ? ({
+                ...data,
+                pages: data.pages.map((page) => ({
+                    ...page,
+                    items: (page.items ?? []).filter((meetup) => meetup.id !== meetupId),
+                })),
+            }) : data,
+        );
     };
 
     const updateMeetupInCaches = (meetupId: string, updater: (meetup: api.Meetup) => api.Meetup) => {
@@ -329,6 +373,10 @@ export function MeetupsScreen({ isActive, onOpenUserProfile, onOpenMeetup, onOpe
     };
 
     const handleManageAction = (meetup: api.Meetup) => {
+        if (meetup.status !== 'draft' && meetup.status !== 'published') {
+            onOpenMeetup(meetup);
+            return;
+        }
         setEditingMeetup(meetup);
         setActiveView('create');
     };
@@ -341,7 +389,7 @@ export function MeetupsScreen({ isActive, onOpenUserProfile, onOpenMeetup, onOpe
         setActiveView(key as MeetupPrimaryView);
     };
 
-    const handleChangeFormValue = (key: keyof MeetupFormValues, value: string | boolean) => {
+    const handleChangeFormValue = (key: keyof MeetupFormValues, value: string | boolean | string[]) => {
         setFormValues((current) => ({ ...current, [key]: value } as MeetupFormValues));
         if (formError) setFormError('');
     };
@@ -387,7 +435,8 @@ export function MeetupsScreen({ isActive, onOpenUserProfile, onOpenMeetup, onOpe
     };
 
     const submitMeetup = async (status: Extract<api.MeetupStatus, 'draft' | 'published'>) => {
-        const validated = validateMeetupForm(formValues, status);
+        const nextStatus = editingMeetup?.status === 'published' ? 'published' : status;
+        const validated = validateMeetupForm(formValues, nextStatus);
         if ('error' in validated) {
             setFormError(validated.error);
             return;
@@ -405,13 +454,108 @@ export function MeetupsScreen({ isActive, onOpenUserProfile, onOpenMeetup, onOpe
             setFormValues(defaultFormValues(user));
             setLocalCoverPreviewUri(null);
             setFormError('');
-            setHostingScope(status === 'draft' ? 'drafts' : 'hosting');
-            setActiveView(status === 'draft' ? 'hosting' : 'hosting');
+            setHostingScope(nextStatus === 'draft' ? 'drafts' : 'upcoming');
+            setActiveView('hosting');
         } catch (error: unknown) {
             setFormError(error instanceof Error ? error.message : 'Unable to save this event right now.');
         } finally {
             setSubmitting(false);
         }
+    };
+
+    const resetEditingState = () => {
+        setEditingMeetup(null);
+        setFormValues(defaultFormValues(user));
+        setLocalCoverPreviewUri(null);
+        setFormError('');
+    };
+
+    const handleRemoveOrganizerMeetup = (meetup: api.Meetup) => {
+        const destructiveLabel = meetup.status === 'draft' || canDeleteMeetup(meetup) ? 'Delete' : 'Cancel event';
+        const message = meetup.status === 'draft'
+            ? 'This draft will be permanently deleted.'
+            : canDeleteMeetup(meetup)
+                ? 'This event will be permanently deleted.'
+                : 'This event will be cancelled and moved to Cancelled.';
+
+        Alert.alert(`${destructiveLabel}?`, message, [
+            { text: 'Keep it', style: 'cancel' },
+            {
+                text: destructiveLabel,
+                style: 'destructive',
+                onPress: async () => {
+                    setPendingMeetupIds((current) => new Set(current).add(meetup.id));
+                    try {
+                        if (meetup.status === 'draft' || canDeleteMeetup(meetup)) {
+                            await api.deleteMeetup(meetup.id);
+                            removeMeetupFromCaches(meetup.id);
+                        } else {
+                            const updated = await api.cancelMeetup(meetup.id);
+                            updateMeetupInCaches(meetup.id, () => updated);
+                        }
+                        invalidateMeetupQueries();
+                    } catch (error: unknown) {
+                        Alert.alert('Error', error instanceof Error ? error.message : 'Something went wrong.');
+                    } finally {
+                        setPendingMeetupIds((current) => {
+                            const next = new Set(current);
+                            next.delete(meetup.id);
+                            return next;
+                        });
+                    }
+                },
+            },
+        ]);
+    };
+
+    const handleDeleteDraftEdit = () => {
+        if (!editingMeetup) return;
+        Alert.alert('Delete this draft?', 'This draft will be permanently deleted.', [
+            { text: 'Keep draft', style: 'cancel' },
+            {
+                text: 'Delete draft',
+                style: 'destructive',
+                onPress: async () => {
+                    setSubmitting(true);
+                    try {
+                        await api.deleteMeetup(editingMeetup.id);
+                        invalidateMeetupQueries();
+                        resetEditingState();
+                        setHostingScope('drafts');
+                        setActiveView('hosting');
+                    } catch (error: unknown) {
+                        setFormError(error instanceof Error ? error.message : 'Unable to delete this draft right now.');
+                    } finally {
+                        setSubmitting(false);
+                    }
+                },
+            },
+        ]);
+    };
+
+    const handleCancelPublishedEdit = () => {
+        if (!editingMeetup) return;
+        Alert.alert('Cancel this event?', 'This will move the event out of Upcoming and into Cancelled.', [
+            { text: 'Keep event', style: 'cancel' },
+            {
+                text: 'Cancel event',
+                style: 'destructive',
+                onPress: async () => {
+                    setSubmitting(true);
+                    try {
+                        await api.cancelMeetup(editingMeetup.id);
+                        invalidateMeetupQueries();
+                        resetEditingState();
+                        setHostingScope('cancelled');
+                        setActiveView('hosting');
+                    } catch (error: unknown) {
+                        setFormError(error instanceof Error ? error.message : 'Unable to cancel this event right now.');
+                    } finally {
+                        setSubmitting(false);
+                    }
+                },
+            },
+        ]);
     };
 
     const handleApplyFilters = () => {
@@ -526,12 +670,14 @@ export function MeetupsScreen({ isActive, onOpenUserProfile, onOpenMeetup, onOpe
             {showHostingScope ? (
                 <SegmentedControl
                     items={[
-                        { key: 'hosting', label: 'Upcoming' },
+                        { key: 'upcoming', label: 'Upcoming' },
                         { key: 'drafts', label: 'Drafts' },
+                        { key: 'cancelled', label: 'Cancelled' },
                         { key: 'past', label: 'Past' },
                     ]}
                     activeKey={hostingScope}
                     onChange={(key) => setHostingScope(key as HostingScope)}
+                    tone="secondary"
                     style={styles.scopeControl}
                 />
             ) : null}
@@ -552,7 +698,7 @@ export function MeetupsScreen({ isActive, onOpenUserProfile, onOpenMeetup, onOpe
     const listHeader = activeView === 'discover'
         ? renderDiscoverHeader()
         : activeView === 'hosting'
-            ? renderMyHeader('Hosting', 'Manage published events, drafts, and past gatherings from one place.', true)
+            ? renderMyHeader('Hosting', 'Manage upcoming, draft, cancelled, and past gatherings from one place.', true)
             : renderMyHeader('Going', 'Everything you are attending or queued for stays here.');
 
     const emptyState = activeView === 'discover'
@@ -567,8 +713,22 @@ export function MeetupsScreen({ isActive, onOpenUserProfile, onOpenMeetup, onOpe
         : activeView === 'hosting'
             ? (
                 <EmptyState
-                    title={hostingScope === 'drafts' ? 'No drafts yet' : hostingScope === 'past' ? 'No past events yet' : 'No hosted events yet'}
-                    description={hostingScope === 'drafts' ? 'Save an event as a draft to polish it before publishing.' : 'Create your first event to build your local community.'}
+                    title={
+                        hostingScope === 'drafts'
+                            ? 'No drafts yet'
+                            : hostingScope === 'cancelled'
+                                ? 'No cancelled events'
+                                : hostingScope === 'past'
+                                    ? 'No past events yet'
+                                    : 'No upcoming events'
+                    }
+                    description={
+                        hostingScope === 'drafts'
+                            ? 'Save an event as a draft to polish it before publishing.'
+                            : hostingScope === 'cancelled'
+                                ? 'Cancelled events will land here instead of cluttering your active lineup.'
+                                : 'Create your first event to build your local community.'
+                    }
                     compact
                     style={styles.emptyState}
                 />
@@ -577,10 +737,49 @@ export function MeetupsScreen({ isActive, onOpenUserProfile, onOpenMeetup, onOpe
                 <EmptyState
                     title="No events in your calendar"
                     description="RSVP to something interesting and it will appear here."
-                    compact
-                    style={styles.emptyState}
-                />
+                compact
+                style={styles.emptyState}
+            />
             );
+
+    const formMode = editingMeetup
+        ? editingMeetup.status === 'published'
+            ? 'published'
+            : 'draft'
+        : 'create';
+    const formPrimaryActionLabel = formMode === 'published'
+        ? 'Save changes'
+        : 'Publish event';
+    const formSecondaryActionLabel = formMode === 'published'
+        ? undefined
+        : 'Save draft';
+    const formDestructiveActionLabel = formMode === 'published'
+        ? 'Cancel event'
+        : formMode === 'draft'
+            ? 'Delete draft'
+            : undefined;
+    const canSwipeManageList = activeView === 'hosting' && (hostingScope === 'upcoming' || hostingScope === 'drafts');
+    const getPrimaryAction = (meetup: api.Meetup) => {
+        if (activeView === 'hosting') {
+            return hostingScope === 'cancelled' ? undefined : handleManageAction;
+        }
+        if (activeView === 'going') {
+            return meetup.can_manage ? handleManageAction : handleRSVP;
+        }
+        return meetup.can_manage ? handleManageAction : handleRSVP;
+    };
+    const getPrimaryLabel = (meetup: api.Meetup) => {
+        if (activeView === 'hosting') {
+            if (hostingScope === 'cancelled') return 'View';
+            if (hostingScope === 'drafts') return 'Edit draft';
+            if (hostingScope === 'past') return 'View';
+            return 'Edit';
+        }
+        if (activeView === 'going') {
+            return meetup.is_attending ? 'Leave' : meetup.is_waitlisted ? 'Leave waitlist' : meetup.can_manage ? 'Manage' : 'RSVP';
+        }
+        return getDiscoverActionLabel(meetup);
+    };
 
     return (
         <View style={styles.container}>
@@ -593,29 +792,39 @@ export function MeetupsScreen({ isActive, onOpenUserProfile, onOpenMeetup, onOpe
                 ]}
                 activeKey={activeView}
                 onChange={handlePrimaryTabChange}
+                tone="primary"
                 style={styles.primaryControl}
             />
 
             {activeView === 'create' ? (
                 <View style={styles.createPane}>
                     <MeetupForm
-                        title={editingMeetup ? 'Refine your event details and republish with confidence.' : 'Build a polished meetup your community will actually want to join.'}
+                        title={editingMeetup?.status === 'published' ? 'Refine your live event without taking it offline.' : editingMeetup ? 'Polish the draft until it is ready to go live.' : 'Build a polished meetup your community will actually want to join.'}
                         values={formValues}
                         categories={categories}
-                        editing={!!editingMeetup}
+                        friends={friends}
+                        mode={formMode}
                         loading={submitting}
                         coverUploading={uploadingCover}
                         coverPreviewUri={localCoverPreviewUri ?? formValues.cover_image_url}
                         error={formError}
+                        primaryActionLabel={formPrimaryActionLabel}
+                        primaryActionVariant={formMode === 'published' ? 'primary' : 'success'}
+                        secondaryActionLabel={formSecondaryActionLabel}
+                        destructiveActionLabel={formDestructiveActionLabel}
                         onChange={handleChangeFormValue}
                         onPickCover={handlePickCoverImage}
                         onRemoveCover={handleRemoveCoverImage}
-                        onSaveDraft={() => void submitMeetup('draft')}
-                        onPublish={() => void submitMeetup('published')}
+                        onPrimaryAction={() => void submitMeetup('published')}
+                        onSecondaryAction={formSecondaryActionLabel ? () => void submitMeetup('draft') : undefined}
+                        onDestructiveAction={formMode === 'published' ? handleCancelPublishedEdit : formMode === 'draft' ? handleDeleteDraftEdit : undefined}
                         onCancelEdit={editingMeetup ? () => {
-                            setEditingMeetup(null);
-                            setFormValues(defaultFormValues(user));
-                            setLocalCoverPreviewUri(null);
+                            if (editingMeetup.status === 'draft') {
+                                setHostingScope('drafts');
+                            } else {
+                                setHostingScope('upcoming');
+                            }
+                            resetEditingState();
                             setActiveView('hosting');
                         } : undefined}
                     />
@@ -625,16 +834,39 @@ export function MeetupsScreen({ isActive, onOpenUserProfile, onOpenMeetup, onOpe
                     <FlatList
                         ref={listRef}
                         data={currentList}
+                        style={styles.list}
                         keyExtractor={(item) => item.id}
-                        renderItem={({ item }) => (
-                            <MeetupCard
-                                meetup={item}
-                                onPress={onOpenMeetup}
-                                onPrimaryAction={activeView === 'discover' || activeView === 'going' ? handleRSVP : handleManageAction}
-                                primaryLabel={activeView === 'hosting' ? item.status === 'draft' ? 'Edit draft' : 'Edit' : activeView === 'going' ? (item.is_attending ? 'Leave' : item.is_waitlisted ? 'Leave waitlist' : 'RSVP') : getDiscoverActionLabel(item)}
-                                actionDisabled={pendingMeetupIds.has(item.id)}
-                            />
-                        )}
+                        renderItem={({ item }) => {
+                            const card = (
+                                <MeetupCard
+                                    meetup={item}
+                                    onPress={onOpenMeetup}
+                                    onPrimaryAction={getPrimaryAction(item)}
+                                    primaryLabel={getPrimaryLabel(item)}
+                                    actionDisabled={pendingMeetupIds.has(item.id)}
+                                />
+                            );
+                            if (!canSwipeManageList) {
+                                return card;
+                            }
+                            const swipeLabel = item.status === 'draft' || canDeleteMeetup(item) ? 'Delete' : 'Cancel';
+                            return (
+                                <Swipeable
+                                    overshootRight={false}
+                                    renderRightActions={() => (
+                                        <TouchableOpacity
+                                            style={[styles.deleteAction, pendingMeetupIds.has(item.id) && styles.deleteActionDisabled]}
+                                            onPress={() => handleRemoveOrganizerMeetup(item)}
+                                            disabled={pendingMeetupIds.has(item.id)}
+                                        >
+                                            <Text style={styles.deleteActionText}>{pendingMeetupIds.has(item.id) ? '...' : swipeLabel}</Text>
+                                        </TouchableOpacity>
+                                    )}
+                                >
+                                    {card}
+                                </Swipeable>
+                            );
+                        }}
                         ListHeaderComponent={listHeader}
                         ListEmptyComponent={!currentQuery.isLoading ? emptyState : null}
                         ListFooterComponent={currentQuery.isFetchingNextPage ? <Text style={styles.loadingMore}>Loading more events…</Text> : null}
@@ -675,6 +907,26 @@ const styles = StyleSheet.create({
         paddingHorizontal: Spacing.md,
         marginTop: Spacing.xs,
         marginBottom: 0,
+    },
+    list: {
+        marginTop: Spacing.sm,
+    },
+    deleteAction: {
+        width: 92,
+        borderRadius: Radii.lg,
+        backgroundColor: Colors.danger,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginLeft: Spacing.sm,
+        marginRight: Spacing.md,
+    },
+    deleteActionDisabled: {
+        opacity: 0.55,
+    },
+    deleteActionText: {
+        color: Colors.textOn.primary,
+        fontSize: Typography.sizes.sm,
+        fontWeight: '700',
     },
     createPane: {
         flex: 1,
@@ -732,7 +984,7 @@ const styles = StyleSheet.create({
         borderColor: Colors.light.borderSecondary,
     },
     quickCategoryChipActive: {
-        backgroundColor: Colors.primary,
+        backgroundColor: Colors.primarySubtle,
         borderColor: Colors.primary,
     },
     quickCategoryText: {
@@ -741,7 +993,7 @@ const styles = StyleSheet.create({
         fontWeight: '700',
     },
     quickCategoryTextActive: {
-        color: Colors.textOn.primary,
+        color: Colors.primary,
     },
     activeChipRow: {
         gap: Spacing.sm,
@@ -766,11 +1018,11 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         gap: Spacing.md,
-        backgroundColor: Colors.light.backgroundSecondary,
+        backgroundColor: Colors.primarySubtle,
         borderRadius: Radii.xl,
         padding: Spacing.md,
         borderWidth: 1,
-        borderColor: Colors.light.borderSecondary,
+        borderColor: Colors.primary,
     },
     summaryCopy: {
         flex: 1,

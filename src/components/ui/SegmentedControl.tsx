@@ -15,9 +15,46 @@ interface SegmentedControlProps {
     activeKey: string;
     onChange?: (key: string) => void;
     style?: StyleProp<ViewStyle>;
+    tone?: 'primary' | 'success' | 'warning' | 'info' | 'secondary';
 }
 
-export function SegmentedControl({ items, activeKey, onChange, style }: SegmentedControlProps) {
+function getToneStyles(tone: NonNullable<SegmentedControlProps['tone']>) {
+    switch (tone) {
+        case 'success':
+            return {
+                activeBackground: Colors.successSubtle,
+                activeBorder: Colors.success,
+                activeText: Colors.success,
+            };
+        case 'warning':
+            return {
+                activeBackground: Colors.warningSubtle,
+                activeBorder: Colors.warning,
+                activeText: Colors.warning,
+            };
+        case 'info':
+            return {
+                activeBackground: Colors.primarySubtle,
+                activeBorder: Colors.primary,
+                activeText: Colors.primary,
+            };
+        case 'secondary':
+            return {
+                activeBackground: Colors.secondarySubtle,
+                activeBorder: Colors.secondary,
+                activeText: Colors.text.secondary,
+            };
+        default:
+            return {
+                activeBackground: Colors.primarySubtle,
+                activeBorder: Colors.primary,
+                activeText: Colors.primary,
+            };
+    }
+}
+
+export function SegmentedControl({ items, activeKey, onChange, style, tone = 'primary' }: SegmentedControlProps) {
+    const toneStyles = getToneStyles(tone);
     return (
         <View style={[styles.row, style]}>
             {items.map((item) => {
@@ -32,13 +69,16 @@ export function SegmentedControl({ items, activeKey, onChange, style }: Segmente
                         style={[
                             styles.button,
                             { flex: item.flex ?? 1 },
-                            isActive && styles.buttonActive,
+                            isActive && {
+                                backgroundColor: toneStyles.activeBackground,
+                                borderColor: toneStyles.activeBorder,
+                            },
                         ]}
                         onPress={isDisabled ? undefined : () => onChange(item.key)}
                         disabled={isDisabled}
                     >
                         <View style={styles.content}>
-                            <Text style={[styles.label, isActive && styles.labelActive]}>
+                            <Text style={[styles.label, isActive && { color: toneStyles.activeText }]}>
                                 {item.label}
                             </Text>
                             {item.badgeLabel ? (
@@ -73,25 +113,18 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         gap: Spacing.xs,
     },
-    buttonActive: {
-        backgroundColor: Colors.primary,
-        borderColor: Colors.primary,
-    },
     label: {
         fontSize: Typography.sizes.sm,
         fontWeight: '600',
         color: Colors.light.textSecondary,
     },
-    labelActive: {
-        color: Colors.textOn.primary,
-    },
     badge: {
-        backgroundColor: 'rgba(255,193,7,0.12)',
+        backgroundColor: Colors.warningSubtle,
         borderRadius: Radii.pill,
         paddingHorizontal: Spacing.xs + 2,
         paddingVertical: 2,
         borderWidth: 1,
-        borderColor: 'rgba(255,193,7,0.3)',
+        borderColor: Colors.warning,
     },
     badgeText: {
         fontSize: Typography.sizes.xs,
