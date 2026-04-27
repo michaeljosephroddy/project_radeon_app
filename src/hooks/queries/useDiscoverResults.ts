@@ -73,7 +73,7 @@ export function useDiscoverResults(params: UseDiscoverResultsParams, enabled = t
         staleTime: DISCOVER_STALE_TIME,
         refetchOnMount: policy?.refetchOnMount,
         enabled,
-        placeholderData: (previousData) => previousData,
+        placeholderData: params.mode === 'search' ? undefined : (previousData) => previousData,
     });
 
     const users = useMemo(

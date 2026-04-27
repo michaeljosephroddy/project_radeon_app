@@ -233,7 +233,8 @@ export function DiscoverScreen({ isActive, onOpenUserProfile, onOpenPlus }: Disc
     const hasActivated = useLazyActivation(isActive);
     const { user } = useAuth();
     const [searchText, setSearchText] = useState('');
-    const debouncedQuery = useDebounce(searchText.trim(), 400);
+    const liveSearchText = searchText.trim();
+    const debouncedQuery = useDebounce(liveSearchText, 400);
     const [filterSheetVisible, setFilterSheetVisible] = useState(false);
     const [coords, setCoords] = useState<{ latitude: number; longitude: number } | null>(null);
     const [friendedIds, setFriendedIds] = useState<Set<string>>(new Set());
@@ -257,7 +258,9 @@ export function DiscoverScreen({ isActive, onOpenUserProfile, onOpenPlus }: Disc
 
     const discoverLat = coords ? Math.round(coords.latitude * 100) / 100 : undefined;
     const discoverLng = coords ? Math.round(coords.longitude * 100) / 100 : undefined;
-    const isSearching = debouncedQuery.length > 0;
+    const isSearching = liveSearchText.length > 0;
+    const hasCommittedSearch = debouncedQuery.length > 0;
+    const isSearchPending = isSearching && liveSearchText !== debouncedQuery;
     const hasAppliedFilters = hasNonDefaultDiscoverFilters(appliedState.requested);
     const activeChips = useMemo(() => getDiscoverActiveChips(appliedState.requested), [appliedState.requested]);
     const broadenedCopy = appliedState.broadened ? getDiscoverRelaxedCopy(appliedState.relaxedFields) : null;
@@ -275,7 +278,7 @@ export function DiscoverScreen({ isActive, onOpenUserProfile, onOpenPlus }: Disc
     const interestOptionsQuery = useInterests(hasActivated && filterSheetVisible);
 
     const previewQuery = useDiscoverPreview({
-        query: isSearching ? debouncedQuery : undefined,
+        query: hasCommittedSearch ? debouncedQuery : undefined,
         ...draftApiFilters,
         lat: discoverLat,
         lng: discoverLng,
@@ -292,7 +295,7 @@ export function DiscoverScreen({ isActive, onOpenUserProfile, onOpenPlus }: Disc
         [appliedState.effective, hasAppliedFilters],
     );
 
-    const discoverMode: 'suggested' | 'search' | 'filtered' = isSearching
+    const discoverMode: 'suggested' | 'search' | 'filtered' = hasCommittedSearch
         ? 'search'
         : hasAppliedFilters
             ? 'filtered'
@@ -300,12 +303,16 @@ export function DiscoverScreen({ isActive, onOpenUserProfile, onOpenPlus }: Disc
 
     const discoverQuery = useDiscoverResultsQuery({
         mode: discoverMode,
-        query: isSearching ? debouncedQuery : undefined,
+        query: hasCommittedSearch ? debouncedQuery : undefined,
         ...effectiveApiFilters,
         lat: discoverLat,
         lng: discoverLng,
         limit: 20,
     }, hasActivated);
+    const showSearchLoadingState = isSearchPending || (isSearching && hasCommittedSearch && discoverQuery.isLoading);
+    const displayedUsers = isSearching
+        ? (showSearchLoadingState ? [] : discoverQuery.users)
+        : discoverQuery.users;
 
     const handleFriend = useCallback(async (id: string) => {
         setFriendedIds((current) => new Set([...current, id]));
@@ -332,11 +339,11 @@ export function DiscoverScreen({ isActive, onOpenUserProfile, onOpenPlus }: Disc
     }, [discoverQuery]);
 
     const handleLoadMore = useCallback(async () => {
-        if (!isActive || !discoverQuery.hasNextPage || discoverQuery.isFetchingNextPage || discoverQuery.isRefetching) {
+        if (isSearchPending || !isActive || !discoverQuery.hasNextPage || discoverQuery.isFetchingNextPage || discoverQuery.isRefetching) {
             return;
         }
         await discoverQuery.fetchNextPage();
-    }, [discoverQuery, isActive]);
+    }, [discoverQuery, isActive, isSearchPending]);
     const discoverListPagination = useGuardedEndReached(handleLoadMore);
 
     const handleOpenFilters = useCallback(() => {
@@ -404,12 +411,12 @@ export function DiscoverScreen({ isActive, onOpenUserProfile, onOpenPlus }: Disc
             <View style={styles.sectionHeadingRow}>
                 <Text style={styles.sectionHeading}>{resultsHeading}</Text>
                 <Text style={styles.sectionCount}>
-                    {discoverQuery.users.length}
-                    {discoverQuery.hasNextPage ? '+' : ''}
+                    {displayedUsers.length}
+                    {!showSearchLoadingState && discoverQuery.hasNextPage ? '+' : ''}
                 </Text>
             </View>
         </View>
-    ), [discoverQuery.hasNextPage, discoverQuery.users.length, filterSummary, handleOpenFilters, resultsHeading]);
+    ), [discoverQuery.hasNextPage, displayedUsers.length, filterSummary, handleOpenFilters, resultsHeading, showSearchLoadingState]);
     const renderSearchItem = useCallback(({ item }: { item: api.User }) => (
         <SearchResultRow
             user={item}
@@ -431,7 +438,7 @@ export function DiscoverScreen({ isActive, onOpenUserProfile, onOpenPlus }: Disc
         />
     ), [handleFriend, isFriendedFor, onOpenUserProfile]);
 
-    if (discoverQuery.isLoading && discoverQuery.users.length === 0) {
+    if (!isSearching && discoverQuery.isLoading && discoverQuery.users.length === 0) {
         return (
             <View style={styles.center}>
                 <ActivityIndicator color={Colors.primary} size="large" />
@@ -476,7 +483,7 @@ export function DiscoverScreen({ isActive, onOpenUserProfile, onOpenPlus }: Disc
                 />
             </View>
 
-            {discoverQuery.users.length === 0 && !discoverQuery.isLoading ? (
+            {displayedUsers.length === 0 && !discoverQuery.isLoading && !showSearchLoadingState ? (
                 <DiscoverEmptyState
                     title={noResultsCopy.title}
                     description={noResultsCopy.description}
@@ -489,7 +496,7 @@ export function DiscoverScreen({ isActive, onOpenUserProfile, onOpenPlus }: Disc
                 <FlatList
                     ref={listRef}
                     key="discover-search-list"
-                    data={discoverQuery.users}
+                    data={displayedUsers}
                     keyExtractor={keyExtractor}
                     contentContainerStyle={styles.resultsContent}
                     refreshControl={(
@@ -511,6 +518,14 @@ export function DiscoverScreen({ isActive, onOpenUserProfile, onOpenPlus }: Disc
                     initialNumToRender={10}
                     maxToRenderPerBatch={8}
                     windowSize={9}
+                    ListEmptyComponent={showSearchLoadingState ? (
+                        <View style={styles.searchStatusCard}>
+                            <View style={styles.searchStatusRow}>
+                                <ActivityIndicator size="small" color={Colors.primary} />
+                                <Text style={styles.searchStatusText}>Searching people…</Text>
+                            </View>
+                        </View>
+                    ) : null}
                     ListFooterComponent={discoverQuery.isFetchingNextPage
                         ? <ActivityIndicator color={Colors.primary} style={styles.listFooter} />
                         : null}
@@ -519,7 +534,7 @@ export function DiscoverScreen({ isActive, onOpenUserProfile, onOpenPlus }: Disc
                 <FlatList
                     ref={listRef}
                     key="discover-grid-list"
-                    data={discoverQuery.users}
+                    data={displayedUsers}
                     keyExtractor={keyExtractor}
                     numColumns={2}
                     columnWrapperStyle={styles.gridRow}
@@ -594,6 +609,19 @@ const styles = StyleSheet.create({
     searchBar: {
         flex: 1,
         minHeight: 50,
+    },
+    searchStatusRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: Spacing.xs,
+    },
+    searchStatusCard: {
+        paddingHorizontal: Spacing.md,
+        paddingBottom: Spacing.sm,
+    },
+    searchStatusText: {
+        fontSize: Typography.sizes.sm,
+        color: Colors.light.textTertiary,
     },
     filterButton: {
         width: 50,

@@ -145,9 +145,13 @@ export function ChatsScreen({ isActive, onOpenChat }: ChatsScreenProps) {
         () => dedupeById(chatsQuery.data?.pages.flatMap((page) => page.items ?? []) ?? []),
         [chatsQuery.data],
     );
+    const isSearchFetching = debouncedQuery.length > 0
+        && chatsQuery.isFetching
+        && !chatsQuery.isRefetching
+        && !chatsQuery.isFetchingNextPage;
 
     useEffect(() => {
-        const timer = setTimeout(() => setDebouncedQuery(query.trim()), 250);
+        const timer = setTimeout(() => setDebouncedQuery(query.trim()), 400);
         return () => clearTimeout(timer);
     }, [query]);
 
@@ -222,7 +226,7 @@ export function ChatsScreen({ isActive, onOpenChat }: ChatsScreenProps) {
     ), [handleDeleteChat, onOpenChat, pendingDeleteIds, user?.id]);
     const ItemSeparator = useCallback(() => <View style={styles.separator} />, []);
 
-    if (chatsQuery.isLoading && chats.length === 0) {
+    if (chatsQuery.isLoading && chats.length === 0 && debouncedQuery.length === 0) {
         return <View style={styles.center}><ActivityIndicator color={Colors.primary} /></View>;
     }
 
@@ -262,6 +266,12 @@ export function ChatsScreen({ isActive, onOpenChat }: ChatsScreenProps) {
                             autoCorrect: false,
                         }}
                     />
+                    {isSearchFetching ? (
+                        <View style={styles.searchStatusRow}>
+                            <ActivityIndicator size="small" color={Colors.primary} />
+                            <Text style={styles.searchStatusText}>Searching chats…</Text>
+                        </View>
+                    ) : null}
 
                     {chats.length > 0 && (
                         <SectionLabel>CHATS</SectionLabel>
@@ -269,10 +279,10 @@ export function ChatsScreen({ isActive, onOpenChat }: ChatsScreenProps) {
                 </>
             }
             ListEmptyComponent={
-                chats.length === 0 ? (
+                !chatsQuery.isLoading && chats.length === 0 ? (
                     <EmptyState
                         title="No chats yet."
-                        description="Connect with people to start chatting."
+                        description={debouncedQuery.length > 0 ? 'No chats match your search.' : 'Connect with people to start chatting.'}
                     />
                 ) : null
             }
@@ -301,6 +311,16 @@ const styles = StyleSheet.create({
 
     searchBar: {
         marginBottom: Spacing.md,
+    },
+    searchStatusRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: Spacing.xs,
+        marginBottom: Spacing.sm,
+    },
+    searchStatusText: {
+        fontSize: Typography.sizes.sm,
+        color: Colors.light.textTertiary,
     },
 
     item: {

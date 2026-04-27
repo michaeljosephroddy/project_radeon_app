@@ -22,5 +22,6 @@ export function useChats(params: { query?: string; limit?: number }, enabled = t
         staleTime: CHATS_STALE_TIME,
         refetchOnMount: policy?.refetchOnMount,
         enabled,
+        placeholderData: (previousData) => previousData,
     });
 }
