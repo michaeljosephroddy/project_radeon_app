@@ -152,8 +152,117 @@ export interface Post {
     images: PostImage[];
 }
 
+export type FeedMode = 'home';
+export type FeedItemKind = 'post' | 'reshare';
+export type FeedEventType =
+    | 'impression'
+    | 'open_post'
+    | 'open_comments'
+    | 'comment'
+    | 'like'
+    | 'unlike'
+    | 'share_open'
+    | 'share_create'
+    | 'hide'
+    | 'mute_author';
+
+export interface FeedActor {
+    user_id: string;
+    username: string;
+    avatar_url?: string | null;
+}
+
+export interface ViewerFeedState {
+    is_friend: boolean;
+    is_liked: boolean;
+    is_hidden: boolean;
+    is_muted: boolean;
+    is_reshared: boolean;
+    is_own_post: boolean;
+    is_own_share: boolean;
+}
+
+export interface EmbeddedPost {
+    post_id: string;
+    author: FeedActor;
+    body: string;
+    images: PostImage[];
+    created_at: string;
+    like_count: number;
+    comment_count: number;
+    share_count: number;
+}
+
+export interface ReshareMetadata {
+    share_id: string;
+    original_post_id: string;
+    commentary: string;
+    created_at: string;
+}
+
+export interface FeedItem {
+    id: string;
+    kind: FeedItemKind;
+    score: number;
+    served_at_key: string;
+    author: FeedActor;
+    body: string;
+    images: PostImage[];
+    created_at: string;
+    like_count: number;
+    comment_count: number;
+    share_count: number;
+    viewer_state: ViewerFeedState;
+    original_post?: EmbeddedPost | null;
+    reshare_metadata?: ReshareMetadata | null;
+}
+
+export interface HiddenFeedItem {
+    item_id: string;
+    item_kind: FeedItemKind;
+    hidden_at: string;
+    item: FeedItem;
+}
+
+export interface FeedImpressionInput {
+    item_id: string;
+    item_kind: FeedItemKind;
+    feed_mode: FeedMode;
+    session_id: string;
+    position: number;
+    served_at: string;
+    viewed_at?: string;
+    view_ms: number;
+    was_clicked?: boolean;
+    was_liked?: boolean;
+    was_commented?: boolean;
+}
+
+export interface FeedEventInput {
+    item_id: string;
+    item_kind: FeedItemKind;
+    feed_mode: FeedMode;
+    event_type: FeedEventType;
+    position?: number;
+    event_at?: string;
+    payload?: Record<string, unknown>;
+}
+
 interface RawPost extends Omit<Post, 'images'> {
     images?: RawPostImage[] | null;
+}
+
+interface RawEmbeddedPost extends Omit<EmbeddedPost, 'images'> {
+    images?: RawPostImage[] | null;
+}
+
+interface RawFeedItem extends Omit<FeedItem, 'images' | 'original_post'> {
+    images?: RawPostImage[] | null;
+    original_post?: RawEmbeddedPost | null;
+}
+
+interface RawHiddenFeedItem extends Omit<HiddenFeedItem, 'item'> {
+    item: RawFeedItem;
 }
 
 export interface PostImage {
@@ -710,15 +819,35 @@ function normalizePostImage(image: RawPostImage): PostImage {
     };
 }
 
-// Loads the feed page used on the community tab.
-export async function getFeed(cursor?: string, limit = 20): Promise<CursorResponse<Post>> {
+function normalizeEmbeddedPost(post: RawEmbeddedPost): EmbeddedPost {
+    return {
+        ...post,
+        images: (post.images ?? []).map(normalizePostImage),
+    };
+}
+
+function normalizeFeedItem(item: RawFeedItem): FeedItem {
+    return {
+        ...item,
+        images: (item.images ?? []).map(normalizePostImage),
+        original_post: item.original_post ? normalizeEmbeddedPost(item.original_post) : item.original_post,
+    };
+}
+
+async function getScopedFeed(scope: FeedMode, cursor?: string, limit = 20): Promise<CursorResponse<FeedItem>> {
     const search = new URLSearchParams({ limit: String(limit) });
     if (cursor) search.set('before', cursor);
-    const page = await request<CursorResponse<RawPost>>(`/feed?${search.toString()}`);
+    // The helper keeps the feed request shape centralized even though home is the only read surface now.
+    const path = '/feed/home';
+    const page = await request<CursorResponse<RawFeedItem>>(`${path}?${search.toString()}`);
     return {
         ...page,
-        items: (page.items ?? []).map(normalizePost),
+        items: (page.items ?? []).map(normalizeFeedItem),
     };
+}
+
+export async function getHomeFeed(cursor?: string, limit = 20): Promise<CursorResponse<FeedItem>> {
+    return getScopedFeed('home', cursor, limit);
 }
 
 // Loads all posts authored by a specific user.
@@ -759,14 +888,75 @@ export async function createPost(data: { body?: string; images?: PostImage[] }):
     return request('/posts', { method: 'POST', body: JSON.stringify(data) });
 }
 
+export async function sharePost(data: { postId: string; commentary?: string }): Promise<{ id: string }> {
+    return request(`/posts/${data.postId}/share`, {
+        method: 'POST',
+        body: JSON.stringify({ commentary: data.commentary ?? '' }),
+    });
+}
+
 // Deletes a post by id.
 export async function deletePost(id: string): Promise<void> {
     return request(`/posts/${id}`, { method: 'DELETE' });
 }
 
+export async function hideFeedItem(data: { itemId: string; itemKind: FeedItemKind }): Promise<void> {
+    return request(`/feed/items/${data.itemId}/hide`, {
+        method: 'POST',
+        body: JSON.stringify({ item_kind: data.itemKind }),
+    });
+}
+
+export async function unhideFeedItem(data: { itemId: string; itemKind: FeedItemKind }): Promise<void> {
+    const search = new URLSearchParams({ item_kind: data.itemKind });
+    return request(`/feed/items/${data.itemId}/hide?${search.toString()}`, {
+        method: 'DELETE',
+    });
+}
+
+export async function getHiddenFeedItems(cursor?: string, limit = 20): Promise<CursorResponse<HiddenFeedItem>> {
+    const search = new URLSearchParams({ limit: String(limit) });
+    if (cursor) search.set('before', cursor);
+    const page = await request<CursorResponse<RawHiddenFeedItem>>(`/feed/hidden?${search.toString()}`);
+    return {
+        ...page,
+        items: (page.items ?? []).map((item) => ({
+            item_id: item.item_id,
+            item_kind: item.item_kind,
+            hidden_at: item.hidden_at,
+            item: normalizeFeedItem(item.item),
+        })),
+    };
+}
+
+export async function muteFeedAuthor(authorId: string): Promise<void> {
+    return request(`/feed/authors/${authorId}/mute`, { method: 'POST' });
+}
+
+export async function logFeedImpressions(impressions: FeedImpressionInput[]): Promise<{ logged: number }> {
+    return request('/feed/impressions', {
+        method: 'POST',
+        body: JSON.stringify({ impressions }),
+    });
+}
+
+export async function logFeedEvents(events: FeedEventInput[]): Promise<{ logged: number }> {
+    return request('/feed/events', {
+        method: 'POST',
+        body: JSON.stringify({ events }),
+    });
+}
+
 // Toggles a reaction on a post and returns the new reacted state.
 export async function reactToPost(id: string, type = 'like'): Promise<{ reacted: boolean }> {
     return request(`/posts/${id}/react`, { method: 'POST', body: JSON.stringify({ type }) });
+}
+
+export async function reactToFeedItem(id: string, itemKind: FeedItemKind, type = 'like'): Promise<{ reacted: boolean }> {
+    return request(`/feed/items/${id}/react`, {
+        method: 'POST',
+        body: JSON.stringify({ item_kind: itemKind, type }),
+    });
 }
 
 // Fetches the users who reacted to a given post.
@@ -783,11 +973,32 @@ export async function addComment(postId: string, body: string, mentionUserIds: s
     return normalizeComment(comment);
 }
 
+export async function addFeedItemComment(itemId: string, itemKind: FeedItemKind, body: string, mentionUserIds: string[] = []): Promise<Comment> {
+    const comment = await request<RawComment>(`/feed/items/${itemId}/comments`, {
+        method: 'POST',
+        body: JSON.stringify({ body, item_kind: itemKind, mention_user_ids: mentionUserIds }),
+    });
+    return normalizeComment(comment);
+}
+
 // Loads a page of comments for a given post.
 export async function getComments(postId: string, cursor?: string, limit = 20): Promise<CursorResponse<Comment>> {
     const search = new URLSearchParams({ limit: String(limit) });
     if (cursor) search.set('after', cursor);
     const page = await request<CursorResponse<RawComment>>(`/posts/${postId}/comments?${search.toString()}`);
+    return {
+        ...page,
+        items: (page.items ?? []).map(normalizeComment),
+    };
+}
+
+export async function getFeedItemComments(itemId: string, itemKind: FeedItemKind, cursor?: string, limit = 20): Promise<CursorResponse<Comment>> {
+    const search = new URLSearchParams({
+        limit: String(limit),
+        item_kind: itemKind,
+    });
+    if (cursor) search.set('after', cursor);
+    const page = await request<CursorResponse<RawComment>>(`/feed/items/${itemId}/comments?${search.toString()}`);
     return {
         ...page,
         items: (page.items ?? []).map(normalizeComment),

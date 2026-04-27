@@ -14,6 +14,7 @@ import { SectionLabel } from '../../components/ui/SectionLabel';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { TextField } from '../../components/ui/TextField';
 import { SettingsScreen } from './SettingsScreen';
+import { HiddenContentScreen } from './HiddenContentScreen';
 import * as api from '../../api/client';
 import { useGuardedEndReached } from '../../hooks/useGuardedEndReached';
 import { useInterests } from '../../hooks/queries/useInterests';
@@ -24,7 +25,7 @@ import { formatBirthDateValue, GENDER_SEGMENTS, getGenderLabel } from '../../uti
 import { formatRecoveryDuration, formatSobrietyDate, getRecoveryMilestone } from '../../utils/date';
 import { screenStandards } from '../../styles/screenStandards';
 
-type SubView = 'profile' | 'friends' | 'requests' | 'settings';
+type SubView = 'profile' | 'friends' | 'requests' | 'settings' | 'hidden-content';
 type RequestsSubView = 'incoming' | 'outgoing';
 type EditableSection = 'bio' | 'location' | 'identity' | 'interests' | 'sobriety' | null;
 type EditableGender = api.UserGender | '';
@@ -444,7 +445,11 @@ export function ProfileTabScreen({ isActive, onOpenUserProfile, onBack }: Profil
     if (!user) return null;
 
     if (subView === 'settings') {
-        return <SettingsScreen onBack={() => setSubView('profile')} onLogout={handleLogout} />;
+        return <SettingsScreen onBack={() => setSubView('profile')} onLogout={handleLogout} onOpenHiddenContent={() => setSubView('hidden-content')} />;
+    }
+
+    if (subView === 'hidden-content') {
+        return <HiddenContentScreen onBack={() => setSubView('settings')} onOpenUserProfile={onOpenUserProfile} />;
     }
 
     if (subView === 'friends') {

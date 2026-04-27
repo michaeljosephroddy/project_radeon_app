@@ -1,7 +1,7 @@
 export const queryKeys = {
     me: () => ['me'] as const,
     interests: () => ['interests'] as const,
-    feed: (limit = 20) => ['feed', { limit }] as const,
+    homeFeed: (limit = 20) => ['home-feed', { limit }] as const,
     user: (userId: string) => ['user', userId] as const,
     userPosts: (userId: string, limit = 20) => ['user-posts', userId, { limit }] as const,
     chats: (params?: { query?: string; limit?: number }) => ['chats', params ?? {}] as const,

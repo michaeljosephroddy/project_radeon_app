@@ -7,7 +7,7 @@ export interface InfiniteQueryPolicy {
 }
 
 const INFINITE_QUERY_POLICIES: Record<string, InfiniteQueryPolicy> = {
-    feed: {
+    'home-feed': {
         persist: true,
         persistedPages: 1,
         refetchOnMount: true,

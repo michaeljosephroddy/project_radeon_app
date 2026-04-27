@@ -15,7 +15,7 @@ export function useCreatePostMutation() {
         mutationFn: ({ body, images }: CreatePostMutationInput) => api.createPost({ body, images }),
         onSuccess: async (_data, variables) => {
             await Promise.all([
-                queryClient.invalidateQueries({ queryKey: queryKeys.feed() }),
+                queryClient.invalidateQueries({ queryKey: queryKeys.homeFeed() }),
                 variables.currentUserId
                     ? queryClient.invalidateQueries({ queryKey: queryKeys.userPosts(variables.currentUserId) })
                     : Promise.resolve(),
