@@ -1228,6 +1228,10 @@ export async function createCommunitySupportRequest(data: {
     return request('/support/requests/community', { method: 'POST', body: JSON.stringify(data) });
 }
 
+export async function convertImmediateSupportRequestToCommunity(requestId: string): Promise<SupportRequest> {
+    return request(`/support/requests/${requestId}/convert-community`, { method: 'POST' });
+}
+
 // Loads open support requests visible to the current user.
 export async function getSupportRequests(cursor?: string, limit = 20): Promise<SupportRequestsPage> {
     const search = new URLSearchParams({ limit: String(limit) });

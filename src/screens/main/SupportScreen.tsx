@@ -61,6 +61,7 @@ interface SupportRequestCardProps {
     isAvailableToSupport: boolean;
     responsePending: boolean;
     closingPending: boolean;
+    convertingPending?: boolean;
     responses?: api.SupportResponse[];
     responsesExpanded?: boolean;
     responsesLoading?: boolean;
@@ -68,6 +69,7 @@ interface SupportRequestCardProps {
     onRespond: (request: api.SupportRequest, responseType: SupportResponseType) => void;
     onOpenCheckInLaterComposer?: (request: api.SupportRequest) => void;
     onClose: (request: api.SupportRequest) => void;
+    onConvertToCommunity?: (request: api.SupportRequest) => void;
     onToggleResponses?: (request: api.SupportRequest) => void;
     onOpenResponseChat?: (request: api.SupportRequest, response: api.SupportResponse) => void;
     onPressUser: () => void;
@@ -353,6 +355,7 @@ function SupportRequestCard({
     isAvailableToSupport,
     responsePending,
     closingPending,
+    convertingPending = false,
     responses,
     responsesExpanded = false,
     responsesLoading = false,
@@ -360,6 +363,7 @@ function SupportRequestCard({
     onRespond,
     onOpenCheckInLaterComposer,
     onClose,
+    onConvertToCommunity,
     onToggleResponses,
     onOpenResponseChat,
     onPressUser,
@@ -368,6 +372,10 @@ function SupportRequestCard({
     const responseSummary = getSupportResponseSummary(responses);
     const canRespond = isAvailableToSupport && !responsePending && !request.has_responded && !isClosed;
     const requestChannel = getRequestChannel(request);
+    const canConvertToCommunity = request.is_own_request
+        && requestChannel === 'immediate'
+        && request.routing_status === 'fallback'
+        && !isClosed;
     const statusSummary = request.is_own_request && requestChannel === 'immediate' && !isClosed
         ? formatRoutingStatus(request)
         : isClosed
@@ -428,6 +436,17 @@ function SupportRequestCard({
                         <TouchableOpacity style={styles.actionSecondary} onPress={() => onToggleResponses(request)}>
                             <Text style={styles.actionSecondaryText}>
                                 {responsesExpanded ? 'Hide responses' : 'View responses'}
+                            </Text>
+                        </TouchableOpacity>
+                    ) : null}
+                    {canConvertToCommunity && onConvertToCommunity ? (
+                        <TouchableOpacity
+                            style={[styles.actionPrimary, convertingPending && styles.actionDisabled]}
+                            onPress={() => onConvertToCommunity(request)}
+                            disabled={convertingPending}
+                        >
+                            <Text style={styles.actionPrimaryText}>
+                                {convertingPending ? 'Posting...' : 'Post to community'}
                             </Text>
                         </TouchableOpacity>
                     ) : null}
@@ -536,6 +555,7 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
     const [availabilityUpdating, setAvailabilityUpdating] = useState(false);
     const [responsePendingIds, setResponsePendingIds] = useState<Set<string>>(new Set());
     const [closingIds, setClosingIds] = useState<Set<string>>(new Set());
+    const [convertingIds, setConvertingIds] = useState<Set<string>>(new Set());
     const [pendingCheckInDraft, setPendingCheckInDraft] = useState<PendingCheckInDraft | null>(null);
     const [form, setForm] = useState({
         type: 'need_to_talk' as SupportType,
@@ -938,6 +958,37 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
         }
     };
 
+    const handleConvertToCommunity = async (request: api.SupportRequest) => {
+        setConvertingIds(prev => new Set(prev).add(request.id));
+        try {
+            const converted = await api.convertImmediateSupportRequestToCommunity(request.id);
+            setMyRequests(prev => prev.map(item => item.id === request.id ? converted : item));
+            queryClient.setQueryData<api.SupportHomePayload | undefined>(queryKeys.supportHome(), (current) => {
+                if (!current?.active_request || current.active_request.id !== request.id) {
+                    return current;
+                }
+                return {
+                    ...current,
+                    active_request: converted,
+                };
+            });
+            void Promise.all([
+                queryClient.invalidateQueries({ queryKey: ['support-requests'] }),
+                queryClient.invalidateQueries({ queryKey: queryKeys.supportHome() }),
+                queryClient.invalidateQueries({ queryKey: queryKeys.supportQueue({ limit: 20 }) }),
+                queryClient.invalidateQueries({ queryKey: queryKeys.supportSessions({ limit: 20 }) }),
+            ]);
+        } catch (e: unknown) {
+            Alert.alert('Could not post to community', e instanceof Error ? e.message : 'Something went wrong.');
+        } finally {
+            setConvertingIds(prev => {
+                const next = new Set(prev);
+                next.delete(request.id);
+                return next;
+            });
+        }
+    };
+
     const handleCreate = async () => {
         setSubmitting(true);
         try {
@@ -1322,6 +1373,7 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
             isAvailableToSupport
             responsePending={false}
             closingPending={closingIds.has(request.id)}
+            convertingPending={convertingIds.has(request.id)}
             responses={requestResponsesById[request.id]}
             responsesExpanded={expandedResponseRequestIds.has(request.id)}
             responsesLoading={responseLoadingIds.has(request.id)}
@@ -1329,6 +1381,7 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
             onRespond={handleRespond}
             onOpenCheckInLaterComposer={openCheckInLaterComposer}
             onClose={handleClose}
+            onConvertToCommunity={handleConvertToCommunity}
             onToggleResponses={toggleResponses}
             onOpenResponseChat={handleOpenResponseChat}
             onPressUser={() => onOpenUserProfile({
