@@ -81,6 +81,17 @@ async function request<T>(
     return parseDataResponse<T>(res);
 }
 
+export function getChatWebSocketUrl(accessToken: string): string {
+    const baseUrl = BASE_URL.replace(/^http/i, 'ws');
+    const url = new URL('/chats/ws', baseUrl);
+    url.searchParams.set('access_token', accessToken);
+    return url.toString();
+}
+
+function isOpaqueChatCursor(value: string): boolean {
+    return value.includes('|');
+}
+
 // ── Types ──────────────────────────────────────────────────────────────────
 
 export interface User {
@@ -119,6 +130,14 @@ export interface CursorResponse<T> {
     limit: number;
     has_more: boolean;
     next_cursor?: string | null;
+}
+
+interface RawCursorResponse<T> {
+    items: T[];
+    limit: number;
+    has_more: boolean;
+    next_cursor?: string | null;
+    next_before?: string | null;
 }
 
 export interface Post {
@@ -388,11 +407,14 @@ interface RawChat extends Chat {
 
 export interface Message {
     id: string;
+    chat_id?: string;
     sender_id: string;
     username: string;
     avatar_url?: string;
     body: string;
     sent_at: string;
+    client_message_id?: string | null;
+    chat_seq?: number | null;
 }
 
 export interface MessagePage {
@@ -401,6 +423,40 @@ export interface MessagePage {
     has_more: boolean;
     next_before?: string | null;
     other_user_last_read_message_id?: string | null;
+}
+
+export interface ChatMessageEnvelope {
+    chat_id: string;
+    message: Message;
+    summary?: Chat | null;
+}
+
+export interface ChatMessageAckEnvelope {
+    chat_id: string;
+    client_message_id: string;
+    message: Message;
+    summary?: Chat | null;
+}
+
+export interface ChatReadReceiptEnvelope {
+    chat_id: string;
+    user_id: string;
+    last_read_message_id?: string | null;
+    read_at: string;
+}
+
+export interface ChatMessageFailedEnvelope {
+    chat_id: string;
+    client_message_id: string;
+    error: string;
+}
+
+export interface ChatRealtimeServerEvent {
+    type: string;
+    event_id: string;
+    occurred_at: string;
+    cursor?: string;
+    data?: unknown;
 }
 
 export interface AppNotification {
@@ -956,15 +1012,17 @@ function normalizeChat(chat: RawChat): Chat {
 }
 
 // Loads the current user's chat list and normalizes each row.
-export async function getChats(params?: { query?: string; page?: number; limit?: number }): Promise<PaginatedResponse<Chat>> {
+export async function getChats(params?: { query?: string; before?: string | null; limit?: number }): Promise<CursorResponse<Chat>> {
     const search = new URLSearchParams();
     if (params?.query?.trim()) search.set('q', params.query.trim());
-    if (params?.page) search.set('page', String(params.page));
+    if (params?.before && isOpaqueChatCursor(params.before)) search.set('before', params.before);
     if (params?.limit) search.set('limit', String(params.limit));
     const suffix = search.toString() ? `?${search.toString()}` : '';
-    const page = await request<PaginatedResponse<RawChat>>(`/chats${suffix}`);
+    const page = await request<RawCursorResponse<RawChat>>(`/chats${suffix}`);
     return {
-        ...page,
+        limit: page.limit,
+        has_more: page.has_more,
+        next_cursor: page.next_cursor ?? page.next_before ?? null,
         items: (page.items ?? []).map(normalizeChat),
     };
 }

@@ -8,6 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Avatar } from '../../components/Avatar';
 import { ScreenHeader } from '../../components/ui/ScreenHeader';
 import * as api from '../../api/client';
+import { useChatRealtime } from '../../hooks/chat/ChatRealtimeProvider';
 import { Colors, Typography, Spacing } from '../../utils/theme';
 import { formatUsername } from '../../utils/identity';
 import { composerStandards } from '../../styles/composerStandards';
@@ -26,6 +27,7 @@ export function ComposeDMScreen({
     const [body, setBody] = useState('');
     const [sending, setSending] = useState(false);
     const inputRef = useRef<TextInput>(null);
+    const realtime = useChatRealtime();
 
     const handleSend = async () => {
         const text = body.trim();
@@ -33,7 +35,16 @@ export function ComposeDMScreen({
         setSending(true);
         try {
             const { id } = await api.createChat([recipientId]);
-            await api.sendMessage(id, text);
+            if (realtime.isConnected) {
+                await realtime.sendMessage({
+                    chatId: id,
+                    body: text,
+                    clientMessageId: `client-${id}-${Date.now()}`,
+                    optimisticId: `compose-${id}-${Date.now()}`,
+                });
+            } else {
+                await api.sendMessage(id, text);
+            }
             onComplete({
                 id,
                 is_group: false,

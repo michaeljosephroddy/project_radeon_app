@@ -194,6 +194,7 @@ export function MeetupForm({
                     multiline
                     style={styles.multilineField}
                 />
+                <Text style={styles.fieldLabel}>Categories</Text>
                 <View style={styles.wrap}>
                     {categories.map((category) => (
                         <ChoiceChip
@@ -333,6 +334,28 @@ export function MeetupForm({
                 {(isOnline || values.event_type === 'hybrid') ? (
                     <TextField value={values.online_url} onChangeText={(value) => onChange('online_url', value)} placeholder="Online event link" autoCapitalize="none" />
                 ) : null}
+                <Text style={styles.fieldLabel}>Coordinates</Text>
+                <Text style={styles.helperText}>Optional, but useful if you want map placement to be precise.</Text>
+                <View style={styles.row}>
+                    <View style={styles.half}>
+                        <TextField
+                            value={values.lat}
+                            onChangeText={(value) => onChange('lat', value)}
+                            placeholder="Latitude"
+                            keyboardType="numbers-and-punctuation"
+                            autoCapitalize="none"
+                        />
+                    </View>
+                    <View style={styles.half}>
+                        <TextField
+                            value={values.lng}
+                            onChangeText={(value) => onChange('lng', value)}
+                            placeholder="Longitude"
+                            keyboardType="numbers-and-punctuation"
+                            autoCapitalize="none"
+                        />
+                    </View>
+                </View>
             </View>
 
             <View style={styles.section}>

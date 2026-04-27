@@ -994,6 +994,17 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
 
     return (
         <View style={styles.container}>
+            <SegmentedControl
+                activeKey={isMineView ? 'mine' : 'open'}
+                onChange={(key) => setSubView(key as SupportSubView)}
+                tone="primary"
+                style={[screenStandards.tabControl, styles.supportTabs]}
+                items={[
+                    { key: 'open', label: 'Open' },
+                    { key: 'mine', label: 'My requests' },
+                    { key: 'create', label: 'Create' },
+                ]}
+            />
             <FlatList
             ref={flatListRef}
             data={data}
@@ -1017,18 +1028,6 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
             contentContainerStyle={screenStandards.listContent}
             ListHeaderComponent={
                 <>
-                    <SegmentedControl
-                        activeKey={isMineView ? 'mine' : 'open'}
-                        onChange={(key) => setSubView(key as SupportSubView)}
-                        tone="primary"
-                        style={screenStandards.tabControl}
-                        items={[
-                            { key: 'open', label: 'Open' },
-                            { key: 'mine', label: 'My requests' },
-                            { key: 'create', label: 'Create' },
-                        ]}
-                    />
-
                     <InfoNoticeCard
                         title={isMineView ? 'Your Support Requests' : 'Support Requests'}
                         description={isMineView
@@ -1092,6 +1091,7 @@ const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: Colors.light.background },
     center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.light.background },
     headerCard: { marginBottom: Spacing.md },
+    supportTabs: { marginBottom: Spacing.sm },
     screenNote: { marginBottom: Spacing.md },
     statsRow: {
         flexDirection: 'row',

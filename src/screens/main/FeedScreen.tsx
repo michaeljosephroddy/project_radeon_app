@@ -444,52 +444,57 @@ export function FeedScreen({
                 ListHeaderComponent={
                     <View style={styles.listHeader}>
                         <View style={styles.composeBar}>
-                            {user && <Avatar username={user.username} avatarUrl={user.avatar_url} size={28} />}
-                            {composing ? (
-                                <View style={[styles.composeField, styles.composeExpanded]}>
-                                    <TextInput
-                                        style={styles.composeInput}
-                                        placeholder="What's on your mind?"
-                                        placeholderTextColor={Colors.light.textTertiary}
-                                        value={draft}
-                                        onChangeText={setDraft}
-                                        multiline
-                                        autoFocus={!selectedImage}
-                                    />
-                                    {selectedImage ? (
-                                        <View style={styles.composeImagePreviewWrap}>
-                                            <Image source={{ uri: selectedImage.localImage.uri }} style={styles.composeImagePreview} resizeMode="cover" />
-                                            <TouchableOpacity style={styles.removeImageButton} onPress={removeSelectedImage}>
-                                                <Ionicons name="close" size={14} color={Colors.textOn.primary} />
-                                            </TouchableOpacity>
-                                            <View style={styles.composeImageStatusBadge}>
-                                                <Text style={styles.composeImageStatusText}>
-                                                    {selectedImage.status === 'uploading'
-                                                        ? 'Uploading...'
-                                                        : selectedImage.status === 'uploaded'
-                                                            ? 'Ready'
-                                                            : 'Retry on post'}
-                                                </Text>
-                                            </View>
+                            <View style={styles.composeMainRow}>
+                                <TouchableOpacity style={composerStandards.iconButton} onPress={handlePickPostImage}>
+                                    <Ionicons name="image-outline" size={18} color={Colors.primary} />
+                                </TouchableOpacity>
+                                {composing ? (
+                                    <View style={[styles.composeField, styles.composeExpanded]}>
+                                        <TextInput
+                                            style={styles.composeInput}
+                                            placeholder="What's on your mind?"
+                                            placeholderTextColor={Colors.light.textTertiary}
+                                            value={draft}
+                                            onChangeText={setDraft}
+                                            multiline
+                                            autoFocus={!selectedImage}
+                                        />
+                                    </View>
+                                ) : (
+                                    <TouchableOpacity style={styles.composeField} onPress={() => setComposing(true)}>
+                                        <Text style={styles.composePlaceholder}>What's on your mind?</Text>
+                                    </TouchableOpacity>
+                                )}
+                            </View>
+                            {selectedImage ? (
+                                <View style={styles.composePreviewRow}>
+                                    <View style={styles.composeImagePreviewWrap}>
+                                        <Image source={{ uri: selectedImage.localImage.uri }} style={styles.composeImagePreview} resizeMode="cover" />
+                                        <TouchableOpacity style={styles.removeImageButton} onPress={removeSelectedImage}>
+                                            <Ionicons name="close" size={14} color={Colors.textOn.primary} />
+                                        </TouchableOpacity>
+                                        <View style={styles.composeImageStatusBadge}>
+                                            <Text style={styles.composeImageStatusText}>
+                                                {selectedImage.status === 'uploading'
+                                                    ? 'Uploading...'
+                                                    : selectedImage.status === 'uploaded'
+                                                        ? 'Ready'
+                                                        : 'Retry on post'}
+                                            </Text>
                                         </View>
-                                    ) : null}
+                                    </View>
                                 </View>
-                            ) : (
-                                <TouchableOpacity style={styles.composeField} onPress={() => setComposing(true)}>
-                                    <Text style={styles.composePlaceholder}>What's on your mind?</Text>
-                                </TouchableOpacity>
-                            )}
-                            <TouchableOpacity style={composerStandards.iconButton} onPress={handlePickPostImage}>
-                                <Ionicons name="image-outline" size={18} color={Colors.primary} />
-                            </TouchableOpacity>
-                            {composing && (
-                                <TouchableOpacity
-                                    style={[composerStandards.actionButton, composerStandards.actionButtonSuccess, styles.postBtn]}
-                                    onPress={handlePost}
-                                >
-                                    <Text style={composerStandards.actionButtonText}>Post</Text>
-                                </TouchableOpacity>
-                            )}
+                            ) : null}
+                            <View style={styles.composeActionsRow}>
+                                {composing ? (
+                                    <TouchableOpacity
+                                        style={[composerStandards.actionButton, composerStandards.actionButtonSuccess, styles.postBtn]}
+                                        onPress={handlePost}
+                                    >
+                                        <Text style={composerStandards.actionButtonText}>Post</Text>
+                                    </TouchableOpacity>
+                                ) : null}
+                            </View>
                         </View>
 
                         <InfoNoticeCard
@@ -569,9 +574,21 @@ const styles = StyleSheet.create({
         backgroundColor: Colors.light.backgroundSecondary,
         borderRadius: Radii.md,
         padding: Spacing.md,
+        gap: Spacing.sm,
+    },
+    composeMainRow: {
         flexDirection: 'row',
         alignItems: 'flex-end',
         gap: Spacing.sm,
+    },
+    composeActionsRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: Spacing.sm,
+    },
+    composePreviewRow: {
+        alignItems: 'flex-start',
     },
     composeField: {
         flex: 1,
@@ -637,9 +654,9 @@ const styles = StyleSheet.create({
     },
     postBtn: { minWidth: 72 },
     postCard: {
-        backgroundColor: Colors.light.background,
+        backgroundColor: Colors.light.backgroundSecondary,
         borderRadius: Radii.lg,
-        borderWidth: 0.5,
+        borderWidth: 1,
         borderColor: Colors.light.border,
         marginBottom: Spacing.sm,
         overflow: 'hidden',

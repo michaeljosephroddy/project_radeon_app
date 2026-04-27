@@ -1,10 +1,16 @@
-import { InfiniteData, useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert } from 'react-native';
 import * as api from '../../../api/client';
+import { useChatRealtime } from '../../../hooks/chat/ChatRealtimeProvider';
 import { useChatMessages } from '../../../hooks/queries/useChatMessages';
-import { queryKeys } from '../../../query/queryKeys';
-import { dedupeById } from '../../../utils/list';
+import {
+    flattenMessagePages,
+    removeMessageFromCache,
+    updateChatInAllQueries,
+    updateChatMessages,
+    upsertMessageInCache,
+} from '../../../query/chatCache';
 
 export interface ChatThreadCurrentUser {
     id: string;
@@ -50,81 +56,17 @@ function resolveLatestSeenMessageId(
     return incomingMessageId;
 }
 
-function updateChatsQueryData(
-    data: InfiniteData<api.PaginatedResponse<api.Chat>> | undefined,
-    chatId: string,
-    updater: (chat: api.Chat) => api.Chat,
-    moveToFront: boolean,
-): InfiniteData<api.PaginatedResponse<api.Chat>> | undefined {
-    if (!data) return data;
-
-    const flattened = data.pages.flatMap((page) => page.items ?? []);
-    const chatIndex = flattened.findIndex((chat) => chat.id === chatId);
-    if (chatIndex === -1) return data;
-
-    const nextChats = [...flattened];
-    const updatedChat = updater(nextChats[chatIndex]);
-    nextChats[chatIndex] = updatedChat;
-
-    if (moveToFront) {
-        nextChats.splice(chatIndex, 1);
-        nextChats.unshift(updatedChat);
-    }
-
-    let cursor = 0;
-    return {
-        ...data,
-        pages: data.pages.map((page) => {
-            const count = page.items?.length ?? 0;
-            const items = nextChats.slice(cursor, cursor + count);
-            cursor += count;
-
-            return {
-                ...page,
-                items,
-            };
-        }),
-    };
-}
-
-function flattenMessages(data?: InfiniteData<api.MessagePage>): api.Message[] {
-    const pages = data?.pages ?? [];
-    return dedupeById(
-        [...pages]
-            .reverse()
-            .flatMap((page) => page.items ?? []),
-    );
-}
-
-function updateMessagePages(
-    data: InfiniteData<api.MessagePage> | undefined,
-    updater: (messages: api.Message[]) => api.Message[],
-): InfiniteData<api.MessagePage> | undefined {
-    if (!data) return data;
-
-    const flattened = updater(flattenMessages(data));
-    const firstPage = data.pages[0];
-    if (!firstPage) return data;
-
-    return {
-        ...data,
-        pages: [
-            { ...firstPage, items: flattened },
-            ...data.pages.slice(1).map((page) => ({ ...page, items: [] })),
-        ],
-    };
-}
-
 export function useChatThreadController({
     chatId,
     currentUser,
 }: UseChatThreadControllerParams) {
     const queryClient = useQueryClient();
+    const realtime = useChatRealtime();
     const [sending, setSending] = useState(false);
     const [mutation, setMutation] = useState<MessageMutation>({ kind: 'replace', version: 0 });
     const messagesQuery = useChatMessages(chatId, 50, Boolean(chatId));
     const messages = useMemo(
-        () => flattenMessages(messagesQuery.data),
+        () => flattenMessagePages(messagesQuery.data),
         [messagesQuery.data],
     );
     const incomingOtherUserLastReadMessageId = messagesQuery.data?.pages[0]?.other_user_last_read_message_id ?? null;
@@ -137,10 +79,7 @@ export function useChatThreadController({
         updater: (chat: api.Chat) => api.Chat,
         moveToFront = false,
     ) => {
-        queryClient.setQueriesData<InfiniteData<api.PaginatedResponse<api.Chat>>>(
-            { queryKey: ['chats'] },
-            (current) => updateChatsQueryData(current, chatId, updater, moveToFront),
-        );
+        updateChatInAllQueries(queryClient, chatId, updater, moveToFront);
     }, [chatId, queryClient]);
 
     const syncReadState = useCallback(async (lastReadMessageId?: string) => {
@@ -148,7 +87,10 @@ export function useChatThreadController({
         if (lastSyncedReadMessageIds.get(chatId) === lastReadMessageId) return;
 
         try {
-            await api.markChatRead(chatId, lastReadMessageId);
+            const sentOverRealtime = realtime.markRead(chatId, lastReadMessageId);
+            if (!sentOverRealtime) {
+                await api.markChatRead(chatId, lastReadMessageId);
+            }
             lastSyncedReadMessageIds.set(chatId, lastReadMessageId);
             updateChatListEntry(
                 (chat) => ({
@@ -159,7 +101,7 @@ export function useChatThreadController({
         } catch {
             // Read-state sync is best-effort and should not interrupt the thread UI.
         }
-    }, [chatId, updateChatListEntry]);
+    }, [chatId, realtime, updateChatListEntry]);
 
     const markMutation = useCallback((kind: MessageMutation['kind']) => {
         setMutation((prev) => ({ kind, version: prev.version + 1 }));
@@ -179,28 +121,37 @@ export function useChatThreadController({
         void syncReadState(messages[messages.length - 1]?.id);
     }, [messages, syncReadState]);
 
+    useEffect(() => {
+        if (!chatId) return undefined;
+        realtime.subscribeChat(chatId);
+        return () => {
+            realtime.unsubscribeChat(chatId);
+        };
+    }, [chatId, realtime]);
+
     const updateCachedMessages = useCallback((
         updater: (current: api.Message[]) => api.Message[],
         kind: MessageMutation['kind'],
     ) => {
-        queryClient.setQueryData<InfiniteData<api.MessagePage>>(
-            queryKeys.chatMessages(chatId),
-            (current) => updateMessagePages(current, updater),
-        );
+        updateChatMessages(queryClient, chatId, updater);
         markMutation(kind);
     }, [chatId, markMutation, queryClient]);
 
     const sendMessage = useCallback(async (rawBody: string) => {
         const body = rawBody.trim();
         if (!body || !currentUser) return;
+        const clientMessageId = `client-${chatId}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+        const optimisticId = `optimistic-${chatId}-${Date.now()}`;
 
         const optimisticMessage: api.Message = {
-            id: `optimistic-${chatId}-${Date.now()}`,
+            id: optimisticId,
+            chat_id: chatId,
             sender_id: currentUser.id,
             username: currentUser.username,
             avatar_url: currentUser.avatar_url,
             body,
             sent_at: new Date().toISOString(),
+            client_message_id: clientMessageId,
         };
 
         setSending(true);
@@ -219,26 +170,31 @@ export function useChatThreadController({
         );
 
         try {
-            const { id } = await api.sendMessage(chatId, body);
-            updateCachedMessages(
-                (current) => current.map((message) => (
-                    message.id === optimisticMessage.id
-                        ? { ...optimisticMessage, id }
-                        : message
-                )),
-                'replace',
-            );
-            void syncReadState(id);
+            if (realtime.isConnected) {
+                const ack = await realtime.sendMessage({
+                    chatId,
+                    body,
+                    clientMessageId,
+                    optimisticId,
+                });
+                void syncReadState(ack.message.id);
+            } else {
+                const { id } = await api.sendMessage(chatId, body);
+                upsertMessageInCache(queryClient, chatId, {
+                    ...optimisticMessage,
+                    id,
+                }, optimisticId);
+                markMutation('replace');
+                void syncReadState(id);
+            }
         } catch {
-            updateCachedMessages(
-                (current) => current.filter((message) => message.id !== optimisticMessage.id),
-                'remove',
-            );
+            removeMessageFromCache(queryClient, chatId, optimisticId);
+            markMutation('remove');
             Alert.alert('Message failed', 'Your message could not be sent.');
         } finally {
             setSending(false);
         }
-    }, [chatId, currentUser, syncReadState, updateCachedMessages, updateChatListEntry]);
+    }, [chatId, currentUser, markMutation, queryClient, realtime, syncReadState, updateCachedMessages, updateChatListEntry]);
 
     const loadOlderMessages = useCallback(async () => {
         if (!messagesQuery.hasNextPage || messagesQuery.isFetchingNextPage) return;

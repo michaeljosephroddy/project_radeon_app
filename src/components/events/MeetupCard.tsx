@@ -2,6 +2,7 @@ import React from 'react';
 import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import * as api from '../../api/client';
 import { Avatar } from '../Avatar';
+import { MeetupEventTypeBadge } from './MeetupEventTypeBadge';
 import { Colors, Radii, Spacing, Typography } from '../../utils/theme';
 
 interface MeetupCardProps {
@@ -12,13 +13,18 @@ interface MeetupCardProps {
     actionDisabled?: boolean;
 }
 
-function formatEventDate(dateString: string): { day: string; month: string; time: string; weekday: string } {
+function formatEventDate(dateString: string): { day: string; month: string; time: string; weekday: string; fullDate: string } {
     const date = new Date(dateString);
     return {
         day: `${date.getDate()}`,
         month: date.toLocaleString('default', { month: 'short' }).toUpperCase(),
         time: date.toLocaleTimeString('default', { hour: 'numeric', minute: '2-digit' }),
         weekday: date.toLocaleDateString('default', { weekday: 'short' }),
+        fullDate: date.toLocaleDateString('default', {
+            weekday: 'short',
+            month: 'short',
+            day: 'numeric',
+        }),
     };
 }
 
@@ -48,19 +54,12 @@ export const MeetupCard = React.memo(function MeetupCard({
             ) : null}
 
             <View style={styles.contentRow}>
-                <View style={styles.dateBadge}>
-                    <Text style={styles.dateDay}>{date.day}</Text>
-                    <Text style={styles.dateMonth}>{date.month}</Text>
-                </View>
-
                 <View style={styles.body}>
                     <View style={styles.metaRow}>
                         <View style={styles.pill}>
                             <Text style={styles.pillText}>{meetup.category_label}</Text>
                         </View>
-                        <View style={styles.pillMuted}>
-                            <Text style={styles.pillMutedText}>{meetup.event_type.replace('_', ' ')}</Text>
-                        </View>
+                        <MeetupEventTypeBadge eventType={meetup.event_type} />
                     </View>
 
                     <Text style={styles.title}>{meetup.title}</Text>
@@ -69,7 +68,10 @@ export const MeetupCard = React.memo(function MeetupCard({
                     )}
 
                     <Text style={styles.detailLine}>
-                        {date.weekday} · {date.time} · {meetup.venue_name ?? meetup.city}
+                        {date.fullDate} · {date.time}
+                    </Text>
+                    <Text style={styles.detailLine}>
+                        {meetup.venue_name ?? meetup.city}
                         {meetup.distance_km !== undefined && meetup.distance_km !== null ? ` · ${Math.round(meetup.distance_km)} km` : ''}
                     </Text>
                     <Text style={styles.detailLine}>
@@ -148,28 +150,6 @@ const styles = StyleSheet.create({
         gap: Spacing.md,
         padding: Spacing.md,
     },
-    dateBadge: {
-        width: 56,
-        borderRadius: Radii.md,
-        backgroundColor: Colors.primarySubtle,
-        borderWidth: 1,
-        borderColor: Colors.primary,
-        alignItems: 'center',
-        justifyContent: 'center',
-        paddingVertical: Spacing.sm,
-        gap: 2,
-    },
-    dateDay: {
-        color: Colors.primary,
-        fontSize: Typography.sizes.xl,
-        fontWeight: '700',
-    },
-    dateMonth: {
-        color: Colors.primary,
-        fontSize: Typography.sizes.xs,
-        fontWeight: '700',
-        letterSpacing: 1,
-    },
     body: {
         flex: 1,
         gap: 6,
@@ -189,19 +169,6 @@ const styles = StyleSheet.create({
     },
     pillText: {
         color: Colors.primary,
-        fontSize: Typography.sizes.xs,
-        fontWeight: '700',
-    },
-    pillMuted: {
-        paddingHorizontal: Spacing.sm,
-        paddingVertical: 4,
-        borderRadius: Radii.full,
-        backgroundColor: Colors.light.background,
-        borderWidth: 1,
-        borderColor: Colors.light.borderSecondary,
-    },
-    pillMutedText: {
-        color: Colors.light.textSecondary,
         fontSize: Typography.sizes.xs,
         fontWeight: '700',
     },

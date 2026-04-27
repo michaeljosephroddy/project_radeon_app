@@ -17,7 +17,7 @@ export interface InfoNoticeCardProps {
 
 export function InfoNoticeCard({ title, description, style }: InfoNoticeCardProps) {
     return (
-        <SurfaceCard style={style}>
+        <SurfaceCard style={[styles.card, style]}>
             <View style={styles.content}>
                 <Text style={styles.title}>{title}</Text>
                 <Text style={styles.description}>{description}</Text>
@@ -27,6 +27,10 @@ export function InfoNoticeCard({ title, description, style }: InfoNoticeCardProp
 }
 
 const styles = StyleSheet.create({
+    card: {
+        backgroundColor: Colors.primarySubtle,
+        borderColor: 'rgba(13,110,253,0.24)',
+    },
     content: {
         gap: 4,
     },

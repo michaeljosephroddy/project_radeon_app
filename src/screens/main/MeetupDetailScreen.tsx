@@ -12,6 +12,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as api from '../../api/client';
 import { Avatar } from '../../components/Avatar';
+import { MeetupEventTypeBadge } from '../../components/events/MeetupEventTypeBadge';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { PrimaryButton } from '../../components/ui/PrimaryButton';
 import { ScreenHeader } from '../../components/ui/ScreenHeader';
@@ -104,8 +105,6 @@ export function MeetupDetailScreen({
     }, [detail]);
 
     const secondaryMeta = [
-        detail.category_label,
-        detail.event_type.replace('_', ' '),
         detail.distance_km !== undefined && detail.distance_km !== null ? `${Math.round(detail.distance_km)} km away` : null,
     ].filter(Boolean).join(' · ');
     const locationLine = detail.event_type === 'online'
@@ -180,7 +179,13 @@ export function MeetupDetailScreen({
                         )}
                         <View style={styles.heroContent}>
                             <Text style={styles.heroTitle}>{detail.title}</Text>
-                            <Text style={styles.heroMeta}>{secondaryMeta}</Text>
+                            <View style={styles.heroBadgeRow}>
+                                <View style={styles.categoryPill}>
+                                    <Text style={styles.categoryPillText}>{detail.category_label}</Text>
+                                </View>
+                                <MeetupEventTypeBadge eventType={detail.event_type} />
+                            </View>
+                            {secondaryMeta ? <Text style={styles.heroMeta}>{secondaryMeta}</Text> : null}
                             <Text style={styles.heroSchedule}>{formatRange(detail.starts_at, detail.ends_at)}</Text>
                             <Text style={styles.heroLocation}>{locationLine}</Text>
                             {detail.status !== 'published' ? (
@@ -347,10 +352,28 @@ const styles = StyleSheet.create({
         fontWeight: '800',
     },
     heroMeta: {
-        color: Colors.primary,
+        color: Colors.light.textSecondary,
         fontSize: Typography.sizes.sm,
         fontWeight: '700',
-        textTransform: 'capitalize',
+    },
+    heroBadgeRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: Spacing.xs,
+        flexWrap: 'wrap',
+    },
+    categoryPill: {
+        backgroundColor: Colors.primarySubtle,
+        borderRadius: Radii.full,
+        paddingHorizontal: Spacing.sm,
+        paddingVertical: 4,
+        borderWidth: 1,
+        borderColor: Colors.primary,
+    },
+    categoryPillText: {
+        color: Colors.primary,
+        fontSize: Typography.sizes.xs,
+        fontWeight: '700',
     },
     heroSchedule: {
         color: Colors.light.textSecondary,

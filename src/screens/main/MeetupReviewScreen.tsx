@@ -1,6 +1,7 @@
 import React from 'react';
 import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import * as api from '../../api/client';
+import { MeetupEventTypeBadge, formatMeetupEventTypeLabel } from '../../components/events/MeetupEventTypeBadge';
 import { PrimaryButton } from '../../components/ui/PrimaryButton';
 import { ScreenHeader } from '../../components/ui/ScreenHeader';
 import { MeetupFormValues } from '../../components/events/MeetupFormState';
@@ -23,19 +24,6 @@ interface MeetupReviewScreenProps {
     onPrimaryAction: () => void;
     onSecondaryAction?: () => void;
     onDestructiveAction?: () => void;
-}
-
-function formatEventTypeLabel(type: api.MeetupEventType): string {
-    switch (type) {
-        case 'in_person':
-            return 'In person';
-        case 'hybrid':
-            return 'Hybrid';
-        case 'online':
-            return 'Online';
-        default:
-            return type;
-    }
 }
 
 function formatVisibilityLabel(visibility: api.MeetupVisibility): string {
@@ -122,6 +110,9 @@ export function MeetupReviewScreen({
         ? values.waitlist_enabled ? 'No capacity set. Waitlist enabled.' : 'No capacity set.'
         : `${values.capacity.trim()} spots${values.waitlist_enabled ? ' with waitlist' : ''}`;
     const coHostSummary = selectedCoHosts.length ? selectedCoHosts.map((friend) => friend.username).join(', ') : 'No co-hosts selected';
+    const coordinateSummary = values.lat.trim() && values.lng.trim()
+        ? `${values.lat.trim()}, ${values.lng.trim()}`
+        : '';
 
     return (
         <View style={styles.container}>
@@ -145,8 +136,14 @@ export function MeetupReviewScreen({
                     <View style={styles.heroContent}>
                         <Text style={styles.heroTitle}>{values.title || 'Untitled event'}</Text>
                         <Text style={styles.heroMeta}>
-                            {[categoryLabel, formatEventTypeLabel(values.event_type), formatVisibilityLabel(values.visibility)].filter(Boolean).join(' · ')}
+                            {[categoryLabel, formatMeetupEventTypeLabel(values.event_type), formatVisibilityLabel(values.visibility)].filter(Boolean).join(' · ')}
                         </Text>
+                        <View style={styles.heroBadgeRow}>
+                            <View style={styles.categoryPill}>
+                                <Text style={styles.categoryPillText}>{categoryLabel}</Text>
+                            </View>
+                            <MeetupEventTypeBadge eventType={values.event_type} />
+                        </View>
                         <Text style={styles.heroSchedule}>{formatDateRange(values)}</Text>
                         <Text style={styles.heroLocation}>{locationSummary}</Text>
                         <Text style={styles.heroDescription}>
@@ -158,6 +155,7 @@ export function MeetupReviewScreen({
                 <SummaryItem label="Timezone" value={values.timezone.trim() || 'UTC'} />
                 <SummaryItem label="Attendance" value={attendanceSummary} />
                 <SummaryItem label="Co-hosts" value={coHostSummary} />
+                {coordinateSummary ? <SummaryItem label="Coordinates" value={coordinateSummary} /> : null}
 
                 <View style={styles.actionStack}>
                     {secondaryActionLabel && onSecondaryAction ? (
@@ -234,8 +232,27 @@ const styles = StyleSheet.create({
         fontWeight: '800',
     },
     heroMeta: {
-        color: Colors.primary,
+        color: Colors.light.textSecondary,
         fontSize: Typography.sizes.sm,
+        fontWeight: '700',
+    },
+    heroBadgeRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: Spacing.xs,
+        flexWrap: 'wrap',
+    },
+    categoryPill: {
+        backgroundColor: Colors.primarySubtle,
+        borderRadius: Radii.full,
+        paddingHorizontal: Spacing.sm,
+        paddingVertical: 4,
+        borderWidth: 1,
+        borderColor: Colors.primary,
+    },
+    categoryPillText: {
+        color: Colors.primary,
+        fontSize: Typography.sizes.xs,
         fontWeight: '700',
     },
     heroSchedule: {

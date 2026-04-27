@@ -7,6 +7,7 @@ import { AuthProvider, useAuth } from './src/hooks/useAuth';
 import { AuthNavigator } from './src/navigation/AuthNavigator';
 import { AppNavigator } from './src/navigation/AppNavigator';
 import { OnboardingNavigator } from './src/navigation/OnboardingNavigator';
+import { ChatRealtimeProvider } from './src/hooks/chat/ChatRealtimeProvider';
 import { NotificationProvider } from './src/notifications/NotificationProvider';
 import { asyncStoragePersister } from './src/query/asyncStoragePersister';
 import { queryClient } from './src/query/queryClient';
@@ -29,9 +30,11 @@ function RootNavigator() {
     if (isNewUser) return <OnboardingNavigator />;
 
     return (
-        <NotificationProvider>
-            <AppNavigator />
-        </NotificationProvider>
+        <ChatRealtimeProvider>
+            <NotificationProvider>
+                <AppNavigator />
+            </NotificationProvider>
+        </ChatRealtimeProvider>
     );
 }
 
@@ -48,7 +51,7 @@ export default function App() {
                     persistOptions={{
                         persister: asyncStoragePersister,
                         maxAge: 1000 * 60 * 60 * 24 * 7,
-                        buster: 'client-cache-v1',
+                        buster: 'client-cache-v2-chat-cursor',
                     }}
                 >
                     <AuthProvider>

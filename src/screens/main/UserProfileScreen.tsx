@@ -425,9 +425,9 @@ const styles = StyleSheet.create({
     },
 
     postCard: {
-        backgroundColor: Colors.light.background,
+        backgroundColor: Colors.light.backgroundSecondary,
         borderRadius: Radii.lg,
-        borderWidth: 0.5,
+        borderWidth: 1,
         borderColor: Colors.light.border,
         marginHorizontal: Spacing.md,
         marginBottom: Spacing.sm,

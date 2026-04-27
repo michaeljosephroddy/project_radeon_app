@@ -88,6 +88,28 @@ function buildStartsAt(dateInput: string, timeInput: string): string | null {
     return parsed.toISOString();
 }
 
+function parseOptionalCoordinate(
+    value: string,
+    label: 'Latitude' | 'Longitude',
+    min: number,
+    max: number,
+): { value: number | null } | { error: string } {
+    const trimmed = value.trim();
+    if (!trimmed) {
+        return { value: null };
+    }
+
+    const parsed = Number(trimmed);
+    if (!Number.isFinite(parsed)) {
+        return { error: `${label} must be a valid number.` };
+    }
+    if (parsed < min || parsed > max) {
+        return { error: `${label} must be between ${min} and ${max}.` };
+    }
+
+    return { value: parsed };
+}
+
 function defaultFormValues(user: api.User | null): MeetupFormValues {
     const start = new Date();
     start.setDate(start.getDate() + 7);
@@ -113,8 +135,8 @@ function defaultFormValues(user: api.User | null): MeetupFormValues {
         ends_on: formatDateInput(end),
         ends_at: formatTimeInput(end),
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
-        lat: null,
-        lng: null,
+        lat: '',
+        lng: '',
         capacity: '',
         waitlist_enabled: true,
     };
@@ -143,8 +165,8 @@ function meetupToFormValues(meetup: api.Meetup): MeetupFormValues {
         ends_on: formatDateInput(end),
         ends_at: formatTimeInput(end),
         timezone: meetup.timezone,
-        lat: meetup.lat ?? null,
-        lng: meetup.lng ?? null,
+        lat: meetup.lat !== undefined && meetup.lat !== null ? String(meetup.lat) : '',
+        lng: meetup.lng !== undefined && meetup.lng !== null ? String(meetup.lng) : '',
         capacity: meetup.capacity ? String(meetup.capacity) : '',
         waitlist_enabled: meetup.waitlist_enabled,
     };
@@ -168,6 +190,13 @@ function validateMeetupForm(form: MeetupFormValues, status: Extract<api.MeetupSt
             return { error: 'Capacity must be empty or greater than 0.' };
         }
     }
+    const parsedLat = parseOptionalCoordinate(form.lat, 'Latitude', -90, 90);
+    if ('error' in parsedLat) return { error: parsedLat.error };
+    const parsedLng = parseOptionalCoordinate(form.lng, 'Longitude', -180, 180);
+    if ('error' in parsedLng) return { error: parsedLng.error };
+    if ((parsedLat.value === null) !== (parsedLng.value === null)) {
+        return { error: 'Latitude and longitude must be provided together.' };
+    }
 
     return {
         values: {
@@ -189,8 +218,8 @@ function validateMeetupForm(form: MeetupFormValues, status: Extract<api.MeetupSt
             starts_at,
             ends_at: ends_at ?? null,
             timezone: form.timezone.trim() || 'UTC',
-            lat: form.lat,
-            lng: form.lng,
+            lat: parsedLat.value,
+            lng: parsedLng.value,
             capacity: form.capacity.trim() ? Number(form.capacity) : null,
             waitlist_enabled: form.waitlist_enabled,
         },
@@ -257,7 +286,9 @@ export function MeetupsScreen({ isActive, onOpenUserProfile, onOpenMeetup, onOpe
     const discoverItems = useMemo(() => flattenCursorPages(discoverQuery.data), [discoverQuery.data]);
     const hostingItems = useMemo(() => flattenCursorPages(hostingQuery.data), [hostingQuery.data]);
     const goingItems = useMemo(
-        () => flattenCursorPages(goingQuery.data).filter((meetup) => !meetup.can_manage),
+        () => flattenCursorPages(goingQuery.data).filter(
+            (meetup) => !meetup.can_manage && (meetup.is_attending || meetup.is_waitlisted),
+        ),
         [goingQuery.data],
     );
     const activeFilterChips = useMemo(
@@ -281,11 +312,12 @@ export function MeetupsScreen({ isActive, onOpenUserProfile, onOpenMeetup, onOpe
         setCreateStage('form');
     }, [user?.city, user?.country, user?.current_city, editingMeetup]);
 
-    const invalidateMeetupQueries = () => {
+    const invalidateMeetupQueries = (meetupId?: string) => {
         void queryClient.invalidateQueries({ queryKey: ['meetups'] });
         void queryClient.invalidateQueries({ queryKey: ['my-meetups'] });
-        if (editingMeetup?.id) {
-            void queryClient.invalidateQueries({ queryKey: queryKeys.meetup(editingMeetup.id) });
+        const detailMeetupId = meetupId ?? editingMeetup?.id;
+        if (detailMeetupId) {
+            void queryClient.invalidateQueries({ queryKey: queryKeys.meetup(detailMeetupId) });
         }
     };
 
@@ -333,6 +365,35 @@ export function MeetupsScreen({ isActive, onOpenUserProfile, onOpenMeetup, onOpe
                 })),
             }) : data,
         );
+        queryClient.setQueryData<api.Meetup | undefined>(
+            queryKeys.meetup(meetupId),
+            (data) => data ? updater(data) : data,
+        );
+    };
+
+    const removeMeetupFromGoingCaches = (meetupId: string) => {
+        const cachedQueries = queryClient.getQueriesData<InfiniteData<api.CursorResponse<api.Meetup>>>({
+            queryKey: ['my-meetups'],
+        });
+
+        cachedQueries.forEach(([queryKey, data]) => {
+            const params = Array.isArray(queryKey) ? queryKey[1] : undefined;
+            const scope = typeof params === 'object' && params && 'scope' in params
+                ? params.scope
+                : undefined;
+
+            if (scope !== 'going' || !data) {
+                return;
+            }
+
+            queryClient.setQueryData<InfiniteData<api.CursorResponse<api.Meetup>>>(queryKey, {
+                ...data,
+                pages: data.pages.map((page) => ({
+                    ...page,
+                    items: (page.items ?? []).filter((item) => item.id !== meetupId),
+                })),
+            });
+        });
     };
 
     const handleRSVP = async (meetup: api.Meetup) => {
@@ -346,6 +407,10 @@ export function MeetupsScreen({ isActive, onOpenUserProfile, onOpenMeetup, onOpe
                 attendee_count: result.attendee_count,
                 waitlist_count: result.waitlist_count,
             }));
+            if (!result.attending && !result.waitlisted) {
+                removeMeetupFromGoingCaches(meetup.id);
+            }
+            invalidateMeetupQueries(meetup.id);
             if (result.waitlisted) {
                 Alert.alert('Added to waitlist', 'You will stay visible on the waitlist until a space opens or you leave.');
             }
@@ -584,6 +649,10 @@ export function MeetupsScreen({ isActive, onOpenUserProfile, onOpenMeetup, onOpe
 
     const renderDiscoverHeader = () => (
         <View style={styles.discoverHeader}>
+            <InfoNoticeCard
+                title="Event discovery"
+                description="Browse by category, distance, day of week, format, and availability without losing the flow of the feed."
+            />
             <View style={styles.searchRow}>
                 <SearchBar
                     primaryField={{
@@ -606,6 +675,13 @@ export function MeetupsScreen({ isActive, onOpenUserProfile, onOpenMeetup, onOpe
                         </View>
                     ) : null}
                 </TouchableOpacity>
+            </View>
+            <View style={styles.quickCategoryHeader}>
+                <Text style={styles.quickCategoryLabel}>Categories</Text>
+                <View style={styles.quickCategoryHint}>
+                    <Text style={styles.quickCategoryHintText}>Swipe to browse</Text>
+                    <Ionicons name="arrow-forward" size={14} color={Colors.light.textTertiary} />
+                </View>
             </View>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.quickCategoryRow}>
                 <TouchableOpacity
@@ -651,10 +727,6 @@ export function MeetupsScreen({ isActive, onOpenUserProfile, onOpenMeetup, onOpe
                     ))}
                 </ScrollView>
             ) : null}
-            <InfoNoticeCard
-                title="Event discovery"
-                description="Browse by category, distance, day of week, format, and availability without losing the flow of the feed."
-            />
         </View>
     );
 
@@ -984,6 +1056,27 @@ const styles = StyleSheet.create({
     },
     quickCategoryRow: {
         gap: Spacing.sm,
+    },
+    quickCategoryHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: Spacing.sm,
+    },
+    quickCategoryLabel: {
+        color: Colors.light.textPrimary,
+        fontSize: Typography.sizes.sm,
+        fontWeight: '700',
+    },
+    quickCategoryHint: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: Spacing.xs,
+    },
+    quickCategoryHintText: {
+        color: Colors.light.textTertiary,
+        fontSize: Typography.sizes.xs,
+        fontWeight: '600',
     },
     quickCategoryChip: {
         paddingHorizontal: Spacing.md,

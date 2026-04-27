@@ -20,8 +20,8 @@ export interface MeetupFormValues {
     ends_on: string;
     ends_at: string;
     timezone: string;
-    lat: number | null;
-    lng: number | null;
+    lat: string;
+    lng: string;
     capacity: string;
     waitlist_enabled: boolean;
 }

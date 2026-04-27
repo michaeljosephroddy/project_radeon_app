@@ -179,8 +179,8 @@ export function ChatsScreen({ isActive, onOpenChat }: ChatsScreenProps) {
                 onPress: async () => {
                     setPendingDeleteIds(prev => new Set(prev).add(chat.id));
                     const chatQueryKey = queryKeys.chats({ query: debouncedQuery, limit: 20 });
-                    const previousChats = queryClient.getQueryData<InfiniteData<api.PaginatedResponse<api.Chat>>>(chatQueryKey);
-                    queryClient.setQueryData<InfiniteData<api.PaginatedResponse<api.Chat>>>(
+                    const previousChats = queryClient.getQueryData<InfiniteData<api.CursorResponse<api.Chat>>>(chatQueryKey);
+                    queryClient.setQueryData<InfiniteData<api.CursorResponse<api.Chat>>>(
                         chatQueryKey,
                         (current) => {
                             if (!current) return current;
