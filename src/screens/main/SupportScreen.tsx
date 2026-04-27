@@ -8,10 +8,8 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 import { Avatar } from '../../components/Avatar';
 import { EmptyState } from '../../components/ui/EmptyState';
-import { HeroCard } from '../../components/ui/HeroCard';
 import { InfoNoticeCard } from '../../components/ui/InfoNoticeCard';
 import { PrimaryButton } from '../../components/ui/PrimaryButton';
-import { ScreenHeader } from '../../components/ui/ScreenHeader';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { ScrollToTopButton } from '../../components/ui/ScrollToTopButton';
 import { TextField } from '../../components/ui/TextField';
@@ -21,7 +19,15 @@ import { useAuth } from '../../hooks/useAuth';
 import { useLazyActivation } from '../../hooks/useLazyActivation';
 import { useRefetchOnActiveIfStale } from '../../hooks/useRefetchOnActiveIfStale';
 import { useScrollToTopButton } from '../../hooks/useScrollToTopButton';
-import { useMySupportRequests, useSupportProfile, useSupportRequests } from '../../hooks/queries/useSupport';
+import {
+    useMySupportRequests,
+    useRespondedSupportRequests,
+    useSupportHome,
+    useSupportQueue,
+    useSupportRequests,
+    useSupportResponderProfile,
+    useSupportSessions,
+} from '../../hooks/queries/useSupport';
 import { resetInfiniteQueryToFirstPage } from '../../query/infiniteQueryPolicy';
 import { queryKeys } from '../../query/queryKeys';
 import { dedupeById } from '../../utils/list';
@@ -33,7 +39,9 @@ import { screenStandards } from '../../styles/screenStandards';
 type SupportType = api.SupportRequest['type'];
 type SupportUrgency = api.SupportRequest['urgency'];
 type SupportResponseType = api.SupportResponse['response_type'];
-type SupportSubView = 'open' | 'mine' | 'create' | 'preview';
+type SupportSurface = 'immediate' | 'community' | 'my_requests' | 'create';
+type SupportScope = 'open' | 'completed';
+type SupportRequestChannel = 'immediate' | 'community';
 
 interface PendingCheckInDraft {
     requestId: string;
@@ -166,6 +174,180 @@ function haveSameRequestIds(left: api.SupportRequest[], right: api.SupportReques
     return left.every((item, index) => item.id === right[index]?.id);
 }
 
+function formatRoutingStatus(request?: api.SupportRequest | null): string {
+    if (!request) return 'No active request';
+
+    if (request.status === 'matched' || request.routing_status === 'matched') {
+        return 'Matched with a supporter';
+    }
+
+    switch (request.routing_status) {
+        case 'pending':
+            return 'Finding supporters now';
+        case 'offered':
+            return 'Offers sent to supporters';
+        case 'fallback':
+            return 'No match yet, community fallback available';
+        case 'closed':
+            return 'Closed';
+        default:
+            return request.channel === 'immediate'
+                ? 'Immediate support request is active'
+                : 'Community support request is active';
+    }
+}
+
+function formatRequestChannel(channel?: SupportRequestChannel): string {
+    return channel === 'immediate' ? 'Immediate support' : 'Community support';
+}
+
+function getRequestChannel(request: Pick<api.SupportRequest, 'channel'>): SupportRequestChannel {
+    return request.channel === 'immediate' ? 'immediate' : 'community';
+}
+
+function isOpenRequest(request: api.SupportRequest): boolean {
+    return request.status === 'open' || request.status === 'matched';
+}
+
+function formatOfferExpiry(expiresAt: string): string {
+    const diffMs = new Date(expiresAt).getTime() - Date.now();
+    if (diffMs <= 0) return 'Expires now';
+    const mins = Math.ceil(diffMs / 60000);
+    if (mins <= 1) return 'Expires in under 1 minute';
+    return `Expires in ${mins} minutes`;
+}
+
+interface SupportOfferCardProps {
+    offer: api.SupportOffer;
+    accepting: boolean;
+    declining: boolean;
+    onAccept: (offer: api.SupportOffer) => void;
+    onDecline: (offer: api.SupportOffer) => void;
+    onPressUser: () => void;
+}
+
+function SupportOfferCard({
+    offer,
+    accepting,
+    declining,
+    onAccept,
+    onDecline,
+    onPressUser,
+}: SupportOfferCardProps) {
+    return (
+        <View style={styles.card}>
+            <View style={styles.cardHead}>
+                <TouchableOpacity onPress={onPressUser}>
+                    <Avatar username={offer.requester_username} avatarUrl={offer.requester_avatar_url ?? undefined} size={44} />
+                </TouchableOpacity>
+                <View style={styles.cardHeadBody}>
+                    <View style={styles.cardTitleRow}>
+                        <Text style={styles.cardName}>{formatUsername(offer.requester_username)}</Text>
+                        <View style={styles.cardTitleBadges}>
+                            <View style={styles.badge}>
+                                <Text style={styles.badgeText}>{formatRequestChannel(offer.request_channel)}</Text>
+                            </View>
+                            {offer.request_urgency === 'right_now' ? (
+                                <View style={styles.urgencyBadgeUrgent}>
+                                    <Text style={styles.urgencyBadgeUrgentText}>Right now</Text>
+                                </View>
+                            ) : offer.request_urgency === 'soon' ? (
+                                <View style={styles.urgencyBadgeSoon}>
+                                    <Text style={styles.urgencyBadgeSoonText}>Soon</Text>
+                                </View>
+                            ) : (
+                                <View style={styles.urgencyBadgeWhenever}>
+                                    <Text style={styles.urgencyBadgeWheneverText}>Whenever</Text>
+                                </View>
+                            )}
+                        </View>
+                    </View>
+                    <Text style={styles.cardMeta}>
+                        {SUPPORT_TYPE_LABELS[offer.request_type]} · {formatOfferExpiry(offer.expires_at)}
+                    </Text>
+                </View>
+            </View>
+            {offer.request_message ? (
+                <Text style={styles.cardBody}>{offer.request_message}</Text>
+            ) : null}
+            {offer.fit_summary ? (
+                <Text style={styles.responseSummaryText}>{offer.fit_summary}</Text>
+            ) : null}
+            <View style={styles.actions}>
+                <TouchableOpacity
+                    style={[styles.actionSecondary, declining && styles.actionDisabled]}
+                    onPress={() => onDecline(offer)}
+                    disabled={accepting || declining}
+                >
+                    <Text style={styles.actionSecondaryText}>
+                        {declining ? 'Declining...' : 'Pass'}
+                    </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                    style={[styles.actionPrimary, accepting && styles.actionDisabled]}
+                    onPress={() => onAccept(offer)}
+                    disabled={accepting || declining}
+                >
+                    <Text style={styles.actionPrimaryText}>
+                        {accepting ? 'Connecting...' : 'Accept support'}
+                    </Text>
+                </TouchableOpacity>
+            </View>
+        </View>
+    );
+}
+
+interface SupportSessionCardProps {
+    session: api.SupportSession;
+    currentUserId?: string;
+    opening: boolean;
+    closing?: boolean;
+    onOpenChat: (session: api.SupportSession) => void;
+    onCloseSession?: (session: api.SupportSession) => void;
+}
+
+function SupportSessionCard({ session, currentUserId, opening, closing = false, onOpenChat, onCloseSession }: SupportSessionCardProps) {
+    const otherUsername = session.requester_id === currentUserId ? session.responder_username : session.requester_username;
+    const statusText = session.status === 'active'
+        ? 'Active session'
+        : session.status === 'pending'
+        ? 'Pending session'
+        : session.status === 'completed'
+        ? 'Completed'
+        : 'Cancelled';
+
+    return (
+        <View style={styles.sessionCard}>
+            <View style={styles.sessionCardBody}>
+                <Text style={styles.sessionCardTitle}>{formatUsername(otherUsername)}</Text>
+                <Text style={styles.sessionCardMeta}>{statusText} · {timeAgo(session.created_at)}</Text>
+            </View>
+            <View style={styles.sessionCardActions}>
+                <TouchableOpacity
+                    style={[styles.sessionCardAction, (opening || !session.chat_id) && styles.actionDisabled]}
+                    onPress={() => onOpenChat(session)}
+                    disabled={opening || !session.chat_id}
+                >
+                    <Text style={styles.sessionCardActionText}>
+                        {opening ? 'Opening...' : 'Open chat'}
+                    </Text>
+                </TouchableOpacity>
+                {session.status === 'active' && onCloseSession ? (
+                    <TouchableOpacity
+                        style={[styles.sessionCardSecondaryAction, closing && styles.actionDisabled]}
+                        onPress={() => onCloseSession(session)}
+                        disabled={closing}
+                    >
+                        <Text style={styles.sessionCardSecondaryActionText}>
+                            {closing ? 'Saving...' : 'Complete'}
+                        </Text>
+                    </TouchableOpacity>
+                ) : null}
+            </View>
+        </View>
+    );
+}
+
 function SupportRequestCard({
     request,
     isAvailableToSupport,
@@ -182,9 +364,15 @@ function SupportRequestCard({
     onOpenResponseChat,
     onPressUser,
 }: SupportRequestCardProps) {
-    const isClosed = request.status !== 'open';
+    const isClosed = request.status === 'closed';
     const responseSummary = getSupportResponseSummary(responses);
     const canRespond = isAvailableToSupport && !responsePending && !request.has_responded && !isClosed;
+    const requestChannel = getRequestChannel(request);
+    const statusSummary = request.is_own_request && requestChannel === 'immediate' && !isClosed
+        ? formatRoutingStatus(request)
+        : isClosed
+            ? 'Closed'
+            : `${request.response_count} response${request.response_count === 1 ? '' : 's'}`;
 
     return (
         <View style={styles.card}>
@@ -197,7 +385,7 @@ function SupportRequestCard({
                         <Text style={styles.cardName}>{formatUsername(request.username)}</Text>
                         <View style={styles.cardTitleBadges}>
                             <View style={styles.badge}>
-                                <Text style={styles.badgeText}>Needs Support</Text>
+                                <Text style={styles.badgeText}>{formatRequestChannel(requestChannel)}</Text>
                             </View>
                             {request.urgency === 'right_now' ? (
                                 <View style={styles.urgencyBadgeUrgent}>
@@ -226,9 +414,8 @@ function SupportRequestCard({
 
             <Text style={styles.cardFooterText}>
                 {request.city ? `${request.city} · ` : ''}
-                {request.response_count} response{request.response_count === 1 ? '' : 's'}
+                {statusSummary}
                 {request.has_responded ? ' · You responded' : ''}
-                {isClosed ? ` · ${request.status}` : ''}
             </Text>
 
             {responseSummary ? (
@@ -254,40 +441,29 @@ function SupportRequestCard({
                         </Text>
                     </TouchableOpacity>
                 </View>
-            ) : (
+            ) : isClosed ? null : (
                 <View style={styles.actions}>
-                    {!isAvailableToSupport ? (
-                        <TouchableOpacity
-                            style={[styles.actionSecondary, styles.actionDisabled]}
-                            disabled
-                        >
-                            <Text style={styles.actionSecondaryText}>Turn on availability to respond</Text>
-                        </TouchableOpacity>
-                    ) : (
-                        <>
-                            <TouchableOpacity
-                                style={[styles.actionPrimary, !canRespond && styles.actionDisabled]}
-                                onPress={() => onRespond(request, 'can_chat')}
-                                disabled={!canRespond}
-                            >
-                                <Text style={styles.actionPrimaryText}>I can chat</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                                style={[styles.actionSecondary, !canRespond && styles.actionDisabled]}
-                                onPress={() => onOpenCheckInLaterComposer?.(request)}
-                                disabled={!canRespond}
-                            >
-                                <Text style={styles.actionSecondaryText}>Check in later</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                                style={[styles.actionSecondary, !canRespond && styles.actionDisabled]}
-                                onPress={() => onRespond(request, 'can_meet')}
-                                disabled={!canRespond}
-                            >
-                                <Text style={styles.actionSecondaryText}>I can meet up</Text>
-                            </TouchableOpacity>
-                        </>
-                    )}
+                    <TouchableOpacity
+                        style={[styles.actionPrimary, !canRespond && styles.actionDisabled]}
+                        onPress={() => onRespond(request, 'can_chat')}
+                        disabled={!canRespond}
+                    >
+                        <Text style={styles.actionPrimaryText}>I can chat</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                        style={[styles.actionSecondary, !canRespond && styles.actionDisabled]}
+                        onPress={() => onOpenCheckInLaterComposer?.(request)}
+                        disabled={!canRespond}
+                    >
+                        <Text style={styles.actionSecondaryText}>Check in later</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                        style={[styles.actionSecondary, !canRespond && styles.actionDisabled]}
+                        onPress={() => onRespond(request, 'can_meet')}
+                        disabled={!canRespond}
+                    >
+                        <Text style={styles.actionSecondaryText}>I can meet up</Text>
+                    </TouchableOpacity>
                 </View>
             )}
 
@@ -336,18 +512,24 @@ function SupportRequestCard({
 export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: SupportScreenProps) {
     const { user } = useAuth();
     const queryClient = useQueryClient();
-    const flatListRef = useRef<FlatList<api.SupportRequest> | null>(null);
+    const flatListRef = useRef<FlatList<any> | null>(null);
     const hasActivatedOpen = useLazyActivation(isActive);
-    const [subView, setSubView] = useState<SupportSubView>('open');
+    const [surface, setSurface] = useState<SupportSurface>('immediate');
+    const [immediateScope, setImmediateScope] = useState<SupportScope>('open');
+    const [communityScope, setCommunityScope] = useState<SupportScope>('open');
+    const [myRequestsScope, setMyRequestsScope] = useState<SupportScope>('open');
+    const [requestChannel, setRequestChannel] = useState<SupportRequestChannel>('immediate');
     const [requests, setRequests] = useState<api.SupportRequest[]>([]);
     const [myRequests, setMyRequests] = useState<api.SupportRequest[]>([]);
     const [requestResponsesById, setRequestResponsesById] = useState<Record<string, api.SupportResponse[]>>({});
     const [expandedResponseRequestIds, setExpandedResponseRequestIds] = useState<Set<string>>(new Set());
     const [responseLoadingIds, setResponseLoadingIds] = useState<Set<string>>(new Set());
     const [responseChatPendingIds, setResponseChatPendingIds] = useState<Record<string, string | undefined>>({});
-    const [isAvailableToSupport, setIsAvailableToSupport] = useState(false);
+    const [offerAcceptingIds, setOfferAcceptingIds] = useState<Set<string>>(new Set());
+    const [offerDecliningIds, setOfferDecliningIds] = useState<Set<string>>(new Set());
+    const [sessionChatOpeningIds, setSessionChatOpeningIds] = useState<Set<string>>(new Set());
+    const [sessionClosingIds, setSessionClosingIds] = useState<Set<string>>(new Set());
     const [openRequestCount, setOpenRequestCount] = useState(0);
-    const [availableToSupportCount, setAvailableToSupportCount] = useState(0);
     const [openHasMore, setOpenHasMore] = useState(false);
     const [myHasMore, setMyHasMore] = useState(false);
     const [submitting, setSubmitting] = useState(false);
@@ -360,19 +542,21 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
         message: '',
         urgency: 'when_you_can' as SupportUrgency,
     });
-    const [hasActivatedMine, setHasActivatedMine] = useState(false);
-    useEffect(() => {
-        if (isActive && subView === 'mine') {
-            setHasActivatedMine(true);
-        }
-    }, [isActive, subView]);
-    const supportProfileQuery = useSupportProfile(hasActivatedOpen);
+    const supportHomeQuery = useSupportHome(hasActivatedOpen);
+    const responderProfileQuery = useSupportResponderProfile(hasActivatedOpen);
     const supportListProps = getListPerformanceProps('detailList');
     const openRequestsQuery = useSupportRequests(20, hasActivatedOpen);
-    const myRequestsQuery = useMySupportRequests(20, hasActivatedMine);
-    useRefetchOnActiveIfStale(isActive, supportProfileQuery);
-    useRefetchOnActiveIfStale(isActive && subView === 'open', openRequestsQuery);
-    useRefetchOnActiveIfStale(isActive && subView === 'mine', myRequestsQuery);
+    const myRequestsQuery = useMySupportRequests(20, hasActivatedOpen);
+    const respondedRequestsQuery = useRespondedSupportRequests(20, hasActivatedOpen);
+    const supportQueueQuery = useSupportQueue(20, hasActivatedOpen);
+    const supportSessionsQuery = useSupportSessions(20, hasActivatedOpen);
+    useRefetchOnActiveIfStale(isActive, supportHomeQuery);
+    useRefetchOnActiveIfStale(isActive, responderProfileQuery);
+    useRefetchOnActiveIfStale(isActive && surface === 'community', openRequestsQuery);
+    useRefetchOnActiveIfStale(isActive && (surface === 'immediate' || surface === 'my_requests'), myRequestsQuery);
+    useRefetchOnActiveIfStale(isActive && surface === 'community' && communityScope === 'completed', respondedRequestsQuery);
+    useRefetchOnActiveIfStale(isActive && surface === 'immediate', supportQueueQuery);
+    useRefetchOnActiveIfStale(isActive, supportSessionsQuery);
     const supportScrollToTop = useScrollToTopButton({ threshold: 320 });
     const openRequestItems = useMemo(
         () => dedupeById(openRequestsQuery.data?.pages.flatMap((page) => page.items ?? []) ?? []),
@@ -382,6 +566,18 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
         () => dedupeById(myRequestsQuery.data?.pages.flatMap((page) => page.items ?? []) ?? []),
         [myRequestsQuery.data],
     );
+    const respondedRequestItems = useMemo(
+        () => dedupeById(respondedRequestsQuery.data?.pages.flatMap((page) => page.items ?? []) ?? []),
+        [respondedRequestsQuery.data],
+    );
+    const supportQueueItems = useMemo(
+        () => dedupeById(supportQueueQuery.data?.pages.flatMap((page) => page.items ?? []) ?? []),
+        [supportQueueQuery.data],
+    );
+    const supportSessionItems = useMemo(
+        () => dedupeById(supportSessionsQuery.data?.pages.flatMap((page) => page.items ?? []) ?? []),
+        [supportSessionsQuery.data],
+    );
     useEffect(() => {
         setRequests((current) => haveSameRequestIds(current, openRequestItems) ? current : openRequestItems);
         setOpenHasMore((current) => {
@@ -390,10 +586,6 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
         });
         setOpenRequestCount((current) => {
             const next = openRequestsQuery.data?.pages[0]?.open_request_count ?? 0;
-            return current === next ? current : next;
-        });
-        setAvailableToSupportCount((current) => {
-            const next = openRequestsQuery.data?.pages[0]?.available_to_support_count ?? 0;
             return current === next ? current : next;
         });
     }, [openRequestItems, openRequestsQuery.data, openRequestsQuery.hasNextPage]);
@@ -406,13 +598,63 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
         });
     }, [myRequestItems, myRequestsQuery.hasNextPage]);
 
-    useEffect(() => {
-        if (!supportProfileQuery.data) return;
-        setIsAvailableToSupport((current) => {
-            const next = supportProfileQuery.data.is_available_to_support;
-            return current === next ? current : next;
-        });
-    }, [supportProfileQuery.data]);
+    const activeRequest = supportHomeQuery.data?.active_request ?? null;
+    const responderProfile = responderProfileQuery.data ?? null;
+    const activeSupportSessions = useMemo(
+        () => supportSessionItems.filter((session) => session.status === 'active' || session.status === 'pending'),
+        [supportSessionItems],
+    );
+    const completedSupportSessions = useMemo(
+        () => supportSessionItems.filter((session) => session.status === 'completed' || session.status === 'cancelled'),
+        [supportSessionItems],
+    );
+    const myOpenRequests = useMemo(
+        () => myRequests
+            .filter((request) => isOpenRequest(request))
+            .slice()
+            .sort((left, right) => {
+                const leftChannel = getRequestChannel(left);
+                const rightChannel = getRequestChannel(right);
+                const leftImmediateRank = leftChannel === 'immediate'
+                    ? left.status === 'matched' || left.routing_status === 'matched'
+                        ? 0
+                        : 1
+                    : 2;
+                const rightImmediateRank = rightChannel === 'immediate'
+                    ? right.status === 'matched' || right.routing_status === 'matched'
+                        ? 0
+                        : 1
+                    : 2;
+                if (leftImmediateRank !== rightImmediateRank) {
+                    return leftImmediateRank - rightImmediateRank;
+                }
+                return new Date(right.created_at).getTime() - new Date(left.created_at).getTime();
+            }),
+        [myRequests],
+    );
+    const myCompletedRequests = useMemo(
+        () => myRequests.filter((request) => request.status === 'closed'),
+        [myRequests],
+    );
+    const immediateOpenRequests = useMemo(() => {
+        const base = myOpenRequests.filter((request) => getRequestChannel(request) === 'immediate');
+        if (activeRequest && getRequestChannel(activeRequest) === 'immediate' && !base.some((request) => request.id === activeRequest.id)) {
+            return [activeRequest, ...base];
+        }
+        return base;
+    }, [activeRequest, myOpenRequests]);
+    const immediateClosedRequests = useMemo(
+        () => myCompletedRequests.filter((request) => getRequestChannel(request) === 'immediate'),
+        [myCompletedRequests],
+    );
+    const communityOpenRequests = useMemo(
+        () => requests.filter((request) => getRequestChannel(request) === 'community'),
+        [requests],
+    );
+    const communityCompletedResponded = useMemo(
+        () => respondedRequestItems.filter((request) => getRequestChannel(request) === 'community'),
+        [respondedRequestItems],
+    );
 
     const refreshOpen = async () => {
         resetInfiniteQueryToFirstPage(queryClient, queryKeys.supportRequests({ scope: 'open', limit: 20 }));
@@ -423,6 +665,65 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
         resetInfiniteQueryToFirstPage(queryClient, queryKeys.supportRequests({ scope: 'mine', limit: 20 }));
         await myRequestsQuery.refetch();
     };
+
+    const refreshResponded = async () => {
+        resetInfiniteQueryToFirstPage(queryClient, queryKeys.supportRequests({ scope: 'responded', limit: 20 }));
+        await respondedRequestsQuery.refetch();
+    };
+
+    const refreshSupportPlatform = async () => {
+        await Promise.all([
+            supportHomeQuery.refetch(),
+            responderProfileQuery.refetch(),
+            supportQueueQuery.refetch(),
+            supportSessionsQuery.refetch(),
+            myRequestsQuery.refetch(),
+        ]);
+    };
+
+    const saveResponderProfile = useCallback(async (overrides: Partial<{
+        is_available_for_immediate: boolean;
+        is_available_for_community: boolean;
+        supports_chat: boolean;
+        supports_check_ins: boolean;
+        supports_in_person: boolean;
+        max_concurrent_sessions: number;
+        languages: string[];
+        available_now: boolean;
+        is_active: boolean;
+    }>) => {
+        const baseline = responderProfile ?? {
+            is_available_for_immediate: false,
+            is_available_for_community: true,
+            supports_chat: true,
+            supports_check_ins: true,
+            supports_in_person: false,
+            max_concurrent_sessions: 2,
+            languages: [] as string[],
+            available_now: false,
+            is_active: false,
+        };
+
+        const updated = await api.updateMySupportResponderProfile({
+            is_available_for_immediate: overrides.is_available_for_immediate ?? baseline.is_available_for_immediate,
+            is_available_for_community: overrides.is_available_for_community ?? baseline.is_available_for_community,
+            supports_chat: overrides.supports_chat ?? baseline.supports_chat,
+            supports_check_ins: overrides.supports_check_ins ?? baseline.supports_check_ins,
+            supports_in_person: overrides.supports_in_person ?? baseline.supports_in_person,
+            max_concurrent_sessions: overrides.max_concurrent_sessions ?? baseline.max_concurrent_sessions,
+            languages: overrides.languages ?? baseline.languages,
+            available_now: overrides.available_now ?? baseline.available_now,
+            is_active: overrides.is_active ?? baseline.is_active,
+        });
+
+        queryClient.setQueryData(queryKeys.supportResponderProfile(), updated);
+        queryClient.setQueryData(queryKeys.supportProfile(), {
+            is_available_to_support: updated.is_available_for_immediate || updated.is_available_for_community,
+            support_updated_at: updated.updated_at,
+        });
+        void queryClient.invalidateQueries({ queryKey: queryKeys.supportHome() });
+        return updated;
+    }, [queryClient, responderProfile]);
 
     const openSupportChat = useCallback(async (
         memberId: string,
@@ -611,13 +912,21 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
         setClosingIds(prev => new Set(prev).add(request.id));
         try {
             await api.updateSupportRequest(request.id, { status: 'closed' });
-            setMyRequests(prev => prev.filter(item => item.id !== request.id));
+            setMyRequests(prev => prev.map(item => item.id === request.id ? {
+                ...item,
+                status: 'closed',
+                routing_status: 'closed',
+            } : item));
             setExpandedResponseRequestIds(prev => {
                 const next = new Set(prev);
                 next.delete(request.id);
                 return next;
             });
-            void queryClient.invalidateQueries({ queryKey: ['support-requests'] });
+            void Promise.all([
+                queryClient.invalidateQueries({ queryKey: ['support-requests'] }),
+                queryClient.invalidateQueries({ queryKey: queryKeys.supportHome() }),
+                queryClient.invalidateQueries({ queryKey: queryKeys.supportSessions({ limit: 20 }) }),
+            ]);
         } catch (e: unknown) {
             Alert.alert('Could not close request', e instanceof Error ? e.message : 'Something went wrong.');
         } finally {
@@ -632,20 +941,30 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
     const handleCreate = async () => {
         setSubmitting(true);
         try {
-            const created = await api.createSupportRequest({
+            const payload = {
                 type: form.type,
                 message: form.message.trim() || null,
                 urgency: form.urgency,
+                privacy_level: 'standard' as const,
                 priority_visibility: false,
-            });
+            };
+            const created = requestChannel === 'immediate'
+                ? await api.createImmediateSupportRequest(payload)
+                : await api.createCommunitySupportRequest(payload);
             setMyRequests(prev => [created, ...prev.filter(item => item.id !== created.id)]);
-            setSubView('mine');
+            setSurface('my_requests');
+            setMyRequestsScope('open');
             setForm({
                 type: 'need_to_talk',
                 message: '',
                 urgency: 'when_you_can',
             });
-            void queryClient.invalidateQueries({ queryKey: ['support-requests'] });
+            void Promise.all([
+                queryClient.invalidateQueries({ queryKey: ['support-requests'] }),
+                queryClient.invalidateQueries({ queryKey: queryKeys.supportHome() }),
+                queryClient.invalidateQueries({ queryKey: queryKeys.supportQueue({ limit: 20 }) }),
+                queryClient.invalidateQueries({ queryKey: queryKeys.supportSessions({ limit: 20 }) }),
+            ]);
         } catch (e: unknown) {
             Alert.alert('Could not create support request', e instanceof Error ? e.message : 'Something went wrong.');
         } finally {
@@ -653,70 +972,157 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
         }
     };
 
-    const handleToggleAvailability = async () => {
-        const next = !isAvailableToSupport;
-        setIsAvailableToSupport(next);
+    const handleToggleImmediateAvailability = async () => {
         setAvailabilityUpdating(true);
         try {
-            const profile = await api.updateMySupportProfile({ is_available_to_support: next });
-            setIsAvailableToSupport(profile.is_available_to_support);
-            queryClient.setQueryData(queryKeys.supportProfile(), profile);
+            const next = !(responderProfile?.is_available_for_immediate ?? false);
+            await saveResponderProfile({
+                is_available_for_immediate: next,
+                available_now: next,
+                is_active: next,
+            });
         } catch (e: unknown) {
-            setIsAvailableToSupport(!next);
-            Alert.alert('Could not update support availability', e instanceof Error ? e.message : 'Something went wrong.');
+            Alert.alert('Could not update immediate support availability', e instanceof Error ? e.message : 'Something went wrong.');
         } finally {
             setAvailabilityUpdating(false);
         }
     };
 
+    const handleAcceptOffer = useCallback(async (offer: api.SupportOffer) => {
+        setOfferAcceptingIds(prev => new Set(prev).add(offer.id));
+        try {
+            const session = await api.acceptSupportOffer(offer.id);
+            void Promise.all([
+                queryClient.invalidateQueries({ queryKey: queryKeys.supportHome() }),
+                queryClient.invalidateQueries({ queryKey: queryKeys.supportQueue({ limit: 20 }) }),
+                queryClient.invalidateQueries({ queryKey: queryKeys.supportSessions({ limit: 20 }) }),
+                queryClient.invalidateQueries({ queryKey: ['support-requests'] }),
+            ]);
+            if (session.chat_id) {
+                const chat = await api.getChat(session.chat_id);
+                onOpenChat(chat);
+            } else {
+                Alert.alert('Offer accepted', 'Support session is active.');
+            }
+        } catch (e: unknown) {
+            Alert.alert('Could not accept support offer', e instanceof Error ? e.message : 'Something went wrong.');
+        } finally {
+            setOfferAcceptingIds(prev => {
+                const next = new Set(prev);
+                next.delete(offer.id);
+                return next;
+            });
+        }
+    }, [onOpenChat, queryClient]);
+
+    const handleDeclineOffer = useCallback(async (offer: api.SupportOffer) => {
+        setOfferDecliningIds(prev => new Set(prev).add(offer.id));
+        try {
+            await api.declineSupportOffer(offer.id);
+            void Promise.all([
+                queryClient.invalidateQueries({ queryKey: queryKeys.supportHome() }),
+                queryClient.invalidateQueries({ queryKey: queryKeys.supportQueue({ limit: 20 }) }),
+            ]);
+        } catch (e: unknown) {
+            Alert.alert('Could not decline support offer', e instanceof Error ? e.message : 'Something went wrong.');
+        } finally {
+            setOfferDecliningIds(prev => {
+                const next = new Set(prev);
+                next.delete(offer.id);
+                return next;
+            });
+        }
+    }, [queryClient]);
+
+    const handleOpenSessionChat = useCallback(async (session: api.SupportSession) => {
+        if (!session.chat_id) return;
+        setSessionChatOpeningIds(prev => new Set(prev).add(session.id));
+        try {
+            const chat = await api.getChat(session.chat_id);
+            onOpenChat(chat);
+        } catch (e: unknown) {
+            Alert.alert('Could not open support chat', e instanceof Error ? e.message : 'Something went wrong.');
+        } finally {
+            setSessionChatOpeningIds(prev => {
+                const next = new Set(prev);
+                next.delete(session.id);
+                return next;
+            });
+        }
+    }, [onOpenChat]);
+
+    const handleCloseSession = useCallback(async (session: api.SupportSession) => {
+        setSessionClosingIds(prev => new Set(prev).add(session.id));
+        try {
+            await api.closeSupportSession(session.id, 'completed');
+            void Promise.all([
+                queryClient.invalidateQueries({ queryKey: queryKeys.supportHome() }),
+                queryClient.invalidateQueries({ queryKey: queryKeys.supportSessions({ limit: 20 }) }),
+                queryClient.invalidateQueries({ queryKey: queryKeys.supportQueue({ limit: 20 }) }),
+                queryClient.invalidateQueries({ queryKey: ['support-requests'] }),
+            ]);
+        } catch (e: unknown) {
+            Alert.alert('Could not complete support session', e instanceof Error ? e.message : 'Something went wrong.');
+        } finally {
+            setSessionClosingIds(prev => {
+                const next = new Set(prev);
+                next.delete(session.id);
+                return next;
+            });
+        }
+    }, [queryClient]);
+
     const handleLoadMore = async () => {
-        if (subView === 'create') return;
-        if (subView === 'mine') {
+        if (surface === 'create' || surface === 'immediate') return;
+        if (surface === 'my_requests') {
             if (myRequestsQuery.isFetchingNextPage || myRequestsQuery.isRefetching || !myHasMore) return;
             await myRequestsQuery.fetchNextPage();
             return;
         }
-
+        if (communityScope === 'completed') {
+            if (respondedRequestsQuery.isFetchingNextPage || respondedRequestsQuery.isRefetching || !(respondedRequestsQuery.hasNextPage ?? false)) return;
+            await respondedRequestsQuery.fetchNextPage();
+            return;
+        }
         if (openRequestsQuery.isFetchingNextPage || openRequestsQuery.isRefetching || !openHasMore) return;
         await openRequestsQuery.fetchNextPage();
     };
     const supportListPagination = useGuardedEndReached(handleLoadMore);
 
-    const availabilityCard = (
+    const responderAvailabilityCard = (
         <View style={styles.availabilityCard}>
             <View style={styles.availabilityHeader}>
                 <View style={styles.availabilityBody}>
-                    <Text style={styles.availabilityTitle}>Available to support</Text>
+                    <Text style={styles.availabilityTitle}>Available for immediate support</Text>
                     <Text style={styles.availabilityText}>
-                        Let people know you are open to showing up for someone today.
+                        Turn this on to receive routed immediate support requests when someone needs help right now.
                     </Text>
                 </View>
                 <TouchableOpacity
                     style={[
                         styles.availabilityToggle,
-                        isAvailableToSupport && styles.availabilityToggleActive,
+                        responderProfile?.is_available_for_immediate && styles.availabilityToggleActive,
                         availabilityUpdating && styles.actionDisabled,
                     ]}
-                    onPress={handleToggleAvailability}
+                    onPress={handleToggleImmediateAvailability}
                     disabled={availabilityUpdating}
                 >
                     <Text style={[
                         styles.availabilityToggleText,
-                        isAvailableToSupport && styles.availabilityToggleTextActive,
+                        responderProfile?.is_available_for_immediate && styles.availabilityToggleTextActive,
                     ]}>
-                        {availabilityUpdating ? 'Saving...' : isAvailableToSupport ? 'On' : 'Off'}
+                        {availabilityUpdating ? 'Saving...' : responderProfile?.is_available_for_immediate ? 'On' : 'Off'}
                     </Text>
                 </TouchableOpacity>
             </View>
+            {responderProfile ? (
+                <Text style={styles.availabilityFootnote}>
+                    Active sessions {responderProfile.active_session_count}/{responderProfile.max_concurrent_sessions} ·
+                    Acceptance {Math.round((responderProfile.acceptance_rate ?? 0) * 100)}%
+                </Text>
+            ) : null}
         </View>
     );
-
-    const loading = (openRequestsQuery.isLoading && requests.length === 0)
-        || (supportProfileQuery.isLoading && !supportProfileQuery.data);
-
-    if (loading) {
-        return <View style={styles.center}><ActivityIndicator color={Colors.primary} /></View>;
-    }
 
     if (pendingCheckInDraft) {
         const sendingCheckIn = responsePendingIds.has(pendingCheckInDraft.requestId);
@@ -759,8 +1165,7 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
                     ]}
                 />
 
-                <HeroCard
-                    eyebrow="CHECK IN LATER"
+                <InfoNoticeCard
                     title={`Follow up with ${formatUsername(pendingCheckInDraft.requesterName)}`}
                     description="Choose the date and time and the app will send a formatted check-in message for you."
                     style={styles.headerCard}
@@ -876,209 +1281,437 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
         );
     }
 
-    if (subView === 'preview') {
-        return (
-            <ScrollView contentContainerStyle={[screenStandards.detailContent, screenStandards.scrollContent]}>
-                <ScreenHeader onBack={() => setSubView('create')} title="Review your request" style={styles.previewHeader} />
+    const loading = surface === 'immediate'
+        ? ((supportHomeQuery.isLoading && !supportHomeQuery.data)
+            || (responderProfileQuery.isLoading && !responderProfileQuery.data)
+            || (supportSessionsQuery.isLoading && supportQueueQuery.isLoading && myRequestsQuery.isLoading
+                && activeSupportSessions.length === 0
+                && completedSupportSessions.length === 0
+                && immediateOpenRequests.length === 0))
+        : surface === 'community'
+            ? communityScope === 'open'
+                ? (openRequestsQuery.isLoading && communityOpenRequests.length === 0)
+                : (respondedRequestsQuery.isLoading && communityCompletedResponded.length === 0)
+            : surface === 'my_requests'
+                ? (myRequestsQuery.isLoading && myRequests.length === 0)
+                : false;
 
-                <View style={styles.previewCard}>
-                    <View style={styles.previewTypeRow}>
-                        <View style={[styles.selectorChip, styles.selectorChipActive]}>
-                            <Text style={[styles.selectorChipText, styles.selectorChipTextActive]}>
-                                {SUPPORT_TYPE_LABELS[form.type]}
-                            </Text>
-                        </View>
+    if (loading) {
+        return <View style={styles.center}><ActivityIndicator color={Colors.primary} /></View>;
+    }
+
+    const primaryTabs = (
+        <SegmentedControl
+            activeKey={surface}
+            onChange={(key) => setSurface(key as SupportSurface)}
+            tone="primary"
+            style={[screenStandards.tabControl, styles.supportTabs]}
+            items={[
+                { key: 'immediate', label: 'Immediate' },
+                { key: 'community', label: 'Community' },
+                { key: 'my_requests', label: 'My requests' },
+                { key: 'create', label: 'Create' },
+            ]}
+        />
+    );
+
+    const renderOwnedRequestCard = (request: api.SupportRequest) => (
+        <SupportRequestCard
+            key={request.id}
+            request={request}
+            isAvailableToSupport
+            responsePending={false}
+            closingPending={closingIds.has(request.id)}
+            responses={requestResponsesById[request.id]}
+            responsesExpanded={expandedResponseRequestIds.has(request.id)}
+            responsesLoading={responseLoadingIds.has(request.id)}
+            responseChatPendingId={responseChatPendingIds[request.id]}
+            onRespond={handleRespond}
+            onOpenCheckInLaterComposer={openCheckInLaterComposer}
+            onClose={handleClose}
+            onToggleResponses={toggleResponses}
+            onOpenResponseChat={handleOpenResponseChat}
+            onPressUser={() => onOpenUserProfile({
+                userId: request.requester_id,
+                username: request.username,
+                avatarUrl: request.avatar_url ?? undefined,
+            })}
+        />
+    );
+
+    const renderCommunityRequestCard = (request: api.SupportRequest) => (
+        <SupportRequestCard
+            key={request.id}
+            request={request}
+            isAvailableToSupport
+            responsePending={responsePendingIds.has(request.id)}
+            closingPending={false}
+            onRespond={handleRespond}
+            onOpenCheckInLaterComposer={openCheckInLaterComposer}
+            onClose={handleClose}
+            onPressUser={() => onOpenUserProfile({
+                userId: request.requester_id,
+                username: request.username,
+                avatarUrl: request.avatar_url ?? undefined,
+            })}
+        />
+    );
+
+    if (surface === 'create') {
+        return (
+            <View style={styles.container}>
+                {primaryTabs}
+                <ScrollView contentContainerStyle={[screenStandards.detailContent, screenStandards.scrollContent]}>
+                    <InfoNoticeCard
+                        title={requestChannel === 'immediate' ? 'Request support right now' : 'Ask the community for support'}
+                        description={requestChannel === 'immediate'
+                            ? 'Immediate requests are routed privately to people who are available right now.'
+                            : 'Community requests stay on the wider support board for asynchronous replies.'}
+                        style={styles.headerCard}
+                    />
+
+                    <SegmentedControl
+                        activeKey={requestChannel}
+                        onChange={(key) => setRequestChannel(key as SupportRequestChannel)}
+                        tone="secondary"
+                        style={styles.nestedTabs}
+                        items={[
+                            { key: 'immediate', label: 'Immediate' },
+                            { key: 'community', label: 'Community' },
+                        ]}
+                    />
+
+                    <Text style={styles.formLabel}>What do you need?</Text>
+                    <View style={styles.selectorWrap}>
+                        {(Object.keys(SUPPORT_TYPE_LABELS) as SupportType[]).map(type => (
+                            <TouchableOpacity
+                                key={type}
+                                style={[styles.selectorChip, form.type === type && styles.selectorChipActive]}
+                                onPress={() => setForm(prev => ({ ...prev, type }))}
+                            >
+                                <Text style={[styles.selectorChipText, form.type === type && styles.selectorChipTextActive]}>
+                                    {SUPPORT_TYPE_LABELS[type]}
+                                </Text>
+                            </TouchableOpacity>
+                        ))}
                     </View>
-                    {!!form.message.trim() && (
-                        <Text style={styles.previewMessage}>{form.message.trim()}</Text>
+
+                    <TextField
+                        style={[styles.formInput, styles.inputMultiline]}
+                        value={form.message}
+                        onChangeText={message => setForm(prev => ({ ...prev, message }))}
+                        placeholder="Optional note"
+                        multiline
+                    />
+
+                    <Text style={styles.formLabel}>How urgent is this?</Text>
+                    <View style={styles.selectorWrap}>
+                        {SUPPORT_URGENCY_OPTIONS.map(option => (
+                            <TouchableOpacity
+                                key={option.value}
+                                style={[styles.selectorChip, form.urgency === option.value && styles.selectorChipActive]}
+                                onPress={() => setForm(prev => ({ ...prev, urgency: option.value }))}
+                            >
+                                <Text style={[styles.selectorChipText, form.urgency === option.value && styles.selectorChipTextActive]}>
+                                    {option.label}
+                                </Text>
+                            </TouchableOpacity>
+                        ))}
+                    </View>
+
+                    <PrimaryButton
+                        label={submitting
+                            ? 'Posting...'
+                            : requestChannel === 'immediate'
+                                ? 'Request immediate support'
+                                : 'Post community request'}
+                        onPress={() => void handleCreate()}
+                        disabled={submitting}
+                        variant="success"
+                        style={styles.submitButton}
+                    />
+                </ScrollView>
+            </View>
+        );
+    }
+
+    if (surface === 'immediate') {
+        return (
+            <View style={styles.container}>
+                {primaryTabs}
+                <ScrollView
+                    contentContainerStyle={[screenStandards.detailContent, screenStandards.scrollContent]}
+                    onScroll={supportScrollToTop.onScroll}
+                    scrollEventThrottle={16}
+                    refreshControl={
+                        <RefreshControl
+                            refreshing={supportHomeQuery.isRefetching || supportQueueQuery.isRefetching || supportSessionsQuery.isRefetching || myRequestsQuery.isRefetching}
+                            onRefresh={refreshSupportPlatform}
+                            tintColor={Colors.primary}
+                        />
+                    }
+                >
+                    <InfoNoticeCard
+                        title={immediateScope === 'open' ? 'Live support that needs attention now' : 'Resolved immediate support'}
+                        description={immediateScope === 'open'
+                            ? 'This is where routed offers, live immediate requests, and current support sessions stay visible.'
+                            : 'Finished immediate sessions and closed immediate requests stay here for later reference.'}
+                        style={styles.headerCard}
+                    />
+
+                    <SegmentedControl
+                        activeKey={immediateScope}
+                        onChange={(key) => setImmediateScope(key as SupportScope)}
+                        tone="secondary"
+                        style={styles.nestedTabs}
+                        items={[
+                            { key: 'open', label: 'Open' },
+                            { key: 'completed', label: 'Completed' },
+                        ]}
+                    />
+
+                    {responderAvailabilityCard}
+
+                    {immediateScope === 'open' ? (
+                        immediateOpenRequests.length === 0 && activeSupportSessions.length === 0 && supportQueueItems.length === 0 ? (
+                            <EmptyState
+                                title="Nothing open right now."
+                                description="Your live immediate requests, active sessions, and routed offers will appear here."
+                            />
+                        ) : (
+                        <>
+                            {immediateOpenRequests.length > 0 ? (
+                                <>
+                                    <InfoNoticeCard
+                                        title="Your immediate requests"
+                                        description="Requests that are still routing or currently matched stay here."
+                                        style={styles.screenNote}
+                                    />
+                                    {immediateOpenRequests.map(renderOwnedRequestCard)}
+                                </>
+                            ) : null}
+
+                            {activeSupportSessions.length > 0 ? (
+                                <View style={styles.sessionList}>
+                                    {activeSupportSessions.map((session) => (
+                                        <SupportSessionCard
+                                            key={session.id}
+                                            session={session}
+                                            currentUserId={user?.id}
+                                            opening={sessionChatOpeningIds.has(session.id)}
+                                            closing={sessionClosingIds.has(session.id)}
+                                            onOpenChat={(value) => void handleOpenSessionChat(value)}
+                                            onCloseSession={(value) => void handleCloseSession(value)}
+                                        />
+                                    ))}
+                                </View>
+                            ) : null}
+
+                            <InfoNoticeCard
+                                title="Incoming routed offers"
+                                description="These are the immediate requests the routing system thinks fit you best right now."
+                                style={styles.screenNote}
+                            />
+                            {supportQueueItems.length === 0 ? (
+                                <EmptyState
+                                    title="No routed offers right now."
+                                    description="Turn on immediate support and available-now status to receive more matches."
+                                />
+                            ) : (
+                                supportQueueItems.map((offer) => (
+                                    <SupportOfferCard
+                                        key={offer.id}
+                                        offer={offer}
+                                        accepting={offerAcceptingIds.has(offer.id)}
+                                        declining={offerDecliningIds.has(offer.id)}
+                                        onAccept={(value) => void handleAcceptOffer(value)}
+                                        onDecline={(value) => void handleDeclineOffer(value)}
+                                        onPressUser={() => onOpenUserProfile({
+                                            userId: offer.requester_id,
+                                            username: offer.requester_username,
+                                            avatarUrl: offer.requester_avatar_url ?? undefined,
+                                        })}
+                                    />
+                                ))
+                            )}
+                        </>
+                        )
+                    ) : (
+                        completedSupportSessions.length === 0 && immediateClosedRequests.length === 0 ? (
+                            <EmptyState
+                                title="No completed immediate support yet."
+                                description="Finished immediate sessions and closed immediate requests will appear here."
+                            />
+                        ) : (
+                        <>
+                            {completedSupportSessions.length > 0 ? (
+                                <View style={styles.sessionList}>
+                                    {completedSupportSessions.map((session) => (
+                                        <SupportSessionCard
+                                            key={session.id}
+                                            session={session}
+                                            currentUserId={user?.id}
+                                            opening={sessionChatOpeningIds.has(session.id)}
+                                            onOpenChat={(value) => void handleOpenSessionChat(value)}
+                                        />
+                                    ))}
+                                </View>
+                            ) : null}
+
+                            {immediateClosedRequests.length > 0 ? (
+                                <>
+                                    <InfoNoticeCard
+                                        title="Closed immediate requests"
+                                        description="Requests that were closed without an active session still stay visible here."
+                                        style={styles.screenNote}
+                                    />
+                                    {immediateClosedRequests.map(renderOwnedRequestCard)}
+                                </>
+                            ) : null}
+                        </>
+                        )
                     )}
-                    <View style={styles.previewDivider} />
-                    <View style={styles.previewStatRow}>
-                        <View style={styles.previewStat}>
-                            <Ionicons name="people-outline" size={15} color={Colors.light.textTertiary} />
-                            <Text style={styles.previewStatLabel}>Visible to</Text>
-                            <Text style={styles.previewStatValue}>Everyone</Text>
-                        </View>
-                        <View style={styles.previewStatSep} />
-                        <View style={styles.previewStat}>
-                            <Ionicons name="alert-circle-outline" size={15} color={Colors.light.textTertiary} />
-                            <Text style={styles.previewStatLabel}>Urgency</Text>
-                            <Text style={styles.previewStatValue}>
-                                {SUPPORT_URGENCY_OPTIONS.find(o => o.value === form.urgency)?.label ?? form.urgency}
-                            </Text>
-                        </View>
-                    </View>
-                </View>
-
-                <PrimaryButton
-                    label={submitting ? 'Posting...' : 'Post request'}
-                    onPress={() => void handleCreate()}
-                    disabled={submitting}
-                    variant="success"
-                />
-            </ScrollView>
+                </ScrollView>
+            </View>
         );
     }
 
-    if (subView === 'create') {
+    if (surface === 'my_requests') {
+        const visibleRequests = myRequestsScope === 'open' ? myOpenRequests : myCompletedRequests;
+
         return (
-            <ScrollView contentContainerStyle={[screenStandards.detailContent, screenStandards.scrollContent]}>
-                <SegmentedControl
-                    activeKey="create"
-                    onChange={(key) => setSubView(key as SupportSubView)}
-                    tone="primary"
-                    style={screenStandards.tabControl}
-                    items={[
-                        { key: 'open', label: 'Open' },
-                        { key: 'mine', label: 'My requests' },
-                        { key: 'create', label: 'Create' },
-                    ]}
+            <View style={styles.container}>
+                {primaryTabs}
+                <FlatList<api.SupportRequest>
+                    ref={flatListRef}
+                    data={visibleRequests}
+                    keyExtractor={(item) => item.id}
+                    {...supportListProps}
+                    onEndReached={supportListPagination.onEndReached}
+                    onEndReachedThreshold={0.4}
+                    onMomentumScrollBegin={supportListPagination.onMomentumScrollBegin}
+                    onScrollBeginDrag={supportListPagination.onScrollBeginDrag}
+                    onScroll={supportScrollToTop.onScroll}
+                    scrollEventThrottle={16}
+                    refreshControl={
+                        <RefreshControl
+                            refreshing={myRequestsQuery.isRefetching && !myRequestsQuery.isFetchingNextPage}
+                            onRefresh={refreshMine}
+                            tintColor={Colors.primary}
+                        />
+                    }
+                    contentContainerStyle={screenStandards.listContent}
+                    ListHeaderComponent={
+                        <>
+                            <InfoNoticeCard
+                                title={myRequestsScope === 'open' ? 'Everything you still need help with' : 'Requests you have already closed'}
+                                description={myRequestsScope === 'open'
+                                    ? 'Immediate and community requests stay together here so you always know where to manage them.'
+                                    : 'Closed requests from both support lanes stay here for later reference.'}
+                                style={styles.headerCard}
+                            />
+                            <SegmentedControl
+                                activeKey={myRequestsScope}
+                                onChange={(key) => setMyRequestsScope(key as SupportScope)}
+                                tone="secondary"
+                                style={styles.nestedTabs}
+                                items={[
+                                    { key: 'open', label: 'Open' },
+                                    { key: 'completed', label: 'Completed' },
+                                ]}
+                            />
+                        </>
+                    }
+                    ListEmptyComponent={
+                        <EmptyState
+                            title={myRequestsScope === 'open' ? 'No open requests.' : 'No completed requests yet.'}
+                            description={myRequestsScope === 'open'
+                                ? 'Create an immediate or community request when you need support.'
+                                : 'Closed requests will appear here once you have completed them.'}
+                        />
+                    }
+                    ListFooterComponent={myRequestsQuery.isFetchingNextPage ? <ActivityIndicator style={styles.footerLoader} color={Colors.primary} /> : null}
+                    renderItem={({ item }) => renderOwnedRequestCard(item)}
                 />
-
-                <InfoNoticeCard
-                    title="Ask the community for support."
-                    description="Keep it short so people know how to show up for you."
-                    style={styles.screenNote}
-                />
-
-                <Text style={styles.formLabel}>What do you need?</Text>
-                <View style={styles.selectorWrap}>
-                    {(Object.keys(SUPPORT_TYPE_LABELS) as SupportType[]).map(type => (
-                        <TouchableOpacity
-                            key={type}
-                            style={[styles.selectorChip, form.type === type && styles.selectorChipActive]}
-                            onPress={() => setForm(prev => ({ ...prev, type }))}
-                        >
-                            <Text style={[styles.selectorChipText, form.type === type && styles.selectorChipTextActive]}>
-                                {SUPPORT_TYPE_LABELS[type]}
-                            </Text>
-                        </TouchableOpacity>
-                    ))}
-                </View>
-
-                <TextField
-                    style={[styles.formInput, styles.inputMultiline]}
-                    value={form.message}
-                    onChangeText={message => setForm(prev => ({ ...prev, message }))}
-                    placeholder="Optional note"
-                    multiline
-                />
-
-                <Text style={styles.formLabel}>How urgent is this?</Text>
-                <View style={styles.selectorWrap}>
-                    {SUPPORT_URGENCY_OPTIONS.map(option => (
-                        <TouchableOpacity
-                            key={option.value}
-                            style={[styles.selectorChip, form.urgency === option.value && styles.selectorChipActive]}
-                            onPress={() => setForm(prev => ({ ...prev, urgency: option.value }))}
-                        >
-                            <Text style={[styles.selectorChipText, form.urgency === option.value && styles.selectorChipTextActive]}>
-                                {option.label}
-                            </Text>
-                        </TouchableOpacity>
-                    ))}
-                </View>
-
-                <PrimaryButton
-                    label="Review & post"
-                    onPress={() => setSubView('preview')}
-                    variant="success"
-                    style={styles.submitButton}
-                />
-            </ScrollView>
+                {isActive && supportScrollToTop.isVisible ? (
+                    <ScrollToTopButton onPress={() => flatListRef.current?.scrollToOffset({ offset: 0, animated: true })} />
+                ) : null}
+            </View>
         );
     }
 
-    const isMineView = subView === 'mine';
-    const data = isMineView ? myRequests : requests;
+    const communityList = communityScope === 'open' ? communityOpenRequests : communityCompletedResponded;
 
     return (
         <View style={styles.container}>
-            <SegmentedControl
-                activeKey={isMineView ? 'mine' : 'open'}
-                onChange={(key) => setSubView(key as SupportSubView)}
-                tone="primary"
-                style={[screenStandards.tabControl, styles.supportTabs]}
-                items={[
-                    { key: 'open', label: 'Open' },
-                    { key: 'mine', label: 'My requests' },
-                    { key: 'create', label: 'Create' },
-                ]}
-            />
-            <FlatList
-            ref={flatListRef}
-            data={data}
-            keyExtractor={item => item.id}
-            {...supportListProps}
-            onEndReached={supportListPagination.onEndReached}
-            onEndReachedThreshold={0.4}
-            onMomentumScrollBegin={supportListPagination.onMomentumScrollBegin}
-            onScrollBeginDrag={supportListPagination.onScrollBeginDrag}
-            onScroll={supportScrollToTop.onScroll}
-            scrollEventThrottle={16}
-            refreshControl={
-                <RefreshControl
-                    refreshing={isMineView
-                        ? (myRequestsQuery.isRefetching && !myRequestsQuery.isFetchingNextPage)
-                        : (openRequestsQuery.isRefetching && !openRequestsQuery.isFetchingNextPage)}
-                    onRefresh={isMineView ? refreshMine : refreshOpen}
-                    tintColor={Colors.primary}
-                />
-            }
-            contentContainerStyle={screenStandards.listContent}
-            ListHeaderComponent={
-                <>
-                    <InfoNoticeCard
-                        title={isMineView ? 'Your Support Requests' : 'Support Requests'}
-                        description={isMineView
-                            ? 'See how people responded, open a chat that fits, and close the request once you are okay.'
-                            : 'Open requests from the community show up here so you can respond when you can genuinely help.'}
-                        style={styles.screenNote}
+            {primaryTabs}
+            <FlatList<api.SupportRequest>
+                ref={flatListRef}
+                data={communityList}
+                keyExtractor={item => item.id}
+                {...supportListProps}
+                onEndReached={supportListPagination.onEndReached}
+                onEndReachedThreshold={0.4}
+                onMomentumScrollBegin={supportListPagination.onMomentumScrollBegin}
+                onScrollBeginDrag={supportListPagination.onScrollBeginDrag}
+                onScroll={supportScrollToTop.onScroll}
+                scrollEventThrottle={16}
+                refreshControl={
+                    <RefreshControl
+                        refreshing={communityScope === 'open'
+                            ? openRequestsQuery.isRefetching && !openRequestsQuery.isFetchingNextPage
+                            : respondedRequestsQuery.isRefetching && !respondedRequestsQuery.isFetchingNextPage}
+                        onRefresh={communityScope === 'open' ? refreshOpen : refreshResponded}
+                        tintColor={Colors.primary}
                     />
-                    {!isMineView ? (
-                        <View style={styles.statsRow}>
-                            <View style={styles.statCard}>
-                                <Text style={styles.statValue}>{openRequestCount}</Text>
-                                <Text style={styles.statLabel}>Open requests</Text>
-                            </View>
-                            <View style={styles.statCard}>
-                                <Text style={styles.statValue}>{availableToSupportCount}</Text>
-                                <Text style={styles.statLabel}>Available to support</Text>
-                            </View>
-                        </View>
-                    ) : null}
-                    {!isMineView ? availabilityCard : null}
-                </>
-            }
-            ListEmptyComponent={
-                <EmptyState
-                    title={isMineView ? 'No support requests yet.' : 'No open requests right now.'}
-                    description={isMineView ? 'Create one when you need the community.' : 'Check back later or turn on availability in your profile.'}
-                />
-            }
-            ListFooterComponent={(isMineView ? myRequestsQuery.isFetchingNextPage : openRequestsQuery.isFetchingNextPage) ? <ActivityIndicator style={styles.footerLoader} color={Colors.primary} /> : null}
-            renderItem={({ item }) => (
-                <SupportRequestCard
-                    request={item}
-                    isAvailableToSupport={isAvailableToSupport}
-                    responsePending={responsePendingIds.has(item.id)}
-                    closingPending={closingIds.has(item.id)}
-                    responses={isMineView ? requestResponsesById[item.id] : undefined}
-                    responsesExpanded={isMineView ? expandedResponseRequestIds.has(item.id) : undefined}
-                    responsesLoading={isMineView ? responseLoadingIds.has(item.id) : undefined}
-                    responseChatPendingId={isMineView ? responseChatPendingIds[item.id] : undefined}
-                    onRespond={handleRespond}
-                    onOpenCheckInLaterComposer={openCheckInLaterComposer}
-                    onClose={handleClose}
-                    onToggleResponses={isMineView ? toggleResponses : undefined}
-                    onOpenResponseChat={isMineView ? handleOpenResponseChat : undefined}
-                    onPressUser={() => onOpenUserProfile({
-                        userId: item.requester_id,
-                        username: item.username,
-                        avatarUrl: item.avatar_url ?? undefined,
-                    })}
-                />
-            )}
+                }
+                contentContainerStyle={screenStandards.listContent}
+                ListHeaderComponent={
+                    <>
+                        <InfoNoticeCard
+                            title={communityScope === 'open' ? 'Open requests from the wider community' : 'Closed community requests you responded to'}
+                            description={communityScope === 'open'
+                                ? 'This is the asynchronous support board. Respond only when you can genuinely show up for someone.'
+                                : 'This is where community requests you answered later appear once they have been closed.'}
+                            style={styles.headerCard}
+                        />
+                        <SegmentedControl
+                            activeKey={communityScope}
+                            onChange={(key) => setCommunityScope(key as SupportScope)}
+                            tone="secondary"
+                            style={styles.nestedTabs}
+                            items={[
+                                { key: 'open', label: 'Open' },
+                                { key: 'completed', label: 'Completed' },
+                            ]}
+                        />
+                        {communityScope === 'open' ? (
+                            <>
+                                <View style={styles.statsRow}>
+                                    <View style={styles.statCard}>
+                                        <Text style={styles.statValue}>{openRequestCount}</Text>
+                                        <Text style={styles.statLabel}>Open requests</Text>
+                                    </View>
+                                </View>
+                            </>
+                        ) : null}
+                    </>
+                }
+                ListEmptyComponent={
+                    <EmptyState
+                        title={communityScope === 'open' ? 'No open community requests right now.' : 'No completed community requests yet.'}
+                        description={communityScope === 'open'
+                            ? 'Check back later for new requests from the community.'
+                            : 'Closed community requests you responded to will appear here.'}
+                    />
+                }
+                ListFooterComponent={
+                    (communityScope === 'open' && openRequestsQuery.isFetchingNextPage)
+                        || (communityScope === 'completed' && respondedRequestsQuery.isFetchingNextPage)
+                        ? <ActivityIndicator style={styles.footerLoader} color={Colors.primary} />
+                        : null
+                }
+                renderItem={({ item }) => renderCommunityRequestCard(item)}
             />
             {isActive && supportScrollToTop.isVisible ? (
                 <ScrollToTopButton onPress={() => flatListRef.current?.scrollToOffset({ offset: 0, animated: true })} />
@@ -1092,6 +1725,7 @@ const styles = StyleSheet.create({
     center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.light.background },
     headerCard: { marginBottom: Spacing.md },
     supportTabs: { marginBottom: Spacing.sm },
+    nestedTabs: { marginBottom: Spacing.md },
     screenNote: { marginBottom: Spacing.md },
     statsRow: {
         flexDirection: 'row',
@@ -1128,6 +1762,11 @@ const styles = StyleSheet.create({
     availabilityBody: { flex: 1 },
     availabilityTitle: { fontSize: Typography.sizes.md, fontWeight: '600', color: Colors.light.textPrimary, marginBottom: 4 },
     availabilityText: { fontSize: Typography.sizes.sm, color: Colors.light.textSecondary, lineHeight: 19 },
+    availabilityFootnote: {
+        marginTop: Spacing.sm,
+        fontSize: Typography.sizes.sm,
+        color: Colors.light.textTertiary,
+    },
     availabilityToggle: {
         minWidth: 72,
         borderRadius: Radii.full,
@@ -1232,53 +1871,6 @@ const styles = StyleSheet.create({
     inlinePickerTabTextActive: {
         color: Colors.textOn.primary,
     },
-    previewHeader: {
-        marginBottom: Spacing.lg,
-    },
-    previewCard: {
-        backgroundColor: Colors.light.backgroundSecondary,
-        borderRadius: Radii.lg,
-        borderWidth: 1,
-        borderColor: Colors.light.border,
-        padding: Spacing.md,
-        marginBottom: Spacing.lg,
-        gap: Spacing.sm,
-    },
-    previewTypeRow: {
-        flexDirection: 'row',
-    },
-    previewMessage: {
-        fontSize: Typography.sizes.lg,
-        color: Colors.light.textPrimary,
-        lineHeight: 24,
-    },
-    previewDivider: {
-        height: 0.5,
-        backgroundColor: Colors.light.border,
-        marginTop: Spacing.sm,
-    },
-    previewStatRow: {
-        flexDirection: 'row',
-        paddingTop: Spacing.sm,
-    },
-    previewStat: {
-        flex: 1,
-        alignItems: 'center',
-        gap: 3,
-    },
-    previewStatSep: {
-        width: 0.5,
-        backgroundColor: Colors.light.border,
-    },
-    previewStatLabel: {
-        fontSize: Typography.sizes.xs,
-        color: Colors.light.textTertiary,
-    },
-    previewStatValue: {
-        fontSize: Typography.sizes.md,
-        fontWeight: '600',
-        color: Colors.light.textPrimary,
-    },
     formInput: { marginTop: Spacing.md },
     inputMultiline: { minHeight: 110, textAlignVertical: 'top' },
     submitButton: { marginTop: Spacing.lg },
@@ -1340,6 +1932,61 @@ const styles = StyleSheet.create({
     cardBody: { fontSize: Typography.sizes.base, lineHeight: 19, color: Colors.light.textSecondary, marginTop: Spacing.md },
     cardFooterText: { fontSize: Typography.sizes.sm, color: Colors.light.textTertiary, marginTop: Spacing.md },
     responseSummaryText: { fontSize: Typography.sizes.sm, color: Colors.primary, marginTop: Spacing.sm, fontWeight: '500' },
+    sessionList: {
+        marginBottom: Spacing.md,
+    },
+    sessionCard: {
+        backgroundColor: Colors.light.backgroundSecondary,
+        borderRadius: Radii.lg,
+        borderWidth: 1,
+        borderColor: Colors.light.border,
+        padding: Spacing.md,
+        marginBottom: Spacing.sm,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: Spacing.md,
+    },
+    sessionCardBody: {
+        flex: 1,
+    },
+    sessionCardTitle: {
+        fontSize: Typography.sizes.md,
+        fontWeight: '600',
+        color: Colors.light.textPrimary,
+    },
+    sessionCardMeta: {
+        marginTop: 4,
+        fontSize: Typography.sizes.sm,
+        color: Colors.light.textTertiary,
+    },
+    sessionCardAction: {
+        backgroundColor: Colors.primary,
+        borderRadius: Radii.full,
+        paddingHorizontal: Spacing.md,
+        paddingVertical: 10,
+    },
+    sessionCardActionText: {
+        color: Colors.textOn.primary,
+        fontSize: Typography.sizes.sm,
+        fontWeight: '600',
+    },
+    sessionCardActions: {
+        gap: Spacing.sm,
+        alignItems: 'flex-end',
+    },
+    sessionCardSecondaryAction: {
+        backgroundColor: Colors.light.background,
+        borderRadius: Radii.full,
+        paddingHorizontal: Spacing.md,
+        paddingVertical: 10,
+        borderWidth: 1,
+        borderColor: Colors.light.border,
+    },
+    sessionCardSecondaryActionText: {
+        color: Colors.light.textSecondary,
+        fontSize: Typography.sizes.sm,
+        fontWeight: '600',
+    },
     actions: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm, marginTop: Spacing.md },
     actionPrimary: { backgroundColor: Colors.success, borderRadius: Radii.full, paddingHorizontal: Spacing.md, paddingVertical: 10 },
     actionPrimaryText: { color: Colors.textOn.primary, fontSize: Typography.sizes.sm, fontWeight: '600' },

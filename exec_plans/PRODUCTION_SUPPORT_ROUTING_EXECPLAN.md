@@ -19,12 +19,16 @@ The proof will be visible in a local end-to-end run. A requester creates an imme
 - [x] (2026-04-27 11:24Z) Audited the current support-chat coupling in `/home/michaelroddy/repos/project_radeon/internal/chats/store.go` and the app chat screens that consume support chat context.
 - [x] (2026-04-27 11:31Z) Identified the main production gaps: public-board-first fulfillment, binary responder availability, inline list ranking as the primary matching engine, eager chat creation on response, and missing responder-quality and load controls.
 - [x] (2026-04-27 11:46Z) Authored this cross-repository ExecPlan for a routing-based support platform with offers, sessions, responder presence, and a secondary async community lane.
-- [ ] Create dedicated implementation branches in both repositories.
-- [ ] Add backend schema and foundation types for support offers, support sessions, responder profiles, responder presence, responder stats, and support event logging.
-- [ ] Add backend routing worker, responder queue reads, offer acceptance flow, and delayed chat creation.
-- [ ] Add app support home redesign, immediate support requester flow, responder queue flow, and support session UI.
-- [ ] Migrate community support from the current public board into the new async lane and retire the legacy board-first UX.
-- [ ] Add rollout flags, observability, and validation coverage for routing quality and queue latency.
+- [x] (2026-04-27 12:06Z) Created implementation branches `codex/support-routing-platform` in `/home/michaelroddy/repos/project_radeon` and `codex/support-routing-platform-client` in `/home/michaelroddy/repos/project_radeon_app`.
+- [x] (2026-04-27 12:24Z) Added backend schema and foundation code: migrations `041_support_routing_foundation.sql` and `042_support_routing_indexes.sql`, new support routing types, additive handler/store methods for support home, responder profiles, immediate/community request creation, responder queue reads, and session reads, plus route wiring in `cmd/api/main.go`.
+- [x] (2026-04-27 12:31Z) Added frontend foundation scaffolding in `src/api/client.ts`, `src/hooks/queries/useSupport.ts`, and `src/query/queryKeys.ts` for support home, responder profile, queue, sessions, and immediate/community request endpoints.
+- [x] (2026-04-27 13:02Z) Added the first live routing and fulfillment backend path: `RouteSupportRequest(...)` now creates scored immediate-support offers, `AcceptSupportOffer(...)` creates a support session and only then creates the support chat, and `DeclineSupportOffer(...)` closes offers without creating chats.
+- [x] (2026-04-27 13:38Z) Reworked the app support surface in `src/screens/main/SupportScreen.tsx` around `Get help`, `Support others`, and `Community`, wired to support home, responder queue, responder profile, active sessions, and immediate/community request creation.
+- [x] (2026-04-27 13:51Z) Added first-pass reroute hardening: responder queue reads now expire stale pending offers and reroute the request, and a fully declined batch also reroutes instead of stopping after the first attempt.
+- [x] (2026-04-27 14:09Z) Added a background support-routing worker with `SUPPORT_ROUTING_ENABLED` and `SUPPORT_ROUTING_SWEEP_INTERVAL_SECONDS`, plus `SweepExpiredSupportOffers(...)` so immediate support does not depend only on request creation or queue reads.
+- [x] (2026-04-27 14:18Z) Added support-session close/completion flow in the backend and app, plus recent support-session history in `SupportScreen.tsx`.
+- [x] (2026-04-27 14:24Z) Completed the migration framing: the public board now lives only as the `Community` lane, while `Get help` and `Support others` are the primary product surfaces.
+- [x] (2026-04-27 14:27Z) Added rollout and observability basics: support-routing feature flags, worker logs, durable `support_events`, and validation coverage across backend tests and frontend typecheck.
 
 ## Surprises & Discoveries
 
@@ -42,6 +46,21 @@ The proof will be visible in a local end-to-end run. A requester creates an imme
 
 - Observation: the current feature is not actually weak because of UI polish; it is weak because the fulfillment model is wrong for urgent support.
     Evidence: `SupportScreen.tsx` already supports create, preview, open, and mine flows, but those flows still depend on a responder manually browsing a list rather than a backend routing engine.
+
+- Observation: the existing `support_requests` table is flexible enough to serve as the root durable request record for both immediate and community lanes once it gets lane and routing metadata.
+    Evidence: the foundation implementation added `channel`, `routing_status`, `desired_response_window`, `privacy_level`, and `matched_session_id` to `support_requests` rather than introducing a replacement request table.
+
+- Observation: delayed chat creation was possible without redesigning the entire chat schema first.
+    Evidence: `AcceptSupportOffer(...)` now creates `support_sessions` and only then creates a chat linked by `support_request_id`, which is enough to move chat creation behind accepted offers while a later milestone can still add richer session-native chat metadata if needed.
+
+- Observation: the existing `SupportScreen.tsx` was large but still salvageable; the lowest-risk path was to replace the top-level product framing while reusing the existing request card and response composer pieces for the community lane.
+    Evidence: the new support surface keeps `SupportRequestCard`, response loading, and check-in-later composition for community support, while the requester home and responder queue now sit above them as the primary product.
+
+- Observation: request-creation-time routing alone was not enough; immediate support needed at least one follow-up reroute trigger to avoid stalling after the first offer batch.
+    Evidence: the implementation now reroutes on queue-time offer expiry and after a fully declined batch, while excluding responders who have already been offered the same request.
+
+- Observation: a background sweep was still necessary even after queue-time reroute logic existed.
+    Evidence: the final implementation adds `RunRoutingWorker(...)` plus `SweepExpiredSupportOffers(...)` because otherwise a request could still stall indefinitely if no targeted responder opened their queue after an offer expired.
 
 ## Decision Log
 
@@ -71,9 +90,17 @@ The proof will be visible in a local end-to-end run. A requester creates an imme
 
 ## Outcomes & Retrospective
 
-Implementation has not started yet. The outcome of this planning phase is a concrete migration path away from a browse-and-respond support board toward a routing, offers, and sessions platform that can be implemented incrementally without breaking the existing app.
+The first implementation slice is complete. The codebase now has the new durable schema and additive backend and frontend contracts needed for the routing platform, but the old board-first support feature is still the active product surface. That is intentional. The current state is safe migration scaffolding, not half-switched behavior.
 
-The biggest lesson from the design pass is that the current feature’s primary weakness is architectural, not cosmetic. Ranking the board better or polishing the cards further would not fix the fact that urgent support is still waiting on passive discovery. The replacement therefore centers on a new fulfillment model first and UI refresh second.
+The biggest lesson from this first milestone is that the repository could absorb the new support domain cleanly without breaking the existing support board. That validates the additive migration strategy: keep `support_requests` as the root request object, add offers and sessions beside it, then move the product surface over in later milestones.
+
+The second implementation slice has also started successfully. Immediate support requests now have a real backend fulfillment path rather than being mere stored records. That backend path is still intentionally incomplete: reroute-on-expiry, async worker execution, and the full app-side surface have not been switched on yet.
+
+The app cutover milestone is now mostly in place as well. The support tab no longer presents the raw public board as the only conceptual model. Users can now see a requester-focused home, a responder queue, and the community lane separately. What remains on the app side is follow-through detail, not first-order product framing.
+
+Routing is also now materially more resilient than the first backend slice. Immediate requests will continue to search for a match after stale offers expire or a batch is fully declined. There is still room for a dedicated background worker and richer responder-quality updates, but the platform no longer depends on a single first-pass offer batch.
+
+The final implementation slices completed that remaining follow-through. The platform now has a background routing sweep, session completion flow, session history, and feature-flagged routing startup. At the approved scope, the plan is complete: the support feature has been transformed from a board-first public request list into a routed support platform with a secondary async community lane.
 
 ## Context and Orientation
 
@@ -342,4 +369,12 @@ The app should keep using React Query, `FlatList`, and cursor pagination. There 
 
 Revision note: this plan does not revise a prior checked-in support-platform ExecPlan. Earlier support plans in `exec_plans/` focused on ranking and simplification of the current board-based system. This document supersedes that product direction by treating the board as migration scaffolding and defining a new routing-based support platform.
 
-Revision note: no implementation code has been executed as part of this plan. The only repository change in this branch is the creation of this ExecPlan document.
+Revision note: implementation started on 2026-04-27. The first completed slice added the new support-routing schema and additive backend/frontend scaffolding, while deliberately leaving the legacy board-first feature active until later milestones are complete.
+
+Revision note: a second execution slice added first-pass offer routing plus session-before-chat fulfillment on the backend, but the app UI has not yet been migrated to those endpoints.
+
+Revision note: a third execution slice migrated the support tab UI to the new routed product framing while intentionally preserving the community board and old response flow as the async lane during migration.
+
+Revision note: a fourth execution slice added first-pass reroute hardening so immediate requests continue routing after expiries or fully declined batches.
+
+Revision note: a fifth execution slice completed the remaining production-grade support-platform work at the approved scope by adding the routing sweeper, support-session close/history flow, and final rollout/observability basics.

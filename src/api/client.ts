@@ -443,11 +443,16 @@ export interface SupportRequest {
     type: 'need_to_talk' | 'need_distraction' | 'need_encouragement' | 'need_in_person_help';
     message?: string | null;
     urgency: 'when_you_can' | 'soon' | 'right_now';
-    status: 'open' | 'closed';
+    status: 'open' | 'matched' | 'closed';
     response_count: number;
     created_at: string;
     priority_visibility: boolean;
     priority_expires_at?: string | null;
+    channel?: 'immediate' | 'community';
+    routing_status?: 'pending' | 'offered' | 'matched' | 'fallback' | 'closed' | 'not_applicable';
+    desired_response_window?: 'right_now' | 'soon' | 'when_you_can';
+    privacy_level?: 'standard' | 'private';
+    matched_session_id?: string | null;
     has_responded: boolean;
     is_own_request: boolean;
 }
@@ -481,6 +486,74 @@ export interface SupportChatContext {
 export interface SupportRequestsPage extends CursorResponse<SupportRequest> {
     open_request_count?: number;
     available_to_support_count?: number;
+}
+
+export interface SupportResponderProfile {
+    user_id: string;
+    is_available_for_immediate: boolean;
+    is_available_for_community: boolean;
+    supports_chat: boolean;
+    supports_check_ins: boolean;
+    supports_in_person: boolean;
+    max_concurrent_sessions: number;
+    languages: string[];
+    is_active: boolean;
+    available_now: boolean;
+    active_session_count: number;
+    acceptance_rate: number;
+    completion_rate: number;
+    helpfulness_score: number;
+    median_response_seconds: number;
+    updated_at: string;
+    last_seen_at?: string | null;
+    last_session_completed_at?: string | null;
+}
+
+export interface SupportOffer {
+    id: string;
+    support_request_id: string;
+    requester_id: string;
+    requester_username: string;
+    requester_avatar_url?: string | null;
+    request_type: SupportRequest['type'];
+    request_message?: string | null;
+    request_urgency: SupportRequest['urgency'];
+    request_channel: 'immediate' | 'community';
+    status: 'pending' | 'accepted' | 'declined' | 'expired' | 'closed';
+    match_score: number;
+    fit_summary?: string | null;
+    batch_number: number;
+    offered_at: string;
+    expires_at: string;
+    responded_at?: string | null;
+}
+
+export interface SupportSession {
+    id: string;
+    support_request_id: string;
+    requester_id: string;
+    requester_username: string;
+    responder_id: string;
+    responder_username: string;
+    status: 'pending' | 'active' | 'completed' | 'cancelled';
+    outcome?: string | null;
+    chat_id?: string | null;
+    started_at?: string | null;
+    completed_at?: string | null;
+    cancelled_at?: string | null;
+    created_at: string;
+}
+
+export interface SupportOffersPage extends CursorResponse<SupportOffer> {}
+
+export interface SupportSessionsPage extends CursorResponse<SupportSession> {}
+
+export interface SupportHomePayload {
+    responder_profile?: SupportResponderProfile | null;
+    active_request?: SupportRequest | null;
+    pending_offer_count: number;
+    active_session_count: number;
+    community_request_count: number;
 }
 
 export interface Chat {
@@ -1113,6 +1186,48 @@ export async function createSupportRequest(data: {
     return request('/support/requests', { method: 'POST', body: JSON.stringify(data) });
 }
 
+export async function getSupportHome(): Promise<SupportHomePayload> {
+    return request('/support/home');
+}
+
+export async function getMySupportResponderProfile(): Promise<SupportResponderProfile> {
+    return request('/support/responders/me');
+}
+
+export async function updateMySupportResponderProfile(data: {
+    is_available_for_immediate: boolean;
+    is_available_for_community: boolean;
+    supports_chat: boolean;
+    supports_check_ins: boolean;
+    supports_in_person: boolean;
+    max_concurrent_sessions: number;
+    languages?: string[];
+    available_now: boolean;
+    is_active: boolean;
+}): Promise<SupportResponderProfile> {
+    return request('/support/responders/me', { method: 'PATCH', body: JSON.stringify(data) });
+}
+
+export async function createImmediateSupportRequest(data: {
+    type: SupportRequest['type'];
+    message?: string | null;
+    urgency: SupportRequest['urgency'];
+    privacy_level?: 'standard' | 'private';
+    priority_visibility?: boolean;
+}): Promise<SupportRequest> {
+    return request('/support/requests/immediate', { method: 'POST', body: JSON.stringify(data) });
+}
+
+export async function createCommunitySupportRequest(data: {
+    type: SupportRequest['type'];
+    message?: string | null;
+    urgency: SupportRequest['urgency'];
+    privacy_level?: 'standard' | 'private';
+    priority_visibility?: boolean;
+}): Promise<SupportRequest> {
+    return request('/support/requests/community', { method: 'POST', body: JSON.stringify(data) });
+}
+
 // Loads open support requests visible to the current user.
 export async function getSupportRequests(cursor?: string, limit = 20): Promise<SupportRequestsPage> {
     const search = new URLSearchParams({ limit: String(limit) });
@@ -1125,6 +1240,39 @@ export async function getMySupportRequests(cursor?: string, limit = 20): Promise
     const search = new URLSearchParams({ limit: String(limit) });
     if (cursor) search.set('before', cursor);
     return request(`/support/requests/mine?${search.toString()}`);
+}
+
+export async function getRespondedSupportRequests(cursor?: string, limit = 20): Promise<CursorResponse<SupportRequest>> {
+    const search = new URLSearchParams({ limit: String(limit) });
+    if (cursor) search.set('before', cursor);
+    return request(`/support/requests/responded?${search.toString()}`);
+}
+
+export async function getSupportQueue(cursor?: string, limit = 20): Promise<SupportOffersPage> {
+    const search = new URLSearchParams({ limit: String(limit) });
+    if (cursor) search.set('before', cursor);
+    return request(`/support/queue?${search.toString()}`);
+}
+
+export async function getSupportSessions(cursor?: string, limit = 20): Promise<SupportSessionsPage> {
+    const search = new URLSearchParams({ limit: String(limit) });
+    if (cursor) search.set('before', cursor);
+    return request(`/support/sessions?${search.toString()}`);
+}
+
+export async function acceptSupportOffer(offerId: string): Promise<SupportSession> {
+    return request(`/support/offers/${offerId}/accept`, { method: 'POST' });
+}
+
+export async function declineSupportOffer(offerId: string): Promise<void> {
+    await request(`/support/offers/${offerId}/decline`, { method: 'POST' });
+}
+
+export async function closeSupportSession(sessionId: string, outcome: 'completed' | 'cancelled' = 'completed'): Promise<SupportSession> {
+    return request(`/support/sessions/${sessionId}/close`, {
+        method: 'POST',
+        body: JSON.stringify({ outcome }),
+    });
 }
 
 // Loads a single support request by id.
