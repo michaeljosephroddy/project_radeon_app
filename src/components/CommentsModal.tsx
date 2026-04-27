@@ -28,12 +28,20 @@ interface ActiveMentionState {
     tokenEnd: number;
 }
 
+export interface CommentThreadTarget {
+    itemId: string;
+    itemKind: api.FeedItemKind;
+    commentCount: number;
+    title?: string;
+}
+
 export interface CommentsModalProps {
-    post: api.Post;
+    thread: CommentThreadTarget;
     currentUser: api.User;
     focusComposer: boolean;
     onClose: () => void;
     onPressUser: (profile: { userId: string; username: string; avatarUrl?: string }) => void;
+    onCommentCreated?: (comment: api.Comment) => void;
 }
 
 function isMentionBodyChar(ch: string): boolean {
@@ -83,7 +91,7 @@ function pruneSelectedMentions(
 }
 
 function buildOptimisticComment(params: {
-    postId: string;
+    itemId: string;
     body: string;
     user: api.User;
     selectedMentionUserIds: Record<string, string>;
@@ -92,7 +100,7 @@ function buildOptimisticComment(params: {
         .filter(([username]) => params.body.toLowerCase().includes(`@${username}`))
         .map(([username, userId]) => ({ user_id: userId, username }));
     return {
-        id: `optimistic-${params.postId}-${Date.now()}`,
+        id: `optimistic-${params.itemId}-${Date.now()}`,
         user_id: params.user.id,
         username: params.user.username,
         avatar_url: params.user.avatar_url,
@@ -200,11 +208,12 @@ function ComposerPadding({ basePadding, children }: { basePadding: number; child
 const EMPTY_SUGGESTIONS: api.User[] = [];
 
 export function CommentsModal({
-    post,
+    thread,
     currentUser,
     focusComposer,
     onClose,
     onPressUser,
+    onCommentCreated,
 }: CommentsModalProps) {
     const insets = useSafeAreaInsets();
     const inputRef = useRef<TextInput>(null);
@@ -246,6 +255,7 @@ export function CommentsModal({
     const [hasMore, setHasMore] = useState(false);
     const [isLoadingInitial, setIsLoadingInitial] = useState(true);
     const [isLoadingMore, setIsLoadingMore] = useState(false);
+    const [commentCount, setCommentCount] = useState(thread.commentCount);
 
     // Comment UI state
     const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE);
@@ -260,9 +270,10 @@ export function CommentsModal({
         setIsLoadingInitial(true);
         setComments([]);
         setHasMore(false);
+        setCommentCount(thread.commentCount);
         cursorRef.current = undefined;
 
-        api.getComments(post.id)
+        api.getFeedItemComments(thread.itemId, thread.itemKind)
             .then(result => {
                 if (cancelled) return;
                 setComments(result.items ?? []);
@@ -277,7 +288,7 @@ export function CommentsModal({
             });
 
         return () => { cancelled = true; };
-    }, [post.id]);
+    }, [thread.commentCount, thread.itemId, thread.itemKind]);
 
     useEffect(() => () => {
         if (mentionSearchTimerRef.current) clearTimeout(mentionSearchTimerRef.current);
@@ -304,7 +315,7 @@ export function CommentsModal({
         isLoadingMoreRef.current = true;
         setIsLoadingMore(true);
         try {
-            const result = await api.getComments(post.id, cursorRef.current);
+            const result = await api.getFeedItemComments(thread.itemId, thread.itemKind, cursorRef.current);
             cursorRef.current = result.next_cursor ?? undefined;
             setHasMore(result.has_more);
             setComments(prev => {
@@ -317,7 +328,7 @@ export function CommentsModal({
             isLoadingMoreRef.current = false;
             setIsLoadingMore(false);
         }
-    }, [visibleCount, comments.length, hasMore, post.id]);
+    }, [visibleCount, comments.length, hasMore, thread.itemId, thread.itemKind]);
 
     const handleDraftChange = useCallback((value: string) => {
         setDraft(value);
@@ -371,7 +382,7 @@ export function CommentsModal({
         const mentionUserIds = collectMentionUserIds(body, selectedMentionUserIdsRef.current);
         const selectedMentionUserIds = { ...selectedMentionUserIdsRef.current };
 
-        const optimisticComment = buildOptimisticComment({ body, postId: post.id, user: currentUser, selectedMentionUserIds });
+        const optimisticComment = buildOptimisticComment({ body, itemId: thread.itemId, user: currentUser, selectedMentionUserIds });
 
         setSubmitting(true);
         setDraft('');
@@ -380,19 +391,22 @@ export function CommentsModal({
         selectedMentionUserIdsRef.current = {};
         Keyboard.dismiss();
         setComments(prev => [...prev, optimisticComment]);
+        setCommentCount(prev => prev + 1);
         setVisibleCount(v => v + 1);
 
         try {
-            const newComment = await api.addComment(post.id, body, mentionUserIds);
+            const newComment = await api.addFeedItemComment(thread.itemId, thread.itemKind, body, mentionUserIds);
             setComments(prev => prev.map(c => c.id === optimisticComment.id ? newComment : c));
+            onCommentCreated?.(newComment);
         } catch (e) {
             setComments(prev => prev.filter(c => c.id !== optimisticComment.id));
+            setCommentCount(prev => Math.max(0, prev - 1));
             setDraft(body);
             Alert.alert('Error', e instanceof Error ? e.message : 'Something went wrong.');
         } finally {
             setSubmitting(false);
         }
-    }, [draft, submitting, post.id, currentUser]);
+    }, [draft, submitting, thread.itemId, thread.itemKind, currentUser, onCommentCreated]);
 
     const renderComment = useCallback(
         ({ item }: { item: api.Comment }) => (
@@ -408,9 +422,11 @@ export function CommentsModal({
         ? <ActivityIndicator style={styles.loadingMore} color={Colors.primary} size="small" />
         : null;
 
-    const headerTitle = post.comment_count > 0
-        ? `${post.comment_count} Comment${post.comment_count === 1 ? '' : 's'}`
-        : 'Comments';
+    const headerTitle = thread.title?.trim()
+        ? thread.title
+        : commentCount > 0
+            ? `${commentCount} Comment${commentCount === 1 ? '' : 's'}`
+            : 'Comments';
 
     const topPad = insets.top + Header.paddingVertical;
     const bottomPad = insets.bottom + Spacing.sm;

@@ -11,10 +11,11 @@ import { screenStandards } from '../../styles/screenStandards';
 interface SettingsScreenProps {
     onBack: () => void;
     onLogout: () => void;
+    onOpenHiddenContent: () => void;
 }
 
 // Renders the settings screen and exposes account-level actions.
-export function SettingsScreen({ onBack, onLogout }: SettingsScreenProps) {
+export function SettingsScreen({ onBack, onLogout, onOpenHiddenContent }: SettingsScreenProps) {
     return (
         <SafeAreaView style={styles.container} edges={['bottom']}>
             {/* Settings currently exposes a single destructive action, but the grouped
@@ -22,6 +23,14 @@ export function SettingsScreen({ onBack, onLogout }: SettingsScreenProps) {
             <ScreenHeader onBack={onBack} title="Settings" />
 
             <ScrollView style={styles.scroll} contentContainerStyle={screenStandards.detailContent}>
+                <View style={screenStandards.sectionLabelBlockTight}>
+                    <SectionLabel>FEED</SectionLabel>
+                </View>
+                <View style={styles.group}>
+                    <TouchableOpacity style={styles.row} onPress={onOpenHiddenContent}>
+                        <Text style={styles.rowText}>Hidden content</Text>
+                    </TouchableOpacity>
+                </View>
                 <View style={screenStandards.sectionLabelBlockTight}>
                     <SectionLabel>ACCOUNT</SectionLabel>
                 </View>
@@ -47,5 +56,6 @@ const styles = StyleSheet.create({
         paddingHorizontal: Spacing.md,
         paddingVertical: 13,
     },
+    rowText: { fontSize: Typography.sizes.base, color: Colors.light.textPrimary },
     logoutText: { fontSize: Typography.sizes.base, color: Colors.danger },
 });

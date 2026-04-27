@@ -6,7 +6,7 @@ import { getDeviceCoords, reverseGeocode } from '../utils/location';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { CommentsModal } from '../components/CommentsModal';
+import { CommentsModal, type CommentThreadTarget } from '../components/CommentsModal';
 import { FeedScreen } from '../screens/main/FeedScreen';
 import { DiscoverScreen } from '../screens/main/DiscoverScreen';
 import { SupportScreen } from '../screens/main/SupportScreen';
@@ -96,7 +96,11 @@ export function AppNavigator() {
     const [ownProfileOpen, setOwnProfileOpen] = useState(false);
     const [openMeetup, setOpenMeetup] = useState<api.Meetup | null>(null);
     const [plusUpsellOpen, setPlusUpsellOpen] = useState(false);
-    const [openComments, setOpenComments] = useState<{ post: api.Post; focusComposer: boolean } | null>(null);
+    const [openComments, setOpenComments] = useState<{
+        thread: CommentThreadTarget;
+        focusComposer: boolean;
+        onCommentCreated?: (comment: api.Comment) => void;
+    } | null>(null);
     const [keyboardVisible, setKeyboardVisible] = useState(false);
     const [feedFocusRequest, setFeedFocusRequest] = useState<{ postId: string; commentId?: string; nonce: number } | null>(null);
     const insets = useSafeAreaInsets();
@@ -352,7 +356,7 @@ export function AppNavigator() {
                         <FeedScreen
                             isActive={activeTab === 'community' && !isOverlayOpen}
                             onOpenUserProfile={handleOpenUserProfile}
-                            onOpenComments={(post, focusComposer) => setOpenComments({ post, focusComposer })}
+                            onOpenComments={(thread, focusComposer, onCommentCreated) => setOpenComments({ thread, focusComposer, onCommentCreated })}
                             focusRequest={feedFocusRequest}
                         />
                     </View>
@@ -393,9 +397,10 @@ export function AppNavigator() {
             {inComments && user && (
                 <View style={StyleSheet.absoluteFillObject}>
                     <CommentsModal
-                        post={openComments!.post}
+                        thread={openComments!.thread}
                         currentUser={user}
                         focusComposer={openComments!.focusComposer}
+                        onCommentCreated={openComments!.onCommentCreated}
                         onClose={() => setOpenComments(null)}
                         onPressUser={handleOpenUserProfile}
                     />
