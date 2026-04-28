@@ -40,9 +40,11 @@ function flattenChatPages(data?: InfiniteData<api.CursorResponse<api.Chat>>): ap
 }
 
 export function flattenMessagePages(data?: InfiniteData<api.MessagePage>): api.Message[] {
-    const pages = data?.pages ?? [];
-    const items = [...pages].reverse().flatMap((page) => page.items ?? []);
-    const deduped = new Map<string, api.Message>();
+	const pages = data?.pages ?? [];
+	// React Query stores newest pages first for backwards pagination, but the
+	// chat UI expects one ascending message timeline.
+	const items = [...pages].reverse().flatMap((page) => page.items ?? []);
+	const deduped = new Map<string, api.Message>();
     for (const message of items) {
         deduped.set(message.id, message);
     }
@@ -139,6 +141,30 @@ function updateMessagePagesData(
     };
 }
 
+function updateLatestMessagePageData(
+    data: InfiniteData<api.MessagePage> | undefined,
+    updater: (messages: api.Message[]) => api.Message[],
+): InfiniteData<api.MessagePage> | undefined {
+    if (!data) return data;
+
+    const firstPage = data.pages[0];
+    if (!firstPage) return data;
+
+    // Realtime events almost always affect the newest page only, so avoid
+    // flattening and rebuilding the whole thread on every ack/create/remove.
+    const nextFirstPageItems = updater([...(firstPage.items ?? [])]);
+    return {
+        ...data,
+        pages: [
+            {
+                ...firstPage,
+                items: nextFirstPageItems,
+            },
+            ...data.pages.slice(1),
+        ],
+    };
+}
+
 export function updateChatInAllQueries(
     queryClient: QueryClient,
     chatId: string,
@@ -180,33 +206,44 @@ export function upsertMessageInCache(
     message: api.Message,
     optimisticId?: string,
 ): void {
-    updateChatMessages(queryClient, chatId, (current) => {
-        const nextMessages = [...current];
-        const existingIndex = nextMessages.findIndex((item) => (
-            item.id === message.id
-            || (optimisticId != null && item.id === optimisticId)
-            || (
-                message.client_message_id != null
-                && item.client_message_id != null
-                && item.client_message_id === message.client_message_id
-            )
-        ));
+    queryClient.setQueryData<InfiniteData<api.MessagePage>>(
+        queryKeys.chatMessages(chatId),
+        (current) => updateLatestMessagePageData(current, (latestMessages) => {
+            const nextMessages = [...latestMessages];
+            // Match the server-confirmed message back onto the optimistic row
+            // using any stable identifier we have before appending a duplicate.
+            const existingIndex = nextMessages.findIndex((item) => (
+                item.id === message.id
+                || (optimisticId != null && item.id === optimisticId)
+                || (
+                    message.client_message_id != null
+                    && item.client_message_id != null
+                    && item.client_message_id === message.client_message_id
+                )
+            ));
 
-        if (existingIndex >= 0) {
-            nextMessages[existingIndex] = {
-                ...nextMessages[existingIndex],
-                ...message,
-            };
-        } else {
-            nextMessages.push(message);
-        }
+            if (existingIndex >= 0) {
+                nextMessages[existingIndex] = {
+                    ...nextMessages[existingIndex],
+                    ...message,
+                };
+            } else {
+                nextMessages.push(message);
+            }
 
-        return sortMessages(nextMessages);
-    });
+            return sortMessages(nextMessages);
+        }),
+    );
 }
 
 export function removeMessageFromCache(queryClient: QueryClient, chatId: string, messageId: string): void {
-    updateChatMessages(queryClient, chatId, (current) => current.filter((message) => message.id !== messageId));
+    queryClient.setQueryData<InfiniteData<api.MessagePage>>(
+        queryKeys.chatMessages(chatId),
+        (current) => updateLatestMessagePageData(
+            current,
+            (latestMessages) => latestMessages.filter((message) => message.id !== messageId),
+        ),
+    );
 }
 
 export function updateOtherUserLastReadMessageId(

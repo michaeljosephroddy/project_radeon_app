@@ -79,6 +79,7 @@ interface PreviewCacheEntry {
 // The feed is now a single ranked home surface, so telemetry always reports one mode.
 const HOME_FEED_MODE: api.FeedMode = 'home';
 const FEED_RESHARES_ENABLED = process.env.EXPO_PUBLIC_FEED_RESHARES_ENABLED !== 'false';
+const FEED_TELEMETRY_BATCH_DELAY_MS = 1500;
 
 interface ActiveFeedImpression {
     item: api.FeedItem;
@@ -379,9 +380,15 @@ export function FeedScreen({
     const activeImpressionsRef = useRef<Record<string, ActiveFeedImpression>>({});
     const servedAtByItemRef = useRef<Record<string, string>>({});
     const hiddenUndoTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+    const impressionBatchRef = useRef<api.FeedImpressionInput[]>([]);
+    const eventBatchRef = useRef<api.FeedEventInput[]>([]);
+    const impressionFlushTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+    const eventFlushTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
     useEffect(() => () => {
         if (hiddenUndoTimerRef.current) clearTimeout(hiddenUndoTimerRef.current);
+        if (impressionFlushTimerRef.current) clearTimeout(impressionFlushTimerRef.current);
+        if (eventFlushTimerRef.current) clearTimeout(eventFlushTimerRef.current);
     }, []);
 
     useEffect(() => {
@@ -604,6 +611,64 @@ export function FeedScreen({
         activeImpressionsRef.current[key] = { ...active, ...updates };
     }, [getImpressionKey]);
 
+    const flushQueuedImpressions = useCallback(() => {
+        const impressions = impressionBatchRef.current;
+        if (impressionFlushTimerRef.current) {
+            clearTimeout(impressionFlushTimerRef.current);
+            impressionFlushTimerRef.current = undefined;
+        }
+        if (impressions.length === 0) return;
+        impressionBatchRef.current = [];
+        void api.logFeedImpressions(impressions).catch(() => {});
+    }, []);
+
+    const scheduleImpressionFlush = useCallback(() => {
+        if (impressionFlushTimerRef.current) return;
+        // Batch short bursts of visibility updates so scrolling does not turn
+        // into one network request per cell that briefly crosses the viewport.
+        impressionFlushTimerRef.current = setTimeout(() => {
+            impressionFlushTimerRef.current = undefined;
+            flushQueuedImpressions();
+        }, FEED_TELEMETRY_BATCH_DELAY_MS);
+    }, [flushQueuedImpressions]);
+
+    const enqueueImpression = useCallback((impression: api.FeedImpressionInput) => {
+        impressionBatchRef.current.push(impression);
+        if (impressionBatchRef.current.length >= 20) {
+            flushQueuedImpressions();
+            return;
+        }
+        scheduleImpressionFlush();
+    }, [flushQueuedImpressions, scheduleImpressionFlush]);
+
+    const flushQueuedEvents = useCallback(() => {
+        const events = eventBatchRef.current;
+        if (eventFlushTimerRef.current) {
+            clearTimeout(eventFlushTimerRef.current);
+            eventFlushTimerRef.current = undefined;
+        }
+        if (events.length === 0) return;
+        eventBatchRef.current = [];
+        void api.logFeedEvents(events).catch(() => {});
+    }, []);
+
+    const scheduleEventFlush = useCallback(() => {
+        if (eventFlushTimerRef.current) return;
+        eventFlushTimerRef.current = setTimeout(() => {
+            eventFlushTimerRef.current = undefined;
+            flushQueuedEvents();
+        }, FEED_TELEMETRY_BATCH_DELAY_MS);
+    }, [flushQueuedEvents]);
+
+    const enqueueFeedEvent = useCallback((event: api.FeedEventInput) => {
+        eventBatchRef.current.push(event);
+        if (eventBatchRef.current.length >= 10) {
+            flushQueuedEvents();
+            return;
+        }
+        scheduleEventFlush();
+    }, [flushQueuedEvents, scheduleEventFlush]);
+
     const flushImpression = useCallback((key: string, nowMs = Date.now()) => {
         const active = activeImpressionsRef.current[key];
         if (!active) return;
@@ -612,7 +677,7 @@ export function FeedScreen({
         // Ignore fly-by visibility so impressions better match actual consumption.
         if (viewMs < 400) return;
 
-        void api.logFeedImpressions([{
+        enqueueImpression({
             item_id: active.item.id,
             item_kind: active.item.kind,
             feed_mode: active.feedMode,
@@ -624,8 +689,8 @@ export function FeedScreen({
             was_clicked: active.wasClicked,
             was_liked: active.wasLiked,
             was_commented: active.wasCommented,
-        }]).catch(() => {});
-    }, []);
+        });
+    }, [enqueueImpression]);
 
     const flushAllImpressions = useCallback(() => {
         const nowMs = Date.now();
@@ -635,26 +700,32 @@ export function FeedScreen({
     }, [flushImpression]);
 
     useEffect(() => () => {
+        // Flush both active-view state and queued telemetry on unmount so the
+        // final scroll segment is still accounted for.
         flushAllImpressions();
-    }, [flushAllImpressions]);
+        flushQueuedImpressions();
+        flushQueuedEvents();
+    }, [flushAllImpressions, flushQueuedEvents, flushQueuedImpressions]);
 
     useEffect(() => {
         if (!isActive) {
             flushAllImpressions();
+            flushQueuedImpressions();
+            flushQueuedEvents();
         }
-    }, [flushAllImpressions, isActive]);
+    }, [flushAllImpressions, flushQueuedEvents, flushQueuedImpressions, isActive]);
 
     const logFeedEvent = useCallback((item: api.FeedItem, eventType: api.FeedEventType, payload?: Record<string, unknown>) => {
         const position = getFeedItemPosition(item.id);
-        void api.logFeedEvents([{
+        enqueueFeedEvent({
             item_id: item.id,
             item_kind: item.kind,
             feed_mode: HOME_FEED_MODE,
             event_type: eventType,
             position: position >= 0 ? position : undefined,
             payload,
-        }]).catch(() => {});
-    }, [getFeedItemPosition]);
+        });
+    }, [enqueueFeedEvent, getFeedItemPosition]);
 
     const buildCommentThreadTarget = useCallback((item: api.FeedItem): CommentThreadTarget => {
         return {
