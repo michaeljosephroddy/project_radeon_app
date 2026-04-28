@@ -429,11 +429,6 @@ export interface MeetupUpsertInput {
     waitlist_enabled: boolean;
 }
 
-export interface SupportProfile {
-    is_available_to_support: boolean;
-    support_updated_at?: string | null;
-}
-
 export interface SupportRequest {
     id: string;
     requester_id: string;
@@ -443,16 +438,19 @@ export interface SupportRequest {
     type: 'need_to_talk' | 'need_distraction' | 'need_encouragement' | 'need_in_person_help';
     message?: string | null;
     urgency: 'when_you_can' | 'soon' | 'right_now';
-    status: 'open' | 'matched' | 'closed';
+    status: 'open' | 'active' | 'closed';
     response_count: number;
     created_at: string;
-    priority_visibility: boolean;
-    priority_expires_at?: string | null;
     channel?: 'immediate' | 'community';
-    routing_status?: 'pending' | 'offered' | 'matched' | 'fallback' | 'closed' | 'not_applicable';
-    desired_response_window?: 'right_now' | 'soon' | 'when_you_can';
     privacy_level?: 'standard' | 'private';
-    matched_session_id?: string | null;
+    accepted_response_id?: string | null;
+    accepted_responder_id?: string | null;
+    accepted_at?: string | null;
+    closed_at?: string | null;
+    responder_id?: string | null;
+    responder_username?: string | null;
+    responder_avatar_url?: string | null;
+    chat_id?: string | null;
     has_responded: boolean;
     is_own_request: boolean;
 }
@@ -466,6 +464,7 @@ export interface SupportResponse {
     city?: string | null;
     response_type: 'can_chat' | 'check_in_later' | 'can_meet';
     message?: string | null;
+    status: 'pending' | 'accepted' | 'not_selected';
     scheduled_for?: string | null;
     created_at: string;
     chat_id?: string | null;
@@ -477,89 +476,22 @@ export interface SupportChatContext {
     request_message?: string | null;
     requester_id: string;
     requester_username: string;
-    responder_mode?: SupportResponse['response_type'];
     latest_response_type?: SupportResponse['response_type'];
     status?: 'pending_requester_acceptance' | 'accepted' | 'declined' | 'closed';
     awaiting_user_id?: string | null;
 }
 
-export interface SupportRequestsPage extends CursorResponse<SupportRequest> {
-    open_request_count?: number;
-    available_to_support_count?: number;
-}
-
-export interface SupportResponderProfile {
-    user_id: string;
-    is_available_for_immediate: boolean;
-    is_available_for_community: boolean;
-    supports_chat: boolean;
-    supports_check_ins: boolean;
-    supports_in_person: boolean;
-    max_concurrent_sessions: number;
-    languages: string[];
-    is_active: boolean;
-    available_now: boolean;
-    active_session_count: number;
-    acceptance_rate: number;
-    completion_rate: number;
-    helpfulness_score: number;
-    median_response_seconds: number;
-    updated_at: string;
-    last_seen_at?: string | null;
-    last_session_completed_at?: string | null;
-}
-
-export interface SupportOffer {
-    id: string;
-    support_request_id: string;
-    requester_id: string;
-    requester_username: string;
-    requester_avatar_url?: string | null;
-    request_type: SupportRequest['type'];
-    request_message?: string | null;
-    request_urgency: SupportRequest['urgency'];
-    request_channel: 'immediate' | 'community';
-    status: 'pending' | 'accepted' | 'declined' | 'expired' | 'closed';
-    match_score: number;
-    fit_summary?: string | null;
-    batch_number: number;
-    offered_at: string;
-    expires_at: string;
-    responded_at?: string | null;
-}
-
-export interface SupportSession {
-    id: string;
-    support_request_id: string;
-    requester_id: string;
-    requester_username: string;
-    responder_id: string;
-    responder_username: string;
-    status: 'pending' | 'active' | 'completed' | 'cancelled';
-    outcome?: string | null;
-    chat_id?: string | null;
-    started_at?: string | null;
-    completed_at?: string | null;
-    cancelled_at?: string | null;
-    created_at: string;
-}
-
-export interface SupportOffersPage extends CursorResponse<SupportOffer> {}
-
-export interface SupportSessionsPage extends CursorResponse<SupportSession> {}
-
-export interface SupportHomePayload {
-    responder_profile?: SupportResponderProfile | null;
-    active_request?: SupportRequest | null;
-    pending_offer_count: number;
-    active_session_count: number;
-    community_request_count: number;
+export interface SupportResponsesPage {
+    items: SupportResponse[];
+    page: number;
+    limit: number;
+    has_more: boolean;
 }
 
 export interface Chat {
     id: string;
     is_group: boolean;
-    status?: 'request' | 'active' | 'declined';
+    status?: 'request' | 'active' | 'declined' | 'closed';
     name?: string;
     username?: string;
     avatar_url?: string;
@@ -573,6 +505,10 @@ export interface Chat {
 export interface CreateSupportResponseResult {
     response: SupportResponse;
     chat?: Chat;
+}
+
+export interface AcceptSupportResponseResult {
+    request: SupportRequest;
 }
 
 interface RawChat extends Chat {
@@ -593,6 +529,7 @@ export interface Message {
     sender_id: string;
     username: string;
     avatar_url?: string;
+    kind?: 'user' | 'system';
     body: string;
     sent_at: string;
     client_message_id?: string | null;
@@ -1164,56 +1101,11 @@ export async function getMyMeetups(scope: MyMeetupScope, cursor?: string, limit 
     };
 }
 
-// Loads the caller's support-availability settings.
-export async function getMySupportProfile(): Promise<SupportProfile> {
-    return request('/support/me');
-}
-
-// Updates the caller's support-availability settings.
-export async function updateMySupportProfile(data: {
-    is_available_to_support: boolean;
-}): Promise<SupportProfile> {
-    return request('/support/me', { method: 'PATCH', body: JSON.stringify(data) });
-}
-
-// Creates a new support request visible to the whole community.
-export async function createSupportRequest(data: {
-    type: SupportRequest['type'];
-    message?: string | null;
-    urgency: SupportRequest['urgency'];
-    priority_visibility?: boolean;
-}): Promise<SupportRequest> {
-    return request('/support/requests', { method: 'POST', body: JSON.stringify(data) });
-}
-
-export async function getSupportHome(): Promise<SupportHomePayload> {
-    return request('/support/home');
-}
-
-export async function getMySupportResponderProfile(): Promise<SupportResponderProfile> {
-    return request('/support/responders/me');
-}
-
-export async function updateMySupportResponderProfile(data: {
-    is_available_for_immediate: boolean;
-    is_available_for_community: boolean;
-    supports_chat: boolean;
-    supports_check_ins: boolean;
-    supports_in_person: boolean;
-    max_concurrent_sessions: number;
-    languages?: string[];
-    available_now: boolean;
-    is_active: boolean;
-}): Promise<SupportResponderProfile> {
-    return request('/support/responders/me', { method: 'PATCH', body: JSON.stringify(data) });
-}
-
 export async function createImmediateSupportRequest(data: {
     type: SupportRequest['type'];
     message?: string | null;
     urgency: SupportRequest['urgency'];
     privacy_level?: 'standard' | 'private';
-    priority_visibility?: boolean;
 }): Promise<SupportRequest> {
     return request('/support/requests/immediate', { method: 'POST', body: JSON.stringify(data) });
 }
@@ -1223,19 +1115,18 @@ export async function createCommunitySupportRequest(data: {
     message?: string | null;
     urgency: SupportRequest['urgency'];
     privacy_level?: 'standard' | 'private';
-    priority_visibility?: boolean;
 }): Promise<SupportRequest> {
     return request('/support/requests/community', { method: 'POST', body: JSON.stringify(data) });
 }
 
-export async function convertImmediateSupportRequestToCommunity(requestId: string): Promise<SupportRequest> {
-    return request(`/support/requests/${requestId}/convert-community`, { method: 'POST' });
-}
-
 // Loads open support requests visible to the current user.
-export async function getSupportRequests(cursor?: string, limit = 20): Promise<SupportRequestsPage> {
-    const search = new URLSearchParams({ limit: String(limit) });
-    if (cursor) search.set('before', cursor);
+export async function getSupportRequests(
+    channel: 'immediate' | 'community',
+    cursor?: string,
+    limit = 20,
+): Promise<CursorResponse<SupportRequest>> {
+    const search = new URLSearchParams({ channel, limit: String(limit) });
+    if (cursor) search.set('cursor', cursor);
     return request(`/support/requests?${search.toString()}`);
 }
 
@@ -1244,39 +1135,6 @@ export async function getMySupportRequests(cursor?: string, limit = 20): Promise
     const search = new URLSearchParams({ limit: String(limit) });
     if (cursor) search.set('before', cursor);
     return request(`/support/requests/mine?${search.toString()}`);
-}
-
-export async function getRespondedSupportRequests(cursor?: string, limit = 20): Promise<CursorResponse<SupportRequest>> {
-    const search = new URLSearchParams({ limit: String(limit) });
-    if (cursor) search.set('before', cursor);
-    return request(`/support/requests/responded?${search.toString()}`);
-}
-
-export async function getSupportQueue(cursor?: string, limit = 20): Promise<SupportOffersPage> {
-    const search = new URLSearchParams({ limit: String(limit) });
-    if (cursor) search.set('before', cursor);
-    return request(`/support/queue?${search.toString()}`);
-}
-
-export async function getSupportSessions(cursor?: string, limit = 20): Promise<SupportSessionsPage> {
-    const search = new URLSearchParams({ limit: String(limit) });
-    if (cursor) search.set('before', cursor);
-    return request(`/support/sessions?${search.toString()}`);
-}
-
-export async function acceptSupportOffer(offerId: string): Promise<SupportSession> {
-    return request(`/support/offers/${offerId}/accept`, { method: 'POST' });
-}
-
-export async function declineSupportOffer(offerId: string): Promise<void> {
-    await request(`/support/offers/${offerId}/decline`, { method: 'POST' });
-}
-
-export async function closeSupportSession(sessionId: string, outcome: 'completed' | 'cancelled' = 'completed'): Promise<SupportSession> {
-    return request(`/support/sessions/${sessionId}/close`, {
-        method: 'POST',
-        body: JSON.stringify({ outcome }),
-    });
 }
 
 // Loads a single support request by id.
@@ -1312,12 +1170,21 @@ export async function createSupportResponse(id: string, data: {
     return { response: result };
 }
 
+export async function acceptSupportResponse(requestId: string, responseId: string): Promise<SupportRequest> {
+    const result = await request<AcceptSupportResponseResult | SupportRequest>(
+        `/support/requests/${requestId}/responses/${responseId}/accept`,
+        { method: 'POST' },
+    );
+    return 'request' in result ? result.request : result;
+}
+
 // Loads responses for a support request owned by the current user.
-export async function getSupportRequestResponses(id: string): Promise<SupportResponse[]> {
-    const data = await request<SupportResponse[] | { items?: SupportResponse[] | null } | null>(`/support/requests/${id}/responses`);
-    if (Array.isArray(data)) return data;
-    if (data && Array.isArray(data.items)) return data.items;
-    return [];
+export async function getSupportRequestResponses(id: string, page = 1, limit = 20): Promise<SupportResponsesPage> {
+    const search = new URLSearchParams({
+        page: String(page),
+        limit: String(limit),
+    });
+    return request(`/support/requests/${id}/responses?${search.toString()}`);
 }
 
 // Toggles the current user's RSVP or waitlist state for a meetup.
@@ -1419,22 +1286,6 @@ export async function markChatRead(chatId: string, lastReadMessageId?: string): 
         method: 'POST',
         body: JSON.stringify(lastReadMessageId ? { last_read_message_id: lastReadMessageId } : {}),
     });
-}
-
-export async function acceptSupportChat(chatId: string): Promise<Chat> {
-    const chat = await request<RawChat>(`/chats/${chatId}/status`, {
-        method: 'PATCH',
-        body: JSON.stringify({ status: 'active' }),
-    });
-    return normalizeChat(chat);
-}
-
-export async function declineSupportChat(chatId: string): Promise<Chat> {
-    const chat = await request<RawChat>(`/chats/${chatId}/status`, {
-        method: 'PATCH',
-        body: JSON.stringify({ status: 'declined' }),
-    });
-    return normalizeChat(chat);
 }
 
 // Deletes a direct chat or leaves a group chat for the current user.

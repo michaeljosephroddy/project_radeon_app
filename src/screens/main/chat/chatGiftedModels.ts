@@ -29,8 +29,9 @@ export function toGiftedChatMessages(
 
     return orderedMessages.reverse().map((message): ChatGiftedMessage => {
         const pending = message.id.startsWith('optimistic-');
+        const isSystem = message.kind === 'system';
         const messageIndex = messageIndexes.get(message.id) ?? -1;
-        const isOutgoing = message.sender_id === currentUserId;
+        const isOutgoing = !isSystem && message.sender_id === currentUserId;
         const isSeen = isOutgoing && lastReadIndex >= 0 && messageIndex >= 0 && messageIndex <= lastReadIndex;
 
         return {
@@ -38,10 +39,11 @@ export function toGiftedChatMessages(
             text: message.body,
             createdAt: new Date(message.sent_at),
             user: {
-                _id: message.sender_id,
-                name: formatUsername(message.username),
+                _id: isSystem ? 'system' : message.sender_id,
+                name: isSystem ? 'System' : formatUsername(message.username),
                 avatar: message.avatar_url,
             },
+            system: isSystem,
             sent: !pending,
             received: !pending && isSeen,
             pending,

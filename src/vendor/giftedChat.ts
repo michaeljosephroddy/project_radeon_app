@@ -51,6 +51,14 @@ export interface DayProps {
     textProps?: Partial<TextProps>;
 }
 
+export interface SystemMessageProps<TMessage extends GiftedChatMessage> {
+    currentMessage: TMessage;
+    containerStyle?: StyleProp<ViewStyle>;
+    messageContainerStyle?: StyleProp<ViewStyle>;
+    textStyle?: StyleProp<TextStyle>;
+    children?: React.ReactNode;
+}
+
 export interface ComposerProps {
     text?: string;
     textInputProps?: Partial<TextInputProps>;
@@ -112,6 +120,7 @@ export interface GiftedChatProps<TMessage extends GiftedChatMessage> {
     };
     listProps?: Partial<FlatListProps<TMessage>>;
     renderBubble?: (props: BubbleProps<TMessage>) => React.ReactNode;
+    renderSystemMessage?: (props: SystemMessageProps<TMessage>) => React.ReactNode;
     renderDay?: (props: DayProps) => React.ReactNode;
     renderInputToolbar?: (props: InputToolbarProps<TMessage>) => React.ReactNode;
     renderAvatar?: ((props: { currentMessage: TMessage }) => React.ReactNode) | null;

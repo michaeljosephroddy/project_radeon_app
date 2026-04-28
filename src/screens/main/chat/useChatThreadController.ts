@@ -149,6 +149,7 @@ export function useChatThreadController({
             sender_id: currentUser.id,
             username: currentUser.username,
             avatar_url: currentUser.avatar_url,
+            kind: 'user',
             body,
             sent_at: new Date().toISOString(),
             client_message_id: clientMessageId,
@@ -187,10 +188,13 @@ export function useChatThreadController({
                 markMutation('replace');
                 void syncReadState(id);
             }
-        } catch {
+        } catch (error: unknown) {
             removeMessageFromCache(queryClient, chatId, optimisticId);
             markMutation('remove');
-            Alert.alert('Message failed', 'Your message could not be sent.');
+            Alert.alert(
+                'Message failed',
+                error instanceof Error ? error.message : 'Your message could not be sent.',
+            );
         } finally {
             setSending(false);
         }

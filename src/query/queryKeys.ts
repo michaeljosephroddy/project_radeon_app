@@ -5,6 +5,7 @@ export const queryKeys = {
     user: (userId: string) => ['user', userId] as const,
     userPosts: (userId: string, limit = 20) => ['user-posts', userId, { limit }] as const,
     chats: (params?: { query?: string; limit?: number }) => ['chats', params ?? {}] as const,
+    chat: (chatId: string) => ['chat', chatId] as const,
     chatMessages: (chatId: string) => ['chat-messages', chatId] as const,
     meetupCategories: () => ['meetup-categories'] as const,
     meetups: (filters?: {
@@ -106,10 +107,6 @@ export const queryKeys = {
             limit: normalized.limit,
         }] as const;
     },
-    supportRequests: (params?: { scope?: 'open' | 'mine' | 'responded'; limit?: number }) => ['support-requests', params ?? {}] as const,
-    supportProfile: () => ['support-profile'] as const,
-    supportHome: () => ['support-home'] as const,
-    supportResponderProfile: () => ['support-responder-profile'] as const,
-    supportQueue: (params?: { limit?: number }) => ['support-queue', params ?? {}] as const,
-    supportSessions: (params?: { limit?: number }) => ['support-sessions', params ?? {}] as const,
+    supportRequests: (params?: { scope?: 'open' | 'mine'; channel?: 'immediate' | 'community'; limit?: number }) => ['support-requests', params ?? {}] as const,
+    supportResponses: (requestId: string, params?: { page?: number; limit?: number }) => ['support-responses', requestId, params ?? {}] as const,
 };

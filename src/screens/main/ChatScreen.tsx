@@ -1,7 +1,6 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
     ActivityIndicator,
-    Alert,
     LayoutChangeEvent,
     StyleSheet,
     Text,
@@ -20,6 +19,7 @@ import {
     GiftedChat,
     InputToolbar,
     Send,
+    SystemMessageProps,
 } from '../../vendor/giftedChat';
 import { Ionicons } from '@expo/vector-icons';
 import { ChatHeader } from './chat/ChatHeader';
@@ -30,6 +30,7 @@ import {
     toGiftedChatUser,
 } from './chat/chatGiftedModels';
 import { useChatThreadController } from './chat/useChatThreadController';
+import { useChat } from '../../hooks/queries/useChat';
 
 interface ChatScreenProps {
     chat: api.Chat;
@@ -40,8 +41,8 @@ export function ChatScreen({ chat, onBack }: ChatScreenProps) {
     const { user } = useAuth();
     const insets = useSafeAreaInsets();
     const [headerHeight, setHeaderHeight] = useState(0);
-    const [supportChat, setSupportChat] = useState(chat);
-    const [supportActionPending, setSupportActionPending] = useState(false);
+    const liveChatQuery = useChat(chat.id, chat);
+    const supportChat = liveChatQuery.data ?? chat;
     const displayName = supportChat.is_group
         ? (supportChat.name ?? 'Group')
         : formatUsername(supportChat.username);
@@ -80,18 +81,13 @@ export function ChatScreen({ chat, onBack }: ChatScreenProps) {
     );
     const supportContext = supportChat.support_context;
     const supportStatus = supportContext?.status;
-    const isSupportPending = supportStatus === 'pending_requester_acceptance';
-    const isSupportAccepted = !supportContext || supportStatus === 'accepted';
-    const isRequesterAwaiting = supportContext?.awaiting_user_id === user?.id;
+    const isSupportClosed = supportStatus === 'closed' || supportChat.status === 'closed';
+    const isSupportAccepted = !supportContext || (supportStatus === 'accepted' && !isSupportClosed);
     const keyboardVerticalOffset = insets.top + headerHeight;
     const bodyStyle = useMemo(
         () => [styles.body, { paddingBottom: insets.bottom }],
         [insets.bottom],
     );
-
-    useEffect(() => {
-        setSupportChat(chat);
-    }, [chat]);
 
     const handleHeaderLayout = useCallback((event: LayoutChangeEvent) => {
         setHeaderHeight(event.nativeEvent.layout.height);
@@ -103,34 +99,6 @@ export function ChatScreen({ chat, onBack }: ChatScreenProps) {
         if (!body || sending) return;
         void sendMessage(body);
     }, [isSupportAccepted, sendMessage, sending]);
-
-    const handleAcceptSupportChat = useCallback(async () => {
-        if (!supportChat.support_context || supportActionPending) return;
-
-        setSupportActionPending(true);
-        try {
-            const updatedChat = await api.acceptSupportChat(supportChat.id);
-            setSupportChat(updatedChat);
-        } catch (e: unknown) {
-            Alert.alert('Could not accept support chat', e instanceof Error ? e.message : 'Something went wrong.');
-        } finally {
-            setSupportActionPending(false);
-        }
-    }, [supportActionPending, supportChat]);
-
-    const handleDeclineSupportChat = useCallback(async () => {
-        if (!supportChat.support_context || supportActionPending) return;
-
-        setSupportActionPending(true);
-        try {
-            const updatedChat = await api.declineSupportChat(supportChat.id);
-            setSupportChat(updatedChat);
-        } catch (e: unknown) {
-            Alert.alert('Could not decline support chat', e instanceof Error ? e.message : 'Something went wrong.');
-        } finally {
-            setSupportActionPending(false);
-        }
-    }, [supportActionPending, supportChat]);
 
     return (
         <View style={styles.container}>
@@ -153,54 +121,19 @@ export function ChatScreen({ chat, onBack }: ChatScreenProps) {
                         ) : null}
                         <Text style={styles.supportContextMeta}>
                             {formatUsername(supportContext.requester_username)}
-                            {(supportContext.latest_response_type ?? supportContext.responder_mode)
-                                ? ` · ${formatSupportResponseType(supportContext.latest_response_type ?? supportContext.responder_mode!)}`
+                            {supportContext.latest_response_type
+                                ? ` · ${formatSupportResponseType(supportContext.latest_response_type)}`
                                 : ''}
                         </Text>
-                        {isSupportPending ? (
+                        {supportStatus === 'declined' || isSupportClosed ? (
                             <View style={styles.supportPendingPanel}>
-                                {isRequesterAwaiting ? (
-                                    <>
-                                        <Text style={styles.supportPendingTitle}>Someone offered support</Text>
-                                        <Text style={styles.supportPendingBody}>
-                                            Accept to unlock the conversation and reply when you are ready.
-                                        </Text>
-                                        <View style={styles.supportPendingActions}>
-                                            <TouchableOpacity
-                                                style={[styles.supportSecondaryButton, supportActionPending && styles.supportActionDisabled]}
-                                                onPress={handleDeclineSupportChat}
-                                                disabled={supportActionPending}
-                                            >
-                                                <Text style={styles.supportSecondaryButtonText}>
-                                                    {supportActionPending ? 'Saving...' : 'Not now'}
-                                                </Text>
-                                            </TouchableOpacity>
-                                            <TouchableOpacity
-                                                style={[styles.supportPrimaryButton, supportActionPending && styles.supportActionDisabled]}
-                                                onPress={handleAcceptSupportChat}
-                                                disabled={supportActionPending}
-                                            >
-                                                <Text style={styles.supportPrimaryButtonText}>
-                                                    {supportActionPending ? 'Saving...' : 'Accept and reply'}
-                                                </Text>
-                                            </TouchableOpacity>
-                                        </View>
-                                    </>
-                                ) : (
-                                    <>
-                                        <Text style={styles.supportPendingTitle}>Support sent</Text>
-                                        <Text style={styles.supportPendingBody}>
-                                            Waiting for them to accept before chatting.
-                                        </Text>
-                                    </>
-                                )}
-                            </View>
-                        ) : null}
-                        {supportStatus === 'declined' ? (
-                            <View style={styles.supportPendingPanel}>
-                                <Text style={styles.supportPendingTitle}>Support request declined</Text>
+                                <Text style={styles.supportPendingTitle}>
+                                    {isSupportClosed ? 'Support thread closed' : 'Support request declined'}
+                                </Text>
                                 <Text style={styles.supportPendingBody}>
-                                    This thread stays visible, but messaging is unavailable.
+                                    {isSupportClosed
+                                        ? 'This thread stays visible for reference, but new messages are locked.'
+                                        : 'This thread stays visible, but messaging is unavailable.'}
                                 </Text>
                             </View>
                         ) : null}
@@ -274,6 +207,15 @@ export function ChatScreen({ chat, onBack }: ChatScreenProps) {
                                 textProps={{ style: styles.dayText }}
                             />
                         )}
+                        renderSystemMessage={(props: SystemMessageProps<ChatGiftedMessage>) => (
+                            <View style={styles.systemMessageWrap}>
+                                <View style={styles.systemMessageCard}>
+                                    <Text style={styles.systemMessageText}>
+                                        {props.currentMessage.text}
+                                    </Text>
+                                </View>
+                            </View>
+                        )}
                         renderInputToolbar={(props) => (
                             isSupportAccepted ? (
                                 <InputToolbar
@@ -320,11 +262,11 @@ export function ChatScreen({ chat, onBack }: ChatScreenProps) {
                             ) : (
                                 <View style={styles.lockedToolbar}>
                                     <Text style={styles.lockedToolbarText}>
-                                        {supportStatus === 'declined'
+                                        {isSupportClosed
                                             ? 'This support thread is closed to new messages.'
-                                            : isRequesterAwaiting
-                                                ? 'Accept this support chat to reply.'
-                                                : 'Waiting for them to accept before chatting.'}
+                                            : supportStatus === 'declined'
+                                            ? 'This support thread is closed to new messages.'
+                                            : 'This support thread is not open for messaging.'}
                                     </Text>
                                 </View>
                             )
@@ -430,36 +372,6 @@ const styles = StyleSheet.create({
         lineHeight: 19,
         marginTop: 4,
     },
-    supportPendingActions: {
-        flexDirection: 'row',
-        gap: Spacing.sm,
-        marginTop: Spacing.md,
-    },
-    supportPrimaryButton: {
-        backgroundColor: Colors.primary,
-        borderRadius: Radii.full,
-        paddingHorizontal: Spacing.md,
-        paddingVertical: 10,
-    },
-    supportPrimaryButtonText: {
-        color: Colors.textOn.primary,
-        fontSize: Typography.sizes.sm,
-        fontWeight: '600',
-    },
-    supportSecondaryButton: {
-        backgroundColor: Colors.light.background,
-        borderRadius: Radii.full,
-        borderWidth: 1,
-        borderColor: Colors.light.border,
-        paddingHorizontal: Spacing.md,
-        paddingVertical: 10,
-    },
-    supportSecondaryButtonText: {
-        color: Colors.light.textSecondary,
-        fontSize: Typography.sizes.sm,
-        fontWeight: '600',
-    },
-    supportActionDisabled: { opacity: 0.6 },
     messagesContainer: {
         backgroundColor: Colors.light.background,
     },
@@ -547,6 +459,27 @@ const styles = StyleSheet.create({
         color: Colors.text.secondary,
         fontSize: Typography.sizes.sm,
         fontWeight: Typography.weights.medium,
+    },
+    systemMessageWrap: {
+        alignItems: 'center',
+        marginVertical: Spacing.sm,
+        marginHorizontal: Spacing.md,
+    },
+    systemMessageCard: {
+        maxWidth: '88%',
+        backgroundColor: Colors.warning,
+        borderRadius: Radii.full,
+        paddingHorizontal: Spacing.md,
+        paddingVertical: Spacing.sm,
+        borderWidth: StyleSheet.hairlineWidth,
+        borderColor: Colors.border.emphasis,
+    },
+    systemMessageText: {
+        color: Colors.textOn.warning,
+        fontSize: Typography.sizes.sm,
+        fontWeight: Typography.weights.semibold,
+        lineHeight: 18,
+        textAlign: 'center',
     },
     toolbarContainer: {
         paddingBottom: Spacing.sm,
