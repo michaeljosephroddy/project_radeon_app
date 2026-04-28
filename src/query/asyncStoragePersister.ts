@@ -6,7 +6,10 @@ const CACHE_KEY = 'react_query_cache';
 
 export const asyncStoragePersister: Persister = {
     persistClient: async (client: PersistedClient): Promise<void> => {
-        await AsyncStorage.setItem(CACHE_KEY, JSON.stringify(trimPersistedInfiniteQueries(client)));
+        const trimmed = trimPersistedInfiniteQueries(client);
+        // Persistence is best-effort. Avoid blocking UI work on an AsyncStorage
+        // write for large query snapshots.
+        void AsyncStorage.setItem(CACHE_KEY, JSON.stringify(trimmed));
     },
     restoreClient: async (): Promise<PersistedClient | undefined> => {
         const cachedState = await AsyncStorage.getItem(CACHE_KEY);

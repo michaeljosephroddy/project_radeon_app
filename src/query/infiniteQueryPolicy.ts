@@ -32,34 +32,46 @@ function trimInfiniteQueryCacheEntry(queryKey: QueryKey, data: unknown, maxPages
     return trimInfiniteQueryData(data, maxPages);
 }
 
+function shouldPersistQuery(queryKey: QueryKey): boolean {
+	const policy = getInfiniteQueryPolicy(queryKey);
+	if (!policy) return true;
+	return policy.persist;
+}
+
 export function trimPersistedInfiniteQueries(client: PersistedClient): PersistedClient {
-    return {
-        ...client,
-        clientState: {
-            ...client.clientState,
-            queries: client.clientState.queries.map((query) => ({
-                ...query,
-                state: {
-                    ...query.state,
-                    data: trimInfiniteQueryCacheEntry(
-                        query.queryKey,
-                        query.state.data,
-                        getInfiniteQueryPolicy(query.queryKey)?.persistedPages,
-                    ),
-                },
-            })),
+	return {
+		...client,
+		clientState: {
+			...client.clientState,
+			queries: client.clientState.queries
+				// Volatile timelines like live chat history are cheaper to refetch
+				// than to carry through every AsyncStorage snapshot.
+				.filter((query) => shouldPersistQuery(query.queryKey))
+				.map((query) => ({
+					...query,
+                    state: {
+                        ...query.state,
+                        data: trimInfiniteQueryCacheEntry(
+                            query.queryKey,
+                            query.state.data,
+                            getInfiniteQueryPolicy(query.queryKey)?.persistedPages,
+                        ),
+                    },
+                })),
         },
     };
 }
 
 export function resetInfiniteQueryToFirstPage(queryClient: QueryClient, queryKey: QueryKey): void {
-    queryClient.setQueryData(queryKey, (current: unknown) => {
-        if (!isInfiniteQueryData(current)) return current;
-        if (current.pages.length <= 1) return current;
+	queryClient.setQueryData(queryKey, (current: unknown) => {
+		if (!isInfiniteQueryData(current)) return current;
+		if (current.pages.length <= 1) return current;
 
-        return {
-            ...current,
-            pages: current.pages.slice(0, 1),
+		// Screen-level refreshes should restart from the newest page so stale deep
+		// pagination does not survive foreground re-entry.
+		return {
+			...current,
+			pages: current.pages.slice(0, 1),
             pageParams: current.pageParams.slice(0, 1),
         };
     });

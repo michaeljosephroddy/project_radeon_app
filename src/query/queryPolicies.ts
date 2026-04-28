@@ -53,8 +53,8 @@ const INFINITE_QUERY_POLICIES: Record<string, InfiniteQueryPolicy> = {
         refetchOnMount: true,
     },
     'chat-messages': {
-        persist: true,
-        persistedPages: 3,
+        persist: false,
+        persistedPages: 0,
         refetchOnMount: true,
     },
 };
