@@ -81,6 +81,7 @@ export function ChatRealtimeProvider({ children }: { children: React.ReactNode }
                 upsertMessageInCache(queryClient, payload.chat_id, payload.message, pending.optimisticId);
                 if (payload.summary) {
                     upsertChatInAllQueries(queryClient, payload.summary);
+                    queryClient.setQueryData(queryKeys.chat(payload.chat_id), payload.summary);
                 }
                 pending.resolve(payload);
             }
@@ -117,6 +118,7 @@ export function ChatRealtimeProvider({ children }: { children: React.ReactNode }
             upsertMessageInCache(queryClient, payload.chat_id, payload.message, pending?.optimisticId);
             if (payload.summary) {
                 upsertChatInAllQueries(queryClient, payload.summary);
+                queryClient.setQueryData(queryKeys.chat(payload.chat_id), payload.summary);
             }
             return;
         }
@@ -130,6 +132,7 @@ export function ChatRealtimeProvider({ children }: { children: React.ReactNode }
         case 'chat.summary.updated': {
             const payload = event.data as api.Chat;
             upsertChatInAllQueries(queryClient, payload);
+            queryClient.setQueryData(queryKeys.chat(payload.id), payload);
             return;
         }
         default:
