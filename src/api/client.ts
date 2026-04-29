@@ -421,21 +421,50 @@ export interface MeetupUpsertInput {
     waitlist_enabled: boolean;
 }
 
+export type SupportUrgency = 'low' | 'medium' | 'high';
+export type SupportType = 'chat' | 'call' | 'meetup' | 'general';
+export type SupportTopic =
+    | 'anxiety'
+    | 'relapse_risk'
+    | 'loneliness'
+    | 'cravings'
+    | 'depression'
+    | 'family'
+    | 'work'
+    | 'sleep'
+    | 'celebration'
+    | 'general';
+export type PreferredGender = 'woman' | 'man' | 'non_binary' | 'no_preference';
+export type SupportRequestFilter = 'all' | 'urgent' | 'unanswered';
+
+export interface SupportLocation {
+    city?: string | null;
+    region?: string | null;
+    country?: string | null;
+    approximate_lat?: number | null;
+    approximate_lng?: number | null;
+    visibility: 'hidden' | 'city' | 'approximate';
+}
+
 export interface SupportRequest {
     id: string;
     requester_id: string;
     username: string;
     avatar_url?: string | null;
     city?: string | null;
-    type: 'need_to_talk' | 'need_distraction' | 'need_encouragement' | 'need_in_person_help';
+    support_type: SupportType;
+    topics: SupportTopic[];
+    preferred_gender?: PreferredGender | null;
+    location?: SupportLocation | null;
     message?: string | null;
-    urgency: 'when_you_can' | 'soon' | 'right_now';
+    urgency: SupportUrgency;
     status: 'open' | 'active' | 'closed';
-    response_count: number;
+    reply_count: number;
+    offer_count: number;
+    view_count: number;
+    is_priority: boolean;
     created_at: string;
-    channel?: 'immediate' | 'community';
     privacy_level?: 'standard' | 'private';
-    accepted_response_id?: string | null;
     accepted_responder_id?: string | null;
     accepted_at?: string | null;
     closed_at?: string | null;
@@ -443,18 +472,19 @@ export interface SupportRequest {
     responder_username?: string | null;
     responder_avatar_url?: string | null;
     chat_id?: string | null;
-    has_responded: boolean;
+    has_offered: boolean;
+    has_replied: boolean;
     is_own_request: boolean;
 }
 
-export interface SupportResponse {
+export interface SupportOffer {
     id: string;
     support_request_id: string;
     responder_id: string;
     username: string;
     avatar_url?: string | null;
     city?: string | null;
-    response_type: 'can_chat' | 'check_in_later' | 'can_meet';
+    offer_type: Exclude<SupportType, 'general'>;
     message?: string | null;
     status: 'pending' | 'accepted' | 'not_selected';
     scheduled_for?: string | null;
@@ -462,22 +492,44 @@ export interface SupportResponse {
     chat_id?: string | null;
 }
 
+export interface SupportReply {
+    id: string;
+    support_request_id: string;
+    author_id: string;
+    username: string;
+    avatar_url?: string | null;
+    body: string;
+    created_at: string;
+}
+
+export interface CreateSupportRequestInput {
+    support_type: SupportType;
+    message?: string | null;
+    urgency: SupportUrgency;
+    topics: SupportTopic[];
+    preferred_gender?: PreferredGender | null;
+    location?: SupportLocation | null;
+    privacy_level?: 'standard' | 'private';
+}
+
+export interface CreateSupportOfferInput {
+    offer_type: Exclude<SupportType, 'general'>;
+    message?: string | null;
+}
+
+export interface CreateSupportReplyInput {
+    body: string;
+}
+
 export interface SupportChatContext {
     support_request_id: string;
-    request_type: SupportRequest['type'];
+    request_type: SupportRequest['support_type'];
     request_message?: string | null;
     requester_id: string;
     requester_username: string;
-    latest_response_type?: SupportResponse['response_type'];
+    latest_offer_type?: SupportOffer['offer_type'];
     status?: 'pending_requester_acceptance' | 'accepted' | 'declined' | 'closed';
     awaiting_user_id?: string | null;
-}
-
-export interface SupportResponsesPage {
-    items: SupportResponse[];
-    page: number;
-    limit: number;
-    has_more: boolean;
 }
 
 export interface Chat {
@@ -494,12 +546,12 @@ export interface Chat {
     support_context?: SupportChatContext;
 }
 
-export interface CreateSupportResponseResult {
-    response: SupportResponse;
+export interface CreateSupportOfferResult {
+    offer: SupportOffer;
     chat?: Chat;
 }
 
-export interface AcceptSupportResponseResult {
+export interface AcceptSupportOfferResult {
     request: SupportRequest;
 }
 
@@ -1028,31 +1080,17 @@ export async function getMyMeetups(scope: MyMeetupScope, cursor?: string, limit 
     };
 }
 
-export async function createImmediateSupportRequest(data: {
-    type: SupportRequest['type'];
-    message?: string | null;
-    urgency: SupportRequest['urgency'];
-    privacy_level?: 'standard' | 'private';
-}): Promise<SupportRequest> {
-    return request('/support/requests/immediate', { method: 'POST', body: JSON.stringify(data) });
-}
-
-export async function createCommunitySupportRequest(data: {
-    type: SupportRequest['type'];
-    message?: string | null;
-    urgency: SupportRequest['urgency'];
-    privacy_level?: 'standard' | 'private';
-}): Promise<SupportRequest> {
-    return request('/support/requests/community', { method: 'POST', body: JSON.stringify(data) });
+export async function createSupportRequest(data: CreateSupportRequestInput): Promise<SupportRequest> {
+    return request('/support/requests', { method: 'POST', body: JSON.stringify(data) });
 }
 
 // Loads open support requests visible to the current user.
 export async function getSupportRequests(
-    channel: 'immediate' | 'community',
+    filter: SupportRequestFilter = 'all',
     cursor?: string,
     limit = 20,
 ): Promise<CursorResponse<SupportRequest>> {
-    const search = new URLSearchParams({ channel, limit: String(limit) });
+    const search = new URLSearchParams({ filter, limit: String(limit) });
     if (cursor) search.set('cursor', cursor);
     return request(`/support/requests?${search.toString()}`);
 }
@@ -1071,39 +1109,48 @@ export async function updateSupportRequest(id: string, data: {
     return request(`/support/requests/${id}`, { method: 'PATCH', body: JSON.stringify(data) });
 }
 
-// Creates a response to an open support request.
-export async function createSupportResponse(id: string, data: {
-    response_type: SupportResponse['response_type'];
-    scheduled_for?: string | null;
-    message?: string | null;
-}): Promise<CreateSupportResponseResult> {
-    const result = await request<CreateSupportResponseResult | SupportResponse>(`/support/requests/${id}/responses`, {
+export async function createSupportOffer(id: string, data: CreateSupportOfferInput): Promise<CreateSupportOfferResult> {
+    return request(`/support/requests/${id}/offers`, {
         method: 'POST',
         body: JSON.stringify(data),
     });
-
-    if ('response' in result) {
-        return result;
-    }
-
-    return { response: result };
 }
 
-export async function acceptSupportResponse(requestId: string, responseId: string): Promise<SupportRequest> {
-    const result = await request<AcceptSupportResponseResult | SupportRequest>(
-        `/support/requests/${requestId}/responses/${responseId}/accept`,
+export async function acceptSupportOffer(requestId: string, offerId: string): Promise<SupportRequest> {
+    const result = await request<AcceptSupportOfferResult | SupportRequest>(
+        `/support/requests/${requestId}/offers/${offerId}/accept`,
         { method: 'POST' },
     );
     return 'request' in result ? result.request : result;
 }
 
-// Loads responses for a support request owned by the current user.
-export async function getSupportRequestResponses(id: string, page = 1, limit = 20): Promise<SupportResponsesPage> {
+export async function declineSupportOffer(requestId: string, offerId: string): Promise<void> {
+    await request(`/support/requests/${requestId}/offers/${offerId}/decline`, { method: 'POST' });
+}
+
+export async function cancelSupportOffer(requestId: string, offerId: string): Promise<void> {
+    await request(`/support/requests/${requestId}/offers/${offerId}/cancel`, { method: 'POST' });
+}
+
+export async function getSupportOffers(id: string, page = 1, limit = 20): Promise<PaginatedResponse<SupportOffer>> {
     const search = new URLSearchParams({
         page: String(page),
         limit: String(limit),
     });
-    return request(`/support/requests/${id}/responses?${search.toString()}`);
+    return request(`/support/requests/${id}/offers?${search.toString()}`);
+}
+
+export async function getSupportReplies(id: string, cursor?: string, limit = 20): Promise<CursorResponse<SupportReply>> {
+    const search = new URLSearchParams({ limit: String(limit) });
+    if (cursor) search.set('cursor', cursor);
+    return request(`/support/requests/${id}/replies?${search.toString()}`);
+}
+
+export async function createSupportReply(id: string, data: CreateSupportReplyInput): Promise<SupportReply> {
+    return request(`/support/requests/${id}/replies`, {
+        method: 'POST',
+        body: JSON.stringify(data),
+    });
 }
 
 // Toggles the current user's RSVP or waitlist state for a meetup.

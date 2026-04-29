@@ -107,6 +107,7 @@ export const queryKeys = {
             limit: normalized.limit,
         }] as const;
     },
-    supportRequests: (params?: { scope?: 'open' | 'mine'; channel?: 'immediate' | 'community'; limit?: number }) => ['support-requests', params ?? {}] as const,
-    supportResponses: (requestId: string, params?: { page?: number; limit?: number }) => ['support-responses', requestId, params ?? {}] as const,
+    supportRequests: (params?: { scope?: 'open' | 'mine'; filter?: 'all' | 'urgent' | 'unanswered'; limit?: number }) => ['support-requests', params ?? {}] as const,
+    supportOffers: (requestId: string, params?: { page?: number; limit?: number }) => ['support-offers', requestId, params ?? {}] as const,
+    supportReplies: (requestId: string, params?: { limit?: number }) => ['support-replies', requestId, params ?? {}] as const,
 };
