@@ -511,18 +511,6 @@ export interface AcceptSupportResponseResult {
     request: SupportRequest;
 }
 
-interface RawChat extends Chat {
-    avatarUrl?: string;
-    other_user_avatar_url?: string;
-    otherUserAvatarUrl?: string;
-    user_avatar_url?: string;
-    userAvatarUrl?: string;
-    profile_photo_url?: string;
-    profilePhotoUrl?: string;
-    photo_url?: string;
-    photoUrl?: string;
-}
-
 export interface Message {
     id: string;
     chat_id?: string;
@@ -1162,10 +1150,7 @@ export async function createSupportResponse(id: string, data: {
     });
 
     if ('response' in result) {
-        return {
-            ...result,
-            chat: result.chat ? normalizeChat(result.chat as RawChat) : undefined,
-        };
+        return result;
     }
 
     return { response: result };
@@ -1223,44 +1208,24 @@ function normalizeComment(comment: RawComment): Comment {
     };
 }
 
-// Normalizes chat payloads so the UI can rely on one avatar field name.
-function normalizeChat(chat: RawChat): Chat {
-    return {
-        ...chat,
-        // The backend has used several avatar field names over time. Normalize
-        // them once so the rest of the app can consume a stable Chat shape.
-        avatar_url: chat.avatar_url
-            ?? chat.avatarUrl
-            ?? chat.other_user_avatar_url
-            ?? chat.otherUserAvatarUrl
-            ?? chat.user_avatar_url
-            ?? chat.userAvatarUrl
-            ?? chat.profile_photo_url
-            ?? chat.profilePhotoUrl
-            ?? chat.photo_url
-            ?? chat.photoUrl,
-    };
-}
-
-// Loads the current user's chat list and normalizes each row.
+// Loads the current user's chat list.
 export async function getChats(params?: { query?: string; before?: string | null; limit?: number }): Promise<CursorResponse<Chat>> {
     const search = new URLSearchParams();
     if (params?.query?.trim()) search.set('q', params.query.trim());
     if (params?.before && isOpaqueChatCursor(params.before)) search.set('before', params.before);
     if (params?.limit) search.set('limit', String(params.limit));
     const suffix = search.toString() ? `?${search.toString()}` : '';
-    const page = await request<RawCursorResponse<RawChat>>(`/chats${suffix}`);
+    const page = await request<RawCursorResponse<Chat>>(`/chats${suffix}`);
     return {
         limit: page.limit,
         has_more: page.has_more,
         next_cursor: page.next_cursor ?? page.next_before ?? null,
-        items: (page.items ?? []).map(normalizeChat),
+        items: page.items ?? [],
     };
 }
 
 export async function getChat(chatId: string): Promise<Chat> {
-    const chat = await request<RawChat>(`/chats/${chatId}`);
-    return normalizeChat(chat);
+    return request<Chat>(`/chats/${chatId}`);
 }
 
 // Creates a direct or group chat and returns its id.
