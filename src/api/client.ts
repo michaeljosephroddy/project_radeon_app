@@ -300,14 +300,6 @@ interface RawComment extends Omit<Comment, 'mentions'> {
     mentions?: CommentMention[] | null;
 }
 
-export interface Reaction {
-    id: string;
-    user_id: string;
-    username: string;
-    avatar_url?: string;
-    type: string;
-}
-
 export interface MeetupCategory {
     slug: string;
     label: string;
@@ -564,25 +556,6 @@ export interface ChatRealtimeServerEvent {
     occurred_at: string;
     cursor?: string;
     data?: unknown;
-}
-
-export interface AppNotification {
-    id: string;
-    user_id: string;
-    type: 'chat.message' | 'comment.mention';
-    actor_id?: string;
-    resource_type: 'chat' | 'comment';
-    resource_id?: string;
-    title: string;
-    body: string;
-    payload: Record<string, string>;
-    created_at: string;
-    read_at?: string;
-}
-
-export interface NotificationPreferences {
-    chat_messages: boolean;
-    comment_mentions: boolean;
 }
 
 export type UserGender = 'woman' | 'man' | 'non_binary';
@@ -894,11 +867,6 @@ export async function sharePost(data: { postId: string; commentary?: string }): 
     });
 }
 
-// Deletes a post by id.
-export async function deletePost(id: string): Promise<void> {
-    return request(`/posts/${id}`, { method: 'DELETE' });
-}
-
 export async function hideFeedItem(data: { itemId: string; itemKind: FeedItemKind }): Promise<void> {
     return request(`/feed/items/${data.itemId}/hide`, {
         method: 'POST',
@@ -946,30 +914,11 @@ export async function logFeedEvents(events: FeedEventInput[]): Promise<{ logged:
     });
 }
 
-// Toggles a reaction on a post and returns the new reacted state.
-export async function reactToPost(id: string, type = 'like'): Promise<{ reacted: boolean }> {
-    return request(`/posts/${id}/react`, { method: 'POST', body: JSON.stringify({ type }) });
-}
-
 export async function reactToFeedItem(id: string, itemKind: FeedItemKind, type = 'like'): Promise<{ reacted: boolean }> {
     return request(`/feed/items/${id}/react`, {
         method: 'POST',
         body: JSON.stringify({ item_kind: itemKind, type }),
     });
-}
-
-// Fetches the users who reacted to a given post.
-export async function getReactions(id: string): Promise<Reaction[]> {
-    return request(`/posts/${id}/reactions`);
-}
-
-// Creates a new comment on a specific post.
-export async function addComment(postId: string, body: string, mentionUserIds: string[] = []): Promise<Comment> {
-    const comment = await request<RawComment>(`/posts/${postId}/comments`, {
-        method: 'POST',
-        body: JSON.stringify({ body, mention_user_ids: mentionUserIds }),
-    });
-    return normalizeComment(comment);
 }
 
 export async function addFeedItemComment(itemId: string, itemKind: FeedItemKind, body: string, mentionUserIds: string[] = []): Promise<Comment> {
@@ -978,17 +927,6 @@ export async function addFeedItemComment(itemId: string, itemKind: FeedItemKind,
         body: JSON.stringify({ body, item_kind: itemKind, mention_user_ids: mentionUserIds }),
     });
     return normalizeComment(comment);
-}
-
-// Loads a page of comments for a given post.
-export async function getComments(postId: string, cursor?: string, limit = 20): Promise<CursorResponse<Comment>> {
-    const search = new URLSearchParams({ limit: String(limit) });
-    if (cursor) search.set('after', cursor);
-    const page = await request<CursorResponse<RawComment>>(`/posts/${postId}/comments?${search.toString()}`);
-    return {
-        ...page,
-        items: (page.items ?? []).map(normalizeComment),
-    };
 }
 
 export async function getFeedItemComments(itemId: string, itemKind: FeedItemKind, cursor?: string, limit = 20): Promise<CursorResponse<Comment>> {
@@ -1124,11 +1062,6 @@ export async function getMySupportRequests(cursor?: string, limit = 20): Promise
     const search = new URLSearchParams({ limit: String(limit) });
     if (cursor) search.set('before', cursor);
     return request(`/support/requests/mine?${search.toString()}`);
-}
-
-// Loads a single support request by id.
-export async function getSupportRequest(id: string): Promise<SupportRequest> {
-    return request(`/support/requests/${id}`);
 }
 
 // Updates a support request owned by the current user.
@@ -1268,22 +1201,8 @@ export async function registerPushDevice(data: {
     return request('/notifications/devices', { method: 'POST', body: JSON.stringify(data) });
 }
 
-export async function getNotifications(cursor?: string, limit = 20): Promise<CursorResponse<AppNotification>> {
-    const search = new URLSearchParams({ limit: String(limit) });
-    if (cursor) search.set('before', cursor);
-    return request(`/notifications?${search.toString()}`);
-}
-
 export async function markNotificationRead(id: string): Promise<void> {
     await request(`/notifications/${id}/read`, { method: 'POST' });
-}
-
-export async function getNotificationPreferences(): Promise<NotificationPreferences> {
-    return request('/notifications/preferences');
-}
-
-export async function updateNotificationPreferences(data: Partial<NotificationPreferences>): Promise<NotificationPreferences> {
-    return request('/notifications/preferences', { method: 'PATCH', body: JSON.stringify(data) });
 }
 
 // ── Friends ────────────────────────────────────────────────────────────────
