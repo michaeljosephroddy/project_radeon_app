@@ -21,10 +21,11 @@ export function useMeetups(params: api.MeetupFilters & { limit?: number }, enabl
 
     return useInfiniteQuery({
         queryKey,
-        queryFn: ({ pageParam }) => api.getMeetups({
+        queryFn: ({ pageParam, signal }) => api.getMeetups({
             ...params,
             cursor: pageParam as string | undefined,
             limit,
+            signal,
         }),
         initialPageParam: undefined as string | undefined,
         getNextPageParam: (lastPage) => lastPage.next_cursor ?? undefined,

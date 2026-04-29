@@ -60,6 +60,17 @@ function hasPlusAccess(user: api.User | null): boolean {
     return user.subscription_tier === 'plus' && user.subscription_status === 'active';
 }
 
+function useDebounce<T>(value: T, delayMs: number): T {
+    const [debounced, setDebounced] = useState(value);
+
+    useEffect(() => {
+        const timer = setTimeout(() => setDebounced(value), delayMs);
+        return () => clearTimeout(timer);
+    }, [value, delayMs]);
+
+    return debounced;
+}
+
 function flattenCursorPages(
     data?: InfiniteData<api.CursorResponse<api.Meetup>>,
 ): api.Meetup[] {
@@ -265,6 +276,7 @@ export function MeetupsScreen({ isActive, onOpenUserProfile, onOpenMeetup, onOpe
     const [formError, setFormError] = useState('');
     const [pendingMeetupIds, setPendingMeetupIds] = useState<Set<string>>(new Set());
     const canCreateMeetups = hasPlusAccess(user);
+    const debouncedQuery = useDebounce(draftFilters.query, 350);
 
     const categoriesQuery = useMeetupCategories(hasActivated);
     const friendsQuery = useFriends(hasActivated && activeView === 'create', 100);
@@ -274,6 +286,12 @@ export function MeetupsScreen({ isActive, onOpenUserProfile, onOpenMeetup, onOpe
     }, hasActivated);
     const hostingQuery = useMyMeetups(hostingScope, 20, hasActivated && activeView === 'hosting');
     const goingQuery = useMyMeetups('going', 20, hasActivated && activeView === 'going');
+
+    useEffect(() => {
+        setAppliedFilters((current) => (
+            current.query === debouncedQuery ? current : { ...current, query: debouncedQuery }
+        ));
+    }, [debouncedQuery]);
 
     useRefetchOnActiveIfStale(isActive && activeView === 'discover', discoverQuery);
     useRefetchOnActiveIfStale(isActive && activeView === 'hosting', hostingQuery);
@@ -659,7 +677,6 @@ export function MeetupsScreen({ isActive, onOpenUserProfile, onOpenMeetup, onOpe
                         value: draftFilters.query,
                         onChangeText: (value) => {
                             setDraftFilters((current) => ({ ...current, query: value }));
-                            setAppliedFilters((current) => ({ ...current, query: value }));
                         },
                         placeholder: 'Search events, venues, hosts',
                         returnKeyType: 'search',

@@ -3,13 +3,29 @@ import type { Persister, PersistedClient } from '@tanstack/query-persist-client-
 import { trimPersistedInfiniteQueries } from './infiniteQueryPolicy';
 
 const CACHE_KEY = 'react_query_cache';
+const PERSIST_THROTTLE_MS = 1000;
+
+let pendingClient: PersistedClient | undefined;
+let persistTimer: ReturnType<typeof setTimeout> | undefined;
+
+function schedulePersist(client: PersistedClient): void {
+    pendingClient = client;
+    if (persistTimer) return;
+
+    persistTimer = setTimeout(() => {
+        persistTimer = undefined;
+        const nextClient = pendingClient;
+        pendingClient = undefined;
+        if (!nextClient) return;
+
+        const trimmed = trimPersistedInfiniteQueries(nextClient);
+        void AsyncStorage.setItem(CACHE_KEY, JSON.stringify(trimmed));
+    }, PERSIST_THROTTLE_MS);
+}
 
 export const asyncStoragePersister: Persister = {
     persistClient: async (client: PersistedClient): Promise<void> => {
-        const trimmed = trimPersistedInfiniteQueries(client);
-        // Persistence is best-effort. Avoid blocking UI work on an AsyncStorage
-        // write for large query snapshots.
-        void AsyncStorage.setItem(CACHE_KEY, JSON.stringify(trimmed));
+        schedulePersist(client);
     },
     restoreClient: async (): Promise<PersistedClient | undefined> => {
         const cachedState = await AsyncStorage.getItem(CACHE_KEY);
@@ -17,6 +33,11 @@ export const asyncStoragePersister: Persister = {
         return trimPersistedInfiniteQueries(JSON.parse(cachedState) as PersistedClient);
     },
     removeClient: async (): Promise<void> => {
+        pendingClient = undefined;
+        if (persistTimer) {
+            clearTimeout(persistTimer);
+            persistTimer = undefined;
+        }
         await AsyncStorage.removeItem(CACHE_KEY);
     },
 };

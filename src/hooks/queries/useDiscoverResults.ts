@@ -54,7 +54,7 @@ export function useDiscoverResults(params: UseDiscoverResultsParams, enabled = t
 
     const query = useInfiniteQuery({
         queryKey,
-        queryFn: ({ pageParam }) => api.discoverUsers({
+        queryFn: ({ pageParam, signal }) => api.discoverUsers({
             query: params.query,
             city: params.city,
             gender: params.gender,
@@ -65,11 +65,12 @@ export function useDiscoverResults(params: UseDiscoverResultsParams, enabled = t
             interests: params.interests,
             lat: params.lat,
             lng: params.lng,
-            page: pageParam as number | undefined,
+            cursor: pageParam as string | undefined,
             limit,
+            signal,
         }),
-        initialPageParam: 1,
-        getNextPageParam: (lastPage) => lastPage.has_more ? lastPage.page + 1 : undefined,
+        initialPageParam: undefined as string | undefined,
+        getNextPageParam: (lastPage) => lastPage.next_cursor ?? undefined,
         staleTime: DISCOVER_STALE_TIME,
         refetchOnMount: policy?.refetchOnMount,
         enabled,

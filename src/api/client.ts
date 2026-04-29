@@ -753,12 +753,13 @@ export async function discoverUsers(params?: {
     interests?: string[];
     lat?: number;
     lng?: number;
-    page?: number;
+    cursor?: string;
     limit?: number;
-}): Promise<PaginatedResponse<User>> {
+    signal?: AbortSignal;
+}): Promise<CursorResponse<User>> {
     const search = buildDiscoverSearchParams(params);
     const suffix = search.toString() ? `?${search.toString()}` : '';
-    return request(`/users/discover${suffix}`);
+    return request(`/users/discover${suffix}`, { signal: params?.signal });
 }
 
 export async function previewDiscoverUsers(params?: {
@@ -789,7 +790,7 @@ function buildDiscoverSearchParams(params?: {
     interests?: string[];
     lat?: number;
     lng?: number;
-    page?: number;
+    cursor?: string;
     limit?: number;
 }): URLSearchParams {
     const search = new URLSearchParams();
@@ -805,7 +806,7 @@ function buildDiscoverSearchParams(params?: {
     }
     if (typeof params?.lat === 'number') search.set('lat', String(params.lat));
     if (typeof params?.lng === 'number') search.set('lng', String(params.lng));
-    if (params?.page) search.set('page', String(params.page));
+    if (params?.cursor) search.set('cursor', params.cursor);
     if (params?.limit) search.set('limit', String(params.limit));
     return search;
 }
@@ -1034,7 +1035,7 @@ function normalizeMeetupAttendee(attendee: MeetupAttendee): MeetupAttendee {
 }
 
 // Fetches meetup events using cursor pagination and rich discovery filters.
-export async function getMeetups(params?: MeetupFilters & { cursor?: string; limit?: number }): Promise<CursorResponse<Meetup>> {
+export async function getMeetups(params?: MeetupFilters & { cursor?: string; limit?: number; signal?: AbortSignal }): Promise<CursorResponse<Meetup>> {
     const search = new URLSearchParams();
     if (params?.q) search.set('q', params.q);
     if (params?.category) search.set('category', params.category);
@@ -1051,7 +1052,7 @@ export async function getMeetups(params?: MeetupFilters & { cursor?: string; lim
     if (params?.cursor) search.set('cursor', params.cursor);
     if (params?.limit) search.set('limit', String(params.limit));
     const suffix = search.toString() ? `?${search.toString()}` : '';
-    const page = await request<CursorResponse<Meetup>>(`/meetups${suffix}`);
+    const page = await request<CursorResponse<Meetup>>(`/meetups${suffix}`, { signal: params?.signal });
     return {
         ...page,
         items: (page.items ?? []).map(normalizeMeetup),
