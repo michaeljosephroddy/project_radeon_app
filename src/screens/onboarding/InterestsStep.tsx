@@ -9,7 +9,7 @@ import { PrimaryButton } from '../../components/ui/PrimaryButton';
 import { useAuth } from '../../hooks/useAuth';
 import { useInterests } from '../../hooks/queries/useInterests';
 import * as api from '../../api/client';
-import { Colors, Typography, Spacing, Radii } from '../../utils/theme';
+import { Colors, Typography, Spacing, Radius } from '../../theme';
 import type { OnboardingStepProps } from '../../navigation/OnboardingNavigator';
 
 const MAX_INTERESTS = 5;
@@ -98,7 +98,7 @@ export function InterestsStep({ onNext, dotIndex, dotTotal }: InterestsStepProps
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: Colors.light.background },
+    container: { flex: 1, backgroundColor: Colors.bg.page },
     topBar: {
         alignItems: 'center',
         paddingTop: Spacing.lg,
@@ -109,7 +109,7 @@ const styles = StyleSheet.create({
         width: 8,
         height: 8,
         borderRadius: 4,
-        backgroundColor: Colors.light.border,
+        backgroundColor: Colors.border.default,
     },
     dotActive: { backgroundColor: Colors.primary },
     header: {
@@ -119,18 +119,18 @@ const styles = StyleSheet.create({
     title: {
         fontSize: Typography.sizes.xxl,
         fontWeight: '600',
-        color: Colors.light.textPrimary,
+        color: Colors.text.primary,
         marginBottom: Spacing.sm,
     },
     subtitle: {
         fontSize: Typography.sizes.lg,
-        color: Colors.light.textSecondary,
+        color: Colors.text.secondary,
         lineHeight: 22,
         marginBottom: Spacing.sm,
     },
     counter: {
         fontSize: Typography.sizes.sm,
-        color: Colors.light.textTertiary,
+        color: Colors.text.muted,
     },
     chipsWrap: {
         flexDirection: 'row',
@@ -140,10 +140,10 @@ const styles = StyleSheet.create({
         paddingVertical: Spacing.md,
     },
     chip: {
-        borderRadius: Radii.pill,
+        borderRadius: Radius.pill,
         borderWidth: 1,
-        borderColor: Colors.light.border,
-        backgroundColor: Colors.light.backgroundSecondary,
+        borderColor: Colors.border.default,
+        backgroundColor: Colors.bg.surface,
         paddingHorizontal: Spacing.md,
         paddingVertical: 10,
     },
@@ -153,7 +153,7 @@ const styles = StyleSheet.create({
     },
     chipText: {
         fontSize: Typography.sizes.md,
-        color: Colors.light.textSecondary,
+        color: Colors.text.secondary,
         fontWeight: '500',
     },
     chipTextActive: {

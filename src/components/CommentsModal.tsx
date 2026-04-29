@@ -13,7 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Avatar } from './Avatar';
 import { ScreenHeader } from './ui/ScreenHeader';
 import * as api from '../api/client';
-import { Colors, Header, Typography, Spacing, Radii } from '../utils/theme';
+import { Colors, Header, Typography, Spacing, Radius } from '../theme';
 import { formatUsername } from '../utils/identity';
 import { formatReadableTimestamp } from '../utils/date';
 import { composerStandards } from '../styles/composerStandards';
@@ -440,7 +440,7 @@ export function CommentsModal({
                     style={[styles.header, { paddingTop: topPad }]}
                     trailing={(
                         <TouchableOpacity onPress={handleClose} style={styles.closeButton} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                            <Ionicons name="close" size={22} color={Colors.light.textPrimary} />
+                            <Ionicons name="close" size={22} color={Colors.text.primary} />
                         </TouchableOpacity>
                     )}
                 />
@@ -503,7 +503,7 @@ export function CommentsModal({
                             ref={inputRef}
                             style={[composerStandards.input, styles.composerInput]}
                             placeholder="Write a comment…"
-                            placeholderTextColor={Colors.light.textTertiary}
+                            placeholderTextColor={Colors.text.muted}
                             value={draft}
                             onChangeText={handleDraftChange}
                             editable={!submitting}
@@ -537,7 +537,7 @@ export function CommentsModal({
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: Colors.light.background,
+        backgroundColor: Colors.bg.page,
     },
     fill: {
         flex: 1,
@@ -562,7 +562,7 @@ const styles = StyleSheet.create({
     },
     empty: {
         fontSize: Typography.sizes.sm,
-        color: Colors.light.textTertiary,
+        color: Colors.text.muted,
         textAlign: 'center',
         paddingTop: Spacing.xl,
     },
@@ -571,10 +571,10 @@ const styles = StyleSheet.create({
     },
     mentionPanel: {
         borderTopWidth: 0.5,
-        borderTopColor: Colors.light.border,
+        borderTopColor: Colors.border.default,
         borderBottomWidth: 0.5,
-        borderBottomColor: Colors.light.border,
-        backgroundColor: Colors.light.background,
+        borderBottomColor: Colors.border.default,
+        backgroundColor: Colors.bg.page,
         paddingVertical: 4,
     },
     mentionLoader: {
@@ -589,12 +589,12 @@ const styles = StyleSheet.create({
     },
     mentionRowText: {
         fontSize: Typography.sizes.sm,
-        color: Colors.light.textPrimary,
+        color: Colors.text.primary,
         fontWeight: '500',
     },
     mentionEmpty: {
         fontSize: Typography.sizes.sm,
-        color: Colors.light.textTertiary,
+        color: Colors.text.muted,
         paddingHorizontal: Spacing.md,
         paddingVertical: 8,
     },
@@ -617,12 +617,12 @@ const styles = StyleSheet.create({
         minWidth: 0,
     },
     commentBubble: {
-        backgroundColor: Colors.light.backgroundSecondary,
-        borderRadius: Radii.md,
+        backgroundColor: Colors.bg.surface,
+        borderRadius: Radius.md,
         paddingHorizontal: Spacing.sm,
         paddingVertical: 8,
         borderWidth: 0.5,
-        borderColor: Colors.light.border,
+        borderColor: Colors.border.default,
     },
     commentHeader: {
         flexDirection: 'row',
@@ -633,15 +633,15 @@ const styles = StyleSheet.create({
     commentAuthor: {
         fontSize: Typography.sizes.sm,
         fontWeight: '600',
-        color: Colors.light.textPrimary,
+        color: Colors.text.primary,
     },
     commentMeta: {
         fontSize: Typography.sizes.xs,
-        color: Colors.light.textTertiary,
+        color: Colors.text.muted,
     },
     commentBody: {
         fontSize: Typography.sizes.sm,
-        color: Colors.light.textSecondary,
+        color: Colors.text.secondary,
         lineHeight: 18,
     },
     commentMention: {

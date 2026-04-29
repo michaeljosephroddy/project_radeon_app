@@ -8,7 +8,7 @@ import {
     View,
     ViewStyle,
 } from 'react-native';
-import { Colors, Header, Spacing, Typography } from '../../utils/theme';
+import { Colors, Header, Spacing, Typography } from '../../theme';
 
 export interface ScreenHeaderProps {
     onBack?: () => void;
@@ -65,8 +65,8 @@ const styles = StyleSheet.create({
         paddingHorizontal: Spacing.md,
         paddingVertical: Header.paddingVertical,
         borderBottomWidth: 0.5,
-        borderBottomColor: Colors.light.border,
-        backgroundColor: Colors.light.background,
+        borderBottomColor: Colors.border.default,
+        backgroundColor: Colors.bg.page,
         gap: Spacing.sm,
     },
     side: {

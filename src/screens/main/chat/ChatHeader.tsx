@@ -3,7 +3,7 @@ import { View, Text, StyleSheet } from 'react-native';
 import { Avatar } from '../../../components/Avatar';
 import { ScreenHeader } from '../../../components/ui/ScreenHeader';
 import * as api from '../../../api/client';
-import { Colors, Typography, Spacing } from '../../../utils/theme';
+import { Colors, Typography, Spacing } from '../../../theme';
 
 interface ChatHeaderProps {
     chat: api.Chat;
@@ -40,6 +40,6 @@ const styles = StyleSheet.create({
     headerName: {
         flexShrink: 1,
         ...Typography.screenTitle,
-        color: Colors.light.textPrimary,
+        color: Colors.text.primary,
     },
 });

@@ -20,7 +20,7 @@ import { MeetupDetailScreen } from '../screens/main/MeetupDetailScreen';
 import { Avatar } from '../components/Avatar';
 import { PlusUpsellScreen } from '../components/PlusUpsellScreen';
 import * as api from '../api/client';
-import { Colors, Typography, Spacing } from '../utils/theme';
+import { Colors, Typography, Spacing } from '../theme';
 import { useAuth } from '../hooks/useAuth';
 import { useNotificationIntent } from '../notifications/NotificationProvider';
 import type { Chat } from '../api/client';
@@ -383,7 +383,7 @@ export function AppNavigator() {
                                 <Ionicons
                                     name={activeTab === tab.key ? tab.iconActive : tab.icon}
                                     size={22}
-                                    color={activeTab === tab.key ? Colors.primary : Colors.light.textTertiary}
+                                    color={activeTab === tab.key ? Colors.primary : Colors.text.muted}
                                 />
                                 <Text style={[styles.tabLabel, activeTab === tab.key && styles.tabLabelActive]}>
                                     {tab.label}
@@ -411,7 +411,7 @@ export function AppNavigator() {
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: Colors.light.background },
+    container: { flex: 1, backgroundColor: Colors.bg.page },
     content: { flex: 1 },
     tabVisible: { flex: 1, display: 'flex' },
     tabHidden: { flex: 1, display: 'none' },
@@ -426,22 +426,22 @@ const styles = StyleSheet.create({
     wordmark: {
         fontSize: Typography.sizes.xl,
         fontWeight: '500',
-        color: Colors.light.textPrimary,
+        color: Colors.text.primary,
     },
     wordmarkAccent: { color: Colors.primary },
     pageTitle: {
         ...Typography.screenTitle,
-        color: Colors.light.textPrimary,
+        color: Colors.text.primary,
     },
 
     tabBar: {
         flexDirection: 'row',
         borderTopWidth: 1,
-        borderTopColor: Colors.light.borderSecondary,
+        borderTopColor: Colors.border.subtle,
         paddingTop: 8,
-        backgroundColor: Colors.light.background,
+        backgroundColor: Colors.bg.page,
     },
     tabItem: { flex: 1, alignItems: 'center', gap: 4 },
-    tabLabel: { fontSize: Typography.sizes.sm, color: Colors.light.textTertiary },
+    tabLabel: { fontSize: Typography.sizes.sm, color: Colors.text.muted },
     tabLabelActive: { color: Colors.primary },
 });

@@ -19,7 +19,7 @@ import { resetInfiniteQueryToFirstPage } from '../../query/infiniteQueryPolicy';
 import { queryKeys } from '../../query/queryKeys';
 import { dedupeById } from '../../utils/list';
 import { getListPerformanceProps } from '../../utils/listPerformance';
-import { Colors, Typography, Spacing, Radii, ContentInsets } from '../../utils/theme';
+import { Colors, Typography, Spacing, Radius, ContentInsets } from '../../theme';
 import { formatUsername } from '../../utils/identity';
 import { formatRecoveryDuration, formatSobrietyDate, getRecoveryMilestone } from '../../utils/date';
 
@@ -248,13 +248,13 @@ export function UserProfileScreen({
                         ) : null}
                         <View style={styles.postFoot}>
                             <View style={styles.postAction}>
-                                <Ionicons name="heart-outline" size={16} color={Colors.light.textTertiary} />
+                                <Ionicons name="heart-outline" size={16} color={Colors.text.muted} />
                                 <Text style={styles.postActionText}>
                                     {item.like_count > 0 ? item.like_count : 'Like'}
                                 </Text>
                             </View>
                             <View style={styles.postAction}>
-                                <Ionicons name="chatbubble-outline" size={15} color={Colors.light.textTertiary} />
+                                <Ionicons name="chatbubble-outline" size={15} color={Colors.text.muted} />
                                 <Text style={styles.postActionText}>
                                     {item.comment_count > 0 ? `${item.comment_count} comments` : 'Comment'}
                                 </Text>
@@ -272,12 +272,12 @@ export function UserProfileScreen({
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: Colors.light.background },
+    container: { flex: 1, backgroundColor: Colors.bg.page },
     list: { paddingBottom: ContentInsets.listBottom },
     footerLoader: { paddingVertical: Spacing.md },
     profileHeader: {
         borderBottomWidth: 0.5,
-        borderBottomColor: Colors.light.border,
+        borderBottomColor: Colors.border.default,
         marginBottom: Spacing.sm,
         paddingTop: Spacing.md,
         paddingBottom: Spacing.md,
@@ -285,13 +285,13 @@ const styles = StyleSheet.create({
     banner: {
         height: 140,
         marginHorizontal: Spacing.md,
-        borderRadius: Radii.lg,
+        borderRadius: Radius.lg,
     },
     bannerPlaceholder: {
         height: 140,
         marginHorizontal: Spacing.md,
-        borderRadius: Radii.lg,
-        backgroundColor: Colors.light.backgroundSecondary,
+        borderRadius: Radius.lg,
+        backgroundColor: Colors.bg.surface,
     },
     avatarOverlapRow: {
         alignItems: 'center',
@@ -303,7 +303,7 @@ const styles = StyleSheet.create({
         width: 102,
         height: 102,
         borderRadius: 51,
-        backgroundColor: Colors.light.background,
+        backgroundColor: Colors.bg.page,
         alignItems: 'center',
         justifyContent: 'center',
     },
@@ -318,16 +318,16 @@ const styles = StyleSheet.create({
     name: {
         fontSize: Typography.sizes.xl,
         fontWeight: '600',
-        color: Colors.light.textPrimary,
+        color: Colors.text.primary,
         textAlign: 'center',
     },
     meta: {
         fontSize: Typography.sizes.sm,
-        color: Colors.light.textTertiary,
+        color: Colors.text.muted,
     },
     bio: {
         fontSize: Typography.sizes.base,
-        color: Colors.light.textSecondary,
+        color: Colors.text.secondary,
         textAlign: 'center',
         lineHeight: 20,
         marginTop: Spacing.sm,
@@ -341,22 +341,22 @@ const styles = StyleSheet.create({
         marginTop: Spacing.sm,
     },
     interestChip: {
-        borderRadius: Radii.full,
+        borderRadius: Radius.pill,
         borderWidth: 1,
-        borderColor: Colors.light.border,
-        backgroundColor: Colors.light.backgroundSecondary,
+        borderColor: Colors.border.default,
+        backgroundColor: Colors.bg.surface,
         paddingHorizontal: Spacing.md,
         paddingVertical: 8,
     },
     interestChipText: {
         fontSize: Typography.sizes.sm,
         fontWeight: '500',
-        color: Colors.light.textSecondary,
+        color: Colors.text.secondary,
     },
     milestoneCard: {
         width: '100%',
-        backgroundColor: Colors.light.backgroundSecondary,
-        borderRadius: Radii.md,
+        backgroundColor: Colors.bg.surface,
+        borderRadius: Radius.md,
         paddingHorizontal: Spacing.md,
         paddingVertical: Spacing.md,
         alignItems: 'center',
@@ -366,12 +366,12 @@ const styles = StyleSheet.create({
     milestoneLabel: {
         fontSize: Typography.sizes.xs,
         fontWeight: '600',
-        color: Colors.light.textTertiary,
+        color: Colors.text.muted,
         letterSpacing: 0.7,
     },
     milestoneBadge: {
         backgroundColor: Colors.primary,
-        borderRadius: Radii.full,
+        borderRadius: Radius.pill,
         paddingHorizontal: Spacing.md,
         paddingVertical: 7,
     },
@@ -383,11 +383,11 @@ const styles = StyleSheet.create({
     milestoneValue: {
         fontSize: Typography.sizes.base,
         fontWeight: '600',
-        color: Colors.light.textPrimary,
+        color: Colors.text.primary,
     },
     milestoneHint: {
         fontSize: Typography.sizes.sm,
-        color: Colors.light.textTertiary,
+        color: Colors.text.muted,
     },
     actionRow: {
         flexDirection: 'row',
@@ -397,27 +397,27 @@ const styles = StyleSheet.create({
     followBtn: {
         flex: 1,
         backgroundColor: Colors.primary,
-        borderRadius: Radii.md,
+        borderRadius: Radius.md,
         paddingVertical: 10,
         alignItems: 'center',
     },
     followingBtn: {
         backgroundColor: 'transparent',
         borderWidth: 1.5,
-        borderColor: Colors.light.border,
+        borderColor: Colors.border.default,
     },
     followBtnText: { fontSize: Typography.sizes.base, fontWeight: '600', color: '#FFFFFF' },
-    followingBtnText: { color: Colors.light.textSecondary },
+    followingBtnText: { color: Colors.text.secondary },
     dmBtn: {
         flex: 1,
-        backgroundColor: Colors.light.backgroundSecondary,
-        borderRadius: Radii.md,
+        backgroundColor: Colors.bg.surface,
+        borderRadius: Radius.md,
         paddingVertical: 10,
         alignItems: 'center',
         borderWidth: 1.5,
-        borderColor: Colors.light.border,
+        borderColor: Colors.border.default,
     },
-    dmBtnText: { fontSize: Typography.sizes.base, fontWeight: '600', color: Colors.light.textPrimary },
+    dmBtnText: { fontSize: Typography.sizes.base, fontWeight: '600', color: Colors.text.primary },
 
     postsLabel: {
         alignSelf: 'flex-start',
@@ -425,10 +425,10 @@ const styles = StyleSheet.create({
     },
 
     postCard: {
-        backgroundColor: Colors.light.backgroundSecondary,
-        borderRadius: Radii.lg,
+        backgroundColor: Colors.bg.surface,
+        borderRadius: Radius.lg,
         borderWidth: 1,
-        borderColor: Colors.light.border,
+        borderColor: Colors.border.default,
         marginHorizontal: Spacing.md,
         marginBottom: Spacing.sm,
         overflow: 'hidden',
@@ -441,11 +441,11 @@ const styles = StyleSheet.create({
         paddingBottom: Spacing.sm,
     },
     postHeadBody: { flex: 1 },
-    postName: { fontSize: Typography.sizes.md, fontWeight: '500', color: Colors.light.textPrimary },
-    postMeta: { fontSize: Typography.sizes.xs, color: Colors.light.textTertiary, marginTop: 1 },
+    postName: { fontSize: Typography.sizes.md, fontWeight: '500', color: Colors.text.primary },
+    postMeta: { fontSize: Typography.sizes.xs, color: Colors.text.muted, marginTop: 1 },
     postBody: {
         fontSize: Typography.sizes.base,
-        color: Colors.light.textSecondary,
+        color: Colors.text.secondary,
         lineHeight: 19,
         paddingHorizontal: Spacing.md,
         paddingBottom: Spacing.md,
@@ -453,7 +453,7 @@ const styles = StyleSheet.create({
     postImage: {
         width: '100%',
         aspectRatio: 1.2,
-        backgroundColor: Colors.light.backgroundSecondary,
+        backgroundColor: Colors.bg.surface,
     },
     postFoot: {
         flexDirection: 'row',
@@ -462,9 +462,9 @@ const styles = StyleSheet.create({
         paddingHorizontal: Spacing.md,
         paddingVertical: 10,
         borderTopWidth: 0.5,
-        borderTopColor: Colors.light.border,
+        borderTopColor: Colors.border.default,
     },
     postAction: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-    postActionText: { fontSize: Typography.sizes.sm, color: Colors.light.textTertiary },
-    emptyText: { fontSize: Typography.sizes.base, color: Colors.light.textTertiary },
+    postActionText: { fontSize: Typography.sizes.sm, color: Colors.text.muted },
+    emptyText: { fontSize: Typography.sizes.base, color: Colors.text.muted },
 });

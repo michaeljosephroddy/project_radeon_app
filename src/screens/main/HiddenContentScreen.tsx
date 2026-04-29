@@ -7,7 +7,7 @@ import { Avatar } from '../../components/Avatar';
 import { ScreenHeader } from '../../components/ui/ScreenHeader';
 import * as api from '../../api/client';
 import { useGuardedEndReached } from '../../hooks/useGuardedEndReached';
-import { Colors, Typography, Spacing, Radii } from '../../utils/theme';
+import { Colors, Typography, Spacing, Radius } from '../../theme';
 import { formatReadableTimestamp } from '../../utils/date';
 import { formatUsername } from '../../utils/identity';
 
@@ -152,7 +152,7 @@ export function HiddenContentScreen({ onBack, onOpenUserProfile }: HiddenContent
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: Colors.light.background },
+    container: { flex: 1, backgroundColor: Colors.bg.page },
     center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
     listContent: {
         padding: Spacing.md,
@@ -166,14 +166,14 @@ const styles = StyleSheet.create({
     },
     emptyText: {
         fontSize: Typography.sizes.base,
-        color: Colors.light.textSecondary,
+        color: Colors.text.secondary,
         textAlign: 'center',
     },
     card: {
-        backgroundColor: Colors.light.backgroundSecondary,
-        borderRadius: Radii.lg,
+        backgroundColor: Colors.bg.surface,
+        borderRadius: Radius.lg,
         borderWidth: 1,
-        borderColor: Colors.light.border,
+        borderColor: Colors.border.default,
         padding: Spacing.md,
         gap: Spacing.sm,
     },
@@ -196,11 +196,11 @@ const styles = StyleSheet.create({
         flex: 1,
         fontSize: Typography.sizes.base,
         fontWeight: '600',
-        color: Colors.light.textPrimary,
+        color: Colors.text.primary,
     },
     cardMeta: {
         fontSize: Typography.sizes.xs,
-        color: Colors.light.textTertiary,
+        color: Colors.text.muted,
     },
     cardSubtitle: {
         fontSize: Typography.sizes.sm,
@@ -210,14 +210,14 @@ const styles = StyleSheet.create({
     cardPreview: {
         fontSize: Typography.sizes.sm,
         lineHeight: 20,
-        color: Colors.light.textSecondary,
+        color: Colors.text.secondary,
     },
     restoreButton: {
         alignSelf: 'flex-start',
         paddingHorizontal: Spacing.md,
         paddingVertical: Spacing.sm,
-        borderRadius: Radii.pill,
-        backgroundColor: Colors.light.background,
+        borderRadius: Radius.pill,
+        backgroundColor: Colors.bg.page,
         borderWidth: 1,
         borderColor: Colors.primary,
     },

@@ -1,7 +1,7 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import * as api from '../../api/client';
-import { Colors, Radii, Spacing, Typography } from '../../utils/theme';
+import { Colors, Radius, Spacing, Typography } from '../../theme';
 
 interface MeetupEventTypeBadgeProps {
     eventType: api.MeetupEventType;
@@ -43,7 +43,7 @@ const styles = StyleSheet.create({
     badge: {
         paddingHorizontal: Spacing.sm,
         paddingVertical: 4,
-        borderRadius: Radii.full,
+        borderRadius: Radius.pill,
         borderWidth: 1,
     },
     badgeText: {

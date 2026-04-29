@@ -9,7 +9,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { PrimaryButton } from '../../components/ui/PrimaryButton';
 import { TextField } from '../../components/ui/TextField';
 import { useAuth } from '../../hooks/useAuth';
-import { Colors, Typography, Spacing } from '../../utils/theme';
+import { Colors, Typography, Spacing } from '../../theme';
 import { screenStandards } from '../../styles/screenStandards';
 
 interface RegisterScreenProps {
@@ -69,20 +69,20 @@ export function RegisterScreen({ onGoToLogin }: RegisterScreenProps) {
                 <View style={styles.form}>
                     <Text style={styles.label}>Username</Text>
                     <TextField style={styles.input} placeholder="yourusername"
-                        placeholderTextColor={Colors.light.textTertiary}
+                        placeholderTextColor={Colors.text.muted}
                         autoCapitalize="none"
                         autoCorrect={false}
                         value={form.username} onChangeText={set('username')} />
 
                     <Text style={styles.label}>Email</Text>
                     <TextField style={styles.input} placeholder="you@example.com"
-                        placeholderTextColor={Colors.light.textTertiary}
+                        placeholderTextColor={Colors.text.muted}
                         autoCapitalize="none" keyboardType="email-address"
                         value={form.email} onChangeText={set('email')} />
 
                     <Text style={styles.label}>Password</Text>
                     <TextField style={styles.input} placeholder="••••••••"
-                        placeholderTextColor={Colors.light.textTertiary}
+                        placeholderTextColor={Colors.text.muted}
                         secureTextEntry value={form.password} onChangeText={set('password')} />
 
                     <PrimaryButton
@@ -107,32 +107,32 @@ export function RegisterScreen({ onGoToLogin }: RegisterScreenProps) {
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: Colors.light.background },
+    container: { flex: 1, backgroundColor: Colors.bg.page },
     flex: { flex: 1 },
     header: { marginBottom: 40 },
     wordmark: {
         ...Typography.h1,
         fontWeight: '600',
-        color: Colors.light.textPrimary,
+        color: Colors.text.primary,
         letterSpacing: -0.5,
     },
     wordmarkAccent: { color: Colors.primary },
     tagline: {
         fontSize: Typography.body.fontSize,
         lineHeight: Typography.body.lineHeight,
-        color: Colors.light.textTertiary,
+        color: Colors.text.muted,
         marginTop: Spacing.sm,
     },
     form: { gap: 4 },
     label: {
         ...Typography.formLabel,
-        color: Colors.light.textSecondary,
+        color: Colors.text.secondary,
         marginBottom: 4,
         marginTop: Spacing.sm,
     },
     input: { fontSize: Typography.sizes.md },
     btn: { marginTop: Spacing.lg },
     switchLink: { alignItems: 'center', marginTop: Spacing.lg },
-    switchText: { fontSize: Typography.sizes.base, color: Colors.light.textTertiary },
+    switchText: { fontSize: Typography.sizes.base, color: Colors.text.muted },
     switchAccent: { color: Colors.primary, fontWeight: '500' },
 });

@@ -5,7 +5,7 @@ import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { PrimaryButton } from '../../components/ui/PrimaryButton';
 import { useAuth } from '../../hooks/useAuth';
-import { Colors, Typography, Spacing } from '../../utils/theme';
+import { Colors, Typography, Spacing } from '../../theme';
 
 interface ReadyStepProps {
     onComplete: () => void;
@@ -36,7 +36,7 @@ export function ReadyStep({ onComplete }: ReadyStepProps) {
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: Colors.light.background },
+    container: { flex: 1, backgroundColor: Colors.bg.page },
     inner: {
         flex: 1,
         alignItems: 'center',
@@ -58,13 +58,13 @@ const styles = StyleSheet.create({
     headline: {
         fontSize: Typography.sizes.xxl,
         fontWeight: '700',
-        color: Colors.light.textPrimary,
+        color: Colors.text.primary,
         textAlign: 'center',
         marginBottom: Spacing.md,
     },
     body: {
         fontSize: Typography.sizes.lg,
-        color: Colors.light.textSecondary,
+        color: Colors.text.secondary,
         textAlign: 'center',
         lineHeight: 24,
     },

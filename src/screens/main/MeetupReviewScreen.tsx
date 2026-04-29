@@ -5,7 +5,7 @@ import { MeetupEventTypeBadge, formatMeetupEventTypeLabel } from '../../componen
 import { PrimaryButton } from '../../components/ui/PrimaryButton';
 import { ScreenHeader } from '../../components/ui/ScreenHeader';
 import { MeetupFormValues } from '../../components/events/MeetupFormState';
-import { Colors, Radii, Spacing, Typography } from '../../utils/theme';
+import { Colors, Radius, Spacing, Typography } from '../../theme';
 import { screenStandards } from '../../styles/screenStandards';
 
 interface MeetupReviewScreenProps {
@@ -183,10 +183,10 @@ export function MeetupReviewScreen({
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: Colors.light.background,
+        backgroundColor: Colors.bg.page,
     },
     errorCard: {
-        borderRadius: Radii.lg,
+        borderRadius: Radius.lg,
         backgroundColor: Colors.dangerSubtle,
         borderWidth: 1,
         borderColor: Colors.danger,
@@ -199,17 +199,17 @@ const styles = StyleSheet.create({
         fontWeight: '600',
     },
     heroCard: {
-        backgroundColor: Colors.light.backgroundSecondary,
-        borderRadius: Radii.xl,
+        backgroundColor: Colors.bg.surface,
+        borderRadius: Radius.xl,
         borderWidth: 1,
-        borderColor: Colors.light.borderSecondary,
+        borderColor: Colors.border.subtle,
         overflow: 'hidden',
         marginBottom: Spacing.md,
     },
     coverImage: {
         width: '100%',
         height: 220,
-        backgroundColor: Colors.light.background,
+        backgroundColor: Colors.bg.page,
     },
     coverFallback: {
         height: 180,
@@ -227,12 +227,12 @@ const styles = StyleSheet.create({
         padding: Spacing.md,
     },
     heroTitle: {
-        color: Colors.light.textPrimary,
+        color: Colors.text.primary,
         fontSize: Typography.sizes.xxl,
         fontWeight: '800',
     },
     heroMeta: {
-        color: Colors.light.textSecondary,
+        color: Colors.text.secondary,
         fontSize: Typography.sizes.sm,
         fontWeight: '700',
     },
@@ -244,7 +244,7 @@ const styles = StyleSheet.create({
     },
     categoryPill: {
         backgroundColor: Colors.primarySubtle,
-        borderRadius: Radii.full,
+        borderRadius: Radius.pill,
         paddingHorizontal: Spacing.sm,
         paddingVertical: 4,
         borderWidth: 1,
@@ -256,38 +256,38 @@ const styles = StyleSheet.create({
         fontWeight: '700',
     },
     heroSchedule: {
-        color: Colors.light.textPrimary,
+        color: Colors.text.primary,
         fontSize: Typography.sizes.md,
         fontWeight: '600',
     },
     heroLocation: {
-        color: Colors.light.textSecondary,
+        color: Colors.text.secondary,
         fontSize: Typography.sizes.sm,
         lineHeight: 20,
     },
     heroDescription: {
-        color: Colors.light.textSecondary,
+        color: Colors.text.secondary,
         fontSize: Typography.sizes.sm,
         lineHeight: 20,
     },
     summaryCard: {
         gap: Spacing.xs,
         padding: Spacing.md,
-        borderRadius: Radii.xl,
+        borderRadius: Radius.xl,
         borderWidth: 1,
-        borderColor: Colors.light.borderSecondary,
-        backgroundColor: Colors.light.backgroundSecondary,
+        borderColor: Colors.border.subtle,
+        backgroundColor: Colors.bg.surface,
         marginBottom: Spacing.md,
     },
     summaryLabel: {
-        color: Colors.light.textTertiary,
+        color: Colors.text.muted,
         fontSize: Typography.sizes.xs,
         fontWeight: '700',
         letterSpacing: 0.8,
         textTransform: 'uppercase',
     },
     summaryValue: {
-        color: Colors.light.textPrimary,
+        color: Colors.text.primary,
         fontSize: Typography.sizes.sm,
         lineHeight: 20,
     },
@@ -299,7 +299,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
         minHeight: 48,
-        borderRadius: Radii.md,
+        borderRadius: Radius.md,
         borderWidth: 1,
         borderColor: Colors.primary,
         backgroundColor: Colors.primarySubtle,
@@ -314,7 +314,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
         minHeight: 48,
-        borderRadius: Radii.md,
+        borderRadius: Radius.md,
         borderWidth: 1,
         borderColor: Colors.danger,
         backgroundColor: Colors.dangerSubtle,

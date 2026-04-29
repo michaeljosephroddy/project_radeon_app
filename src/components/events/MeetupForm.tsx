@@ -3,7 +3,7 @@ import { Image } from 'react-native';
 import { Platform, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import * as api from '../../api/client';
-import { Colors, Radii, Spacing, Typography } from '../../utils/theme';
+import { Colors, Radius, Spacing, Typography } from '../../theme';
 import { InfoNoticeCard } from '../ui/InfoNoticeCard';
 import { PrimaryButton } from '../ui/PrimaryButton';
 import { TextField } from '../ui/TextField';
@@ -369,8 +369,8 @@ export function MeetupForm({
                     <Switch
                         value={values.waitlist_enabled}
                         onValueChange={(value) => onChange('waitlist_enabled', value)}
-                        trackColor={{ false: Colors.light.border, true: Colors.primary }}
-                        thumbColor={Colors.light.background}
+                        trackColor={{ false: Colors.border.default, true: Colors.primary }}
+                        thumbColor={Colors.bg.page}
                     />
                 </View>
                 <View style={styles.coverSection}>
@@ -434,7 +434,7 @@ const styles = StyleSheet.create({
         gap: Spacing.lg,
     },
     errorCard: {
-        borderRadius: Radii.lg,
+        borderRadius: Radius.lg,
         backgroundColor: Colors.dangerSubtle,
         borderWidth: 1,
         borderColor: Colors.danger,
@@ -446,20 +446,20 @@ const styles = StyleSheet.create({
         fontWeight: '600',
     },
     helperText: {
-        color: Colors.light.textSecondary,
+        color: Colors.text.secondary,
         fontSize: Typography.sizes.sm,
         lineHeight: 20,
     },
     section: {
         gap: Spacing.sm,
         padding: Spacing.md,
-        borderRadius: Radii.xl,
+        borderRadius: Radius.xl,
         borderWidth: 1,
-        borderColor: Colors.light.borderSecondary,
-        backgroundColor: Colors.light.backgroundSecondary,
+        borderColor: Colors.border.subtle,
+        backgroundColor: Colors.bg.surface,
     },
     sectionTitle: {
-        color: Colors.light.textPrimary,
+        color: Colors.text.primary,
         fontSize: Typography.sizes.lg,
         fontWeight: '700',
     },
@@ -471,17 +471,17 @@ const styles = StyleSheet.create({
     chip: {
         paddingHorizontal: Spacing.md,
         paddingVertical: 10,
-        borderRadius: Radii.full,
+        borderRadius: Radius.pill,
         borderWidth: 1,
-        borderColor: Colors.light.border,
-        backgroundColor: Colors.light.background,
+        borderColor: Colors.border.default,
+        backgroundColor: Colors.bg.page,
     },
     chipSelected: {
         backgroundColor: Colors.primarySubtle,
         borderColor: Colors.primary,
     },
     chipText: {
-        color: Colors.light.textSecondary,
+        color: Colors.text.secondary,
         fontSize: Typography.sizes.sm,
         fontWeight: '600',
     },
@@ -494,24 +494,24 @@ const styles = StyleSheet.create({
         gap: Spacing.sm,
         paddingHorizontal: Spacing.md,
         paddingVertical: 10,
-        borderRadius: Radii.full,
+        borderRadius: Radius.pill,
         backgroundColor: Colors.secondarySubtle,
         borderWidth: 1,
         borderColor: Colors.secondary,
     },
     selectedHostChipText: {
-        color: Colors.light.textPrimary,
+        color: Colors.text.primary,
         fontSize: Typography.sizes.sm,
         fontWeight: '700',
     },
     selectedHostChipRemove: {
-        color: Colors.light.textSecondary,
+        color: Colors.text.secondary,
         fontSize: Typography.sizes.xs,
         fontWeight: '700',
         opacity: 0.84,
     },
     emptyHostsText: {
-        color: Colors.light.textSecondary,
+        color: Colors.text.secondary,
         fontSize: Typography.sizes.sm,
         lineHeight: 20,
     },
@@ -528,25 +528,25 @@ const styles = StyleSheet.create({
         gap: Spacing.xs,
     },
     fieldLabel: {
-        color: Colors.light.textPrimary,
+        color: Colors.text.primary,
         fontSize: Typography.sizes.sm,
         fontWeight: '700',
     },
     pickerButton: {
-        borderRadius: Radii.md,
+        borderRadius: Radius.md,
         paddingHorizontal: Spacing.md,
         paddingVertical: 13,
         borderWidth: 0.5,
-        borderColor: Colors.light.border,
-        backgroundColor: Colors.light.backgroundSecondary,
+        borderColor: Colors.border.default,
+        backgroundColor: Colors.bg.surface,
     },
     pickerButtonText: {
-        color: Colors.light.textPrimary,
+        color: Colors.text.primary,
         fontSize: Typography.sizes.md,
     },
     inlinePickerWrap: {
-        borderRadius: Radii.lg,
-        backgroundColor: Colors.light.background,
+        borderRadius: Radius.lg,
+        backgroundColor: Colors.bg.page,
         paddingHorizontal: Spacing.sm,
     },
     switchRow: {
@@ -561,12 +561,12 @@ const styles = StyleSheet.create({
         gap: 3,
     },
     switchTitle: {
-        color: Colors.light.textPrimary,
+        color: Colors.text.primary,
         fontSize: Typography.sizes.md,
         fontWeight: '700',
     },
     switchSubtitle: {
-        color: Colors.light.textSecondary,
+        color: Colors.text.secondary,
         fontSize: Typography.sizes.sm,
         lineHeight: 19,
     },
@@ -576,22 +576,22 @@ const styles = StyleSheet.create({
     coverPreview: {
         width: '100%',
         height: 180,
-        borderRadius: Radii.lg,
-        backgroundColor: Colors.light.backgroundSecondary,
+        borderRadius: Radius.lg,
+        backgroundColor: Colors.bg.surface,
     },
     coverPlaceholder: {
         minHeight: 120,
-        borderRadius: Radii.lg,
+        borderRadius: Radius.lg,
         borderWidth: 1,
-        borderColor: Colors.light.border,
+        borderColor: Colors.border.default,
         borderStyle: 'dashed',
-        backgroundColor: Colors.light.background,
+        backgroundColor: Colors.bg.page,
         alignItems: 'center',
         justifyContent: 'center',
         paddingHorizontal: Spacing.lg,
     },
     coverPlaceholderText: {
-        color: Colors.light.textSecondary,
+        color: Colors.text.secondary,
         fontSize: Typography.sizes.sm,
         lineHeight: 20,
         textAlign: 'center',
@@ -604,7 +604,7 @@ const styles = StyleSheet.create({
     coverActionButton: {
         paddingHorizontal: Spacing.md,
         paddingVertical: 10,
-        borderRadius: Radii.full,
+        borderRadius: Radius.pill,
         backgroundColor: Colors.primarySubtle,
         borderWidth: 1,
         borderColor: Colors.primary,
@@ -617,13 +617,13 @@ const styles = StyleSheet.create({
     coverSecondaryAction: {
         paddingHorizontal: Spacing.md,
         paddingVertical: 10,
-        borderRadius: Radii.full,
-        backgroundColor: Colors.light.background,
+        borderRadius: Radius.pill,
+        backgroundColor: Colors.bg.page,
         borderWidth: 1,
-        borderColor: Colors.light.border,
+        borderColor: Colors.border.default,
     },
     coverSecondaryActionText: {
-        color: Colors.light.textSecondary,
+        color: Colors.text.secondary,
         fontSize: Typography.sizes.sm,
         fontWeight: '700',
     },
@@ -635,7 +635,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
         minHeight: 48,
-        borderRadius: Radii.md,
+        borderRadius: Radius.md,
         borderWidth: 1,
         borderColor: Colors.primary,
         backgroundColor: Colors.primarySubtle,
@@ -653,7 +653,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
         minHeight: 48,
-        borderRadius: Radii.md,
+        borderRadius: Radius.md,
         borderWidth: 1,
         borderColor: Colors.danger,
         backgroundColor: Colors.dangerSubtle,

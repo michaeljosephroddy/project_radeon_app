@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, Image, StyleSheet } from 'react-native';
-import { getAvatarColors, getInitials } from '../utils/theme';
+import { getAvatarColors, getInitials } from '../theme';
 
 interface AvatarProps {
   username: string;

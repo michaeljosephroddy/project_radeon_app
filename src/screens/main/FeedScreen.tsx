@@ -25,7 +25,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { resetInfiniteQueryToFirstPage } from '../../query/infiniteQueryPolicy';
 import { queryKeys } from '../../query/queryKeys';
 import { getListPerformanceProps } from '../../utils/listPerformance';
-import { Colors, Typography, Spacing, Radii, Composer as ComposerMetrics } from '../../utils/theme';
+import { Colors, Typography, Spacing, Radius, Composer as ComposerMetrics } from '../../theme';
 import { formatUsername } from '../../utils/identity';
 import { dedupeById } from '../../utils/list';
 import { formatReadableTimestamp } from '../../utils/date';
@@ -158,7 +158,7 @@ const PostCard = React.memo(function PostCard({
                     </View>
                 </View>
                 <TouchableOpacity style={styles.headActionButton} onPress={handleOpenActions}>
-                    <Ionicons name="ellipsis-horizontal" size={18} color={Colors.light.textTertiary} />
+                    <Ionicons name="ellipsis-horizontal" size={18} color={Colors.text.muted} />
                 </TouchableOpacity>
             </View>
             <View style={styles.postContent}>
@@ -176,7 +176,7 @@ const PostCard = React.memo(function PostCard({
                     <Ionicons
                         name={liked ? 'heart' : 'heart-outline'}
                         size={16}
-                        color={liked ? Colors.danger : Colors.light.textTertiary}
+                        color={liked ? Colors.danger : Colors.text.muted}
                     />
                     <Text style={[styles.postActionText, liked && styles.liked]}>
                         {likeCount > 0 ? likeCount : 'Like'}
@@ -186,7 +186,7 @@ const PostCard = React.memo(function PostCard({
                     <Ionicons
                         name="chatbubble-outline"
                         size={15}
-                        color={Colors.light.textTertiary}
+                        color={Colors.text.muted}
                     />
                     <Text style={styles.postActionText}>
                         {displayedCommentCount > 0 ? `${displayedCommentCount} comments` : 'Comment'}
@@ -197,7 +197,7 @@ const PostCard = React.memo(function PostCard({
                         <Ionicons
                             name="repeat-outline"
                             size={16}
-                            color={Colors.light.textTertiary}
+                            color={Colors.text.muted}
                         />
                         <Text style={styles.postActionText}>Share</Text>
                     </TouchableOpacity>
@@ -270,7 +270,7 @@ const ReshareCard = React.memo(function ReshareCard({
                     </View>
                 </View>
                 <TouchableOpacity style={styles.headActionButton} onPress={handleOpenActions}>
-                    <Ionicons name="ellipsis-horizontal" size={18} color={Colors.light.textTertiary} />
+                    <Ionicons name="ellipsis-horizontal" size={18} color={Colors.text.muted} />
                 </TouchableOpacity>
             </View>
             {!!item.body && (
@@ -302,7 +302,7 @@ const ReshareCard = React.memo(function ReshareCard({
                     <Ionicons
                         name={liked ? 'heart' : 'heart-outline'}
                         size={16}
-                        color={liked ? Colors.danger : Colors.light.textTertiary}
+                        color={liked ? Colors.danger : Colors.text.muted}
                     />
                     <Text style={[styles.postActionText, liked && styles.liked]}>
                         {likeCount > 0 ? likeCount : 'Like'}
@@ -312,7 +312,7 @@ const ReshareCard = React.memo(function ReshareCard({
                     <Ionicons
                         name="chatbubble-outline"
                         size={15}
-                        color={Colors.light.textTertiary}
+                        color={Colors.text.muted}
                     />
                     <Text style={styles.postActionText}>
                         {item.comment_count > 0 ? `${item.comment_count} comments` : 'Comment'}
@@ -323,7 +323,7 @@ const ReshareCard = React.memo(function ReshareCard({
                         <Ionicons
                             name="repeat-outline"
                             size={16}
-                            color={Colors.light.textTertiary}
+                            color={Colors.text.muted}
                         />
                         <Text style={styles.postActionText}>Share</Text>
                     </TouchableOpacity>
@@ -1036,7 +1036,7 @@ export function FeedScreen({
                                         <TextInput
                                             style={styles.composeInput}
                                             placeholder="What's on your mind?"
-                                            placeholderTextColor={Colors.light.textTertiary}
+                                            placeholderTextColor={Colors.text.muted}
                                             value={draft}
                                             onChangeText={setDraft}
                                             multiline
@@ -1133,7 +1133,7 @@ export function FeedScreen({
                         <TextInput
                             style={styles.shareComposerInput}
                             placeholder="Add your thoughts..."
-                            placeholderTextColor={Colors.light.textTertiary}
+                            placeholderTextColor={Colors.text.muted}
                             value={shareCommentary}
                             onChangeText={setShareCommentary}
                             multiline
@@ -1304,12 +1304,12 @@ const stylesViewabilityConfig = {
 };
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: Colors.light.background },
+    container: { flex: 1, backgroundColor: Colors.bg.page },
     center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
     listHeader: { gap: Spacing.sm, marginBottom: Spacing.md },
     composeBar: {
-        backgroundColor: Colors.light.backgroundSecondary,
-        borderRadius: Radii.md,
+        backgroundColor: Colors.bg.surface,
+        borderRadius: Radius.md,
         padding: Spacing.md,
         gap: Spacing.sm,
     },
@@ -1330,10 +1330,10 @@ const styles = StyleSheet.create({
     composeField: {
         flex: 1,
         minHeight: ComposerMetrics.minHeight,
-        borderRadius: Radii.pill,
-        backgroundColor: Colors.light.background,
+        borderRadius: Radius.pill,
+        backgroundColor: Colors.bg.page,
         borderWidth: 0.5,
-        borderColor: Colors.light.border,
+        borderColor: Colors.border.default,
         paddingHorizontal: ComposerMetrics.inputHorizontal,
         paddingVertical: ComposerMetrics.inputVertical,
         justifyContent: 'center',
@@ -1344,14 +1344,14 @@ const styles = StyleSheet.create({
         maxHeight: ComposerMetrics.maxHeight,
         fontSize: Typography.body.fontSize,
         lineHeight: Typography.body.lineHeight,
-        color: Colors.light.textPrimary,
+        color: Colors.text.primary,
         padding: 0,
         textAlignVertical: 'top',
     },
     composePlaceholder: {
         fontSize: Typography.body.fontSize,
         lineHeight: Typography.body.lineHeight,
-        color: Colors.light.textTertiary,
+        color: Colors.text.muted,
     },
     composeImagePreviewWrap: {
         position: 'relative',
@@ -1361,8 +1361,8 @@ const styles = StyleSheet.create({
     composeImagePreview: {
         width: 104,
         height: 104,
-        borderRadius: Radii.md,
-        backgroundColor: Colors.light.background,
+        borderRadius: Radius.md,
+        backgroundColor: Colors.bg.page,
     },
     composeImageStatusBadge: {
         position: 'absolute',
@@ -1370,7 +1370,7 @@ const styles = StyleSheet.create({
         bottom: 6,
         paddingHorizontal: 8,
         paddingVertical: 4,
-        borderRadius: Radii.full,
+        borderRadius: Radius.pill,
         backgroundColor: 'rgba(15, 23, 42, 0.72)',
     },
     composeImageStatusText: {
@@ -1391,10 +1391,10 @@ const styles = StyleSheet.create({
     },
     postBtn: { minWidth: 72 },
     postCard: {
-        backgroundColor: Colors.light.backgroundSecondary,
-        borderRadius: Radii.lg,
+        backgroundColor: Colors.bg.surface,
+        borderRadius: Radius.lg,
         borderWidth: 1,
-        borderColor: Colors.light.border,
+        borderColor: Colors.border.default,
         marginBottom: Spacing.sm,
         overflow: 'hidden',
     },
@@ -1407,29 +1407,29 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
     },
     postTitleRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, flexWrap: 'wrap' },
-    postName: { fontSize: Typography.sizes.md, fontWeight: '500', color: Colors.light.textPrimary },
+    postName: { fontSize: Typography.sizes.md, fontWeight: '500', color: Colors.text.primary },
     postContent: { paddingHorizontal: Spacing.md, paddingBottom: Spacing.sm },
-    postMeta: { fontSize: Typography.sizes.xs, color: Colors.light.textTertiary },
+    postMeta: { fontSize: Typography.sizes.xs, color: Colors.text.muted },
     reshareLabel: { fontSize: Typography.sizes.xs, color: Colors.primary, fontWeight: '600' },
-    postBody: { fontSize: Typography.sizes.base, color: Colors.light.textSecondary, lineHeight: 19 },
+    postBody: { fontSize: Typography.sizes.base, color: Colors.text.secondary, lineHeight: 19 },
     postImage: {
         width: '100%',
         aspectRatio: 1.2,
-        borderRadius: Radii.md,
+        borderRadius: Radius.md,
         marginTop: Spacing.sm,
-        backgroundColor: Colors.light.backgroundSecondary,
+        backgroundColor: Colors.bg.surface,
     },
-    postFoot: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: Spacing.md, paddingVertical: 10, borderTopWidth: 0.5, borderTopColor: Colors.light.border },
+    postFoot: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: Spacing.md, paddingVertical: 10, borderTopWidth: 0.5, borderTopColor: Colors.border.default },
     postAction: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-    postActionText: { fontSize: Typography.sizes.sm, color: Colors.light.textTertiary },
+    postActionText: { fontSize: Typography.sizes.sm, color: Colors.text.muted },
     liked: { color: Colors.danger },
     reshareEmbed: {
         marginHorizontal: Spacing.md,
         marginBottom: Spacing.sm,
         padding: Spacing.md,
-        borderRadius: Radii.md,
+        borderRadius: Radius.md,
         borderWidth: 1,
-        borderColor: Colors.light.border,
+        borderColor: Colors.border.default,
         backgroundColor: Colors.bg.raised,
         gap: Spacing.sm,
     },
@@ -1441,7 +1441,7 @@ const styles = StyleSheet.create({
     reshareOriginalName: {
         fontSize: Typography.sizes.sm,
         fontWeight: '600',
-        color: Colors.light.textPrimary,
+        color: Colors.text.primary,
     },
     shareComposerBackdrop: {
         flex: 1,
@@ -1453,35 +1453,35 @@ const styles = StyleSheet.create({
     shareComposerCard: {
         width: '100%',
         maxWidth: 420,
-        borderRadius: Radii.lg,
-        backgroundColor: Colors.light.background,
+        borderRadius: Radius.lg,
+        backgroundColor: Colors.bg.page,
         borderWidth: 1,
-        borderColor: Colors.light.border,
+        borderColor: Colors.border.default,
         padding: Spacing.lg,
         gap: Spacing.sm,
     },
     shareComposerTitle: {
         fontSize: Typography.sizes.lg,
         fontWeight: '700',
-        color: Colors.light.textPrimary,
+        color: Colors.text.primary,
     },
     shareComposerDescription: {
         fontSize: Typography.sizes.sm,
-        color: Colors.light.textSecondary,
+        color: Colors.text.secondary,
         lineHeight: 19,
     },
     shareComposerInput: {
         minHeight: 120,
         maxHeight: 220,
-        borderRadius: Radii.md,
+        borderRadius: Radius.md,
         borderWidth: 1,
-        borderColor: Colors.light.border,
-        backgroundColor: Colors.light.backgroundSecondary,
+        borderColor: Colors.border.default,
+        backgroundColor: Colors.bg.surface,
         paddingHorizontal: Spacing.md,
         paddingVertical: Spacing.sm,
         fontSize: Typography.sizes.base,
         lineHeight: 20,
-        color: Colors.light.textPrimary,
+        color: Colors.text.primary,
         textAlignVertical: 'top',
     },
     shareComposerActions: {
@@ -1491,9 +1491,9 @@ const styles = StyleSheet.create({
     },
     shareComposerSecondary: {
         minWidth: 88,
-        borderRadius: Radii.pill,
+        borderRadius: Radius.pill,
         borderWidth: 1,
-        borderColor: Colors.light.border,
+        borderColor: Colors.border.default,
         paddingHorizontal: Spacing.md,
         paddingVertical: Spacing.sm,
         alignItems: 'center',
@@ -1502,11 +1502,11 @@ const styles = StyleSheet.create({
     shareComposerSecondaryText: {
         fontSize: Typography.sizes.sm,
         fontWeight: '600',
-        color: Colors.light.textPrimary,
+        color: Colors.text.primary,
     },
     shareComposerPrimary: {
         minWidth: 88,
-        borderRadius: Radii.pill,
+        borderRadius: Radius.pill,
         backgroundColor: Colors.primary,
         paddingHorizontal: Spacing.md,
         paddingVertical: Spacing.sm,
@@ -1530,23 +1530,23 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'space-between',
         gap: Spacing.sm,
-        borderRadius: Radii.lg,
-        backgroundColor: Colors.light.background,
+        borderRadius: Radius.lg,
+        backgroundColor: Colors.bg.page,
         borderWidth: 1,
-        borderColor: Colors.light.border,
+        borderColor: Colors.border.default,
         paddingHorizontal: Spacing.md,
         paddingVertical: Spacing.sm,
     },
     hiddenUndoText: {
         flex: 1,
         fontSize: Typography.sizes.sm,
-        color: Colors.light.textPrimary,
+        color: Colors.text.primary,
         fontWeight: '600',
     },
     hiddenUndoButton: {
         paddingHorizontal: Spacing.sm,
         paddingVertical: 6,
-        borderRadius: Radii.pill,
+        borderRadius: Radius.pill,
         backgroundColor: Colors.primary,
     },
     hiddenUndoButtonText: {

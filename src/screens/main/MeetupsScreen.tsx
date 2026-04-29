@@ -40,7 +40,7 @@ import { queryKeys } from '../../query/queryKeys';
 import { MeetupReviewScreen } from './MeetupReviewScreen';
 import { dedupeById } from '../../utils/list';
 import { getListPerformanceProps } from '../../utils/listPerformance';
-import { Colors, Radii, Spacing, Typography } from '../../utils/theme';
+import { Colors, Radius, Spacing, Typography } from '../../theme';
 import { screenStandards } from '../../styles/screenStandards';
 
 type MeetupPrimaryView = 'discover' | 'hosting' | 'going' | 'create';
@@ -682,10 +682,10 @@ export function MeetupsScreen({ isActive, onOpenUserProfile, onOpenMeetup, onOpe
                         returnKeyType: 'search',
                     }}
                     style={styles.searchBar}
-                    leading={<Ionicons name="search-outline" size={18} color={Colors.light.textTertiary} />}
+                    leading={<Ionicons name="search-outline" size={18} color={Colors.text.muted} />}
                 />
                 <TouchableOpacity style={styles.filterButton} onPress={() => setFilterOpen(true)} activeOpacity={0.86}>
-                    <Ionicons name="options-outline" size={20} color={Colors.light.textPrimary} />
+                    <Ionicons name="options-outline" size={20} color={Colors.text.primary} />
                     {activeFilterChips.length ? (
                         <View style={styles.filterBadge}>
                             <Text style={styles.filterBadgeText}>{activeFilterChips.length}</Text>
@@ -697,7 +697,7 @@ export function MeetupsScreen({ isActive, onOpenUserProfile, onOpenMeetup, onOpe
                 <Text style={styles.quickCategoryLabel}>Categories</Text>
                 <View style={styles.quickCategoryHint}>
                     <Text style={styles.quickCategoryHintText}>Swipe to browse</Text>
-                    <Ionicons name="arrow-forward" size={14} color={Colors.light.textTertiary} />
+                    <Ionicons name="arrow-forward" size={14} color={Colors.text.muted} />
                 </View>
             </View>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.quickCategoryRow}>
@@ -999,7 +999,7 @@ export function MeetupsScreen({ isActive, onOpenUserProfile, onOpenMeetup, onOpe
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: Colors.light.background,
+        backgroundColor: Colors.bg.page,
     },
     primaryControl: {
         marginBottom: 0,
@@ -1009,7 +1009,7 @@ const styles = StyleSheet.create({
     },
     deleteAction: {
         width: 92,
-        borderRadius: Radii.lg,
+        borderRadius: Radius.lg,
         backgroundColor: Colors.danger,
         alignItems: 'center',
         justifyContent: 'center',
@@ -1049,10 +1049,10 @@ const styles = StyleSheet.create({
         height: 44,
         alignItems: 'center',
         justifyContent: 'center',
-        borderRadius: Radii.full,
-        backgroundColor: Colors.light.backgroundSecondary,
+        borderRadius: Radius.pill,
+        backgroundColor: Colors.bg.surface,
         borderWidth: 1,
-        borderColor: Colors.light.borderSecondary,
+        borderColor: Colors.border.subtle,
     },
     filterBadge: {
         position: 'absolute',
@@ -1081,7 +1081,7 @@ const styles = StyleSheet.create({
         gap: Spacing.sm,
     },
     quickCategoryLabel: {
-        color: Colors.light.textPrimary,
+        color: Colors.text.primary,
         fontSize: Typography.sizes.sm,
         fontWeight: '700',
     },
@@ -1091,24 +1091,24 @@ const styles = StyleSheet.create({
         gap: Spacing.xs,
     },
     quickCategoryHintText: {
-        color: Colors.light.textTertiary,
+        color: Colors.text.muted,
         fontSize: Typography.sizes.xs,
         fontWeight: '600',
     },
     quickCategoryChip: {
         paddingHorizontal: Spacing.md,
         paddingVertical: 10,
-        borderRadius: Radii.full,
-        backgroundColor: Colors.light.backgroundSecondary,
+        borderRadius: Radius.pill,
+        backgroundColor: Colors.bg.surface,
         borderWidth: 1,
-        borderColor: Colors.light.borderSecondary,
+        borderColor: Colors.border.subtle,
     },
     quickCategoryChipActive: {
         backgroundColor: Colors.primarySubtle,
         borderColor: Colors.primary,
     },
     quickCategoryText: {
-        color: Colors.light.textSecondary,
+        color: Colors.text.secondary,
         fontSize: Typography.sizes.sm,
         fontWeight: '700',
     },
@@ -1122,8 +1122,8 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         gap: 6,
-        borderRadius: Radii.full,
-        backgroundColor: Colors.light.backgroundSecondary,
+        borderRadius: Radius.pill,
+        backgroundColor: Colors.bg.surface,
         borderWidth: 1,
         borderColor: Colors.primary,
         paddingHorizontal: Spacing.md,
@@ -1148,7 +1148,7 @@ const styles = StyleSheet.create({
     },
     loadingMore: {
         textAlign: 'center',
-        color: Colors.light.textSecondary,
+        color: Colors.text.secondary,
         paddingVertical: Spacing.lg,
         fontSize: Typography.sizes.sm,
         fontWeight: '600',

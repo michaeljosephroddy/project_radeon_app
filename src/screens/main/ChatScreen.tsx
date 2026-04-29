@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import * as api from '../../api/client';
 import { useAuth } from '../../hooks/useAuth';
-import { Colors, Radii, Spacing, Typography } from '../../utils/theme';
+import { Colors, Radius, Spacing, Typography } from '../../theme';
 import { formatUsername } from '../../utils/identity';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -228,7 +228,7 @@ export function ChatScreen({ chat, onBack }: ChatScreenProps) {
                                             textInputProps={{
                                                 ...composerProps.textInputProps,
                                                 placeholder: 'Message',
-                                                placeholderTextColor: Colors.light.textTertiary,
+                                                placeholderTextColor: Colors.text.muted,
                                                 style: [
                                                     composerStandards.input,
                                                     styles.composerInput,
@@ -320,7 +320,7 @@ function formatSupportResponseType(value: api.SupportResponse['response_type']):
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: Colors.light.background,
+        backgroundColor: Colors.bg.page,
     },
     body: {
         flex: 1,
@@ -328,7 +328,7 @@ const styles = StyleSheet.create({
     supportContextCard: {
         backgroundColor: Colors.successSubtle,
         borderBottomWidth: 1,
-        borderBottomColor: Colors.light.border,
+        borderBottomColor: Colors.border.default,
         paddingHorizontal: Spacing.md,
         paddingVertical: Spacing.md,
     },
@@ -341,50 +341,50 @@ const styles = StyleSheet.create({
     supportContextTitle: {
         fontSize: Typography.sizes.md,
         fontWeight: '600',
-        color: Colors.light.textPrimary,
+        color: Colors.text.primary,
         marginTop: 4,
     },
     supportContextBody: {
         fontSize: Typography.sizes.sm,
-        color: Colors.light.textSecondary,
+        color: Colors.text.secondary,
         lineHeight: 19,
         marginTop: 6,
     },
     supportContextMeta: {
         fontSize: Typography.sizes.sm,
-        color: Colors.light.textTertiary,
+        color: Colors.text.muted,
         marginTop: 8,
     },
     supportPendingPanel: {
         marginTop: Spacing.md,
         borderTopWidth: 1,
-        borderTopColor: Colors.light.border,
+        borderTopColor: Colors.border.default,
         paddingTop: Spacing.md,
     },
     supportPendingTitle: {
         fontSize: Typography.sizes.sm,
         fontWeight: '600',
-        color: Colors.light.textPrimary,
+        color: Colors.text.primary,
     },
     supportPendingBody: {
         fontSize: Typography.sizes.sm,
-        color: Colors.light.textSecondary,
+        color: Colors.text.secondary,
         lineHeight: 19,
         marginTop: 4,
     },
     messagesContainer: {
-        backgroundColor: Colors.light.background,
+        backgroundColor: Colors.bg.page,
     },
     lockedToolbar: {
         borderTopWidth: 1,
-        borderTopColor: Colors.light.border,
-        backgroundColor: Colors.light.backgroundSecondary,
+        borderTopColor: Colors.border.default,
+        backgroundColor: Colors.bg.surface,
         paddingHorizontal: Spacing.md,
         paddingVertical: Spacing.md,
     },
     lockedToolbarText: {
         fontSize: Typography.sizes.sm,
-        color: Colors.light.textSecondary,
+        color: Colors.text.secondary,
         textAlign: 'center',
     },
     center: {
@@ -396,17 +396,17 @@ const styles = StyleSheet.create({
     errorTitle: {
         fontSize: Typography.sizes.lg,
         fontWeight: '600',
-        color: Colors.light.textPrimary,
+        color: Colors.text.primary,
     },
     errorBody: {
         marginTop: Spacing.xs,
         fontSize: Typography.sizes.base,
-        color: Colors.light.textSecondary,
+        color: Colors.text.secondary,
         textAlign: 'center',
     },
     retryButton: {
         marginTop: Spacing.md,
-        borderRadius: Radii.full,
+        borderRadius: Radius.pill,
         backgroundColor: Colors.primary,
         paddingHorizontal: Spacing.lg,
         paddingVertical: Spacing.sm,
@@ -449,7 +449,7 @@ const styles = StyleSheet.create({
     },
     dayWrapper: {
         backgroundColor: Colors.bg.surface,
-        borderRadius: Radii.full,
+        borderRadius: Radius.pill,
         borderWidth: StyleSheet.hairlineWidth,
         borderColor: Colors.border.default,
         paddingHorizontal: Spacing.md,
@@ -468,7 +468,7 @@ const styles = StyleSheet.create({
     systemMessageCard: {
         maxWidth: '88%',
         backgroundColor: Colors.warning,
-        borderRadius: Radii.full,
+        borderRadius: Radius.pill,
         paddingHorizontal: Spacing.md,
         paddingVertical: Spacing.sm,
         borderWidth: StyleSheet.hairlineWidth,

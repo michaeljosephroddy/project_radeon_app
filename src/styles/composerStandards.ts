@@ -1,5 +1,5 @@
 import { StyleSheet } from 'react-native';
-import { Colors, Composer, Radii, Spacing, Typography } from '../utils/theme';
+import { Colors, Composer, Radius, Spacing, Typography } from '../theme';
 
 export const composerStandards = StyleSheet.create({
     row: {
@@ -10,18 +10,18 @@ export const composerStandards = StyleSheet.create({
         paddingTop: Composer.rowVertical,
         paddingBottom: Composer.rowVertical,
         borderTopWidth: 0.5,
-        borderTopColor: Colors.light.border,
-        backgroundColor: Colors.light.background,
+        borderTopColor: Colors.border.default,
+        backgroundColor: Colors.bg.page,
     },
     input: {
         flex: 1,
         minHeight: Composer.minHeight,
         maxHeight: Composer.maxHeight,
-        borderRadius: Radii.pill,
-        backgroundColor: Colors.light.backgroundSecondary,
+        borderRadius: Radius.pill,
+        backgroundColor: Colors.bg.surface,
         borderWidth: 0.5,
-        borderColor: Colors.light.border,
-        color: Colors.light.textPrimary,
+        borderColor: Colors.border.default,
+        color: Colors.text.primary,
         fontSize: Typography.body.fontSize,
         lineHeight: 20,
         paddingHorizontal: Composer.inputHorizontal,
@@ -32,7 +32,7 @@ export const composerStandards = StyleSheet.create({
     sendButton: {
         width: Composer.sendButtonSize,
         height: Composer.sendButtonSize,
-        borderRadius: Radii.pill,
+        borderRadius: Radius.pill,
         alignItems: 'center',
         justifyContent: 'center',
         backgroundColor: Colors.primary,
@@ -43,16 +43,16 @@ export const composerStandards = StyleSheet.create({
     iconButton: {
         width: Composer.iconButtonSize,
         height: Composer.iconButtonSize,
-        borderRadius: Radii.pill,
+        borderRadius: Radius.pill,
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: Colors.light.background,
+        backgroundColor: Colors.bg.page,
         borderWidth: 0.5,
-        borderColor: Colors.light.border,
+        borderColor: Colors.border.default,
     },
     actionButton: {
         minHeight: Composer.sendButtonSize,
-        borderRadius: Radii.md,
+        borderRadius: Radius.md,
         paddingHorizontal: Spacing.md,
         paddingVertical: Spacing.sm,
         alignItems: 'center',

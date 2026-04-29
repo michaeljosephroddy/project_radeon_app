@@ -19,7 +19,7 @@ import * as api from '../../api/client';
 import { useGuardedEndReached } from '../../hooks/useGuardedEndReached';
 import { useInterests } from '../../hooks/queries/useInterests';
 import { useAuth } from '../../hooks/useAuth';
-import { Colors, Typography, Spacing, Radii } from '../../utils/theme';
+import { Colors, Typography, Spacing, Radius } from '../../theme';
 import { formatUsername } from '../../utils/identity';
 import { formatBirthDateValue, GENDER_SEGMENTS, getGenderLabel } from '../../utils/profileIdentity';
 import { formatRecoveryDuration, formatSobrietyDate, getRecoveryMilestone } from '../../utils/date';
@@ -573,7 +573,7 @@ export function ProfileTabScreen({ isActive, onOpenUserProfile, onBack }: Profil
                     {localBannerUrl
                         ? <Image source={{ uri: localBannerUrl }} style={styles.banner} resizeMode="cover" />
                         : <View style={styles.bannerPlaceholder}>
-                            <Ionicons name="image-outline" size={22} color={Colors.light.textTertiary} />
+                            <Ionicons name="image-outline" size={22} color={Colors.text.muted} />
                             <Text style={styles.bannerPlaceholderText}>Add a banner photo</Text>
                           </View>
                     }
@@ -638,7 +638,7 @@ export function ProfileTabScreen({ isActive, onOpenUserProfile, onBack }: Profil
                                     value={bio}
                                     onChangeText={setBio}
                                     placeholder="A little about you, what you enjoy, or the kind of people you'd like to meet."
-                                    placeholderTextColor={Colors.light.textTertiary}
+                                    placeholderTextColor={Colors.text.muted}
                                     multiline
                                     maxLength={MAX_BIO_LENGTH}
                                     textAlignVertical="top"
@@ -682,7 +682,7 @@ export function ProfileTabScreen({ isActive, onOpenUserProfile, onBack }: Profil
                                         value={city}
                                         onChangeText={setCity}
                                         placeholder="City"
-                                        placeholderTextColor={Colors.light.textTertiary}
+                                        placeholderTextColor={Colors.text.muted}
                                         autoCapitalize="words"
                                     />
                                 </View>
@@ -693,7 +693,7 @@ export function ProfileTabScreen({ isActive, onOpenUserProfile, onBack }: Profil
                                         value={country}
                                         onChangeText={setCountry}
                                         placeholder="Country"
-                                        placeholderTextColor={Colors.light.textTertiary}
+                                        placeholderTextColor={Colors.text.muted}
                                         autoCapitalize="words"
                                     />
                                 </View>
@@ -952,21 +952,21 @@ export function ProfileTabScreen({ isActive, onOpenUserProfile, onBack }: Profil
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: Colors.light.background },
+    container: { flex: 1, backgroundColor: Colors.bg.page },
     scroll: { flex: 1 },
     settingsBtn: { padding: 4 },
-    settingsIcon: { fontSize: 20, color: Colors.light.textTertiary },
+    settingsIcon: { fontSize: 20, color: Colors.text.muted },
 
     listContent: { paddingVertical: Spacing.sm },
     listEmpty: {
         fontSize: Typography.sizes.base,
-        color: Colors.light.textTertiary,
+        color: Colors.text.muted,
         textAlign: 'center',
         marginTop: 60,
     },
     listEmptyInline: {
         fontSize: Typography.sizes.base,
-        color: Colors.light.textTertiary,
+        color: Colors.text.muted,
         textAlign: 'center',
         paddingHorizontal: Spacing.md,
         paddingBottom: Spacing.md,
@@ -984,47 +984,47 @@ const styles = StyleSheet.create({
         gap: Spacing.md,
     },
     rowInfo: { flex: 1, gap: 2 },
-    rowName: { fontSize: Typography.sizes.base, fontWeight: '500', color: Colors.light.textPrimary },
-    rowCity: { fontSize: Typography.sizes.sm, color: Colors.light.textTertiary },
+    rowName: { fontSize: Typography.sizes.base, fontWeight: '500', color: Colors.text.primary },
+    rowCity: { fontSize: Typography.sizes.sm, color: Colors.text.muted },
     unfollowBtn: {
         borderWidth: 1,
-        borderColor: Colors.light.border,
-        borderRadius: Radii.sm,
+        borderColor: Colors.border.default,
+        borderRadius: Radius.sm,
         paddingHorizontal: Spacing.md,
         paddingVertical: 6,
     },
-    unfollowBtnText: { fontSize: Typography.sizes.sm, fontWeight: '500', color: Colors.light.textSecondary },
+    unfollowBtnText: { fontSize: Typography.sizes.sm, fontWeight: '500', color: Colors.text.secondary },
     requestActionPrimary: {
         backgroundColor: Colors.primary,
-        borderRadius: Radii.sm,
+        borderRadius: Radius.sm,
         paddingHorizontal: Spacing.md,
         paddingVertical: 6,
     },
     requestActionPrimaryText: { fontSize: Typography.sizes.sm, fontWeight: '600', color: Colors.textOn.primary },
     requestActionSecondary: {
         borderWidth: 1,
-        borderColor: Colors.light.border,
-        borderRadius: Radii.sm,
+        borderColor: Colors.border.default,
+        borderRadius: Radius.sm,
         paddingHorizontal: Spacing.md,
         paddingVertical: 6,
     },
-    requestActionSecondaryText: { fontSize: Typography.sizes.sm, fontWeight: '500', color: Colors.light.textSecondary },
+    requestActionSecondaryText: { fontSize: Typography.sizes.sm, fontWeight: '500', color: Colors.text.secondary },
 
     content: { paddingBottom: Spacing.md },
     mainContent: { gap: 0, paddingHorizontal: Spacing.md },
 
     bannerTouch: {
         marginHorizontal: Spacing.md,
-        borderRadius: Radii.lg,
+        borderRadius: Radius.lg,
         overflow: 'hidden',
     },
     banner: { height: 140 },
     bannerPlaceholder: {
         height: 140,
-        backgroundColor: Colors.light.backgroundSecondary,
+        backgroundColor: Colors.bg.surface,
         borderWidth: 0.5,
-        borderColor: Colors.light.border,
-        borderRadius: Radii.lg,
+        borderColor: Colors.border.default,
+        borderRadius: Radius.lg,
         alignItems: 'center',
         justifyContent: 'center',
         gap: Spacing.xs,
@@ -1032,7 +1032,7 @@ const styles = StyleSheet.create({
     },
     bannerPlaceholderText: {
         fontSize: Typography.sizes.sm,
-        color: Colors.light.textTertiary,
+        color: Colors.text.muted,
     },
     bannerCameraBtn: {
         position: 'absolute',
@@ -1055,7 +1055,7 @@ const styles = StyleSheet.create({
         width: 118,
         height: 118,
         borderRadius: 59,
-        backgroundColor: Colors.light.background,
+        backgroundColor: Colors.bg.page,
         alignItems: 'center',
         justifyContent: 'center',
     },
@@ -1071,24 +1071,24 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
         borderWidth: 2,
-        borderColor: Colors.light.background,
+        borderColor: Colors.bg.page,
     },
-    avatarName: { fontSize: Typography.sizes.lg, fontWeight: '600', color: Colors.light.textPrimary, marginBottom: 2 },
-    avatarSub: { fontSize: Typography.sizes.sm, color: Colors.light.textTertiary, marginBottom: Spacing.sm },
+    avatarName: { fontSize: Typography.sizes.lg, fontWeight: '600', color: Colors.text.primary, marginBottom: 2 },
+    avatarSub: { fontSize: Typography.sizes.sm, color: Colors.text.muted, marginBottom: Spacing.sm },
 
     statsRow: {
         flexDirection: 'row',
-        backgroundColor: Colors.light.backgroundSecondary,
-        borderRadius: Radii.md,
+        backgroundColor: Colors.bg.surface,
+        borderRadius: Radius.md,
         marginBottom: Spacing.md,
         overflow: 'hidden',
     },
     statItem: { flex: 1, alignItems: 'center', paddingVertical: 14, gap: 2 },
-    statCount: { fontSize: Typography.sizes.lg, fontWeight: '700', color: Colors.light.textPrimary },
-    statLabel: { fontSize: Typography.sizes.xs, color: Colors.light.textTertiary, letterSpacing: 0.4 },
-    statDivider: { width: 0.5, backgroundColor: Colors.light.border, marginVertical: 12 },
+    statCount: { fontSize: Typography.sizes.lg, fontWeight: '700', color: Colors.text.primary },
+    statLabel: { fontSize: Typography.sizes.xs, color: Colors.text.muted, letterSpacing: 0.4 },
+    statDivider: { width: 0.5, backgroundColor: Colors.border.default, marginVertical: 12 },
 
-    fieldGroup: { backgroundColor: Colors.light.backgroundSecondary, borderRadius: Radii.md, overflow: 'hidden' },
+    fieldGroup: { backgroundColor: Colors.bg.surface, borderRadius: Radius.md, overflow: 'hidden' },
     sectionCardHeader: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -1100,7 +1100,7 @@ const styles = StyleSheet.create({
     sectionCardTitle: {
         fontSize: Typography.sizes.base,
         fontWeight: '600',
-        color: Colors.light.textPrimary,
+        color: Colors.text.primary,
     },
     sectionActionText: {
         fontSize: Typography.sizes.sm,
@@ -1112,33 +1112,33 @@ const styles = StyleSheet.create({
         paddingBottom: Spacing.md,
         fontSize: Typography.sizes.base,
         lineHeight: 20,
-        color: Colors.light.textPrimary,
+        color: Colors.text.primary,
     },
     sectionValuePlaceholder: {
-        color: Colors.light.textTertiary,
+        color: Colors.text.muted,
     },
     sectionMetaText: {
         paddingHorizontal: Spacing.md,
         paddingBottom: Spacing.md,
         marginTop: -Spacing.sm,
         fontSize: Typography.sizes.sm,
-        color: Colors.light.textSecondary,
+        color: Colors.text.secondary,
     },
     currentCityText: {
         paddingHorizontal: Spacing.md,
         paddingBottom: Spacing.md,
         fontSize: Typography.sizes.sm,
-        color: Colors.light.textSecondary,
+        color: Colors.text.secondary,
     },
     fieldEditor: {
         gap: Spacing.sm,
         paddingHorizontal: Spacing.md,
         paddingBottom: Spacing.md,
     },
-    fieldDivider: { height: 0.5, backgroundColor: Colors.light.border, marginLeft: Spacing.md },
+    fieldDivider: { height: 0.5, backgroundColor: Colors.border.default, marginLeft: Spacing.md },
     editFieldLabel: {
         ...Typography.formLabel,
-        color: Colors.light.textSecondary,
+        color: Colors.text.secondary,
     },
     editFieldInput: {
         fontSize: Typography.sizes.base,
@@ -1149,9 +1149,9 @@ const styles = StyleSheet.create({
     },
     identityValueButton: {
         borderWidth: 1,
-        borderColor: Colors.light.border,
-        borderRadius: Radii.md,
-        backgroundColor: Colors.light.background,
+        borderColor: Colors.border.default,
+        borderRadius: Radius.md,
+        backgroundColor: Colors.bg.page,
         paddingTop: Spacing.md,
     },
     identityInlineActions: {
@@ -1166,13 +1166,13 @@ const styles = StyleSheet.create({
     },
     inlineDatePickerWrap: {
         borderTopWidth: 0.5,
-        borderTopColor: Colors.light.border,
+        borderTopColor: Colors.border.default,
         paddingHorizontal: Spacing.sm,
         paddingBottom: Spacing.sm,
     },
     bioCounter: {
         fontSize: Typography.sizes.sm,
-        color: Colors.light.textTertiary,
+        color: Colors.text.muted,
     },
     bioCounterOver: {
         color: Colors.danger,
@@ -1187,7 +1187,7 @@ const styles = StyleSheet.create({
     },
     interestsCount: {
         fontSize: Typography.sizes.sm,
-        color: Colors.light.textTertiary,
+        color: Colors.text.muted,
     },
     interestsWrap: {
         flexDirection: 'row',
@@ -1198,10 +1198,10 @@ const styles = StyleSheet.create({
         paddingBottom: Spacing.md,
     },
     interestChip: {
-        borderRadius: Radii.full,
+        borderRadius: Radius.pill,
         borderWidth: 1,
-        borderColor: Colors.light.border,
-        backgroundColor: Colors.light.background,
+        borderColor: Colors.border.default,
+        backgroundColor: Colors.bg.page,
         paddingHorizontal: Spacing.md,
         paddingVertical: 10,
     },
@@ -1211,7 +1211,7 @@ const styles = StyleSheet.create({
     },
     interestChipText: {
         fontSize: Typography.sizes.sm,
-        color: Colors.light.textSecondary,
+        color: Colors.text.secondary,
         fontWeight: '500',
     },
     interestChipTextActive: {
@@ -1227,16 +1227,16 @@ const styles = StyleSheet.create({
     },
     sectionSecondaryButton: {
         borderWidth: 1,
-        borderColor: Colors.light.border,
-        borderRadius: Radii.md,
+        borderColor: Colors.border.default,
+        borderRadius: Radius.md,
         paddingHorizontal: Spacing.md,
         paddingVertical: 10,
-        backgroundColor: Colors.light.background,
+        backgroundColor: Colors.bg.page,
     },
     sectionSecondaryButtonText: {
         fontSize: Typography.sizes.sm,
         fontWeight: '600',
-        color: Colors.light.textSecondary,
+        color: Colors.text.secondary,
     },
     sectionPrimaryButton: {
         minWidth: 82,
@@ -1256,20 +1256,20 @@ const styles = StyleSheet.create({
         flex: 1,
         fontSize: Typography.sizes.base,
         fontWeight: '600',
-        color: Colors.light.textPrimary,
+        color: Colors.text.primary,
     },
     sobrietySummaryValue: {
         fontSize: Typography.sizes.sm,
         fontWeight: '600',
-        color: Colors.light.textSecondary,
+        color: Colors.text.secondary,
     },
     sobrietySummaryHint: {
         fontSize: Typography.sizes.sm,
-        color: Colors.light.textTertiary,
+        color: Colors.text.muted,
     },
     milestoneBadge: {
         backgroundColor: Colors.primary,
-        borderRadius: Radii.full,
+        borderRadius: Radius.pill,
         paddingHorizontal: Spacing.md,
         paddingVertical: 7,
     },

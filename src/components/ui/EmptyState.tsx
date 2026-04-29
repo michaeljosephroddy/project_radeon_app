@@ -1,7 +1,7 @@
 import React from 'react';
 import { StyleProp, StyleSheet, Text, TextStyle, View, ViewStyle } from 'react-native';
 import { commonStyles } from '../../styles/commonStyles';
-import { Colors, Spacing, Typography } from '../../utils/theme';
+import { Colors, Spacing, Typography } from '../../theme';
 
 interface EmptyStateProps {
     title: string;
@@ -32,12 +32,12 @@ const styles = StyleSheet.create({
     title: {
         fontSize: Typography.sizes.lg,
         fontWeight: '500',
-        color: Colors.light.textPrimary,
+        color: Colors.text.primary,
         textAlign: 'center',
     },
     description: {
         fontSize: Typography.sizes.base,
-        color: Colors.light.textTertiary,
+        color: Colors.text.muted,
         marginTop: Spacing.sm,
         textAlign: 'center',
     },

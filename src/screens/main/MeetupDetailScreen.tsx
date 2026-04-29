@@ -16,7 +16,7 @@ import { MeetupEventTypeBadge } from '../../components/events/MeetupEventTypeBad
 import { EmptyState } from '../../components/ui/EmptyState';
 import { PrimaryButton } from '../../components/ui/PrimaryButton';
 import { ScreenHeader } from '../../components/ui/ScreenHeader';
-import { Colors, Radii, Spacing, Typography } from '../../utils/theme';
+import { Colors, Radius, Spacing, Typography } from '../../theme';
 import { screenStandards } from '../../styles/screenStandards';
 
 interface MeetupDetailScreenProps {
@@ -305,7 +305,7 @@ export function MeetupDetailScreen({
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: Colors.light.background,
+        backgroundColor: Colors.bg.page,
     },
     centered: {
         flex: 1,
@@ -314,22 +314,22 @@ const styles = StyleSheet.create({
         paddingHorizontal: Spacing.lg,
     },
     loadingText: {
-        color: Colors.light.textSecondary,
+        color: Colors.text.secondary,
         fontSize: Typography.sizes.md,
         fontWeight: '600',
     },
     heroCard: {
-        borderRadius: Radii.xl,
+        borderRadius: Radius.xl,
         overflow: 'hidden',
-        backgroundColor: Colors.light.backgroundSecondary,
+        backgroundColor: Colors.bg.surface,
         borderWidth: 1,
-        borderColor: Colors.light.borderSecondary,
+        borderColor: Colors.border.subtle,
         marginBottom: Spacing.md,
     },
     coverImage: {
         width: '100%',
         height: 190,
-        backgroundColor: Colors.light.backgroundSecondary,
+        backgroundColor: Colors.bg.surface,
     },
     coverFallback: {
         height: 170,
@@ -347,12 +347,12 @@ const styles = StyleSheet.create({
         gap: 6,
     },
     heroTitle: {
-        color: Colors.light.textPrimary,
+        color: Colors.text.primary,
         fontSize: Typography.sizes.xxl,
         fontWeight: '800',
     },
     heroMeta: {
-        color: Colors.light.textSecondary,
+        color: Colors.text.secondary,
         fontSize: Typography.sizes.sm,
         fontWeight: '700',
     },
@@ -364,7 +364,7 @@ const styles = StyleSheet.create({
     },
     categoryPill: {
         backgroundColor: Colors.primarySubtle,
-        borderRadius: Radii.full,
+        borderRadius: Radius.pill,
         paddingHorizontal: Spacing.sm,
         paddingVertical: 4,
         borderWidth: 1,
@@ -376,19 +376,19 @@ const styles = StyleSheet.create({
         fontWeight: '700',
     },
     heroSchedule: {
-        color: Colors.light.textSecondary,
+        color: Colors.text.secondary,
         fontSize: Typography.sizes.sm,
         lineHeight: 20,
     },
     heroLocation: {
-        color: Colors.light.textPrimary,
+        color: Colors.text.primary,
         fontSize: Typography.sizes.md,
         fontWeight: '600',
     },
     statusPill: {
         alignSelf: 'flex-start',
         backgroundColor: Colors.warning,
-        borderRadius: Radii.full,
+        borderRadius: Radius.pill,
         paddingHorizontal: Spacing.md,
         paddingVertical: 6,
         marginTop: 4,
@@ -400,25 +400,25 @@ const styles = StyleSheet.create({
     },
     sectionCard: {
         marginTop: Spacing.md,
-        borderRadius: Radii.xl,
-        backgroundColor: Colors.light.backgroundSecondary,
+        borderRadius: Radius.xl,
+        backgroundColor: Colors.bg.surface,
         borderWidth: 1,
-        borderColor: Colors.light.borderSecondary,
+        borderColor: Colors.border.subtle,
         padding: Spacing.lg,
         gap: Spacing.sm,
     },
     sectionTitle: {
-        color: Colors.light.textPrimary,
+        color: Colors.text.primary,
         fontSize: Typography.sizes.lg,
         fontWeight: '700',
     },
     bodyText: {
-        color: Colors.light.textPrimary,
+        color: Colors.text.primary,
         fontSize: Typography.sizes.md,
         lineHeight: 22,
     },
     subtleText: {
-        color: Colors.light.textSecondary,
+        color: Colors.text.secondary,
         fontSize: Typography.sizes.sm,
         lineHeight: 19,
     },
@@ -436,12 +436,12 @@ const styles = StyleSheet.create({
         gap: 2,
     },
     personName: {
-        color: Colors.light.textPrimary,
+        color: Colors.text.primary,
         fontSize: Typography.sizes.md,
         fontWeight: '700',
     },
     personMeta: {
-        color: Colors.light.textSecondary,
+        color: Colors.text.secondary,
         fontSize: Typography.sizes.sm,
     },
 });

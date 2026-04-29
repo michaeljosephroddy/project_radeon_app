@@ -5,7 +5,7 @@ import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { PrimaryButton } from '../../components/ui/PrimaryButton';
 import { useAuth } from '../../hooks/useAuth';
-import { Colors, Typography, Spacing, Radii } from '../../utils/theme';
+import { Colors, Typography, Spacing, Radius } from '../../theme';
 
 interface WelcomeStepProps {
     onNext: () => void;
@@ -39,7 +39,7 @@ export function WelcomeStep({ onNext }: WelcomeStepProps) {
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: Colors.light.background },
+    container: { flex: 1, backgroundColor: Colors.bg.page },
     inner: {
         flex: 1,
         alignItems: 'center',
@@ -51,7 +51,7 @@ const styles = StyleSheet.create({
         width: 88,
         height: 88,
         borderRadius: 44,
-        backgroundColor: Colors.light.backgroundSecondary,
+        backgroundColor: Colors.bg.surface,
         alignItems: 'center',
         justifyContent: 'center',
         marginBottom: Spacing.xl,
@@ -59,7 +59,7 @@ const styles = StyleSheet.create({
     wordmark: {
         fontSize: Typography.sizes.xxxl,
         fontWeight: '600',
-        color: Colors.light.textPrimary,
+        color: Colors.text.primary,
         letterSpacing: -0.5,
         marginBottom: Spacing.xl,
     },
@@ -67,13 +67,13 @@ const styles = StyleSheet.create({
     headline: {
         fontSize: Typography.sizes.xxl,
         fontWeight: '600',
-        color: Colors.light.textPrimary,
+        color: Colors.text.primary,
         textAlign: 'center',
         marginBottom: Spacing.md,
     },
     body: {
         fontSize: Typography.sizes.lg,
-        color: Colors.light.textSecondary,
+        color: Colors.text.secondary,
         textAlign: 'center',
         lineHeight: 24,
     },

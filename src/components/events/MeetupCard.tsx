@@ -3,7 +3,7 @@ import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import * as api from '../../api/client';
 import { Avatar } from '../Avatar';
 import { MeetupEventTypeBadge } from './MeetupEventTypeBadge';
-import { Colors, Radii, Spacing, Typography } from '../../utils/theme';
+import { Colors, Radius, Spacing, Typography } from '../../theme';
 
 interface MeetupCardProps {
     meetup: api.Meetup;
@@ -134,16 +134,16 @@ export const MeetupCard = React.memo(function MeetupCard({
 
 const styles = StyleSheet.create({
     card: {
-        backgroundColor: Colors.light.backgroundSecondary,
-        borderRadius: Radii.lg,
+        backgroundColor: Colors.bg.surface,
+        borderRadius: Radius.lg,
         borderWidth: 1,
-        borderColor: Colors.light.borderSecondary,
+        borderColor: Colors.border.subtle,
         overflow: 'hidden',
     },
     coverImage: {
         width: '100%',
         height: 132,
-        backgroundColor: Colors.light.background,
+        backgroundColor: Colors.bg.page,
     },
     contentRow: {
         flexDirection: 'row',
@@ -162,7 +162,7 @@ const styles = StyleSheet.create({
     pill: {
         paddingHorizontal: Spacing.sm,
         paddingVertical: 4,
-        borderRadius: Radii.full,
+        borderRadius: Radius.pill,
         backgroundColor: Colors.primarySubtle,
         borderWidth: 1,
         borderColor: Colors.primary,
@@ -175,15 +175,15 @@ const styles = StyleSheet.create({
     title: {
         fontSize: Typography.sizes.lg,
         fontWeight: '700',
-        color: Colors.light.textPrimary,
+        color: Colors.text.primary,
     },
     description: {
-        color: Colors.light.textSecondary,
+        color: Colors.text.secondary,
         fontSize: Typography.sizes.sm,
         lineHeight: 20,
     },
     detailLine: {
-        color: Colors.light.textSecondary,
+        color: Colors.text.secondary,
         fontSize: Typography.sizes.sm,
     },
     previewRow: {
@@ -201,7 +201,7 @@ const styles = StyleSheet.create({
         top: 0,
     },
     previewLabel: {
-        color: Colors.light.textSecondary,
+        color: Colors.text.secondary,
         fontSize: Typography.sizes.xs,
         fontWeight: '600',
     },
@@ -209,10 +209,10 @@ const styles = StyleSheet.create({
         alignSelf: 'flex-start',
         paddingHorizontal: Spacing.md,
         paddingVertical: 10,
-        borderRadius: Radii.full,
+        borderRadius: Radius.pill,
         borderWidth: 1,
         borderColor: Colors.primary,
-        backgroundColor: Colors.light.background,
+        backgroundColor: Colors.bg.page,
     },
     actionButtonActive: {
         backgroundColor: Colors.success,

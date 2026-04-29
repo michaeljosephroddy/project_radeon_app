@@ -1,7 +1,7 @@
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors, Radii, Spacing, Typography } from '../../utils/theme';
+import { Colors, Radius, Spacing, Typography } from '../../theme';
 import { PrimaryButton } from '../ui/PrimaryButton';
 
 interface DiscoverEmptyStateProps {
@@ -56,17 +56,17 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         backgroundColor: Colors.primarySubtle,
         borderWidth: 1,
-        borderColor: Colors.light.border,
+        borderColor: Colors.border.default,
     },
     title: {
         fontSize: Typography.sizes.xl,
         fontWeight: '700',
-        color: Colors.light.textPrimary,
+        color: Colors.text.primary,
         textAlign: 'center',
     },
     description: {
         fontSize: Typography.sizes.base,
-        color: Colors.light.textSecondary,
+        color: Colors.text.secondary,
         textAlign: 'center',
         lineHeight: 22,
     },
@@ -80,6 +80,6 @@ const styles = StyleSheet.create({
     secondaryButtonText: {
         fontSize: Typography.sizes.sm,
         fontWeight: '600',
-        color: Colors.light.textSecondary,
+        color: Colors.text.secondary,
     },
 });

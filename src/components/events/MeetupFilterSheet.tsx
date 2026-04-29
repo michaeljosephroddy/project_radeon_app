@@ -19,7 +19,7 @@ import {
     MEETUP_SORT_OPTIONS,
     MEETUP_TIME_OPTIONS,
 } from '../../hooks/useMeetupFilters';
-import { Colors, Radii, Spacing, Typography } from '../../utils/theme';
+import { Colors, Radius, Spacing, Typography } from '../../theme';
 import { screenStandards } from '../../styles/screenStandards';
 import { PrimaryButton } from '../ui/PrimaryButton';
 import { ScreenHeader } from '../ui/ScreenHeader';
@@ -227,8 +227,8 @@ export function MeetupFilterSheet({
                         <Switch
                             value={draftFilters.openSpotsOnly}
                             onValueChange={(value) => onChangeFilters((current) => ({ ...current, openSpotsOnly: value }))}
-                            trackColor={{ false: Colors.light.border, true: Colors.primary }}
-                            thumbColor={Colors.light.background}
+                            trackColor={{ false: Colors.border.default, true: Colors.primary }}
+                            thumbColor={Colors.bg.page}
                         />
                     </View>
                 </ScrollView>
@@ -247,7 +247,7 @@ export function MeetupFilterSheet({
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: Colors.light.background,
+        backgroundColor: Colors.bg.page,
     },
     content: {
         gap: Spacing.lg,
@@ -256,7 +256,7 @@ const styles = StyleSheet.create({
         gap: Spacing.sm,
     },
     sectionTitle: {
-        color: Colors.light.textPrimary,
+        color: Colors.text.primary,
         fontSize: Typography.sizes.md,
         fontWeight: '700',
     },
@@ -271,17 +271,17 @@ const styles = StyleSheet.create({
     chip: {
         paddingHorizontal: Spacing.md,
         paddingVertical: 10,
-        borderRadius: Radii.full,
+        borderRadius: Radius.pill,
         borderWidth: 1,
-        borderColor: Colors.light.border,
-        backgroundColor: Colors.light.backgroundSecondary,
+        borderColor: Colors.border.default,
+        backgroundColor: Colors.bg.surface,
     },
     chipSelected: {
         backgroundColor: Colors.primary,
         borderColor: Colors.primary,
     },
     chipText: {
-        color: Colors.light.textSecondary,
+        color: Colors.text.secondary,
         fontSize: Typography.sizes.sm,
         fontWeight: '600',
     },
@@ -297,7 +297,7 @@ const styles = StyleSheet.create({
         gap: Spacing.xs,
     },
     fieldLabel: {
-        color: Colors.light.textSecondary,
+        color: Colors.text.secondary,
         fontSize: Typography.sizes.xs,
         fontWeight: '700',
         textTransform: 'uppercase',
@@ -308,22 +308,22 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         gap: Spacing.md,
         padding: Spacing.md,
-        borderRadius: Radii.lg,
-        backgroundColor: Colors.light.backgroundSecondary,
+        borderRadius: Radius.lg,
+        backgroundColor: Colors.bg.surface,
         borderWidth: 1,
-        borderColor: Colors.light.borderSecondary,
+        borderColor: Colors.border.subtle,
     },
     switchCopy: {
         flex: 1,
         gap: 4,
     },
     switchTitle: {
-        color: Colors.light.textPrimary,
+        color: Colors.text.primary,
         fontSize: Typography.sizes.md,
         fontWeight: '700',
     },
     switchSubtitle: {
-        color: Colors.light.textSecondary,
+        color: Colors.text.secondary,
         fontSize: Typography.sizes.sm,
         lineHeight: 18,
     },
@@ -335,7 +335,7 @@ const styles = StyleSheet.create({
         paddingTop: Spacing.md,
         paddingBottom: Spacing.md,
         borderTopWidth: 1,
-        borderTopColor: Colors.light.borderSecondary,
+        borderTopColor: Colors.border.subtle,
     },
     resetButton: {
         paddingVertical: 12,

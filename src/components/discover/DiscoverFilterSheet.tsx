@@ -17,7 +17,7 @@ import {
     DiscoverDraftFilters,
     getDiscoverDistanceLabel,
 } from '../../hooks/useDiscoverFilters';
-import { Colors, Radii, Spacing, Typography } from '../../utils/theme';
+import { Colors, Radius, Spacing, Typography } from '../../theme';
 import { screenStandards } from '../../styles/screenStandards';
 import { PrimaryButton } from '../ui/PrimaryButton';
 import { ScreenHeader } from '../ui/ScreenHeader';
@@ -190,7 +190,7 @@ export function DiscoverFilterSheet({
                             maximumValue={200}
                             step={10}
                             minimumTrackTintColor={Colors.primary}
-                            maximumTrackTintColor={Colors.light.border}
+                            maximumTrackTintColor={Colors.border.default}
                             thumbTintColor={Colors.primary}
                             value={draftFilters.distanceKm}
                             onValueChange={(value) => onChangeFilters((current) => ({ ...current, distanceKm: value }))}
@@ -288,7 +288,7 @@ export function DiscoverFilterSheet({
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: Colors.light.background,
+        backgroundColor: Colors.bg.page,
     },
     content: {
         gap: Spacing.lg,
@@ -297,16 +297,16 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'flex-start',
         gap: Spacing.sm,
-        backgroundColor: Colors.light.backgroundSecondary,
-        borderRadius: Radii.lg,
+        backgroundColor: Colors.bg.surface,
+        borderRadius: Radius.lg,
         borderWidth: 1,
-        borderColor: Colors.light.border,
+        borderColor: Colors.border.default,
         padding: Spacing.md,
     },
     previewText: {
         flex: 1,
         fontSize: Typography.sizes.sm,
-        color: Colors.light.textSecondary,
+        color: Colors.text.secondary,
         lineHeight: 20,
     },
     section: {
@@ -321,13 +321,13 @@ const styles = StyleSheet.create({
     sectionTitle: {
         fontSize: Typography.sizes.sm,
         fontWeight: '700',
-        color: Colors.light.textPrimary,
+        color: Colors.text.primary,
         textTransform: 'uppercase',
         letterSpacing: 0.6,
     },
     sectionHint: {
         fontSize: Typography.sizes.sm,
-        color: Colors.light.textTertiary,
+        color: Colors.text.muted,
     },
     optionWrap: {
         flexDirection: 'row',
@@ -335,10 +335,10 @@ const styles = StyleSheet.create({
         gap: Spacing.sm,
     },
     optionChip: {
-        borderRadius: Radii.pill,
+        borderRadius: Radius.pill,
         borderWidth: 1,
-        borderColor: Colors.light.border,
-        backgroundColor: Colors.light.backgroundSecondary,
+        borderColor: Colors.border.default,
+        backgroundColor: Colors.bg.surface,
         paddingHorizontal: Spacing.md,
         paddingVertical: Spacing.sm,
     },
@@ -349,7 +349,7 @@ const styles = StyleSheet.create({
     optionChipText: {
         fontSize: Typography.sizes.sm,
         fontWeight: '500',
-        color: Colors.light.textSecondary,
+        color: Colors.text.secondary,
     },
     optionChipTextSelected: {
         color: Colors.primary,
@@ -363,7 +363,7 @@ const styles = StyleSheet.create({
     },
     fieldLabel: {
         fontSize: Typography.sizes.sm,
-        color: Colors.light.textTertiary,
+        color: Colors.text.muted,
         marginBottom: Spacing.xs,
     },
     slider: {
@@ -381,16 +381,16 @@ const styles = StyleSheet.create({
     },
     sliderMarkText: {
         fontSize: Typography.sizes.xs,
-        color: Colors.light.textTertiary,
+        color: Colors.text.muted,
     },
     toggleRow: {
         flexDirection: 'row',
         alignItems: 'center',
         gap: Spacing.md,
-        backgroundColor: Colors.light.backgroundSecondary,
-        borderRadius: Radii.lg,
+        backgroundColor: Colors.bg.surface,
+        borderRadius: Radius.lg,
         borderWidth: 1,
-        borderColor: Colors.light.border,
+        borderColor: Colors.border.default,
         padding: Spacing.md,
     },
     toggleCopy: {
@@ -400,11 +400,11 @@ const styles = StyleSheet.create({
     toggleTitle: {
         fontSize: Typography.sizes.base,
         fontWeight: '600',
-        color: Colors.light.textPrimary,
+        color: Colors.text.primary,
     },
     toggleSubtitle: {
         fontSize: Typography.sizes.sm,
-        color: Colors.light.textSecondary,
+        color: Colors.text.secondary,
         lineHeight: 19,
     },
     checkbox: {
@@ -412,10 +412,10 @@ const styles = StyleSheet.create({
         height: 28,
         borderRadius: 14,
         borderWidth: 1,
-        borderColor: Colors.light.border,
+        borderColor: Colors.border.default,
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: Colors.light.background,
+        backgroundColor: Colors.bg.page,
     },
     checkboxChecked: {
         borderColor: Colors.primary,
@@ -426,21 +426,21 @@ const styles = StyleSheet.create({
         paddingTop: Spacing.md,
         paddingBottom: Spacing.sm,
         borderTopWidth: 1,
-        borderTopColor: Colors.light.border,
+        borderTopColor: Colors.border.default,
         gap: Spacing.sm,
     },
     resetButton: {
         alignItems: 'center',
         justifyContent: 'center',
-        borderRadius: Radii.md,
+        borderRadius: Radius.md,
         borderWidth: 1,
-        borderColor: Colors.light.border,
+        borderColor: Colors.border.default,
         paddingVertical: 14,
     },
     resetButtonText: {
         fontSize: Typography.sizes.md,
         fontWeight: '600',
-        color: Colors.light.textSecondary,
+        color: Colors.text.secondary,
     },
     applyButton: {
         minHeight: 52,

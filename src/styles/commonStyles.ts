@@ -1,12 +1,12 @@
 import { StyleSheet } from 'react-native';
-import { Colors, Radii, Spacing } from '../utils/theme';
+import { Colors, Radius, Spacing } from '../theme';
 
 export const commonStyles = StyleSheet.create({
     card: {
-        backgroundColor: Colors.light.backgroundSecondary,
-        borderRadius: Radii.lg,
+        backgroundColor: Colors.bg.surface,
+        borderRadius: Radius.lg,
         borderWidth: 1,
-        borderColor: Colors.light.border,
+        borderColor: Colors.border.default,
     },
     emptyState: {
         alignItems: 'center',

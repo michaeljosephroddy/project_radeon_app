@@ -9,7 +9,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { PrimaryButton } from '../../components/ui/PrimaryButton';
 import { TextField } from '../../components/ui/TextField';
 import { useAuth } from '../../hooks/useAuth';
-import { Colors, Typography, Spacing } from '../../utils/theme';
+import { Colors, Typography, Spacing } from '../../theme';
 import { screenStandards } from '../../styles/screenStandards';
 
 interface LoginScreenProps {
@@ -60,7 +60,7 @@ export function LoginScreen({ onGoToRegister }: LoginScreenProps) {
                     <TextField
                         style={styles.input}
                         placeholder="you@example.com"
-                        placeholderTextColor={Colors.light.textTertiary}
+                        placeholderTextColor={Colors.text.muted}
                         autoCapitalize="none"
                         keyboardType="email-address"
                         value={email}
@@ -71,7 +71,7 @@ export function LoginScreen({ onGoToRegister }: LoginScreenProps) {
                     <TextField
                         style={styles.input}
                         placeholder="••••••••"
-                        placeholderTextColor={Colors.light.textTertiary}
+                        placeholderTextColor={Colors.text.muted}
                         secureTextEntry
                         value={password}
                         onChangeText={setPassword}
@@ -99,32 +99,32 @@ export function LoginScreen({ onGoToRegister }: LoginScreenProps) {
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: Colors.light.background },
+    container: { flex: 1, backgroundColor: Colors.bg.page },
     flex: { flex: 1 },
     header: { marginBottom: 40 },
     wordmark: {
         ...Typography.h1,
         fontWeight: '600',
-        color: Colors.light.textPrimary,
+        color: Colors.text.primary,
         letterSpacing: -0.5,
     },
     wordmarkAccent: { color: Colors.primary },
     tagline: {
         fontSize: Typography.body.fontSize,
         lineHeight: Typography.body.lineHeight,
-        color: Colors.light.textTertiary,
+        color: Colors.text.muted,
         marginTop: Spacing.sm,
     },
     form: { gap: Spacing.sm },
     label: {
         ...Typography.formLabel,
-        color: Colors.light.textSecondary,
+        color: Colors.text.secondary,
         marginBottom: 2,
         marginTop: Spacing.sm,
     },
     input: { fontSize: Typography.sizes.md },
     btn: { marginTop: Spacing.md },
     switchLink: { alignItems: 'center', marginTop: Spacing.lg },
-    switchText: { fontSize: Typography.sizes.base, color: Colors.light.textTertiary },
+    switchText: { fontSize: Typography.sizes.base, color: Colors.text.muted },
     switchAccent: { color: Colors.primary, fontWeight: '500' },
 });

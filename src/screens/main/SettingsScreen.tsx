@@ -3,7 +3,7 @@ import {
     View, Text, TouchableOpacity, StyleSheet, ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Colors, Typography, Spacing } from '../../utils/theme';
+import { Colors, Typography, Spacing } from '../../theme';
 import { ScreenHeader } from '../../components/ui/ScreenHeader';
 import { SectionLabel } from '../../components/ui/SectionLabel';
 import { screenStandards } from '../../styles/screenStandards';
@@ -45,10 +45,10 @@ export function SettingsScreen({ onBack, onLogout, onOpenHiddenContent }: Settin
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: Colors.light.background },
+    container: { flex: 1, backgroundColor: Colors.bg.page },
     scroll: { flex: 1 },
     group: {
-        backgroundColor: Colors.light.backgroundSecondary,
+        backgroundColor: Colors.bg.surface,
         borderRadius: 12,
         overflow: 'hidden',
     },
@@ -56,6 +56,6 @@ const styles = StyleSheet.create({
         paddingHorizontal: Spacing.md,
         paddingVertical: 13,
     },
-    rowText: { fontSize: Typography.sizes.base, color: Colors.light.textPrimary },
+    rowText: { fontSize: Typography.sizes.base, color: Colors.text.primary },
     logoutText: { fontSize: Typography.sizes.base, color: Colors.danger },
 });

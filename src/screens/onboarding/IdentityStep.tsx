@@ -18,7 +18,7 @@ import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { useAuth } from '../../hooks/useAuth';
 import * as api from '../../api/client';
 import { formatBirthDateValue, GENDER_SEGMENTS } from '../../utils/profileIdentity';
-import { Colors, Typography, Spacing, Radii } from '../../utils/theme';
+import { Colors, Typography, Spacing, Radius } from '../../theme';
 import type { OnboardingStepProps } from '../../navigation/OnboardingNavigator';
 
 type EditableGender = api.UserGender | '';
@@ -158,7 +158,7 @@ export function IdentityStep({ onNext, dotIndex, dotTotal }: IdentityStepProps) 
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: Colors.light.background },
+    container: { flex: 1, backgroundColor: Colors.bg.page },
     flex: { flex: 1 },
     topBar: {
         alignItems: 'center',
@@ -170,7 +170,7 @@ const styles = StyleSheet.create({
         width: 8,
         height: 8,
         borderRadius: 4,
-        backgroundColor: Colors.light.border,
+        backgroundColor: Colors.border.default,
     },
     dotActive: { backgroundColor: Colors.primary },
     scrollContent: {
@@ -181,7 +181,7 @@ const styles = StyleSheet.create({
         width: 60,
         height: 60,
         borderRadius: 30,
-        backgroundColor: Colors.light.backgroundSecondary,
+        backgroundColor: Colors.bg.surface,
         alignItems: 'center',
         justifyContent: 'center',
         marginBottom: Spacing.lg,
@@ -189,19 +189,19 @@ const styles = StyleSheet.create({
     title: {
         fontSize: Typography.sizes.xxl,
         fontWeight: '600',
-        color: Colors.light.textPrimary,
+        color: Colors.text.primary,
         marginBottom: Spacing.sm,
     },
     subtitle: {
         fontSize: Typography.sizes.lg,
-        color: Colors.light.textSecondary,
+        color: Colors.text.secondary,
         marginBottom: Spacing.xl,
         lineHeight: 22,
     },
     section: { marginBottom: Spacing.xl },
     label: {
         ...Typography.formLabel,
-        color: Colors.light.textSecondary,
+        color: Colors.text.secondary,
         marginBottom: Spacing.sm,
     },
     segmentedControl: {
@@ -210,7 +210,7 @@ const styles = StyleSheet.create({
     helperText: {
         fontSize: Typography.sizes.sm,
         lineHeight: 18,
-        color: Colors.light.textTertiary,
+        color: Colors.text.muted,
     },
     clearText: {
         fontSize: Typography.sizes.sm,
@@ -218,28 +218,28 @@ const styles = StyleSheet.create({
         color: Colors.primary,
     },
     dateButton: {
-        backgroundColor: Colors.light.backgroundSecondary,
-        borderRadius: Radii.md,
+        backgroundColor: Colors.bg.surface,
+        borderRadius: Radius.md,
         borderWidth: 0.5,
-        borderColor: Colors.light.border,
+        borderColor: Colors.border.default,
         paddingHorizontal: Spacing.md,
         paddingVertical: 13,
     },
     dateButtonText: {
         fontSize: Typography.sizes.lg,
-        color: Colors.light.textPrimary,
+        color: Colors.text.primary,
         fontWeight: '500',
     },
-    dateButtonPlaceholder: { color: Colors.light.textTertiary },
+    dateButtonPlaceholder: { color: Colors.text.muted },
     dateDisplayRow: {
         paddingVertical: Spacing.sm,
     },
     dateDisplay: {
         fontSize: Typography.sizes.xxl,
         fontWeight: '600',
-        color: Colors.light.textPrimary,
+        color: Colors.text.primary,
     },
-    dateDisplayPlaceholder: { color: Colors.light.textTertiary },
+    dateDisplayPlaceholder: { color: Colors.text.muted },
     footer: {
         paddingHorizontal: Spacing.xl,
         paddingBottom: Spacing.lg,

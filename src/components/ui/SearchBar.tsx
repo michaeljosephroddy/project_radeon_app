@@ -8,7 +8,7 @@ import {
     View,
     ViewStyle,
 } from 'react-native';
-import { Colors, Radii, Spacing, Typography } from '../../utils/theme';
+import { Colors, Radius, Spacing, Typography } from '../../theme';
 import { TextField } from './TextField';
 
 interface SearchFieldConfig extends Omit<TextInputProps, 'style'> {
@@ -82,17 +82,17 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     compact: {
-        backgroundColor: Colors.light.backgroundSecondary,
-        borderRadius: Radii.md,
+        backgroundColor: Colors.bg.surface,
+        borderRadius: Radius.md,
         gap: Spacing.sm,
         paddingHorizontal: Spacing.md,
         paddingVertical: 9,
     },
     pill: {
-        backgroundColor: Colors.light.background,
-        borderRadius: Radii.full,
+        backgroundColor: Colors.bg.page,
+        borderRadius: Radius.pill,
         borderWidth: 1,
-        borderColor: Colors.light.border,
+        borderColor: Colors.border.default,
         paddingLeft: Spacing.md,
         paddingRight: 6,
         paddingVertical: 6,
@@ -118,7 +118,7 @@ const styles = StyleSheet.create({
     divider: {
         width: 1,
         alignSelf: 'stretch',
-        backgroundColor: Colors.light.border,
+        backgroundColor: Colors.border.default,
         marginHorizontal: Spacing.sm,
     },
     actionCompact: {
@@ -136,11 +136,11 @@ const styles = StyleSheet.create({
         borderRadius: 19,
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: Colors.light.textPrimary,
+        backgroundColor: Colors.text.primary,
         marginLeft: Spacing.sm,
     },
     actionPillText: {
         fontSize: 18,
-        color: Colors.light.background,
+        color: Colors.bg.page,
     },
 });

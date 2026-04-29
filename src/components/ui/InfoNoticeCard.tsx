@@ -6,7 +6,7 @@ import {
     View,
     ViewStyle,
 } from 'react-native';
-import { Colors, Typography } from '../../utils/theme';
+import { Colors, Typography } from '../../theme';
 import { SurfaceCard } from './SurfaceCard';
 
 export interface InfoNoticeCardProps {
@@ -37,10 +37,10 @@ const styles = StyleSheet.create({
     title: {
         fontSize: Typography.sizes.md,
         fontWeight: '600',
-        color: Colors.light.textPrimary,
+        color: Colors.text.primary,
     },
     description: {
         ...Typography.meta,
-        color: Colors.light.textTertiary,
+        color: Colors.text.muted,
     },
 });

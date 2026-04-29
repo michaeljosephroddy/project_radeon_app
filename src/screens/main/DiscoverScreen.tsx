@@ -44,7 +44,7 @@ import { useDiscoverResults as useDiscoverResultsQuery } from '../../hooks/queri
 import { getDeviceCoords } from '../../utils/location';
 import { getRecoveryMilestone } from '../../utils/date';
 import { formatUsername } from '../../utils/identity';
-import { Colors, Spacing, Typography, Radii, getAvatarColors } from '../../utils/theme';
+import { Colors, Spacing, Typography, Radius, getAvatarColors } from '../../theme';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -404,7 +404,7 @@ export function DiscoverScreen({ isActive, onOpenUserProfile, onOpenPlus }: Disc
                         <Text style={styles.filterSummaryLabel}>Filters</Text>
                         <Text style={styles.filterSummaryText}>{filterSummary}</Text>
                     </View>
-                    <Ionicons name="chevron-forward" size={16} color={Colors.light.textTertiary} />
+                    <Ionicons name="chevron-forward" size={16} color={Colors.text.muted} />
                 </TouchableOpacity>
             </View>
 
@@ -453,7 +453,7 @@ export function DiscoverScreen({ isActive, onOpenUserProfile, onOpenPlus }: Disc
                     <SearchBar
                         style={styles.searchBar}
                         variant="pill"
-                        leading={<Ionicons name="search-outline" size={18} color={Colors.light.textTertiary} />}
+                        leading={<Ionicons name="search-outline" size={18} color={Colors.text.muted} />}
                         primaryField={{
                             value: searchText,
                             onChangeText: setSearchText,
@@ -466,7 +466,7 @@ export function DiscoverScreen({ isActive, onOpenUserProfile, onOpenPlus }: Disc
                     />
 
                     <TouchableOpacity style={styles.filterButton} onPress={handleOpenFilters} activeOpacity={0.85}>
-                        <Ionicons name="options-outline" size={20} color={Colors.light.textPrimary} />
+                        <Ionicons name="options-outline" size={20} color={Colors.text.primary} />
                         {filterCount > 0 ? (
                             <View style={styles.filterBadge}>
                                 <Text style={styles.filterBadgeText}>{filterCount}</Text>
@@ -587,13 +587,13 @@ export function DiscoverScreen({ isActive, onOpenUserProfile, onOpenPlus }: Disc
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: Colors.light.background,
+        backgroundColor: Colors.bg.page,
     },
     center: {
         flex: 1,
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: Colors.light.background,
+        backgroundColor: Colors.bg.page,
     },
     controls: {
         paddingHorizontal: Spacing.md,
@@ -621,7 +621,7 @@ const styles = StyleSheet.create({
     },
     searchStatusText: {
         fontSize: Typography.sizes.sm,
-        color: Colors.light.textTertiary,
+        color: Colors.text.muted,
     },
     filterButton: {
         width: 50,
@@ -630,8 +630,8 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
         borderWidth: 1,
-        borderColor: Colors.light.border,
-        backgroundColor: Colors.light.backgroundSecondary,
+        borderColor: Colors.border.default,
+        backgroundColor: Colors.bg.surface,
     },
     filterBadge: {
         position: 'absolute',
@@ -654,10 +654,10 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         gap: Spacing.sm,
-        borderRadius: Radii.lg,
+        borderRadius: Radius.lg,
         borderWidth: 1,
-        borderColor: Colors.light.border,
-        backgroundColor: Colors.light.backgroundSecondary,
+        borderColor: Colors.border.default,
+        backgroundColor: Colors.bg.surface,
         paddingHorizontal: Spacing.md,
         paddingVertical: Spacing.md,
     },
@@ -668,13 +668,13 @@ const styles = StyleSheet.create({
     filterSummaryLabel: {
         fontSize: Typography.sizes.sm,
         fontWeight: '700',
-        color: Colors.light.textPrimary,
+        color: Colors.text.primary,
         textTransform: 'uppercase',
         letterSpacing: 0.5,
     },
     filterSummaryText: {
         fontSize: Typography.sizes.base,
-        color: Colors.light.textSecondary,
+        color: Colors.text.secondary,
         lineHeight: 20,
     },
     resultsHeader: {
@@ -694,11 +694,11 @@ const styles = StyleSheet.create({
         flex: 1,
         fontSize: Typography.sizes.md,
         fontWeight: '700',
-        color: Colors.light.textPrimary,
+        color: Colors.text.primary,
     },
     sectionCount: {
         fontSize: Typography.sizes.sm,
-        color: Colors.light.textSecondary,
+        color: Colors.text.secondary,
     },
     resultsContent: {
         paddingTop: Spacing.xs,
@@ -716,9 +716,9 @@ const styles = StyleSheet.create({
     card: {
         width: CARD_WIDTH,
         height: CARD_HEIGHT,
-        borderRadius: Radii.lg,
+        borderRadius: Radius.lg,
         overflow: 'hidden',
-        backgroundColor: Colors.light.backgroundSecondary,
+        backgroundColor: Colors.bg.surface,
     },
     cardInitials: {
         ...StyleSheet.absoluteFillObject,
@@ -761,7 +761,7 @@ const styles = StyleSheet.create({
         gap: 4,
         alignSelf: 'flex-start',
         backgroundColor: 'rgba(255,255,255,0.92)',
-        borderRadius: Radii.pill,
+        borderRadius: Radius.pill,
         paddingHorizontal: 8,
         paddingVertical: 4,
     },
@@ -782,7 +782,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: Spacing.md,
         paddingVertical: Spacing.md,
         borderBottomWidth: 1,
-        borderBottomColor: Colors.light.borderSecondary,
+        borderBottomColor: Colors.border.subtle,
     },
     resultInfo: {
         flex: 1,
@@ -791,11 +791,11 @@ const styles = StyleSheet.create({
     resultName: {
         fontSize: Typography.sizes.base,
         fontWeight: '600',
-        color: Colors.light.textPrimary,
+        color: Colors.text.primary,
     },
     resultMeta: {
         fontSize: Typography.sizes.sm,
-        color: Colors.light.textSecondary,
+        color: Colors.text.secondary,
     },
     resultFriendBtn: {
         width: 36,

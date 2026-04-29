@@ -1,5 +1,5 @@
 import { StyleSheet } from 'react-native';
-import { ContentInsets, Spacing, Typography } from '../utils/theme';
+import { ContentInsets, Spacing, Typography } from '../theme';
 
 export const screenStandards = StyleSheet.create({
     tabControl: {

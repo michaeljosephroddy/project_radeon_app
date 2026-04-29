@@ -9,7 +9,7 @@ import { Avatar } from '../../components/Avatar';
 import { ScreenHeader } from '../../components/ui/ScreenHeader';
 import * as api from '../../api/client';
 import { useChatRealtime } from '../../hooks/chat/ChatRealtimeProvider';
-import { Colors, Typography, Spacing } from '../../utils/theme';
+import { Colors, Typography, Spacing } from '../../theme';
 import { formatUsername } from '../../utils/identity';
 import { composerStandards } from '../../styles/composerStandards';
 
@@ -89,7 +89,7 @@ export function ComposeDMScreen({
                         ref={inputRef}
                         style={composerStandards.input}
                         placeholder="Message"
-                        placeholderTextColor={Colors.light.textTertiary}
+                        placeholderTextColor={Colors.text.muted}
                         value={body}
                         onChangeText={setBody}
                         multiline
@@ -114,7 +114,7 @@ export function ComposeDMScreen({
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: Colors.light.background },
+    container: { flex: 1, backgroundColor: Colors.bg.page },
     headerIdentity: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -124,7 +124,7 @@ const styles = StyleSheet.create({
     headerName: {
         flexShrink: 1,
         ...Typography.screenTitle,
-        color: Colors.light.textPrimary,
+        color: Colors.text.primary,
     },
     body: {
         flex: 1,
@@ -134,7 +134,7 @@ const styles = StyleSheet.create({
     },
     placeholder: {
         fontSize: Typography.sizes.lg,
-        color: Colors.light.textTertiary,
+        color: Colors.text.muted,
         textAlign: 'center',
     },
 });

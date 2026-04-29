@@ -11,7 +11,7 @@ import { PrimaryButton } from '../../components/ui/PrimaryButton';
 import { TextField } from '../../components/ui/TextField';
 import { useAuth } from '../../hooks/useAuth';
 import * as api from '../../api/client';
-import { Colors, Typography, Spacing } from '../../utils/theme';
+import { Colors, Typography, Spacing } from '../../theme';
 import type { OnboardingStepProps } from '../../navigation/OnboardingNavigator';
 
 type LocationStepProps = OnboardingStepProps;
@@ -101,7 +101,7 @@ export function LocationStep({ onNext, dotIndex, dotTotal }: LocationStepProps) 
                         <TextField
                             style={styles.input}
                             placeholder="Dublin"
-                            placeholderTextColor={Colors.light.textTertiary}
+                            placeholderTextColor={Colors.text.muted}
                             value={city}
                             onChangeText={setCity}
                             autoCapitalize="words"
@@ -113,7 +113,7 @@ export function LocationStep({ onNext, dotIndex, dotTotal }: LocationStepProps) 
                         <TextField
                             style={styles.input}
                             placeholder="Ireland"
-                            placeholderTextColor={Colors.light.textTertiary}
+                            placeholderTextColor={Colors.text.muted}
                             value={country}
                             onChangeText={setCountry}
                             autoCapitalize="words"
@@ -133,7 +133,7 @@ export function LocationStep({ onNext, dotIndex, dotTotal }: LocationStepProps) 
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: Colors.light.background },
+    container: { flex: 1, backgroundColor: Colors.bg.page },
     flex: { flex: 1 },
     topBar: {
         alignItems: 'center',
@@ -145,7 +145,7 @@ const styles = StyleSheet.create({
         width: 8,
         height: 8,
         borderRadius: 4,
-        backgroundColor: Colors.light.border,
+        backgroundColor: Colors.border.default,
     },
     dotActive: { backgroundColor: Colors.primary },
     inner: {
@@ -157,7 +157,7 @@ const styles = StyleSheet.create({
         width: 60,
         height: 60,
         borderRadius: 30,
-        backgroundColor: Colors.light.backgroundSecondary,
+        backgroundColor: Colors.bg.surface,
         alignItems: 'center',
         justifyContent: 'center',
         marginBottom: Spacing.lg,
@@ -165,19 +165,19 @@ const styles = StyleSheet.create({
     title: {
         fontSize: Typography.sizes.xxl,
         fontWeight: '600',
-        color: Colors.light.textPrimary,
+        color: Colors.text.primary,
         marginBottom: Spacing.sm,
     },
     subtitle: {
         fontSize: Typography.sizes.lg,
-        color: Colors.light.textSecondary,
+        color: Colors.text.secondary,
         marginBottom: Spacing.xl,
         lineHeight: 22,
     },
     form: { gap: Spacing.xs },
     label: {
         ...Typography.formLabel,
-        color: Colors.light.textSecondary,
+        color: Colors.text.secondary,
         marginBottom: 4,
         marginTop: Spacing.sm,
     },

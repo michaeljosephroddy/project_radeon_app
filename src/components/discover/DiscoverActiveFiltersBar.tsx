@@ -2,7 +2,7 @@ import React from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { DiscoverActiveChip } from '../../hooks/useDiscoverFilters';
-import { Colors, Radii, Spacing, Typography } from '../../utils/theme';
+import { Colors, Radius, Spacing, Typography } from '../../theme';
 
 interface DiscoverActiveFiltersBarProps {
     chips: DiscoverActiveChip[];
@@ -66,7 +66,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         gap: Spacing.xs,
         backgroundColor: Colors.primarySubtle,
-        borderRadius: Radii.pill,
+        borderRadius: Radius.pill,
         paddingHorizontal: Spacing.md,
         paddingVertical: Spacing.sm,
         alignSelf: 'flex-start',
@@ -84,7 +84,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         gap: Spacing.xs,
-        borderRadius: Radii.pill,
+        borderRadius: Radius.pill,
         borderWidth: 1,
         borderColor: Colors.primary,
         backgroundColor: Colors.primarySubtle,
@@ -103,6 +103,6 @@ const styles = StyleSheet.create({
     clearAllText: {
         fontSize: Typography.sizes.sm,
         fontWeight: '600',
-        color: Colors.light.textSecondary,
+        color: Colors.text.secondary,
     },
 });

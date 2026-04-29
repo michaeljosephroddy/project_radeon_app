@@ -11,7 +11,7 @@ import { ChatRealtimeProvider } from './src/hooks/chat/ChatRealtimeProvider';
 import { NotificationProvider } from './src/notifications/NotificationProvider';
 import { asyncStoragePersister } from './src/query/asyncStoragePersister';
 import { queryClient } from './src/query/queryClient';
-import { Colors } from './src/utils/theme';
+import { Colors } from './src/theme';
 import { StatusBar } from 'expo-status-bar';
 
 // Chooses between the authenticated app shell and the auth flow once session state is resolved.
@@ -20,7 +20,7 @@ function RootNavigator() {
 
     if (isLoading) {
         return (
-            <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.light.background }}>
+            <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.bg.page }}>
                 <ActivityIndicator color={Colors.primary} />
             </View>
         );

@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { PrimaryButton } from './ui/PrimaryButton';
-import { Colors, Typography, Spacing, Radii } from '../utils/theme';
+import { Colors, Typography, Spacing, Radius } from '../theme';
 
 const FEATURES = [
     { icon: 'options' as const, label: 'Advanced filters for people discovery' },
@@ -89,7 +89,7 @@ export function PlusUpsellScreen({
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: Colors.light.background },
+    container: { flex: 1, backgroundColor: Colors.bg.page },
     topBar: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -103,7 +103,7 @@ const styles = StyleSheet.create({
         width: 8,
         height: 8,
         borderRadius: 4,
-        backgroundColor: Colors.light.border,
+        backgroundColor: Colors.border.default,
     },
     dotActive: { backgroundColor: Colors.primary },
     inner: {
@@ -140,7 +140,7 @@ const styles = StyleSheet.create({
     },
     subtitle: {
         fontSize: Typography.sizes.lg,
-        color: Colors.light.textSecondary,
+        color: Colors.text.secondary,
         textAlign: 'center',
         lineHeight: 22,
         marginBottom: Spacing.xl,
@@ -154,8 +154,8 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         gap: Spacing.md,
-        backgroundColor: Colors.light.backgroundSecondary,
-        borderRadius: Radii.md,
+        backgroundColor: Colors.bg.surface,
+        borderRadius: Radius.md,
         paddingHorizontal: Spacing.md,
         paddingVertical: Spacing.md,
     },
@@ -170,7 +170,7 @@ const styles = StyleSheet.create({
     featureLabel: {
         flex: 1,
         fontSize: Typography.sizes.lg,
-        color: Colors.light.textPrimary,
+        color: Colors.text.primary,
         fontWeight: '500',
     },
     priceWrap: { alignItems: 'center', gap: 4 },
@@ -181,7 +181,7 @@ const styles = StyleSheet.create({
     },
     priceSub: {
         fontSize: Typography.sizes.base,
-        color: Colors.light.textTertiary,
+        color: Colors.text.muted,
     },
     footer: {
         paddingHorizontal: Spacing.xl,
@@ -192,15 +192,15 @@ const styles = StyleSheet.create({
         backgroundColor: Colors.warning,
     },
     freeBtn: {
-        borderRadius: Radii.md,
+        borderRadius: Radius.md,
         borderWidth: 1,
-        borderColor: Colors.light.border,
+        borderColor: Colors.border.default,
         paddingVertical: 14,
         alignItems: 'center',
     },
     freeBtnText: {
         fontSize: Typography.sizes.md,
         fontWeight: '600',
-        color: Colors.light.textSecondary,
+        color: Colors.text.secondary,
     },
 });

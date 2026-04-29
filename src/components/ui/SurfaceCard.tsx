@@ -1,7 +1,7 @@
 import React from 'react';
 import { StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
 import { commonStyles } from '../../styles/commonStyles';
-import { Spacing } from '../../utils/theme';
+import { Spacing } from '../../theme';
 
 interface SurfaceCardProps {
     children: React.ReactNode;

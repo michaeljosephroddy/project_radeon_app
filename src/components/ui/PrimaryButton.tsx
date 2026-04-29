@@ -9,7 +9,7 @@ import {
     TouchableOpacity,
     ViewStyle,
 } from 'react-native';
-import { Colors, Radii, Typography } from '../../utils/theme';
+import { Colors, Radius, Typography } from '../../theme';
 
 interface PrimaryButtonProps {
     label: string;
@@ -71,7 +71,7 @@ export function PrimaryButton({
 
 const styles = StyleSheet.create({
     base: {
-        borderRadius: Radii.md,
+        borderRadius: Radius.md,
         paddingVertical: 14,
         alignItems: 'center',
     },

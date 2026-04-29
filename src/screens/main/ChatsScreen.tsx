@@ -22,7 +22,7 @@ import { resetInfiniteQueryToFirstPage } from '../../query/infiniteQueryPolicy';
 import { queryKeys } from '../../query/queryKeys';
 import { dedupeById } from '../../utils/list';
 import { getListPerformanceProps } from '../../utils/listPerformance';
-import { Colors, Typography, Spacing, Radii } from '../../utils/theme';
+import { Colors, Typography, Spacing, Radius } from '../../theme';
 import { formatUsername } from '../../utils/identity';
 import { screenStandards } from '../../styles/screenStandards';
 
@@ -257,7 +257,7 @@ export function ChatsScreen({ isActive, onOpenChat }: ChatsScreenProps) {
                     <SearchBar
                         style={styles.searchBar}
                         variant="pill"
-                        leading={<Ionicons name="search-outline" size={18} color={Colors.light.textTertiary} />}
+                        leading={<Ionicons name="search-outline" size={18} color={Colors.text.muted} />}
                         primaryField={{
                             value: query,
                             onChangeText: setQuery,
@@ -306,7 +306,7 @@ function areChatItemPropsEqual(prev: ChatItemProps, next: ChatItemProps) {
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: Colors.light.background },
+    container: { flex: 1, backgroundColor: Colors.bg.page },
     center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
 
     searchBar: {
@@ -320,7 +320,7 @@ const styles = StyleSheet.create({
     },
     searchStatusText: {
         fontSize: Typography.sizes.sm,
-        color: Colors.light.textTertiary,
+        color: Colors.text.muted,
     },
 
     item: {
@@ -328,18 +328,18 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         gap: 10,
         paddingVertical: 11,
-        backgroundColor: Colors.light.background,
+        backgroundColor: Colors.bg.page,
     },
     separator: {
         height: StyleSheet.hairlineWidth,
-        backgroundColor: Colors.light.border,
+        backgroundColor: Colors.border.default,
     },
     deleteAction: {
         width: 68,
         alignItems: 'center',
         justifyContent: 'center',
         backgroundColor: Colors.danger,
-        borderRadius: Radii.md,
+        borderRadius: Radius.md,
         marginVertical: 7,
     },
     deleteActionDisabled: { opacity: 0.6 },
@@ -360,31 +360,31 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
         borderWidth: 1.5,
-        borderColor: Colors.light.background,
+        borderColor: Colors.bg.page,
     },
     groupBadgeText: { fontSize: 8, color: Colors.primary, fontWeight: '600' },
     meta: { flex: 1, minWidth: 0 },
     metaTop: { flexDirection: 'row', alignItems: 'center', gap: 5 },
-    name: { fontSize: Typography.sizes.md, fontWeight: '500', color: Colors.light.textPrimary },
+    name: { fontSize: Typography.sizes.md, fontWeight: '500', color: Colors.text.primary },
     groupPill: {
         backgroundColor: Colors.bg.raised,
-        borderRadius: Radii.full,
+        borderRadius: Radius.pill,
         paddingHorizontal: 6,
         paddingVertical: 1,
     },
     groupPillText: { fontSize: 9, color: Colors.primary, fontWeight: '500' },
     pendingPill: {
         backgroundColor: Colors.primary,
-        borderRadius: Radii.full,
+        borderRadius: Radius.pill,
         paddingHorizontal: 8,
         paddingVertical: 3,
     },
     pendingPillText: { fontSize: Typography.sizes.xs, color: Colors.textOn.primary, fontWeight: '700' },
     preview: {
         fontSize: Typography.sizes.sm,
-        color: Colors.light.textTertiary,
+        color: Colors.text.muted,
         marginTop: 1,
     },
-    time: { fontSize: Typography.sizes.xs, color: Colors.light.textTertiary },
+    time: { fontSize: Typography.sizes.xs, color: Colors.text.muted },
     footerLoader: { paddingVertical: Spacing.md },
 });

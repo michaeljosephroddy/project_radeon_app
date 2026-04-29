@@ -8,7 +8,7 @@ import { Avatar } from '../../components/Avatar';
 import { PrimaryButton } from '../../components/ui/PrimaryButton';
 import { useAuth } from '../../hooks/useAuth';
 import * as api from '../../api/client';
-import { Colors, Typography, Spacing, Radii } from '../../utils/theme';
+import { Colors, Typography, Spacing, Radius } from '../../theme';
 import type { OnboardingStepProps } from '../../navigation/OnboardingNavigator';
 
 type PhotoStepProps = OnboardingStepProps;
@@ -91,7 +91,7 @@ export function PhotoStep({ onNext, dotIndex, dotTotal }: PhotoStepProps) {
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: Colors.light.background },
+    container: { flex: 1, backgroundColor: Colors.bg.page },
     topBar: {
         alignItems: 'center',
         paddingTop: Spacing.lg,
@@ -102,7 +102,7 @@ const styles = StyleSheet.create({
         width: 8,
         height: 8,
         borderRadius: 4,
-        backgroundColor: Colors.light.border,
+        backgroundColor: Colors.border.default,
     },
     dotActive: { backgroundColor: Colors.primary },
     inner: {
@@ -115,13 +115,13 @@ const styles = StyleSheet.create({
     title: {
         fontSize: Typography.sizes.xxl,
         fontWeight: '600',
-        color: Colors.light.textPrimary,
+        color: Colors.text.primary,
         marginBottom: Spacing.sm,
         textAlign: 'center',
     },
     subtitle: {
         fontSize: Typography.sizes.lg,
-        color: Colors.light.textSecondary,
+        color: Colors.text.secondary,
         textAlign: 'center',
         marginBottom: Spacing.xxl,
     },
@@ -147,7 +147,7 @@ const styles = StyleSheet.create({
     },
     hint: {
         fontSize: Typography.sizes.base,
-        color: Colors.light.textTertiary,
+        color: Colors.text.muted,
     },
     footer: {
         paddingHorizontal: Spacing.xl,

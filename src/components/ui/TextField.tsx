@@ -6,14 +6,14 @@ import {
     TextInputProps,
     TextStyle,
 } from 'react-native';
-import { Colors, Radii, Spacing, Typography } from '../../utils/theme';
+import { Colors, Radius, Spacing, Typography } from '../../theme';
 
 export interface TextFieldProps extends TextInputProps {
     style?: StyleProp<TextStyle>;
 }
 
 export const TextField = forwardRef<TextInput, TextFieldProps>(function TextField(
-    { style, placeholderTextColor = Colors.light.textTertiary, ...props },
+    { style, placeholderTextColor = Colors.text.muted, ...props },
     ref,
 ) {
     // Centralize the app's default input chrome so screens only override layout
@@ -30,13 +30,13 @@ export const TextField = forwardRef<TextInput, TextFieldProps>(function TextFiel
 
 const styles = StyleSheet.create({
     input: {
-        backgroundColor: Colors.light.backgroundSecondary,
-        borderRadius: Radii.md,
+        backgroundColor: Colors.bg.surface,
+        borderRadius: Radius.md,
         paddingHorizontal: Spacing.md,
         paddingVertical: 13,
         fontSize: Typography.sizes.md,
-        color: Colors.light.textPrimary,
+        color: Colors.text.primary,
         borderWidth: 0.5,
-        borderColor: Colors.light.border,
+        borderColor: Colors.border.default,
     },
 });
