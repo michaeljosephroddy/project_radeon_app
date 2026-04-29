@@ -212,6 +212,7 @@ function SupportRequestCard({
     const responseSummary = getSupportResponseSummary(responses);
     const canRespond = !responsePending && !request.has_responded && !isClosed && !isActive;
     const requestChannel = getRequestChannel(request);
+    const canCheckInLater = requestChannel === 'community';
     const canOpenActiveChat = Boolean(onOpenRequestChat && request.chat_id && isActive);
     const statusSummary = isActive
         ? (request.is_own_request ? 'Support is active' : 'Supporting now')
@@ -325,13 +326,15 @@ function SupportRequestCard({
                     >
                         <Text style={styles.actionPrimaryText}>I can chat</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity
-                        style={[styles.actionSecondary, !canRespond && styles.actionDisabled]}
-                        onPress={() => onOpenCheckInLaterComposer?.(request)}
-                        disabled={!canRespond}
-                    >
-                        <Text style={styles.actionSecondaryText}>Check in later</Text>
-                    </TouchableOpacity>
+                    {canCheckInLater ? (
+                        <TouchableOpacity
+                            style={[styles.actionSecondary, !canRespond && styles.actionDisabled]}
+                            onPress={() => onOpenCheckInLaterComposer?.(request)}
+                            disabled={!canRespond}
+                        >
+                            <Text style={styles.actionSecondaryText}>Check in later</Text>
+                        </TouchableOpacity>
+                    ) : null}
                     <TouchableOpacity
                         style={[styles.actionSecondary, !canRespond && styles.actionDisabled]}
                         onPress={() => onRespond(request, 'can_meet')}
