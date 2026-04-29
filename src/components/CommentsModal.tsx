@@ -349,7 +349,7 @@ export function CommentsModal({
             const seq = ++mentionSearchSeqRef.current;
             setIsMentionSearching(true);
             try {
-                const result = await api.discoverUsers({ query: nextMention.query, page: 1, limit: 5 });
+                const result = await api.discoverUsers({ query: nextMention.query, limit: 5 });
                 if (mentionSearchSeqRef.current !== seq) return;
                 setActiveMentionSuggestions(result.items ?? EMPTY_SUGGESTIONS);
             } catch {
