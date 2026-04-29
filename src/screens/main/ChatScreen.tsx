@@ -121,8 +121,8 @@ export function ChatScreen({ chat, onBack }: ChatScreenProps) {
                         ) : null}
                         <Text style={styles.supportContextMeta}>
                             {formatUsername(supportContext.requester_username)}
-                            {supportContext.latest_response_type
-                                ? ` · ${formatSupportResponseType(supportContext.latest_response_type)}`
+                            {supportContext.latest_offer_type
+                                ? ` · ${formatSupportOfferType(supportContext.latest_offer_type)}`
                                 : ''}
                         </Text>
                         {supportStatus === 'declined' || isSupportClosed ? (
@@ -289,31 +289,31 @@ function formatMessageTime(value: Date | number): string {
     });
 }
 
-function formatSupportType(value: api.SupportRequest['type']): string {
+function formatSupportType(value: api.SupportRequest['support_type']): string {
     switch (value) {
-    case 'need_to_talk':
-        return 'Need to talk';
-    case 'need_distraction':
-        return 'Need distraction';
-    case 'need_encouragement':
-        return 'Need encouragement';
-    case 'need_in_person_help':
-        return 'Need in-person help';
+    case 'chat':
+        return 'Chat support';
+    case 'call':
+        return 'Call support';
+    case 'meetup':
+        return 'Meetup support';
+    case 'general':
+        return 'General support';
     default:
         return 'Support request';
     }
 }
 
-function formatSupportResponseType(value: api.SupportResponse['response_type']): string {
+function formatSupportOfferType(value: api.SupportOffer['offer_type']): string {
     switch (value) {
-    case 'can_chat':
-        return 'Can chat now';
-    case 'check_in_later':
-        return 'Check in later';
-    case 'can_meet':
-        return 'I can meet up';
+    case 'chat':
+        return 'Chat offer';
+    case 'call':
+        return 'Call offer';
+    case 'meetup':
+        return 'Meetup offer';
     default:
-        return 'Support response';
+        return 'Support offer';
     }
 }
 
