@@ -338,6 +338,7 @@ interface FeedScreenProps {
     onOpenUserProfile: (profile: { userId: string; username: string; avatarUrl?: string }) => void;
     onOpenComments: (thread: CommentThreadTarget, focusComposer: boolean, onCommentCreated?: (comment: api.Comment) => void) => void;
     focusRequest?: { postId: string; commentId?: string; nonce: number } | null;
+    onFocusRequestConsumed?: (nonce: number) => void;
 }
 
 export function FeedScreen({
@@ -345,6 +346,7 @@ export function FeedScreen({
     onOpenUserProfile,
     onOpenComments,
     focusRequest,
+    onFocusRequestConsumed,
 }: FeedScreenProps) {
     const ScreenContainer = Platform.OS === 'ios' ? KeyboardAvoidingView : View;
     const { user } = useAuth();
@@ -941,6 +943,7 @@ export function FeedScreen({
         if (!isActive || !focusRequest) return;
 
         void (async () => {
+            const requestNonce = focusRequest.nonce;
             if (!feedItemsRef.current.some((item) => item.id === focusRequest.postId || item.original_post?.post_id === focusRequest.postId)) {
                 await activeFeedQuery.refetch();
             }
@@ -951,8 +954,9 @@ export function FeedScreen({
                 itemKind: 'post',
                 commentCount: post.comment_count,
             }, true);
+            onFocusRequestConsumed?.(requestNonce);
         })();
-    }, [activeFeedQuery, focusRequest, isActive, onOpenComments]);
+    }, [activeFeedQuery, focusRequest, isActive, onFocusRequestConsumed, onOpenComments]);
 
     const listPaddingBottom = (hiddenUndo ? 110 : 72) + insets.bottom;
 

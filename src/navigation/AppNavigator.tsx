@@ -149,6 +149,20 @@ export function AppNavigator() {
         setOpenChat(chat);
     }, []);
 
+    const handleOpenComments = useCallback((
+        thread: CommentThreadTarget,
+        focusComposer: boolean,
+        onCommentCreated?: (comment: api.Comment) => void,
+    ) => {
+        setOpenComments({ thread, focusComposer, onCommentCreated });
+    }, []);
+
+    const handleFeedFocusRequestConsumed = useCallback((nonce: number) => {
+        setFeedFocusRequest((current) => (
+            current?.nonce === nonce ? null : current
+        ));
+    }, []);
+
     const closeUserProfile = useCallback(() => {
         setOpenUserProfile(null);
     }, []);
@@ -356,8 +370,9 @@ export function AppNavigator() {
                         <FeedScreen
                             isActive={activeTab === 'community' && !isOverlayOpen}
                             onOpenUserProfile={handleOpenUserProfile}
-                            onOpenComments={(thread, focusComposer, onCommentCreated) => setOpenComments({ thread, focusComposer, onCommentCreated })}
+                            onOpenComments={handleOpenComments}
                             focusRequest={feedFocusRequest}
+                            onFocusRequestConsumed={handleFeedFocusRequestConsumed}
                         />
                     </View>
                     <DiscoverTab isActive={activeTab === 'discover' && !isOverlayOpen} onOpenUserProfile={handleOpenUserProfile} onOpenPlus={openPlusUpsell} />

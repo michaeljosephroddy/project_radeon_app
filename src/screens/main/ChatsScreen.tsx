@@ -41,6 +41,10 @@ function timeLabel(dateStr?: string): string {
     return d.toLocaleDateString('default', { weekday: 'short' });
 }
 
+function unreadCountLabel(unreadCount: number): string {
+    return unreadCount > 99 ? '99+' : String(unreadCount);
+}
+
 interface ChatsScreenProps {
     isActive: boolean;
     onOpenChat: (chat: api.Chat) => void;
@@ -75,6 +79,8 @@ const ChatItem = React.memo(function ChatItem({ item, currentUserId, onOpenChat,
         : formatUsername(item.username);
     const actionLabel = item.is_group ? 'Leave' : 'Delete';
     const pendingLabel = getSupportPendingLabel(item, currentUserId);
+    const unreadCount = Math.max(0, item.unread_count ?? 0);
+    const hasUnread = unreadCount > 0;
     const handleDelete = useCallback(() => onDeleteChat(item), [item, onDeleteChat]);
     const handleOpen = useCallback(() => onOpenChat(item), [item, onOpenChat]);
     const renderRightActions = useCallback(() => (
@@ -119,7 +125,14 @@ const ChatItem = React.memo(function ChatItem({ item, currentUserId, onOpenChat,
                         ) : null}
                     </View>
                     {item.last_message && (
-                        <Text style={styles.preview} numberOfLines={1}>{item.last_message}</Text>
+                        <View style={styles.previewRow}>
+                            <Text style={[styles.preview, hasUnread && styles.previewUnread]} numberOfLines={1}>{item.last_message}</Text>
+                            {hasUnread ? (
+                                <View style={styles.unreadBadge}>
+                                    <Text style={styles.unreadBadgeText}>{unreadCountLabel(unreadCount)}</Text>
+                                </View>
+                            ) : null}
+                        </View>
                     )}
                 </View>
                 <Text style={styles.time}>{timeLabel(item.last_message_at)}</Text>
@@ -380,10 +393,34 @@ const styles = StyleSheet.create({
         paddingVertical: 3,
     },
     pendingPillText: { fontSize: Typography.sizes.xs, color: Colors.textOn.primary, fontWeight: '700' },
+    previewRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: Spacing.sm,
+        marginTop: 1,
+    },
     preview: {
+        flex: 1,
         fontSize: Typography.sizes.sm,
         color: Colors.text.muted,
-        marginTop: 1,
+    },
+    previewUnread: {
+        color: Colors.text.primary,
+        fontWeight: '600',
+    },
+    unreadBadge: {
+        minWidth: 22,
+        height: 22,
+        paddingHorizontal: Spacing.xs,
+        borderRadius: Radius.pill,
+        backgroundColor: Colors.danger,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    unreadBadgeText: {
+        fontSize: Typography.sizes.xs,
+        color: Colors.textOn.danger,
+        fontWeight: '700',
     },
     time: { fontSize: Typography.sizes.xs, color: Colors.text.muted },
     footerLoader: { paddingVertical: Spacing.md },
