@@ -32,8 +32,9 @@ import { Colors, Radius, Spacing, Typography } from '../../theme';
 import { formatUsername } from '../../utils/identity';
 import { dedupeById } from '../../utils/list';
 import { getListPerformanceProps } from '../../utils/listPerformance';
+import { MeetingsView } from './support/MeetingsView';
 
-type SupportSurface = 'feed' | 'my_requests' | 'create';
+type SupportSurface = 'feed' | 'my_requests' | 'meetings' | 'create';
 type MyRequestScope = 'open' | 'active' | 'closed';
 
 interface SupportScreenProps {
@@ -647,6 +648,7 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
             items={[
                 { key: 'feed', label: 'Feed' },
                 { key: 'my_requests', label: 'My requests', flex: 1.2 },
+                { key: 'meetings', label: 'Meetings' },
                 { key: 'create', label: 'Create' },
             ]}
         />
@@ -667,6 +669,15 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
             })}
         />
     );
+
+    if (surface === 'meetings') {
+        return (
+            <View style={styles.container}>
+                {primaryTabs}
+                <MeetingsView isActive={isActive} />
+            </View>
+        );
+    }
 
     if (surface === 'create') {
         const city = user?.current_city ?? user?.city ?? null;
