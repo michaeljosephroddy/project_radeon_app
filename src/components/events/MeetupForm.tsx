@@ -93,7 +93,6 @@ function formatTimeLabel(value: string): string {
 }
 
 export function MeetupForm({
-    title,
     values,
     categories,
     friends,
@@ -116,6 +115,12 @@ export function MeetupForm({
 }: MeetupFormProps) {
     const [activePicker, setActivePicker] = React.useState<PickerField>(null);
     const [coHostQuery, setCoHostQuery] = React.useState('');
+    const noticeTitle = mode === 'published' ? 'Manage live meetup' : mode === 'draft' ? 'Edit draft' : 'Create meetup';
+    const noticeDescription = mode === 'published'
+        ? 'Update live details while keeping the meetup published.'
+        : mode === 'draft'
+            ? 'Update the details and publish when ready.'
+            : 'Add the details, location, capacity, co-hosts, and cover image.';
     const isOnline = values.event_type === 'online';
     const showLocationFields = values.event_type !== 'online';
     const selectedCoHosts = React.useMemo(
@@ -174,8 +179,8 @@ export function MeetupForm({
     return (
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
             <InfoNoticeCard
-                title={mode === 'published' ? 'Manage live event' : mode === 'draft' ? 'Edit draft' : 'Create event'}
-                description={title}
+                title={noticeTitle}
+                description={noticeDescription}
             />
 
             {!!error && (

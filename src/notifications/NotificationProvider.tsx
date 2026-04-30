@@ -4,6 +4,8 @@ import Constants from 'expo-constants';
 import * as Notifications from 'expo-notifications';
 import * as api from '../api/client';
 import { useAuth } from '../hooks/useAuth';
+import { queryClient } from '../query/queryClient';
+import { queryKeys } from '../query/queryKeys';
 
 type NotificationIntent =
     | { kind: 'chat'; chatId: string; notificationId?: string }
@@ -15,6 +17,7 @@ interface NotificationContextValue {
 }
 
 const NotificationContext = createContext<NotificationContextValue | null>(null);
+const LAST_NOTIFICATION_RESPONSE_MAX_AGE_MS = 60 * 1000;
 
 Notifications.setNotificationHandler({
     handleNotification: async () => ({
@@ -29,6 +32,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     const { isAuthenticated } = useAuth();
     const [intent, setIntent] = useState<NotificationIntent | null>(null);
     const registrationAttemptedRef = useRef(false);
+    const handledResponseKeysRef = useRef(new Set<string>());
 
     const consumeIntent = useCallback(() => {
         setIntent(null);
@@ -91,22 +95,54 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
             return;
         }
 
-        const applyResponse = async (response: Notifications.NotificationResponse | null) => {
+        const clearLastResponse = async () => {
+            try {
+                await Notifications.clearLastNotificationResponseAsync();
+            } catch {
+                // Clearing is best-effort; stale responses are still guarded by age and dedupe checks.
+            }
+        };
+
+        const applyResponse = async (
+            response: Notifications.NotificationResponse | null,
+            source: 'last' | 'listener',
+        ) => {
+            if (source === 'last' && isStaleLastResponse(response)) {
+                await clearLastResponse();
+                return;
+            }
+
             const nextIntent = toIntent(response);
-            if (!nextIntent) return;
+            if (!nextIntent) {
+                if (source === 'last') await clearLastResponse();
+                return;
+            }
+
+            const responseKey = notificationIntentKey(nextIntent);
+            if (handledResponseKeysRef.current.has(responseKey)) {
+                if (source === 'last') await clearLastResponse();
+                return;
+            }
+            handledResponseKeysRef.current.add(responseKey);
+
             setIntent(nextIntent);
             if (nextIntent.notificationId) {
                 try {
                     await api.markNotificationRead(nextIntent.notificationId);
+                    void queryClient.invalidateQueries({ queryKey: queryKeys.notificationSummary() });
+                    void queryClient.invalidateQueries({ queryKey: ['notifications'] });
                 } catch {
                     // Ignore read-state failures; navigation should still proceed.
                 }
             }
+            if (source === 'last') await clearLastResponse();
         };
 
-        void Notifications.getLastNotificationResponseAsync().then(applyResponse).catch(() => {});
+        void Notifications.getLastNotificationResponseAsync()
+            .then(response => applyResponse(response, 'last'))
+            .catch(() => {});
         const subscription = Notifications.addNotificationResponseReceivedListener(response => {
-            void applyResponse(response);
+            void applyResponse(response, 'listener');
         });
 
         return () => {
@@ -130,6 +166,18 @@ export function useNotificationIntent() {
     const ctx = useContext(NotificationContext);
     if (!ctx) throw new Error('useNotificationIntent must be used within NotificationProvider');
     return ctx;
+}
+
+function isStaleLastResponse(response: Notifications.NotificationResponse | null): boolean {
+    const responseDate = response?.notification.date;
+    if (typeof responseDate !== 'number') return true;
+    return Date.now() - responseDate > LAST_NOTIFICATION_RESPONSE_MAX_AGE_MS;
+}
+
+function notificationIntentKey(intent: NotificationIntent): string {
+    if (intent.notificationId) return intent.notificationId;
+    if (intent.kind === 'chat') return `chat:${intent.chatId}`;
+    return `mention:${intent.postId}:${intent.commentId ?? ''}`;
 }
 
 function toIntent(response: Notifications.NotificationResponse | null): NotificationIntent | null {

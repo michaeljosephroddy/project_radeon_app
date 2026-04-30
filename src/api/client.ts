@@ -300,6 +300,24 @@ interface RawComment extends Omit<Comment, 'mentions'> {
     mentions?: CommentMention[] | null;
 }
 
+export interface NotificationItem {
+    id: string;
+    user_id: string;
+    type: 'chat.message' | 'comment.mention' | string;
+    actor_id?: string | null;
+    resource_type: string;
+    resource_id?: string | null;
+    title: string;
+    body: string;
+    payload: Record<string, unknown>;
+    created_at: string;
+    read_at?: string | null;
+}
+
+export interface NotificationSummary {
+    unread_count: number;
+}
+
 export interface MeetupCategory {
     slug: string;
     label: string;
@@ -1248,8 +1266,37 @@ export async function registerPushDevice(data: {
     return request('/notifications/devices', { method: 'POST', body: JSON.stringify(data) });
 }
 
+export async function getNotifications(params?: { before?: string | null; limit?: number }): Promise<CursorResponse<NotificationItem>> {
+    const search = new URLSearchParams();
+    if (params?.before) search.set('before', params.before);
+    if (params?.limit) search.set('limit', String(params.limit));
+    const suffix = search.toString() ? `?${search.toString()}` : '';
+    const page = await request<RawCursorResponse<NotificationItem>>(`/notifications${suffix}`);
+    return {
+        limit: page.limit,
+        has_more: page.has_more,
+        next_cursor: page.next_cursor ?? page.next_before ?? null,
+        items: page.items ?? [],
+    };
+}
+
+export async function getNotificationSummary(): Promise<NotificationSummary> {
+    return request<NotificationSummary>('/notifications/summary');
+}
+
 export async function markNotificationRead(id: string): Promise<void> {
     await request(`/notifications/${id}/read`, { method: 'POST' });
+}
+
+export async function markNotificationsRead(ids: string[]): Promise<{ read: boolean; updated: number }> {
+    return request('/notifications/read', {
+        method: 'POST',
+        body: JSON.stringify({ notification_ids: ids }),
+    });
+}
+
+export async function markAllNotificationsRead(): Promise<{ read: boolean; updated: number }> {
+    return request('/notifications/read-all', { method: 'POST' });
 }
 
 // ── Friends ────────────────────────────────────────────────────────────────

@@ -57,6 +57,11 @@ const INFINITE_QUERY_POLICIES: Record<string, InfiniteQueryPolicy> = {
         persistedPages: 0,
         refetchOnMount: true,
     },
+    notifications: {
+        persist: true,
+        persistedPages: 1,
+        refetchOnMount: true,
+    },
 };
 
 function getPolicyScope(queryKey: QueryKey): string | undefined {

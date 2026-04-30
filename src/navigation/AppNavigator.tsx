@@ -14,14 +14,16 @@ import { MeetupsScreen } from '../screens/main/MeetupsScreen';
 import { ChatsScreen } from '../screens/main/ChatsScreen';
 import { ProfileTabScreen } from '../screens/main/ProfileTabScreen';
 import { ChatScreen } from '../screens/main/ChatScreen';
+import { NotificationsScreen } from '../screens/main/NotificationsScreen';
 import { ComposeDMScreen } from '../screens/main/ComposeDMScreen';
 import { UserProfileScreen } from '../screens/main/UserProfileScreen';
 import { MeetupDetailScreen } from '../screens/main/MeetupDetailScreen';
 import { Avatar } from '../components/Avatar';
 import { PlusUpsellScreen } from '../components/PlusUpsellScreen';
 import * as api from '../api/client';
-import { Colors, Typography, Spacing } from '../theme';
+import { Colors, Radius, Typography, Spacing } from '../theme';
 import { useAuth } from '../hooks/useAuth';
+import { useNotificationSummary } from '../hooks/queries/useNotificationSummary';
 import { useNotificationIntent } from '../notifications/NotificationProvider';
 import type { Chat } from '../api/client';
 
@@ -40,6 +42,10 @@ const TABS: { key: Tab; label: string; icon: keyof typeof Ionicons.glyphMap; ico
     { key: 'meetups',   label: 'meetups',   icon: 'calendar-outline', iconActive: 'calendar' },
     { key: 'chats',     label: 'chats',     icon: 'chatbubble-outline', iconActive: 'chatbubble' },
 ];
+
+function badgeLabel(count: number): string {
+    return count > 99 ? '99+' : String(count);
+}
 
 // Each tab is its own memoized component so React skips reconciliation for the
 // three tabs that didn't change when the active tab switches.
@@ -63,12 +69,10 @@ const MeetupsTab = React.memo(function MeetupsTab({
     isActive,
     onOpenUserProfile,
     onOpenMeetup,
-    onOpenPlus,
 }: {
     isActive: boolean;
     onOpenUserProfile: (p: OpenUserProfile) => void;
     onOpenMeetup: (meetup: api.Meetup) => void;
-    onOpenPlus: () => void;
 }) {
     return (
         <View style={isActive ? styles.tabVisible : styles.tabHidden}>
@@ -76,7 +80,6 @@ const MeetupsTab = React.memo(function MeetupsTab({
                 isActive={isActive}
                 onOpenUserProfile={onOpenUserProfile}
                 onOpenMeetup={onOpenMeetup}
-                onOpenPlus={onOpenPlus}
             />
         </View>
     );
@@ -89,6 +92,10 @@ const ChatsTab = React.memo(function ChatsTab({ isActive, onOpenChat }: { isActi
 export function AppNavigator() {
     const { user, refreshUser } = useAuth();
     const { intent, consumeIntent } = useNotificationIntent();
+    const {
+        data: notificationSummary,
+        refetch: refetchNotificationSummary,
+    } = useNotificationSummary(Boolean(user?.id));
     const [activeTab, setActiveTab] = useState<Tab>('community');
     const [openChat, setOpenChat] = useState<Chat | null>(null);
     const [openUserProfile, setOpenUserProfile] = useState<OpenUserProfile | null>(null);
@@ -96,6 +103,7 @@ export function AppNavigator() {
     const [ownProfileOpen, setOwnProfileOpen] = useState(false);
     const [openMeetup, setOpenMeetup] = useState<api.Meetup | null>(null);
     const [plusUpsellOpen, setPlusUpsellOpen] = useState(false);
+    const [notificationsOpen, setNotificationsOpen] = useState(false);
     const [openComments, setOpenComments] = useState<{
         thread: CommentThreadTarget;
         focusComposer: boolean;
@@ -111,6 +119,7 @@ export function AppNavigator() {
     const inComposeDM = pendingDM !== null;
     const inMeetupDetail = openMeetup !== null;
     const inPlusUpsell = plusUpsellOpen;
+    const inNotifications = notificationsOpen;
     const inComments = openComments !== null;
 
     const handleOpenUserProfile = useCallback((profile: OpenUserProfile) => {
@@ -135,8 +144,26 @@ export function AppNavigator() {
         setPlusUpsellOpen(false);
     }, []);
 
-    const handleCloseChat = useCallback(() => {
+    const openNotifications = useCallback(() => {
+        setNotificationsOpen(true);
         setOpenChat(null);
+        setOpenUserProfile(null);
+        setOwnProfileOpen(false);
+        setPendingDM(null);
+        setOpenMeetup(null);
+        setPlusUpsellOpen(false);
+    }, []);
+
+    const closeNotifications = useCallback(() => {
+        setNotificationsOpen(false);
+    }, []);
+
+    const handleCloseChat = useCallback(() => {
+        Keyboard.dismiss();
+        setOpenChat(null);
+        setNotificationsOpen(false);
+        setOpenComments(null);
+        setKeyboardVisible(false);
     }, []);
 
     const handleComposeDM = useCallback((info: { recipientId: string; username: string; avatarUrl?: string }) => {
@@ -180,6 +207,35 @@ export function AppNavigator() {
     const handleTabPress = useCallback((tab: Tab) => {
         setActiveTab(tab);
         setOpenChat(null);
+        setNotificationsOpen(false);
+    }, []);
+
+    const handleOpenNotificationChat = useCallback(async (chatId: string) => {
+        const chat = await api.getChat(chatId);
+        setNotificationsOpen(false);
+        setActiveTab('chats');
+        setOwnProfileOpen(false);
+        setOpenUserProfile(null);
+        setPendingDM(null);
+        setOpenMeetup(null);
+        setPlusUpsellOpen(false);
+        setOpenChat(chat);
+    }, []);
+
+    const handleOpenNotificationMention = useCallback((target: { postId: string; commentId?: string }) => {
+        setNotificationsOpen(false);
+        setActiveTab('community');
+        setOpenChat(null);
+        setOpenUserProfile(null);
+        setOwnProfileOpen(false);
+        setPendingDM(null);
+        setOpenMeetup(null);
+        setPlusUpsellOpen(false);
+        setFeedFocusRequest({
+            postId: target.postId,
+            commentId: target.commentId,
+            nonce: Date.now(),
+        });
     }, []);
 
     const syncingLocation = useRef(false);
@@ -213,6 +269,16 @@ export function AppNavigator() {
         return () => sub.remove();
     }, [user?.id, refreshUser]);
 
+    useEffect(() => {
+        if (!user?.id) return undefined;
+
+        const sub = AppState.addEventListener('change', nextState => {
+            if (nextState === 'active') void refetchNotificationSummary();
+        });
+
+        return () => sub.remove();
+    }, [refetchNotificationSummary, user?.id]);
+
     React.useEffect(() => {
         const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
         const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
@@ -238,6 +304,7 @@ export function AppNavigator() {
                     setActiveTab('chats');
                     setOwnProfileOpen(false);
                     setOpenUserProfile(null);
+                    setNotificationsOpen(false);
                     setOpenChat(chat);
                 } finally {
                     if (!cancelled) consumeIntent();
@@ -252,6 +319,7 @@ export function AppNavigator() {
         setOpenChat(null);
         setOpenUserProfile(null);
         setOwnProfileOpen(false);
+        setNotificationsOpen(false);
         setFeedFocusRequest({
             postId: intent.postId,
             commentId: intent.commentId,
@@ -261,7 +329,7 @@ export function AppNavigator() {
     }, [consumeIntent, intent]);
 
     const header = useMemo(() => {
-        if (inChat || inUserProfile || inOwnProfile || inComposeDM || inMeetupDetail || inPlusUpsell || inComments) return null;
+        if (inChat || inUserProfile || inOwnProfile || inComposeDM || inMeetupDetail || inPlusUpsell || inNotifications) return null;
 
         const titles: Record<Tab, React.ReactNode> = {
             community: (
@@ -278,17 +346,35 @@ export function AppNavigator() {
         return (
             <View style={styles.topBar}>
                 {titles[activeTab]}
-                <TouchableOpacity onPress={openOwnProfile} disabled={!user}>
-                    <Avatar
-                        username={user?.username ?? 'me'}
-                        avatarUrl={user?.avatar_url}
-                        size={34}
-                        fontSize={12}
-                    />
-                </TouchableOpacity>
+                <View style={styles.topBarActions}>
+                    <TouchableOpacity
+                        style={styles.headerIconButton}
+                        onPress={openNotifications}
+                        disabled={!user}
+                    >
+                        <Ionicons name="notifications-outline" size={22} color={Colors.text.primary} />
+                        {(notificationSummary?.unread_count ?? 0) > 0 ? (
+                            <View style={styles.notificationBadge}>
+                                <Text style={styles.notificationBadgeText}>{badgeLabel(notificationSummary?.unread_count ?? 0)}</Text>
+                            </View>
+                        ) : null}
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={openOwnProfile} disabled={!user}>
+                        <Avatar
+                            username={user?.username ?? 'me'}
+                            avatarUrl={user?.avatar_url}
+                            size={34}
+                            fontSize={12}
+                        />
+                    </TouchableOpacity>
+                </View>
             </View>
         );
-    }, [inChat, inUserProfile, inOwnProfile, inComposeDM, inMeetupDetail, inPlusUpsell, activeTab, user, openOwnProfile]);
+    }, [
+        activeTab, inChat, inComposeDM, inMeetupDetail, inNotifications,
+        inOwnProfile, inPlusUpsell, inUserProfile, notificationSummary?.unread_count,
+        openNotifications, openOwnProfile, user,
+    ]);
 
     const overlays = useMemo(() => (
         <>
@@ -350,15 +436,26 @@ export function AppNavigator() {
                     />
                 </View>
             )}
+            {inNotifications && (
+                <View style={StyleSheet.absoluteFill}>
+                    <NotificationsScreen
+                        isActive={inNotifications}
+                        onBack={closeNotifications}
+                        onOpenChat={handleOpenNotificationChat}
+                        onOpenMention={handleOpenNotificationMention}
+                    />
+                </View>
+            )}
         </>
     ), [
-        inOwnProfile, inUserProfile, inChat, inComposeDM, inMeetupDetail, inPlusUpsell,
+        inOwnProfile, inUserProfile, inChat, inComposeDM, inMeetupDetail, inPlusUpsell, inNotifications,
         openUserProfile, openChat, pendingDM, openMeetup,
         handleOpenUserProfile, handleCloseChat, closeUserProfile, closeOwnProfile,
         handleComposeDM, handleComposeDMComplete, handleCloseMeetup, closePlusUpsell,
+        closeNotifications, handleOpenNotificationChat, handleOpenNotificationMention,
     ]);
 
-    const isOverlayOpen = inChat || inUserProfile || inOwnProfile || inComposeDM || inMeetupDetail || inPlusUpsell || inComments;
+    const isOverlayOpen = inChat || inUserProfile || inOwnProfile || inComposeDM || inMeetupDetail || inPlusUpsell || inNotifications;
 
     return (
         <>
@@ -381,13 +478,12 @@ export function AppNavigator() {
                         isActive={activeTab === 'meetups' && !isOverlayOpen}
                         onOpenUserProfile={handleOpenUserProfile}
                         onOpenMeetup={handleOpenMeetup}
-                        onOpenPlus={openPlusUpsell}
                     />
                     <ChatsTab isActive={activeTab === 'chats' && !isOverlayOpen} onOpenChat={setOpenChat} />
                     {overlays}
                 </View>
 
-                {!inChat && !inUserProfile && !inOwnProfile && !inComposeDM && !inMeetupDetail && !inComments && !keyboardVisible && (
+                {!inChat && !inUserProfile && !inOwnProfile && !inComposeDM && !inMeetupDetail && !inNotifications && !keyboardVisible && (
                     <View style={[styles.tabBar, { paddingBottom: insets.bottom + 6 }]}>
                         {TABS.map(tab => (
                             <TouchableOpacity
@@ -447,6 +543,38 @@ const styles = StyleSheet.create({
     pageTitle: {
         ...Typography.screenTitle,
         color: Colors.text.primary,
+    },
+    topBarActions: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: Spacing.sm,
+    },
+    headerIconButton: {
+        position: 'relative',
+        width: 34,
+        height: 34,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    notificationBadge: {
+        position: 'absolute',
+        top: -2,
+        right: -4,
+        minWidth: 18,
+        height: 18,
+        paddingHorizontal: Spacing.xs,
+        borderRadius: Radius.pill,
+        backgroundColor: Colors.danger,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderWidth: 1,
+        borderColor: Colors.bg.page,
+    },
+    notificationBadgeText: {
+        fontSize: 10,
+        lineHeight: 12,
+        color: Colors.textOn.danger,
+        fontWeight: '700',
     },
 
     tabBar: {

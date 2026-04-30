@@ -3,6 +3,7 @@ import * as ImagePicker from 'expo-image-picker';
 import {
     Alert,
     FlatList,
+    RefreshControl,
     ScrollView,
     StyleSheet,
     Text,
@@ -51,13 +52,6 @@ interface MeetupsScreenProps {
     isActive: boolean;
     onOpenUserProfile: (profile: { userId: string; username: string; avatarUrl?: string }) => void;
     onOpenMeetup: (meetup: api.Meetup) => void;
-    onOpenPlus: () => void;
-}
-
-function hasPlusAccess(user: api.User | null): boolean {
-    if (!user) return false;
-    if (user.is_plus) return true;
-    return user.subscription_tier === 'plus' && user.subscription_status === 'active';
 }
 
 function useDebounce<T>(value: T, delayMs: number): T {
@@ -257,10 +251,102 @@ function getEditingHostingScope(meetup: api.Meetup | null): HostingScope {
     return 'upcoming';
 }
 
-export function MeetupsScreen({ isActive, onOpenUserProfile, onOpenMeetup, onOpenPlus }: MeetupsScreenProps) {
+function getMeetupCategoryLabel(categories: api.MeetupCategory[], slug: string): string {
+    return categories.find((category) => category.slug === slug)?.label ?? slug;
+}
+
+function applyMeetupUpsert(
+    meetup: api.Meetup,
+    input: api.MeetupUpsertInput,
+    categoryLabel: string,
+    coverImageURL: string | null,
+): api.Meetup {
+    const now = new Date().toISOString();
+    return {
+        ...meetup,
+        title: input.title,
+        description: input.description,
+        category_slug: input.category_slug,
+        category_label: categoryLabel,
+        event_type: input.event_type,
+        status: input.status,
+        visibility: input.visibility,
+        city: input.city,
+        country: input.country,
+        venue_name: input.venue_name,
+        address_line_1: input.address_line_1,
+        address_line_2: input.address_line_2,
+        how_to_find_us: input.how_to_find_us,
+        online_url: input.online_url,
+        cover_image_url: coverImageURL,
+        starts_at: input.starts_at,
+        ends_at: input.ends_at,
+        timezone: input.timezone,
+        lat: input.lat,
+        lng: input.lng,
+        capacity: input.capacity,
+        waitlist_enabled: input.waitlist_enabled,
+        published_at: input.status === 'published' ? meetup.published_at ?? now : meetup.published_at,
+        updated_at: now,
+    };
+}
+
+function createOptimisticMeetup(
+    user: api.User,
+    meetupId: string,
+    input: api.MeetupUpsertInput,
+    categoryLabel: string,
+    coverImageURL: string | null,
+): api.Meetup {
+    const now = new Date().toISOString();
+    return {
+        id: meetupId,
+        organizer_id: user.id,
+        organizer_username: user.username,
+        organizer_avatar_url: user.avatar_url ?? null,
+        title: input.title,
+        description: input.description,
+        category_slug: input.category_slug,
+        category_label: categoryLabel,
+        event_type: input.event_type,
+        status: input.status,
+        visibility: input.visibility,
+        city: input.city,
+        country: input.country,
+        venue_name: input.venue_name,
+        address_line_1: input.address_line_1,
+        address_line_2: input.address_line_2,
+        how_to_find_us: input.how_to_find_us,
+        online_url: input.online_url,
+        cover_image_url: coverImageURL,
+        starts_at: input.starts_at,
+        ends_at: input.ends_at,
+        timezone: input.timezone,
+        lat: input.lat,
+        lng: input.lng,
+        distance_km: null,
+        capacity: input.capacity,
+        attendee_count: 0,
+        waitlist_enabled: input.waitlist_enabled,
+        waitlist_count: 0,
+        saved_count: 0,
+        is_attending: false,
+        is_waitlisted: false,
+        can_manage: true,
+        attendee_preview: [],
+        hosts: [{ id: user.id, username: user.username, avatar_url: user.avatar_url ?? null, role: 'organizer' }],
+        published_at: input.status === 'published' ? now : null,
+        updated_at: now,
+        created_at: now,
+    };
+}
+
+export function MeetupsScreen({ isActive, onOpenUserProfile, onOpenMeetup }: MeetupsScreenProps) {
     const { user } = useAuth();
     const queryClient = useQueryClient();
     const listRef = useRef<FlatList<api.Meetup> | null>(null);
+    const coverUploadRef = useRef<Promise<string> | null>(null);
+    const coverUploadTokenRef = useRef(0);
     const hasActivated = useLazyActivation(isActive);
     const [activeView, setActiveView] = useState<MeetupPrimaryView>('discover');
     const [hostingScope, setHostingScope] = useState<HostingScope>('upcoming');
@@ -275,7 +361,6 @@ export function MeetupsScreen({ isActive, onOpenUserProfile, onOpenMeetup, onOpe
     const [localCoverPreviewUri, setLocalCoverPreviewUri] = useState<string | null>(null);
     const [formError, setFormError] = useState('');
     const [pendingMeetupIds, setPendingMeetupIds] = useState<Set<string>>(new Set());
-    const canCreateMeetups = hasPlusAccess(user);
     const debouncedQuery = useDebounce(draftFilters.query, 350);
 
     const categoriesQuery = useMeetupCategories(hasActivated);
@@ -389,6 +474,60 @@ export function MeetupsScreen({ isActive, onOpenUserProfile, onOpenMeetup, onOpe
         );
     };
 
+    const replaceMeetupInCaches = (previousMeetupId: string, meetup: api.Meetup) => {
+        queryClient.setQueriesData<InfiniteData<api.CursorResponse<api.Meetup>>>(
+            { queryKey: ['meetups'] },
+            (data) => data ? ({
+                ...data,
+                pages: data.pages.map((page) => ({
+                    ...page,
+                    items: dedupeById((page.items ?? []).map((item) => (
+                        item.id === previousMeetupId || item.id === meetup.id ? meetup : item
+                    ))),
+                })),
+            }) : data,
+        );
+        queryClient.setQueriesData<InfiniteData<api.CursorResponse<api.Meetup>>>(
+            { queryKey: ['my-meetups'] },
+            (data) => data ? ({
+                ...data,
+                pages: data.pages.map((page) => ({
+                    ...page,
+                    items: dedupeById((page.items ?? []).map((item) => (
+                        item.id === previousMeetupId || item.id === meetup.id ? meetup : item
+                    ))),
+                })),
+            }) : data,
+        );
+        queryClient.setQueryData(queryKeys.meetup(meetup.id), meetup);
+    };
+
+    const prependMeetupToScopeCache = (meetup: api.Meetup, scope: HostingScope) => {
+        const queryKey = queryKeys.myMeetups({ scope, limit: 20 });
+        queryClient.setQueryData<InfiniteData<api.CursorResponse<api.Meetup>>>(queryKey, (data) => {
+            if (!data) {
+                return {
+                    pages: [{
+                        items: [meetup],
+                        limit: 20,
+                        has_more: false,
+                        next_cursor: null,
+                    }],
+                    pageParams: [undefined],
+                };
+            }
+
+            return {
+                ...data,
+                pages: data.pages.map((page, index) => (
+                    index === 0
+                        ? { ...page, items: dedupeById([meetup, ...(page.items ?? [])]) }
+                        : page
+                )),
+            };
+        });
+    };
+
     const removeMeetupFromGoingCaches = (meetupId: string) => {
         const cachedQueries = queryClient.getQueriesData<InfiniteData<api.CursorResponse<api.Meetup>>>({
             queryKey: ['my-meetups'],
@@ -454,10 +593,6 @@ export function MeetupsScreen({ isActive, onOpenUserProfile, onOpenMeetup, onOpe
     };
 
     const handlePrimaryTabChange = (key: string) => {
-        if (key === 'create' && !canCreateMeetups) {
-            onOpenPlus();
-            return;
-        }
         if (key === 'create') {
             setCreateStage('form');
         }
@@ -488,28 +623,63 @@ export function MeetupsScreen({ isActive, onOpenUserProfile, onOpenMeetup, onOpe
         const previousCoverURL = formValues.cover_image_url;
         setLocalCoverPreviewUri(asset.uri);
         setUploadingCover(true);
+        if (formError) setFormError('');
+        const uploadToken = coverUploadTokenRef.current + 1;
+        coverUploadTokenRef.current = uploadToken;
+        const uploadPromise = api.uploadMeetupCoverImage({
+            uri: asset.uri,
+            mimeType: asset.mimeType ?? 'image/jpeg',
+            fileName: asset.fileName ?? 'meetup-cover.jpg',
+        }).then(({ cover_image_url }) => cover_image_url);
+        coverUploadRef.current = uploadPromise;
         try {
-            const { cover_image_url } = await api.uploadMeetupCoverImage({
-                uri: asset.uri,
-                mimeType: asset.mimeType ?? 'image/jpeg',
-                fileName: asset.fileName ?? 'meetup-cover.jpg',
-            });
+            const cover_image_url = await uploadPromise;
+            if (coverUploadTokenRef.current !== uploadToken) return;
             setFormValues((current) => ({ ...current, cover_image_url }));
+            setLocalCoverPreviewUri(null);
         } catch (error: unknown) {
+            if (coverUploadTokenRef.current !== uploadToken) return;
             setLocalCoverPreviewUri(previousPreview);
             setFormValues((current) => ({ ...current, cover_image_url: previousCoverURL }));
             Alert.alert('Upload failed', error instanceof Error ? error.message : 'Something went wrong.');
         } finally {
-            setUploadingCover(false);
+            if (coverUploadTokenRef.current === uploadToken) {
+                coverUploadRef.current = null;
+                setUploadingCover(false);
+            }
         }
     };
 
     const handleRemoveCoverImage = () => {
+        coverUploadTokenRef.current += 1;
+        coverUploadRef.current = null;
+        setUploadingCover(false);
         setLocalCoverPreviewUri(null);
         setFormValues((current) => ({ ...current, cover_image_url: '' }));
     };
 
+    const resolveCoverImageURLForSubmit = async (
+        pendingCoverUpload: Promise<string> | null,
+        fallbackCoverImageURL: string,
+    ): Promise<string | null> => {
+        if (!pendingCoverUpload) {
+            return fallbackCoverImageURL.trim() || null;
+        }
+
+        try {
+            const coverImageURL = await pendingCoverUpload;
+            return coverImageURL.trim() || null;
+        } catch {
+            throw new Error('Cover image upload failed. Choose another image or try again.');
+        }
+    };
+
     const submitMeetup = async (status: Extract<api.MeetupStatus, 'draft' | 'published'>) => {
+        if (!user) {
+            setFormError('Sign in before saving this event.');
+            return;
+        }
+
         const nextStatus = editingMeetup?.status === 'published' ? 'published' : status;
         const validated = validateMeetupForm(formValues, nextStatus);
         if ('error' in validated) {
@@ -517,23 +687,57 @@ export function MeetupsScreen({ isActive, onOpenUserProfile, onOpenMeetup, onOpe
             return;
         }
 
+        const targetScope = nextStatus === 'draft' ? 'drafts' : 'upcoming';
+        const categoryLabel = getMeetupCategoryLabel(categories, validated.values.category_slug);
+        const optimisticCoverImageURL = localCoverPreviewUri ?? validated.values.cover_image_url ?? null;
+        const optimisticMeetupId = editingMeetup?.id ?? `temp-meetup-${Date.now()}`;
+        const previousMeetup = editingMeetup;
+        const pendingCoverUpload = coverUploadRef.current;
+        const fallbackCoverImageURL = formValues.cover_image_url;
+        const optimisticMeetup = previousMeetup
+            ? applyMeetupUpsert(previousMeetup, validated.values, categoryLabel, optimisticCoverImageURL)
+            : createOptimisticMeetup(user, optimisticMeetupId, validated.values, categoryLabel, optimisticCoverImageURL);
+
         setSubmitting(true);
+        if (pendingCoverUpload) {
+            coverUploadTokenRef.current += 1;
+            coverUploadRef.current = null;
+            setUploadingCover(false);
+        }
+        if (previousMeetup) {
+            updateMeetupInCaches(previousMeetup.id, () => optimisticMeetup);
+        } else {
+            prependMeetupToScopeCache(optimisticMeetup, targetScope);
+        }
+        setEditingMeetup(null);
+        setFormValues(defaultFormValues(user));
+        setLocalCoverPreviewUri(null);
+        setFormError('');
+        setCreateStage('form');
+        setHostingScope(targetScope);
+        setActiveView('hosting');
+
         try {
-            if (editingMeetup) {
-                await api.updateMeetup(editingMeetup.id, validated.values);
+            const coverImageURL = await resolveCoverImageURLForSubmit(pendingCoverUpload, fallbackCoverImageURL);
+            const values: api.MeetupUpsertInput = {
+                ...validated.values,
+                cover_image_url: coverImageURL,
+            };
+            if (previousMeetup) {
+                const savedMeetup = await api.updateMeetup(previousMeetup.id, values);
+                replaceMeetupInCaches(optimisticMeetupId, savedMeetup);
             } else {
-                await api.createMeetup(validated.values);
+                const savedMeetup = await api.createMeetup(values);
+                replaceMeetupInCaches(optimisticMeetupId, savedMeetup);
             }
             invalidateMeetupQueries();
-            setEditingMeetup(null);
-            setFormValues(defaultFormValues(user));
-            setLocalCoverPreviewUri(null);
-            setFormError('');
-            setCreateStage('form');
-            setHostingScope(nextStatus === 'draft' ? 'drafts' : 'upcoming');
-            setActiveView('hosting');
         } catch (error: unknown) {
-            setFormError(error instanceof Error ? error.message : 'Unable to save this event right now.');
+            if (previousMeetup) {
+                updateMeetupInCaches(previousMeetup.id, () => previousMeetup);
+            } else {
+                removeMeetupFromCaches(optimisticMeetupId);
+            }
+            Alert.alert('Error', error instanceof Error ? error.message : 'Unable to save this event right now.');
         } finally {
             setSubmitting(false);
         }
@@ -668,8 +872,8 @@ export function MeetupsScreen({ isActive, onOpenUserProfile, onOpenMeetup, onOpe
     const renderDiscoverHeader = () => (
         <View style={styles.discoverHeader}>
             <InfoNoticeCard
-                title="Event discovery"
-                description="Browse by category, distance, day of week, format, and availability without losing the flow of the feed."
+                title="Find meetups"
+                description="Browse upcoming sober events by category, location, date, format, and spots."
             />
             <View style={styles.searchRow}>
                 <SearchBar
@@ -777,12 +981,28 @@ export function MeetupsScreen({ isActive, onOpenUserProfile, onOpenMeetup, onOpe
         : activeView === 'hosting'
             ? hostingQuery
             : goingQuery;
+    const isRefreshing = currentQuery.isRefetching && !currentQuery.isFetchingNextPage;
+
+    const handleRefresh = async () => {
+        if (activeView === 'discover') {
+            await Promise.all([
+                discoverQuery.refetch(),
+                categoriesQuery.refetch(),
+            ]);
+            return;
+        }
+        if (activeView === 'hosting') {
+            await hostingQuery.refetch();
+            return;
+        }
+        await goingQuery.refetch();
+    };
 
     const listHeader = activeView === 'discover'
         ? renderDiscoverHeader()
         : activeView === 'hosting'
-            ? renderMyHeader('Hosting', 'Manage upcoming, draft, cancelled, and past gatherings from one place.', true)
-            : renderMyHeader('Going', 'Everything you are attending or queued for stays here.');
+            ? renderMyHeader('Your hosted meetups', 'Manage upcoming, draft, cancelled, and past meetups.', true)
+            : renderMyHeader('Your meetup plans', 'Meetups you are attending or waitlisted for appear here.');
 
     const emptyState = activeView === 'discover'
         ? (
@@ -874,7 +1094,7 @@ export function MeetupsScreen({ isActive, onOpenUserProfile, onOpenMeetup, onOpe
                     { key: 'discover', label: 'Discover' },
                     { key: 'hosting', label: 'Hosting' },
                     { key: 'going', label: 'Going' },
-                    { key: 'create', label: 'Create', badgeLabel: canCreateMeetups ? undefined : 'Plus' },
+                    { key: 'create', label: 'Create' },
                 ]}
                 activeKey={activeView}
                 onChange={handlePrimaryTabChange}
@@ -968,7 +1188,13 @@ export function MeetupsScreen({ isActive, onOpenUserProfile, onOpenMeetup, onOpe
                         ListHeaderComponent={listHeader}
                         ListEmptyComponent={!currentQuery.isLoading ? emptyState : null}
                         ListFooterComponent={currentQuery.isFetchingNextPage ? <Text style={styles.loadingMore}>Loading more events…</Text> : null}
-                        refreshControl={undefined}
+                        refreshControl={
+                            <RefreshControl
+                                refreshing={isRefreshing}
+                                onRefresh={() => void handleRefresh()}
+                                tintColor={Colors.primary}
+                            />
+                        }
                         {...guardedEndReached}
                         onEndReachedThreshold={0.35}
                         onScroll={activeView === 'discover' ? discoverScroll.onScroll : undefined}

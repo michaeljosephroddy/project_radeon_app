@@ -7,6 +7,8 @@ export const queryKeys = {
     chats: (params?: { query?: string; limit?: number }) => ['chats', params ?? {}] as const,
     chat: (chatId: string) => ['chat', chatId] as const,
     chatMessages: (chatId: string) => ['chat-messages', chatId] as const,
+    notifications: (params?: { limit?: number }) => ['notifications', params ?? {}] as const,
+    notificationSummary: () => ['notification-summary'] as const,
     meetupCategories: () => ['meetup-categories'] as const,
     meetups: (filters?: {
         q?: string;

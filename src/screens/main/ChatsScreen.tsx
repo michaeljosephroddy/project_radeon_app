@@ -125,17 +125,17 @@ const ChatItem = React.memo(function ChatItem({ item, currentUserId, onOpenChat,
                         ) : null}
                     </View>
                     {item.last_message && (
-                        <View style={styles.previewRow}>
-                            <Text style={[styles.preview, hasUnread && styles.previewUnread]} numberOfLines={1}>{item.last_message}</Text>
-                            {hasUnread ? (
-                                <View style={styles.unreadBadge}>
-                                    <Text style={styles.unreadBadgeText}>{unreadCountLabel(unreadCount)}</Text>
-                                </View>
-                            ) : null}
-                        </View>
+                        <Text style={[styles.preview, hasUnread && styles.previewUnread]} numberOfLines={1}>{item.last_message}</Text>
                     )}
                 </View>
-                <Text style={styles.time}>{timeLabel(item.last_message_at)}</Text>
+                <View style={styles.trailing}>
+                    <Text style={styles.time}>{timeLabel(item.last_message_at)}</Text>
+                    {hasUnread ? (
+                        <View style={styles.unreadBadge}>
+                            <Text style={styles.unreadBadgeText}>{unreadCountLabel(unreadCount)}</Text>
+                        </View>
+                    ) : null}
+                </View>
             </TouchableOpacity>
         </Swipeable>
     );
@@ -393,20 +393,21 @@ const styles = StyleSheet.create({
         paddingVertical: 3,
     },
     pendingPillText: { fontSize: Typography.sizes.xs, color: Colors.textOn.primary, fontWeight: '700' },
-    previewRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: Spacing.sm,
-        marginTop: 1,
-    },
     preview: {
-        flex: 1,
+        marginTop: 1,
         fontSize: Typography.sizes.sm,
         color: Colors.text.muted,
     },
     previewUnread: {
         color: Colors.text.primary,
         fontWeight: '600',
+    },
+    trailing: {
+        minWidth: 34,
+        alignSelf: 'stretch',
+        alignItems: 'flex-end',
+        justifyContent: 'space-between',
+        paddingVertical: 1,
     },
     unreadBadge: {
         minWidth: 22,

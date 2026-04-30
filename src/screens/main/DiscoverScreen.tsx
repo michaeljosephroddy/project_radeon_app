@@ -32,7 +32,6 @@ import {
     createDefaultDiscoverDraftFilters,
     createDiscoverDraftFromApplied,
     getDiscoverActiveChips,
-    getDiscoverFiltersSummary,
     getDiscoverRelaxedCopy,
     hasNonDefaultDiscoverFilters,
     toDiscoverApiFilters,
@@ -264,9 +263,6 @@ export function DiscoverScreen({ isActive, onOpenUserProfile, onOpenPlus }: Disc
     const hasAppliedFilters = hasNonDefaultDiscoverFilters(appliedState.requested);
     const activeChips = useMemo(() => getDiscoverActiveChips(appliedState.requested), [appliedState.requested]);
     const broadenedCopy = appliedState.broadened ? getDiscoverRelaxedCopy(appliedState.relaxedFields) : null;
-    const filterSummary = hasAppliedFilters
-        ? getDiscoverFiltersSummary(appliedState.requested)
-        : 'Keep suggestions smooth, then refine when you want to narrow the pool.';
     const filterCount = activeChips.length;
 
     const validatedDraft = useMemo(() => validateDiscoverDraft(draftFilters), [draftFilters]);
@@ -401,8 +397,8 @@ export function DiscoverScreen({ isActive, onOpenUserProfile, onOpenPlus }: Disc
             <View style={styles.filterSummaryWrap}>
                 <TouchableOpacity style={styles.filterSummaryCard} onPress={handleOpenFilters} activeOpacity={0.85}>
                     <View style={styles.filterSummaryCopy}>
-                        <Text style={styles.filterSummaryLabel}>Filters</Text>
-                        <Text style={styles.filterSummaryText}>{filterSummary}</Text>
+                        <Text style={styles.filterSummaryLabel}>Find people</Text>
+                        <Text style={styles.filterSummaryText}>Search members and refine suggestions with filters.</Text>
                     </View>
                     <Ionicons name="chevron-forward" size={16} color={Colors.text.muted} />
                 </TouchableOpacity>
@@ -416,7 +412,7 @@ export function DiscoverScreen({ isActive, onOpenUserProfile, onOpenPlus }: Disc
                 </Text>
             </View>
         </View>
-    ), [discoverQuery.hasNextPage, displayedUsers.length, filterSummary, handleOpenFilters, resultsHeading, showSearchLoadingState]);
+    ), [discoverQuery.hasNextPage, displayedUsers.length, handleOpenFilters, resultsHeading, showSearchLoadingState]);
     const renderSearchItem = useCallback(({ item }: { item: api.User }) => (
         <SearchResultRow
             user={item}
@@ -656,8 +652,8 @@ const styles = StyleSheet.create({
         gap: Spacing.sm,
         borderRadius: Radius.lg,
         borderWidth: 1,
-        borderColor: Colors.border.default,
-        backgroundColor: Colors.bg.surface,
+        borderColor: 'rgba(13,110,253,0.38)',
+        backgroundColor: 'rgba(13,110,253,0.18)',
         paddingHorizontal: Spacing.md,
         paddingVertical: Spacing.md,
     },
@@ -668,7 +664,7 @@ const styles = StyleSheet.create({
     filterSummaryLabel: {
         fontSize: Typography.sizes.sm,
         fontWeight: '700',
-        color: Colors.text.primary,
+        color: Colors.primary,
         textTransform: 'uppercase',
         letterSpacing: 0.5,
     },

@@ -297,10 +297,10 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'flex-start',
         gap: Spacing.sm,
-        backgroundColor: Colors.bg.surface,
+        backgroundColor: 'rgba(13,110,253,0.18)',
         borderRadius: Radius.lg,
         borderWidth: 1,
-        borderColor: Colors.border.default,
+        borderColor: 'rgba(13,110,253,0.38)',
         padding: Spacing.md,
     },
     previewText: {

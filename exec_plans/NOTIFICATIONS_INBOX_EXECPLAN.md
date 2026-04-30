@@ -13,12 +13,12 @@ The feature should be performant by default. The notification list must be curso
 ## Progress
 
 - [x] (2026-04-30 06:39Z) Created this ExecPlan after confirming the app has push-tap handling but no notifications UI, and the backend already has notification storage plus `GET /notifications` and `POST /notifications/{id}/read`.
-- [ ] Implement backend notification summary and efficient unread count storage.
-- [ ] Add frontend notification API types and React Query hooks.
-- [ ] Build the notifications inbox UI and top-bar unread badge.
-- [ ] Wire notification taps to existing chat and comment navigation.
-- [ ] Add read, bulk read, and mark-all-read behavior.
-- [ ] Validate with local seed data, Postman, Expo, and automated tests.
+- [x] (2026-04-30 06:51Z) Implemented backend notification summary, bulk read, read-all, and transactionally maintained unread counters on branch `feature/notifications-inbox` in `/home/michaelroddy/repos/project_radeon`.
+- [x] (2026-04-30 06:51Z) Added frontend notification API types/functions and React Query hooks in `/home/michaelroddy/repos/project_radeon_app`.
+- [x] (2026-04-30 06:51Z) Built a full-screen notifications overlay and placed a bell icon with unread count in the app header.
+- [x] (2026-04-30 06:51Z) Wired notification row taps to existing chat and mention navigation paths.
+- [x] (2026-04-30 06:51Z) Added row read and mark-all-read behavior.
+- [ ] Validate the full UI flow in Expo after starting the app and sending fresh chat/mention notifications.
 
 ## Surprises & Discoveries
 
@@ -28,6 +28,10 @@ The feature should be performant by default. The notification list must be curso
     Evidence: `project_radeon/internal/chats/handler.go` and `project_radeon/internal/chats/ws_handler.go` call `NotifyChatMessage`; `project_radeon/internal/feed/handler.go` calls `NotifyCommentMentions` for post comment mentions.
 - Observation: Notification-tap routing already exists for `chat.message` and `comment.mention`.
     Evidence: `src/notifications/NotificationProvider.tsx` converts those payloads into `intent`, and `src/navigation/AppNavigator.tsx` opens the chat or focuses the feed comments modal.
+- Observation: The default Go build cache path is read-only in this execution environment, which makes `go test ./...` fail during setup even though package tests pass.
+    Evidence: `go test ./...` failed with `open /home/michaelroddy/.cache/go-build/...: read-only file system`; rerunning as `GOCACHE=/tmp/go-build go test ./...` passed.
+- Observation: A chat-close bug was reported while implementing this plan. The defensive close path now dismisses the keyboard, clears chat, notification, and comment overlays, and resets keyboard visibility so the app header can return normally after leaving chat.
+    Evidence: `npx tsc --noEmit` passed after the `handleCloseChat` update in `src/navigation/AppNavigator.tsx`.
 
 ## Decision Log
 
@@ -43,10 +47,16 @@ The feature should be performant by default. The notification list must be curso
 - Decision: Keep push delivery independent from read state.
     Rationale: A push can be dismissed or never delivered, but the notification row must remain available in the inbox until the user views or marks it read. Push tap handling may mark the corresponding notification read because it proves the user acted on that notification.
     Date/Author: 2026-04-30 / Codex
+- Decision: Keep the bell icon in the existing top header beside the profile avatar.
+    Rationale: The user explicitly confirmed this placement while implementation was underway. It keeps notifications globally visible without adding another bottom tab.
+    Date/Author: 2026-04-30 / Codex
+- Decision: Use `GOCACHE=/tmp/go-build` for full backend validation in this environment.
+    Rationale: The default Go cache directory is read-only here, and `/tmp` is writable. This keeps validation meaningful without changing project files.
+    Date/Author: 2026-04-30 / Codex
 
 ## Outcomes & Retrospective
 
-This plan has not been implemented yet. The expected outcome is a durable, performant in-app notifications inbox with an unread badge, navigation to chats and mentioned comments, and server-backed read state. At completion, record which endpoints were added, how unread count performance was validated, and any follow-up event types that remain out of scope.
+Implementation is underway. Backend summary/read endpoints and the app inbox UI have been implemented on local feature branches. Backend tests pass with `GOCACHE=/tmp/go-build go test ./...`, and app TypeScript passes with `npx tsc --noEmit`. Remaining validation is a manual Expo flow with fresh chat and mention notifications.
 
 ## Context and Orientation
 
@@ -341,3 +351,4 @@ The `currentUser` prop is included for consistency with other authenticated scre
 ## Revision Notes
 
 - 2026-04-30 06:39Z: Initial ExecPlan created. It captures the existing backend notification foundation, the missing frontend inbox, and a performance-oriented design using cursor pagination plus a denormalized unread counter.
+- 2026-04-30 06:51Z: Updated progress after implementing backend counters/endpoints, frontend hooks, the header bell badge, notifications overlay, row navigation, and read behavior. Added the chat-close bug fix and validation notes discovered during implementation.

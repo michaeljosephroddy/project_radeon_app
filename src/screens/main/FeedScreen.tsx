@@ -1085,10 +1085,10 @@ export function FeedScreen({
                         </View>
 
                         <InfoNoticeCard
-                            title="Community Feed"
+                            title="Community feed"
                             description={FEED_RESHARES_ENABLED
-                                ? 'See one ranked mix of friend posts, community updates, and reshares shaped around what matters most to you.'
-                                : 'See one ranked mix of friend posts and relevant community updates shaped around what matters most to you.'}
+                                ? 'Post updates and see friend activity, community posts, and reshares.'
+                                : 'Post updates and see friend activity and relevant community posts.'}
                         />
                     </View>
                 }

@@ -28,8 +28,8 @@ export function InfoNoticeCard({ title, description, style }: InfoNoticeCardProp
 
 const styles = StyleSheet.create({
     card: {
-        backgroundColor: Colors.primarySubtle,
-        borderColor: 'rgba(13,110,253,0.24)',
+        backgroundColor: 'rgba(13,110,253,0.18)',
+        borderColor: 'rgba(13,110,253,0.38)',
     },
     content: {
         gap: 4,
@@ -37,10 +37,10 @@ const styles = StyleSheet.create({
     title: {
         fontSize: Typography.sizes.md,
         fontWeight: '600',
-        color: Colors.text.primary,
+        color: Colors.primary,
     },
     description: {
         ...Typography.meta,
-        color: Colors.text.muted,
+        color: Colors.text.secondary,
     },
 });

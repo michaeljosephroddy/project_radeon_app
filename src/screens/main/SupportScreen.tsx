@@ -677,7 +677,7 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
                 <ScrollView contentContainerStyle={[screenStandards.detailContent, screenStandards.scrollContent]}>
                     <InfoNoticeCard
                         title="Create support request"
-                        description="Choose what kind of help would feel useful right now."
+                        description="Tell the community what support you need and how people can respond."
                         style={styles.headerCard}
                     />
 
@@ -815,7 +815,7 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
                         <>
                             <InfoNoticeCard
                                 title="Your support requests"
-                                description="Open requests, active support, and closed history stay together here."
+                                description="Track open requests, active support, and closed history."
                                 style={styles.headerCard}
                             />
                             <SegmentedControl
@@ -878,7 +878,7 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
                     <>
                         <InfoNoticeCard
                             title="Support feed"
-                            description="Requests are ranked by urgency, freshness, and who still needs a response."
+                            description="Find requests ranked by urgency, freshness, and response need."
                             style={styles.headerCard}
                         />
                         <SegmentedControl

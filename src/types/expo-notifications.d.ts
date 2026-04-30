@@ -1,6 +1,7 @@
 declare module 'expo-notifications' {
     export interface NotificationResponse {
         notification: {
+            date?: number;
             request: {
                 content: {
                     data: Record<string, unknown>;
@@ -52,6 +53,7 @@ declare module 'expo-notifications' {
         },
     ): Promise<void>;
     export function getLastNotificationResponseAsync(): Promise<NotificationResponse | null>;
+    export function clearLastNotificationResponseAsync(): Promise<void>;
     export function addNotificationResponseReceivedListener(
         listener: (response: NotificationResponse) => void,
     ): Subscription;
