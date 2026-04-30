@@ -6,10 +6,11 @@ A social-first sober community app. Built with Expo + TypeScript.
 
 ```bash
 cd project_radeon_app
-cp .env.example .env
 npm install
 npx expo start
 ```
+
+Create a `.env` at the repo root and set `EXPO_PUBLIC_API_URL` to your backend URL (see [API URL](#api-url)).
 
 Then press:
 - `i` — open iOS simulator
@@ -32,23 +33,27 @@ The app talks to your Go backend. By default it points to `http://localhost:8080
 src/
 ├── api/
 │   └── client.ts          # All API calls + types
-├── components/
-│   └── Avatar.tsx          # Reusable avatar with colour palette
-├── hooks/
-│   └── useAuth.tsx         # Auth context — login, register, logout, session restore
+├── components/             # Reusable UI (Avatar, ProfileSheet, ConnectionSheet, …)
+├── hooks/                  # useAuth + data hooks (queries/)
 ├── navigation/
-│   ├── AppNavigator.tsx    # Main tab bar (feed, people, meetups, chats)
-│   └── AuthNavigator.tsx   # Login / register switcher
+│   ├── AppNavigator.tsx       # Main tab bar (feed, discover, meetups, chats, profile)
+│   ├── AuthNavigator.tsx      # Login / register switcher
+│   └── OnboardingNavigator.tsx
 ├── screens/
-│   ├── auth/
-│   │   ├── LoginScreen.tsx
-│   │   └── RegisterScreen.tsx
+│   ├── auth/                  # LoginScreen, RegisterScreen
+│   ├── onboarding/
 │   └── main/
-│       ├── FeedScreen.tsx      # Posts, compose, react
-│       ├── PeopleScreen.tsx    # Discover + pending requests
-│       ├── MeetupsScreen.tsx   # Upcoming meetups + RSVP
-│       ├── ChatsScreen.tsx     # Chats list
-│       └── ChatScreen.tsx      # Individual chat
+│       ├── FeedScreen.tsx           # Posts, compose, react
+│       ├── DiscoverScreen.tsx       # Discover + friend requests
+│       ├── MeetupsScreen.tsx        # Upcoming meetups + RSVP
+│       ├── ChatsScreen.tsx          # Chats list
+│       ├── ChatScreen.tsx           # Individual chat
+│       ├── SupportScreen.tsx        # Support requests + recovery meetings
+│       ├── NotificationsScreen.tsx
+│       ├── ProfileTabScreen.tsx
+│       ├── UserProfileScreen.tsx
+│       ├── SettingsScreen.tsx
+│       └── …
 └── utils/
     └── theme.ts            # Colours, typography, spacing, avatar palette
 ```
