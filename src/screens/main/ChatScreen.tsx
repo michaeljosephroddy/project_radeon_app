@@ -164,75 +164,41 @@ export function ChatScreen({ chat, onBack }: ChatScreenProps) {
                             onPress: loadOlderMessages,
                             label: 'Load earlier messages',
                         }}
-                        isAlignedTop
                         isSendButtonAlwaysVisible
                         isScrollToBottomEnabled
                         scrollToBottomOffset={120}
                         isDayAnimationEnabled={false}
                         isUserAvatarVisible
                         isAvatarVisibleForEveryMessage
+                        containerStyle={{
+                            left: styles.giftedMessageContainer,
+                            right: styles.giftedMessageContainer,
+                        }}
                         messagesContainerStyle={styles.messagesContainer}
                         keyboardAvoidingViewProps={{
                             keyboardVerticalOffset,
                         }}
-                        renderAvatar={(props) => {
-                            const messageUser = props.currentMessage.user;
-                            if (!messageUser || messageUser._id === 'system') return null;
-                            if (props.position === 'right') return null;
-
-                            return (
-                                <Avatar
-                                    username={String(messageUser.name ?? '')}
-                                    avatarUrl={typeof messageUser.avatar === 'string' ? messageUser.avatar : undefined}
-                                    size={36}
-                                    fontSize={13}
-                                />
-                            );
-                        }}
+                        renderAvatar={null}
                         renderBubble={(props) => {
-                            const position = props.position ?? 'left';
-                            const isRight = position === 'right';
                             const messageUser = props.currentMessage.user;
                             const avatarUrl = typeof messageUser.avatar === 'string' ? messageUser.avatar : undefined;
 
                             return (
-                                <View
-                                    style={[
-                                        styles.flatMessageRow,
-                                        isRight ? styles.flatMessageRowRight : styles.flatMessageRowLeft,
-                                    ]}
-                                >
-                                    <View
-                                        style={[
-                                            styles.flatBubble,
-                                            isRight ? styles.flatBubbleRight : styles.flatBubbleLeft,
-                                        ]}
-                                    >
-                                        <Text
-                                            style={[
-                                                styles.flatBubbleText,
-                                                isRight ? styles.flatBubbleTextRight : styles.flatBubbleTextLeft,
-                                            ]}
-                                        >
+                                <View style={styles.flatMessageRow}>
+                                    <Avatar
+                                        username={String(messageUser.name ?? '')}
+                                        avatarUrl={avatarUrl}
+                                        size={36}
+                                        fontSize={13}
+                                    />
+                                    <View style={styles.flatBubble}>
+                                        <Text style={styles.flatBubbleText}>
                                             {props.currentMessage.text}
                                         </Text>
-                                        <Text
-                                            style={[
-                                                styles.timeLabel,
-                                                isRight ? styles.timeLabelRight : styles.timeLabelLeft,
-                                            ]}
-                                        >
+                                        <Text style={styles.timeLabel}>
                                             {formatMessageTime(props.currentMessage.createdAt)}
                                         </Text>
                                     </View>
-                                    {isRight ? (
-                                        <Avatar
-                                            username={String(messageUser.name ?? '')}
-                                            avatarUrl={avatarUrl}
-                                            size={36}
-                                            fontSize={13}
-                                        />
-                                    ) : null}
                                 </View>
                             );
                         }}
@@ -412,6 +378,13 @@ const styles = StyleSheet.create({
     messagesContainer: {
         backgroundColor: Colors.bg.page,
     },
+    giftedMessageContainer: {
+        alignSelf: 'flex-start',
+        justifyContent: 'flex-start',
+        marginLeft: Spacing.md,
+        marginRight: Spacing.md,
+        maxWidth: '100%',
+    },
     lockedToolbar: {
         borderTopWidth: 1,
         borderTopColor: Colors.border.default,
@@ -456,45 +429,25 @@ const styles = StyleSheet.create({
     flatMessageRow: {
         flexDirection: 'row',
         alignItems: 'flex-end',
+        justifyContent: 'flex-start',
         gap: Spacing.sm,
         maxWidth: '100%',
     },
-    flatMessageRowLeft: {
-        justifyContent: 'flex-start',
-    },
-    flatMessageRowRight: {
-        justifyContent: 'flex-end',
-    },
     flatBubble: {
+        alignItems: 'flex-start',
         flexShrink: 1,
         paddingVertical: 2,
     },
-    flatBubbleLeft: {
-        alignItems: 'flex-start',
-    },
-    flatBubbleRight: {
-        alignItems: 'flex-end',
-    },
     flatBubbleText: {
+        color: Colors.text.primary,
         fontSize: Typography.sizes.lg,
         lineHeight: 22,
-    },
-    flatBubbleTextLeft: {
-        color: Colors.text.primary,
-    },
-    flatBubbleTextRight: {
-        color: Colors.text.primary,
-        textAlign: 'right',
+        textAlign: 'left',
     },
     timeLabel: {
+        color: Colors.text.muted,
         fontSize: Typography.sizes.xs,
         marginTop: 3,
-    },
-    timeLabelLeft: {
-        color: Colors.text.muted,
-    },
-    timeLabelRight: {
-        color: Colors.text.muted,
     },
     dayContainer: {
         marginVertical: Spacing.sm,

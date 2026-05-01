@@ -105,6 +105,10 @@ export interface GiftedChatProps<TMessage extends GiftedChatMessage> {
     user?: GiftedChatUser;
     onSend?: (messages: TMessage[]) => void;
     loadEarlierMessagesProps?: LoadEarlierMessagesProps;
+    containerStyle?: {
+        left?: StyleProp<ViewStyle>;
+        right?: StyleProp<ViewStyle>;
+    };
     messagesContainerStyle?: StyleProp<ViewStyle>;
     isAlignedTop?: boolean;
     isInverted?: boolean;
