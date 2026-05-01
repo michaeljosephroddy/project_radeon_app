@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
     View, Text, TouchableOpacity, Image,
     StyleSheet, ScrollView, FlatList, ActivityIndicator, Alert, Platform,
@@ -12,21 +12,27 @@ import { PrimaryButton } from '../../components/ui/PrimaryButton';
 import { ScreenHeader } from '../../components/ui/ScreenHeader';
 import { SectionLabel } from '../../components/ui/SectionLabel';
 import { SobrietyCounter } from '../../components/SobrietyCounter';
+import type { CommentThreadTarget } from '../../components/CommentsModal';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { TextField } from '../../components/ui/TextField';
 import { SettingsScreen } from './SettingsScreen';
 import { HiddenContentScreen } from './HiddenContentScreen';
+import { ProfileContentTabs, ProfileContentTabKey } from '../../components/profile/ProfileContentTabs';
+import { ProfileEmptyTabState } from '../../components/profile/ProfileEmptyTabState';
+import { ProfilePostCard } from '../../components/profile/ProfilePostCard';
 import * as api from '../../api/client';
 import { useGuardedEndReached } from '../../hooks/useGuardedEndReached';
 import { useInterests } from '../../hooks/queries/useInterests';
+import { useUserPosts } from '../../hooks/queries/useUserPosts';
 import { useAuth } from '../../hooks/useAuth';
 import { Colors, Typography, Spacing, Radius } from '../../theme';
 import { formatUsername } from '../../utils/identity';
 import { formatBirthDateValue, GENDER_SEGMENTS, getGenderLabel } from '../../utils/profileIdentity';
 import { formatSobrietyDate } from '../../utils/date';
 import { screenStandards } from '../../styles/screenStandards';
+import { dedupeById } from '../../utils/list';
 
-type SubView = 'profile' | 'friends' | 'requests' | 'settings' | 'hidden-content';
+type SubView = 'profile' | 'edit-profile' | 'friends' | 'requests' | 'settings' | 'hidden-content';
 type RequestsSubView = 'incoming' | 'outgoing';
 type EditableSection = 'bio' | 'location' | 'identity' | 'interests' | 'sobriety' | null;
 type EditableGender = api.UserGender | '';
@@ -36,14 +42,16 @@ const MAX_INTERESTS = 5;
 interface ProfileTabScreenProps {
     isActive: boolean;
     onOpenUserProfile: (profile: { userId: string; username: string; avatarUrl?: string }) => void;
+    onOpenComments: (thread: CommentThreadTarget, focusComposer: boolean, onCommentCreated?: (comment: api.Comment) => void) => void;
     onBack?: () => void;
 }
 
 // Renders the current user's profile tab plus friends, requests, and settings subviews.
-export function ProfileTabScreen({ isActive, onOpenUserProfile, onBack }: ProfileTabScreenProps) {
+export function ProfileTabScreen({ isActive, onOpenUserProfile, onOpenComments, onBack }: ProfileTabScreenProps) {
     const { user, refreshUser, logout } = useAuth();
     const [subView, setSubView] = useState<SubView>('profile');
     const [requestsSubView, setRequestsSubView] = useState<RequestsSubView>('incoming');
+    const [activeContentTab, setActiveContentTab] = useState<ProfileContentTabKey>('posts');
 
     const [city, setCity]             = useState(user?.city ?? '');
     const [country, setCountry]       = useState(user?.country ?? '');
@@ -75,7 +83,13 @@ export function ProfileTabScreen({ isActive, onOpenUserProfile, onBack }: Profil
     const [loadingMoreOutgoing, setLoadingMoreOutgoing] = useState(false);
     const [pendingActionIds, setPendingActionIds] = useState<Set<string>>(new Set());
     const interestsQuery = useInterests(isActive);
+    const userPostsQuery = useUserPosts(user?.id ?? '', 20, isActive && subView === 'profile' && Boolean(user?.id));
     const availableInterests = interestsQuery.data ?? [];
+    const ownPosts = useMemo(
+        () => dedupeById((userPostsQuery.data?.pages ?? []).flatMap(page => page.items ?? [])),
+        [userPostsQuery.data?.pages]
+    );
+    const activeContentItems = activeContentTab === 'posts' ? ownPosts : [];
     const formattedSobrietyDate = formatSobrietyDate(soberSince);
     const sobrietyFieldValue = formattedSobrietyDate || soberSince || 'Not set';
     const bioCharactersRemaining = MAX_BIO_LENGTH - bio.length;
@@ -343,6 +357,14 @@ export function ProfileTabScreen({ isActive, onOpenUserProfile, onBack }: Profil
         await saveSection('sobriety', { sober_since: soberSince || '' });
     };
 
+    const handleOpenPostComments = (post: api.Post): void => {
+        onOpenComments({
+            itemId: post.id,
+            itemKind: 'post',
+            commentCount: post.comment_count,
+        }, false);
+    };
+
     // Optimistically removes an accepted friend.
     const handleRemoveFriend = async (u: api.FriendUser) => {
         setPendingActionIds(prev => new Set(prev).add(u.user_id));
@@ -559,16 +581,21 @@ export function ProfileTabScreen({ isActive, onOpenUserProfile, onBack }: Profil
     return (
         <SafeAreaView style={styles.container} edges={['bottom']}>
             <ScreenHeader
-                onBack={onBack}
-                title="Profile"
-                trailing={(
+                onBack={subView === 'edit-profile' ? () => {
+                    handleCancelEditSection();
+                    setSubView('profile');
+                } : onBack}
+                title={subView === 'edit-profile' ? 'Edit Profile' : 'Profile'}
+                trailing={subView === 'profile' ? (
                     <TouchableOpacity onPress={() => setSubView('settings')} style={styles.settingsBtn}>
                         <Text style={styles.settingsIcon}>⚙</Text>
                     </TouchableOpacity>
-                )}
+                ) : null}
             />
 
             <ScrollView style={styles.scroll} contentContainerStyle={[screenStandards.scrollContent, styles.content]} keyboardShouldPersistTaps="handled">
+                {subView === 'profile' ? (
+                    <>
                 <TouchableOpacity onPress={handlePickBanner} disabled={uploadingBanner} activeOpacity={0.85} style={styles.bannerTouch}>
                     {localBannerUrl
                         ? <Image source={{ uri: localBannerUrl }} style={styles.banner} resizeMode="cover" />
@@ -599,11 +626,27 @@ export function ProfileTabScreen({ isActive, onOpenUserProfile, onBack }: Profil
                     </TouchableOpacity>
                 </View>
 
-                <View style={styles.mainContent}>
-                    <Text style={styles.avatarName}>{formatUsername(user.username)}</Text>
-                    {user.city ? <Text style={styles.avatarSub}>{user.city}{user.country ? `, ${user.country}` : ''}</Text> : null}
+	                <View style={styles.mainContent}>
+	                    <Text style={styles.avatarName}>{formatUsername(user.username)}</Text>
+	                    {user.city ? <Text style={styles.avatarSub}>{user.city}{user.country ? `, ${user.country}` : ''}</Text> : null}
+	                    {user.bio ? <Text style={styles.profileBioText}>{user.bio}</Text> : null}
+	                    {user.interests.length > 0 ? (
+	                        <View style={styles.profileSummaryInterests}>
+	                            {user.interests.slice(0, MAX_INTERESTS).map((interest) => (
+	                                <View key={interest} style={styles.profileSummaryInterestChip}>
+	                                    <Text style={styles.profileSummaryInterestChipText}>{interest}</Text>
+	                                </View>
+	                            ))}
+	                        </View>
+	                    ) : null}
+	                    <SobrietyCounter soberSince={user.sober_since} compact style={styles.profileSummarySobriety} />
 
-                    <View style={styles.statsRow}>
+	                    <View style={styles.statsRow}>
+	                        <View style={styles.statItem}>
+	                            <Text style={styles.statCount}>{ownPosts.length}</Text>
+                            <Text style={styles.statLabel}>Posts</Text>
+                        </View>
+                        <View style={styles.statDivider} />
                         <TouchableOpacity style={styles.statItem} onPress={() => setSubView('friends')}>
                             <Text style={styles.statCount}>{user.friend_count}</Text>
                             <Text style={styles.statLabel}>Friends</Text>
@@ -611,10 +654,40 @@ export function ProfileTabScreen({ isActive, onOpenUserProfile, onBack }: Profil
                         <View style={styles.statDivider} />
                         <TouchableOpacity style={styles.statItem} onPress={() => setSubView('requests')}>
                             <Text style={styles.statCount}>{user.incoming_friend_request_count + user.outgoing_friend_request_count}</Text>
-                            <Text style={styles.statLabel}>Requests</Text>
-                        </TouchableOpacity>
-                    </View>
+	                            <Text style={styles.statLabel}>Requests</Text>
+	                        </TouchableOpacity>
+	                    </View>
 
+	                    <View style={styles.profileActionRow}>
+	                        <TouchableOpacity style={styles.profileEditButton} onPress={() => setSubView('edit-profile')}>
+	                            <Text style={styles.profileEditButtonText}>Edit Profile</Text>
+	                        </TouchableOpacity>
+	                    </View>
+
+	                    <View style={styles.profileContentTabsWrap}>
+	                        <ProfileContentTabs activeTab={activeContentTab} onChange={setActiveContentTab} />
+	                    </View>
+                    {userPostsQuery.isLoading && activeContentTab === 'posts' ? (
+                        <ActivityIndicator color={Colors.primary} style={styles.profilePostsLoader} />
+                    ) : activeContentItems.length > 0 ? (
+                        <View style={styles.profilePostList}>
+                            {activeContentItems.map((item) => (
+                                <ProfilePostCard
+                                    key={item.id}
+                                    post={item}
+                                    onPressComments={handleOpenPostComments}
+                                />
+                            ))}
+                        </View>
+	                    ) : (
+	                        <ProfileEmptyTabState tab={activeContentTab} username={formatUsername(user.username)} />
+	                    )}
+	                </View>
+                    </>
+                ) : null}
+
+                {subView === 'edit-profile' ? (
+                <View style={styles.mainContent}>
                     <View style={screenStandards.sectionLabelBlock}>
                         <SectionLabel>BIO</SectionLabel>
                     </View>
@@ -926,6 +999,7 @@ export function ProfileTabScreen({ isActive, onOpenUserProfile, onBack }: Profil
                         ) : null}
                     </View>
                 </View>
+                ) : null}
 
             </ScrollView>
         </SafeAreaView>
@@ -1056,6 +1130,37 @@ const styles = StyleSheet.create({
     },
     avatarName: { fontSize: Typography.sizes.lg, fontWeight: '600', color: Colors.text.primary, marginBottom: 2 },
     avatarSub: { fontSize: Typography.sizes.sm, color: Colors.text.muted, marginBottom: Spacing.sm },
+    profileBioText: {
+        fontSize: Typography.sizes.base,
+        color: Colors.text.secondary,
+        lineHeight: 20,
+        marginBottom: Spacing.sm,
+    },
+    profileSummaryInterests: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: Spacing.sm,
+        marginBottom: Spacing.sm,
+    },
+    profileSummaryInterestChip: {
+        borderRadius: Radius.pill,
+        borderWidth: 1,
+        borderColor: Colors.border.default,
+        backgroundColor: Colors.bg.surface,
+        paddingHorizontal: Spacing.md,
+        paddingVertical: Spacing.xs,
+    },
+    profileSummaryInterestChipText: {
+        fontSize: Typography.sizes.sm,
+        fontWeight: '600',
+        color: Colors.text.secondary,
+    },
+    profileSummarySobriety: {
+        borderBottomWidth: 0,
+        borderRadius: Radius.md,
+        backgroundColor: Colors.bg.surface,
+        marginBottom: Spacing.md,
+    },
 
     statsRow: {
         flexDirection: 'row',
@@ -1068,6 +1173,33 @@ const styles = StyleSheet.create({
     statCount: { fontSize: Typography.sizes.lg, fontWeight: '700', color: Colors.text.primary },
     statLabel: { fontSize: Typography.sizes.xs, color: Colors.text.muted, letterSpacing: 0.4 },
     statDivider: { width: 0.5, backgroundColor: Colors.border.default, marginVertical: 12 },
+    profileContentTabsWrap: {
+        marginHorizontal: -Spacing.md,
+        marginBottom: Spacing.sm,
+    },
+    profilePostList: {
+        marginHorizontal: -Spacing.md,
+        marginBottom: Spacing.md,
+    },
+    profilePostsLoader: {
+        paddingVertical: Spacing.xl,
+    },
+    profileActionRow: {
+        marginBottom: Spacing.md,
+    },
+    profileEditButton: {
+        borderWidth: 1,
+        borderColor: Colors.border.default,
+        borderRadius: Radius.sm,
+        backgroundColor: Colors.bg.surface,
+        alignItems: 'center',
+        paddingVertical: 10,
+    },
+    profileEditButtonText: {
+        fontSize: Typography.sizes.sm,
+        fontWeight: '700',
+        color: Colors.text.primary,
+    },
 
     fieldGroup: { backgroundColor: Colors.bg.surface, borderRadius: Radius.md, overflow: 'hidden' },
     sectionCardHeader: {

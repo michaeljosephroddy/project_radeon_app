@@ -415,6 +415,7 @@ export function AppNavigator() {
                         isActive={inOwnProfile}
                         onBack={closeOwnProfile}
                         onOpenUserProfile={handleOpenUserProfile}
+                        onOpenComments={handleOpenComments}
                     />
                 </View>
             )}
@@ -455,6 +456,7 @@ export function AppNavigator() {
                         isActive={inUserProfile && !inChat && !inComposeDM}
                         onBack={closeUserProfile}
                         onOpenChat={setOpenChat}
+                        onOpenComments={handleOpenComments}
                         onComposeDM={handleComposeDM}
                     />
                 </View>
@@ -491,6 +493,7 @@ export function AppNavigator() {
         inOwnProfile, inUserProfile, inChat, inComposeDM, inMeetupDetail, inPlusUpsell, inNotifications, inReflection,
         openUserProfile, openChat, pendingDM, openMeetup,
         handleOpenUserProfile, handleCloseChat, closeUserProfile, closeOwnProfile,
+        handleOpenComments,
         handleComposeDM, handleComposeDMComplete, handleCloseMeetup, closePlusUpsell,
         closeNotifications, closeReflection, handleOpenNotificationChat, handleOpenNotificationMention, user,
     ]);
