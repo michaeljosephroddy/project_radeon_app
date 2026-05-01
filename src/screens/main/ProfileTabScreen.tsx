@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
-    View, Text, TouchableOpacity, Image,
+    View, Text, TouchableOpacity,
     StyleSheet, ScrollView, FlatList, ActivityIndicator, Alert, Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -65,9 +65,7 @@ export function ProfileTabScreen({ isActive, onOpenUserProfile, onOpenComments, 
     const [editingSection, setEditingSection] = useState<EditableSection>(null);
     const [savingSection, setSavingSection] = useState<EditableSection>(null);
     const [uploadingAvatar, setUploadingAvatar] = useState(false);
-    const [uploadingBanner, setUploadingBanner] = useState(false);
     const [localAvatarUrl, setLocalAvatarUrl]   = useState(user?.avatar_url);
-    const [localBannerUrl, setLocalBannerUrl]   = useState(user?.banner_url ?? undefined);
 
     const [friends, setFriends] = useState<api.FriendUser[]>([]);
     const [incomingRequests, setIncomingRequests] = useState<api.FriendUser[]>([]);
@@ -196,34 +194,6 @@ export function ProfileTabScreen({ isActive, onOpenUserProfile, onOpenComments, 
             Alert.alert('Upload failed', e instanceof Error ? e.message : 'Something went wrong.');
         } finally {
             setUploadingAvatar(false);
-        }
-    };
-
-    const handlePickBanner = async () => {
-        const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-        if (!perm.granted) {
-            Alert.alert('Permission required', 'Allow access to your photo library to upload a banner.');
-            return;
-        }
-        const result = await ImagePicker.launchImageLibraryAsync({
-            mediaTypes: ImagePicker.MediaTypeOptions.Images,
-            allowsEditing: true,
-            aspect: [3, 1],
-            quality: 0.8,
-        });
-        if (result.canceled) return;
-        const localUri = result.assets[0].uri;
-        const previousBannerUrl = localBannerUrl;
-        setLocalBannerUrl(localUri);
-        setUploadingBanner(true);
-        try {
-            await api.uploadBanner(localUri);
-            refreshUser().catch(() => {});
-        } catch (e: unknown) {
-            setLocalBannerUrl(previousBannerUrl);
-            Alert.alert('Upload failed', e instanceof Error ? e.message : 'Something went wrong.');
-        } finally {
-            setUploadingBanner(false);
         }
     };
 
@@ -596,93 +566,76 @@ export function ProfileTabScreen({ isActive, onOpenUserProfile, onOpenComments, 
             <ScrollView style={styles.scroll} contentContainerStyle={[screenStandards.scrollContent, styles.content]} keyboardShouldPersistTaps="handled">
                 {subView === 'profile' ? (
                     <>
-                <TouchableOpacity onPress={handlePickBanner} disabled={uploadingBanner} activeOpacity={0.85} style={styles.bannerTouch}>
-                    {localBannerUrl
-                        ? <Image source={{ uri: localBannerUrl }} style={styles.banner} resizeMode="cover" />
-                        : <View style={styles.bannerPlaceholder}>
-                            <Ionicons name="image-outline" size={22} color={Colors.text.muted} />
-                            <Text style={styles.bannerPlaceholderText}>Add a banner photo</Text>
-                          </View>
-                    }
-                    <View style={styles.bannerCameraBtn}>
-                        {uploadingBanner
-                            ? <ActivityIndicator size="small" color="#fff" />
-                            : <Ionicons name="camera" size={14} color="#fff" />
-                        }
-                    </View>
-                </TouchableOpacity>
-
-                <View style={styles.avatarOverlapRow}>
-                    <TouchableOpacity onPress={handlePickAvatar} disabled={uploadingAvatar} style={styles.avatarWrap}>
-                        <View style={styles.avatarBorder}>
-                            <Avatar username={user.username} avatarUrl={localAvatarUrl} size={110} fontSize={38} />
+                        <View style={styles.profileTopRow}>
+                            <TouchableOpacity onPress={handlePickAvatar} disabled={uploadingAvatar} style={styles.avatarWrap}>
+                                <View style={styles.avatarBorder}>
+                                    <Avatar username={user.username} avatarUrl={localAvatarUrl} size={88} fontSize={31} />
+                                </View>
+                                <View style={styles.avatarEditBadge}>
+                                    {uploadingAvatar
+                                        ? <ActivityIndicator size="small" color={Colors.textOn.primary} />
+                                        : <Ionicons name="camera" size={12} color={Colors.textOn.primary} />
+                                    }
+                                </View>
+                            </TouchableOpacity>
+                            <View style={styles.statsRow}>
+                                <View style={styles.statItem}>
+                                    <Text style={styles.statCount}>{ownPosts.length}</Text>
+                                    <Text style={styles.statLabel}>Posts</Text>
+                                </View>
+                                <View style={styles.statDivider} />
+                                <TouchableOpacity style={styles.statItem} onPress={() => setSubView('friends')}>
+                                    <Text style={styles.statCount}>{user.friend_count}</Text>
+                                    <Text style={styles.statLabel}>Friends</Text>
+                                </TouchableOpacity>
+                                <View style={styles.statDivider} />
+                                <TouchableOpacity style={styles.statItem} onPress={() => setSubView('requests')}>
+                                    <Text style={styles.statCount}>{user.incoming_friend_request_count + user.outgoing_friend_request_count}</Text>
+                                    <Text style={styles.statLabel}>Requests</Text>
+                                </TouchableOpacity>
+                            </View>
                         </View>
-                        <View style={styles.avatarEditBadge}>
-                            {uploadingAvatar
-                                ? <ActivityIndicator size="small" color={Colors.textOn.primary} />
-                                : <Ionicons name="camera" size={12} color={Colors.textOn.primary} />
-                            }
+
+                        <View style={styles.mainContent}>
+                            <Text style={styles.avatarName}>{formatUsername(user.username)}</Text>
+                            {user.city ? <Text style={styles.avatarSub}>{user.city}{user.country ? `, ${user.country}` : ''}</Text> : null}
+                            {user.bio ? <Text style={styles.profileBioText}>{user.bio}</Text> : null}
+                            {user.interests.length > 0 ? (
+                                <View style={styles.profileSummaryInterests}>
+                                    {user.interests.slice(0, MAX_INTERESTS).map((interest) => (
+                                        <View key={interest} style={styles.profileSummaryInterestChip}>
+                                            <Text style={styles.profileSummaryInterestChipText}>{interest}</Text>
+                                        </View>
+                                    ))}
+                                </View>
+                            ) : null}
+                            <SobrietyCounter soberSince={user.sober_since} compact style={styles.profileSummarySobriety} />
+
+                            <View style={styles.profileActionRow}>
+                                <TouchableOpacity style={styles.profileEditButton} onPress={() => setSubView('edit-profile')}>
+                                    <Text style={styles.profileEditButtonText}>Edit Profile</Text>
+                                </TouchableOpacity>
+                            </View>
+
+                            <View style={styles.profileContentTabsWrap}>
+                                <ProfileContentTabs activeTab={activeContentTab} onChange={setActiveContentTab} />
+                            </View>
+                            {userPostsQuery.isLoading && activeContentTab === 'posts' ? (
+                                <ActivityIndicator color={Colors.primary} style={styles.profilePostsLoader} />
+                            ) : activeContentItems.length > 0 ? (
+                                <View style={styles.profilePostList}>
+                                    {activeContentItems.map((item) => (
+                                        <ProfilePostCard
+                                            key={item.id}
+                                            post={item}
+                                            onPressComments={handleOpenPostComments}
+                                        />
+                                    ))}
+                                </View>
+                            ) : (
+                                <ProfileEmptyTabState tab={activeContentTab} username={formatUsername(user.username)} />
+                            )}
                         </View>
-                    </TouchableOpacity>
-                </View>
-
-	                <View style={styles.mainContent}>
-	                    <Text style={styles.avatarName}>{formatUsername(user.username)}</Text>
-	                    {user.city ? <Text style={styles.avatarSub}>{user.city}{user.country ? `, ${user.country}` : ''}</Text> : null}
-	                    {user.bio ? <Text style={styles.profileBioText}>{user.bio}</Text> : null}
-	                    {user.interests.length > 0 ? (
-	                        <View style={styles.profileSummaryInterests}>
-	                            {user.interests.slice(0, MAX_INTERESTS).map((interest) => (
-	                                <View key={interest} style={styles.profileSummaryInterestChip}>
-	                                    <Text style={styles.profileSummaryInterestChipText}>{interest}</Text>
-	                                </View>
-	                            ))}
-	                        </View>
-	                    ) : null}
-	                    <SobrietyCounter soberSince={user.sober_since} compact style={styles.profileSummarySobriety} />
-
-	                    <View style={styles.statsRow}>
-	                        <View style={styles.statItem}>
-	                            <Text style={styles.statCount}>{ownPosts.length}</Text>
-                            <Text style={styles.statLabel}>Posts</Text>
-                        </View>
-                        <View style={styles.statDivider} />
-                        <TouchableOpacity style={styles.statItem} onPress={() => setSubView('friends')}>
-                            <Text style={styles.statCount}>{user.friend_count}</Text>
-                            <Text style={styles.statLabel}>Friends</Text>
-                        </TouchableOpacity>
-                        <View style={styles.statDivider} />
-                        <TouchableOpacity style={styles.statItem} onPress={() => setSubView('requests')}>
-                            <Text style={styles.statCount}>{user.incoming_friend_request_count + user.outgoing_friend_request_count}</Text>
-	                            <Text style={styles.statLabel}>Requests</Text>
-	                        </TouchableOpacity>
-	                    </View>
-
-	                    <View style={styles.profileActionRow}>
-	                        <TouchableOpacity style={styles.profileEditButton} onPress={() => setSubView('edit-profile')}>
-	                            <Text style={styles.profileEditButtonText}>Edit Profile</Text>
-	                        </TouchableOpacity>
-	                    </View>
-
-	                    <View style={styles.profileContentTabsWrap}>
-	                        <ProfileContentTabs activeTab={activeContentTab} onChange={setActiveContentTab} />
-	                    </View>
-                    {userPostsQuery.isLoading && activeContentTab === 'posts' ? (
-                        <ActivityIndicator color={Colors.primary} style={styles.profilePostsLoader} />
-                    ) : activeContentItems.length > 0 ? (
-                        <View style={styles.profilePostList}>
-                            {activeContentItems.map((item) => (
-                                <ProfilePostCard
-                                    key={item.id}
-                                    post={item}
-                                    onPressComments={handleOpenPostComments}
-                                />
-                            ))}
-                        </View>
-	                    ) : (
-	                        <ProfileEmptyTabState tab={activeContentTab} username={formatUsername(user.username)} />
-	                    )}
-	                </View>
                     </>
                 ) : null}
 
@@ -1067,50 +1020,21 @@ const styles = StyleSheet.create({
 
     content: { paddingBottom: Spacing.md },
     mainContent: { gap: 0, paddingHorizontal: Spacing.md },
-
-    bannerTouch: {
-        marginHorizontal: Spacing.md,
-        borderRadius: Radius.lg,
-        overflow: 'hidden',
-    },
-    banner: { height: 140 },
-    bannerPlaceholder: {
-        height: 140,
-        backgroundColor: Colors.bg.surface,
-        borderWidth: 0.5,
-        borderColor: Colors.border.default,
-        borderRadius: Radius.lg,
+    profileTopRow: {
+        flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'center',
-        gap: Spacing.xs,
-        paddingBottom: Spacing.xl,
-    },
-    bannerPlaceholderText: {
-        fontSize: Typography.sizes.sm,
-        color: Colors.text.muted,
-    },
-    bannerCameraBtn: {
-        position: 'absolute',
-        bottom: Spacing.sm,
-        right: Spacing.sm,
-        width: 28,
-        height: 28,
-        borderRadius: 14,
-        backgroundColor: 'rgba(0,0,0,0.45)',
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    avatarOverlapRow: {
-        marginHorizontal: Spacing.md,
-        marginTop: -56,
-        marginBottom: Spacing.sm,
-        alignItems: 'center',
+        gap: Spacing.lg,
+        paddingHorizontal: Spacing.md,
+        paddingTop: Spacing.lg,
+        paddingBottom: Spacing.md,
     },
     avatarBorder: {
-        width: 118,
-        height: 118,
-        borderRadius: 59,
+        width: 96,
+        height: 96,
+        borderRadius: 48,
         backgroundColor: Colors.bg.page,
+        borderWidth: 2,
+        borderColor: Colors.border.emphasis,
         alignItems: 'center',
         justifyContent: 'center',
     },
@@ -1163,16 +1087,16 @@ const styles = StyleSheet.create({
     },
 
     statsRow: {
+        flex: 1,
         flexDirection: 'row',
-        backgroundColor: Colors.bg.surface,
-        borderRadius: Radius.md,
-        marginBottom: Spacing.md,
-        overflow: 'hidden',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: Spacing.sm,
     },
-    statItem: { flex: 1, alignItems: 'center', paddingVertical: 14, gap: 2 },
+    statItem: { flex: 1, alignItems: 'center', gap: 2 },
     statCount: { fontSize: Typography.sizes.lg, fontWeight: '700', color: Colors.text.primary },
-    statLabel: { fontSize: Typography.sizes.xs, color: Colors.text.muted, letterSpacing: 0.4 },
-    statDivider: { width: 0.5, backgroundColor: Colors.border.default, marginVertical: 12 },
+    statLabel: { fontSize: Typography.sizes.xs, color: Colors.text.muted, letterSpacing: 0 },
+    statDivider: { width: 0.5, height: 34, backgroundColor: Colors.border.default },
     profileContentTabsWrap: {
         marginHorizontal: -Spacing.md,
         marginBottom: Spacing.sm,

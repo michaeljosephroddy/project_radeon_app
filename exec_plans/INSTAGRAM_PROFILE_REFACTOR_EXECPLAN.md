@@ -24,6 +24,7 @@ The work is primarily in the Expo app at `/home/michaelroddy/repos/project_radeo
 - [x] (2026-05-01 17:09Z) Cleaned up the current-user profile so editable Bio/Location/Interests/Identity/Sobriety cards live behind `Edit Profile` instead of appearing under the Posts tab.
 - [x] (2026-05-01 17:14Z) Moved the current user's basic bio/interests/sobriety summary and `Edit Profile` action above the Posts/Reposts/Tagged tabs.
 - [x] (2026-05-01 17:24Z) Changed profile posts from grid tiles to feed-style cards and wired their comment action into the existing comments modal.
+- [x] (2026-05-01 17:35Z) Removed the current-user profile banner and reshaped the profile home header into an avatar-left, stats-right Instagram-like layout.
 
 ## Surprises & Discoveries
 
@@ -48,6 +49,9 @@ The work is primarily in the Expo app at `/home/michaelroddy/repos/project_radeo
 - Decision: Keep current-user basic profile information above the content tabs.
     Rationale: The content tabs should switch between user content categories only. Basic profile information belongs with the avatar/name header, matching the public profile and Instagram-like hierarchy.
     Date/Author: 2026-05-01 / Codex.
+- Decision: Remove profile banners from the current-user profile home.
+    Rationale: Instagram profile screens emphasize avatar, stats, bio, and actions rather than a cover/banner image. Removing the banner also prevents the header from competing with the content tabs.
+    Date/Author: 2026-05-01 / Codex.
 - Decision: Implement Posts as real grid content and Reposts/Tagged as real tabs with empty states in this frontend pass.
     Rationale: The frontend can deliver the requested profile structure now without inventing API contracts that would 404. True repost and tagged data should be backed by explicit backend endpoints before the app requests them.
     Date/Author: 2026-05-01 / Codex.
@@ -57,7 +61,7 @@ The work is primarily in the Expo app at `/home/michaelroddy/repos/project_radeo
 
 ## Outcomes & Retrospective
 
-The frontend refactor is complete for the app. Public user profiles now use a compact Instagram-style header with icon tabs for Posts, Reposts, and Tagged. Posts render as feed-style cards, including pressable comment actions that open the existing comments modal. The current user's profile tab now shows basic profile information under the avatar/name area, keeps `Edit Profile` above the tabs, and uses the Posts/Reposts/Tagged strip only for content. Reposts and Tagged are intentionally empty until backend endpoints exist for those datasets.
+The frontend refactor is complete for the app. Public user profiles now use a compact Instagram-style header with icon tabs for Posts, Reposts, and Tagged. Posts render as feed-style cards, including pressable comment actions that open the existing comments modal. The current user's profile tab no longer has a banner; it starts with an avatar-left, stats-right profile header, shows basic profile information under that header, keeps `Edit Profile` above the tabs, and uses the Posts/Reposts/Tagged strip only for content. Reposts and Tagged are intentionally empty until backend endpoints exist for those datasets.
 
 ## Context and Orientation
 
