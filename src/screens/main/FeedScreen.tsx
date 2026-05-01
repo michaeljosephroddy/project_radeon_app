@@ -156,6 +156,7 @@ const PostCard = React.memo(function PostCard({
                         <Text style={styles.postName}>{formatUsername(post.username)}</Text>
                         <Text style={styles.postMeta}>{formatReadableTimestamp(post.created_at)}</Text>
                     </View>
+                    {post.source_label ? <Text style={styles.postSource}>{post.source_label}</Text> : null}
                 </View>
                 <TouchableOpacity style={styles.headActionButton} onPress={handleOpenActions}>
                     <Ionicons name="ellipsis-horizontal" size={18} color={Colors.text.muted} />
@@ -1247,6 +1248,9 @@ function feedItemToPost(item: api.FeedItem): api.Post {
         username: item.author.username,
         avatar_url: item.author.avatar_url ?? undefined,
         body: item.body,
+        source_type: item.source_type,
+        source_id: item.source_id,
+        source_label: item.source_label,
         created_at: item.created_at,
         comment_count: item.comment_count,
         like_count: item.like_count,
@@ -1414,6 +1418,7 @@ const styles = StyleSheet.create({
     postName: { fontSize: Typography.sizes.md, fontWeight: '500', color: Colors.text.primary },
     postContent: { paddingHorizontal: Spacing.md, paddingBottom: Spacing.sm },
     postMeta: { fontSize: Typography.sizes.xs, color: Colors.text.muted },
+    postSource: { fontSize: Typography.sizes.xs, fontWeight: '600', color: Colors.primary, marginTop: 2 },
     reshareLabel: { fontSize: Typography.sizes.xs, color: Colors.primary, fontWeight: '600' },
     postBody: { fontSize: Typography.sizes.base, color: Colors.text.secondary, lineHeight: 19 },
     postImage: {

@@ -146,6 +146,9 @@ export interface Post {
     username: string;
     avatar_url?: string;
     body: string;
+    source_type?: 'daily_reflection' | string | null;
+    source_id?: string | null;
+    source_label?: string | null;
     created_at: string;
     comment_count: number;
     like_count: number;
@@ -186,6 +189,9 @@ export interface EmbeddedPost {
     post_id: string;
     author: FeedActor;
     body: string;
+    source_type?: 'daily_reflection' | string | null;
+    source_id?: string | null;
+    source_label?: string | null;
     images: PostImage[];
     created_at: string;
     like_count: number;
@@ -207,6 +213,9 @@ export interface FeedItem {
     served_at_key: string;
     author: FeedActor;
     body: string;
+    source_type?: 'daily_reflection' | string | null;
+    source_id?: string | null;
+    source_label?: string | null;
     images: PostImage[];
     created_at: string;
     like_count: number;
@@ -671,6 +680,30 @@ export interface UpdateMeInput {
     lng?: number;
 }
 
+export interface DailyReflection {
+    id: string;
+    user_id: string;
+    reflection_date: string;
+    prompt_key?: string | null;
+    prompt_text?: string | null;
+    grateful_for?: string | null;
+    on_mind?: string | null;
+    blocking_today?: string | null;
+    body: string;
+    shared_post_id?: string | null;
+    created_at: string;
+    updated_at: string;
+}
+
+export interface UpsertDailyReflectionInput {
+    prompt_key?: string | null;
+    prompt_text?: string | null;
+    grateful_for?: string | null;
+    on_mind?: string | null;
+    blocking_today?: string | null;
+    body: string;
+}
+
 export interface RegisterInput {
     username: string;
     email: string;
@@ -764,6 +797,38 @@ export async function updateMyCurrentLocation(data: { lat: number; lng: number; 
 // Fetches a public profile for another user by id.
 export async function getUser(id: string): Promise<User> {
     return request(`/users/${id}`);
+}
+
+// ── Daily reflections ─────────────────────────────────────────────────────
+
+export async function getTodayReflection(): Promise<DailyReflection | null> {
+    return request('/reflections/today');
+}
+
+export async function upsertTodayReflection(input: UpsertDailyReflectionInput): Promise<DailyReflection> {
+    return request('/reflections/today', { method: 'PUT', body: JSON.stringify(input) });
+}
+
+export async function listReflections(cursor?: string, limit = 20): Promise<CursorResponse<DailyReflection>> {
+    const search = new URLSearchParams({ limit: String(limit) });
+    if (cursor) search.set('before', cursor);
+    return request(`/reflections?${search.toString()}`);
+}
+
+export async function getReflection(id: string): Promise<DailyReflection> {
+    return request(`/reflections/${id}`);
+}
+
+export async function updateReflection(id: string, input: Partial<UpsertDailyReflectionInput>): Promise<DailyReflection> {
+    return request(`/reflections/${id}`, { method: 'PATCH', body: JSON.stringify(input) });
+}
+
+export async function deleteReflection(id: string): Promise<void> {
+    await request(`/reflections/${id}`, { method: 'DELETE' });
+}
+
+export async function shareReflection(id: string): Promise<{ post_id: string }> {
+    return request(`/reflections/${id}/share`, { method: 'POST' });
 }
 
 // Loads the curated interest catalog used in profile editing.

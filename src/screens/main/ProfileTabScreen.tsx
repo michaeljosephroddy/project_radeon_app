@@ -11,6 +11,7 @@ import { Avatar } from '../../components/Avatar';
 import { PrimaryButton } from '../../components/ui/PrimaryButton';
 import { ScreenHeader } from '../../components/ui/ScreenHeader';
 import { SectionLabel } from '../../components/ui/SectionLabel';
+import { SobrietyCounter } from '../../components/SobrietyCounter';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { TextField } from '../../components/ui/TextField';
 import { SettingsScreen } from './SettingsScreen';
@@ -22,7 +23,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { Colors, Typography, Spacing, Radius } from '../../theme';
 import { formatUsername } from '../../utils/identity';
 import { formatBirthDateValue, GENDER_SEGMENTS, getGenderLabel } from '../../utils/profileIdentity';
-import { formatRecoveryDuration, formatSobrietyDate, getRecoveryMilestone } from '../../utils/date';
+import { formatSobrietyDate } from '../../utils/date';
 import { screenStandards } from '../../styles/screenStandards';
 
 type SubView = 'profile' | 'friends' | 'requests' | 'settings' | 'hidden-content';
@@ -76,7 +77,6 @@ export function ProfileTabScreen({ isActive, onOpenUserProfile, onBack }: Profil
     const interestsQuery = useInterests(isActive);
     const availableInterests = interestsQuery.data ?? [];
     const formattedSobrietyDate = formatSobrietyDate(soberSince);
-    const recoveryMilestone = getRecoveryMilestone(soberSince);
     const sobrietyFieldValue = formattedSobrietyDate || soberSince || 'Not set';
     const bioCharactersRemaining = MAX_BIO_LENGTH - bio.length;
     const allInterestOptions = Array.from(new Set([...availableInterests, ...selectedInterests])).sort((a, b) => a.localeCompare(b));
@@ -869,27 +869,8 @@ export function ProfileTabScreen({ isActive, onOpenUserProfile, onBack }: Profil
                         <SectionLabel>SOBRIETY</SectionLabel>
                     </View>
                     <View style={styles.fieldGroup}>
-                        {formattedSobrietyDate && recoveryMilestone && (
-                            <>
-                                <View style={styles.sobrietySummary}>
-                                    <View style={styles.sobrietySummaryHeader}>
-                                        <Text style={styles.sobrietySummaryTitle}>Sober since {formattedSobrietyDate}</Text>
-                                        <View style={styles.milestoneBadge}>
-                                            <Text style={styles.milestoneBadgeText}>{recoveryMilestone.currentLabel}</Text>
-                                        </View>
-                                    </View>
-                                    <Text style={styles.sobrietySummaryValue}>
-                                        {formatRecoveryDuration(recoveryMilestone.daysSober)}
-                                    </Text>
-                                    <Text style={styles.sobrietySummaryHint}>
-                                        {recoveryMilestone.nextLabel && recoveryMilestone.daysToNext
-                                            ? `${recoveryMilestone.daysToNext} days to ${recoveryMilestone.nextLabel}`
-                                            : 'Longest milestone badge unlocked'}
-                                    </Text>
-                                </View>
-                                <View style={styles.fieldDivider} />
-                            </>
-                        )}
+                        <SobrietyCounter soberSince={soberSince} style={styles.sobrietyCounter} />
+                        {soberSince ? <View style={styles.fieldDivider} /> : null}
                         <View style={styles.sectionCardHeader}>
                             <Text style={styles.sectionCardTitle}>Sober since</Text>
                             {editingSection === 'sobriety' ? null : (
@@ -1240,6 +1221,9 @@ const styles = StyleSheet.create({
     },
     sectionPrimaryButton: {
         minWidth: 82,
+    },
+    sobrietyCounter: {
+        borderRadius: 0,
     },
     sobrietySummary: {
         paddingHorizontal: Spacing.md,
