@@ -16,6 +16,7 @@ import { ProfileTabScreen } from '../screens/main/ProfileTabScreen';
 import { ChatScreen } from '../screens/main/ChatScreen';
 import { NotificationsScreen } from '../screens/main/NotificationsScreen';
 import { ComposeDMScreen } from '../screens/main/ComposeDMScreen';
+import { DailyReflectionScreen } from '../screens/main/DailyReflectionScreen';
 import { UserProfileScreen } from '../screens/main/UserProfileScreen';
 import { MeetupDetailScreen } from '../screens/main/MeetupDetailScreen';
 import { Avatar } from '../components/Avatar';
@@ -104,6 +105,7 @@ export function AppNavigator() {
     const [openMeetup, setOpenMeetup] = useState<api.Meetup | null>(null);
     const [plusUpsellOpen, setPlusUpsellOpen] = useState(false);
     const [notificationsOpen, setNotificationsOpen] = useState(false);
+    const [reflectionOpen, setReflectionOpen] = useState(false);
     const [openComments, setOpenComments] = useState<{
         thread: CommentThreadTarget;
         focusComposer: boolean;
@@ -120,6 +122,7 @@ export function AppNavigator() {
     const inMeetupDetail = openMeetup !== null;
     const inPlusUpsell = plusUpsellOpen;
     const inNotifications = notificationsOpen;
+    const inReflection = reflectionOpen;
     const inComments = openComments !== null;
 
     const handleOpenUserProfile = useCallback((profile: OpenUserProfile) => {
@@ -146,6 +149,7 @@ export function AppNavigator() {
 
     const openNotifications = useCallback(() => {
         setNotificationsOpen(true);
+        setReflectionOpen(false);
         setOpenChat(null);
         setOpenUserProfile(null);
         setOwnProfileOpen(false);
@@ -158,10 +162,26 @@ export function AppNavigator() {
         setNotificationsOpen(false);
     }, []);
 
+    const openReflection = useCallback(() => {
+        setReflectionOpen(true);
+        setNotificationsOpen(false);
+        setOpenChat(null);
+        setOpenUserProfile(null);
+        setOwnProfileOpen(false);
+        setPendingDM(null);
+        setOpenMeetup(null);
+        setPlusUpsellOpen(false);
+    }, []);
+
+    const closeReflection = useCallback(() => {
+        setReflectionOpen(false);
+    }, []);
+
     const handleCloseChat = useCallback(() => {
         Keyboard.dismiss();
         setOpenChat(null);
         setNotificationsOpen(false);
+        setReflectionOpen(false);
         setOpenComments(null);
         setKeyboardVisible(false);
     }, []);
@@ -213,6 +233,7 @@ export function AppNavigator() {
     const handleOpenNotificationChat = useCallback(async (chatId: string) => {
         const chat = await api.getChat(chatId);
         setNotificationsOpen(false);
+        setReflectionOpen(false);
         setActiveTab('chats');
         setOwnProfileOpen(false);
         setOpenUserProfile(null);
@@ -224,6 +245,7 @@ export function AppNavigator() {
 
     const handleOpenNotificationMention = useCallback((target: { postId: string; commentId?: string }) => {
         setNotificationsOpen(false);
+        setReflectionOpen(false);
         setActiveTab('community');
         setOpenChat(null);
         setOpenUserProfile(null);
@@ -305,6 +327,7 @@ export function AppNavigator() {
                     setOwnProfileOpen(false);
                     setOpenUserProfile(null);
                     setNotificationsOpen(false);
+                    setReflectionOpen(false);
                     setOpenChat(chat);
                 } finally {
                     if (!cancelled) consumeIntent();
@@ -320,6 +343,7 @@ export function AppNavigator() {
         setOpenUserProfile(null);
         setOwnProfileOpen(false);
         setNotificationsOpen(false);
+        setReflectionOpen(false);
         setFeedFocusRequest({
             postId: intent.postId,
             commentId: intent.commentId,
@@ -329,7 +353,7 @@ export function AppNavigator() {
     }, [consumeIntent, intent]);
 
     const header = useMemo(() => {
-        if (inChat || inUserProfile || inOwnProfile || inComposeDM || inMeetupDetail || inPlusUpsell || inNotifications) return null;
+        if (inChat || inUserProfile || inOwnProfile || inComposeDM || inMeetupDetail || inPlusUpsell || inNotifications || inReflection) return null;
 
         const titles: Record<Tab, React.ReactNode> = {
             community: (
@@ -347,6 +371,13 @@ export function AppNavigator() {
             <View style={styles.topBar}>
                 {titles[activeTab]}
                 <View style={styles.topBarActions}>
+                    <TouchableOpacity
+                        style={styles.headerIconButton}
+                        onPress={openReflection}
+                        disabled={!user}
+                    >
+                        <Ionicons name="create-outline" size={22} color={Colors.text.primary} />
+                    </TouchableOpacity>
                     <TouchableOpacity
                         style={styles.headerIconButton}
                         onPress={openNotifications}
@@ -371,9 +402,9 @@ export function AppNavigator() {
             </View>
         );
     }, [
-        activeTab, inChat, inComposeDM, inMeetupDetail, inNotifications,
+        activeTab, inChat, inComposeDM, inMeetupDetail, inNotifications, inReflection,
         inOwnProfile, inPlusUpsell, inUserProfile, notificationSummary?.unread_count,
-        openNotifications, openOwnProfile, user,
+        openNotifications, openOwnProfile, openReflection, user,
     ]);
 
     const overlays = useMemo(() => (
@@ -446,16 +477,25 @@ export function AppNavigator() {
                     />
                 </View>
             )}
+            {inReflection && user && (
+                <View style={StyleSheet.absoluteFill}>
+                    <DailyReflectionScreen
+                        currentUserId={user.id}
+                        isActive={inReflection}
+                        onBack={closeReflection}
+                    />
+                </View>
+            )}
         </>
     ), [
-        inOwnProfile, inUserProfile, inChat, inComposeDM, inMeetupDetail, inPlusUpsell, inNotifications,
+        inOwnProfile, inUserProfile, inChat, inComposeDM, inMeetupDetail, inPlusUpsell, inNotifications, inReflection,
         openUserProfile, openChat, pendingDM, openMeetup,
         handleOpenUserProfile, handleCloseChat, closeUserProfile, closeOwnProfile,
         handleComposeDM, handleComposeDMComplete, handleCloseMeetup, closePlusUpsell,
-        closeNotifications, handleOpenNotificationChat, handleOpenNotificationMention,
+        closeNotifications, closeReflection, handleOpenNotificationChat, handleOpenNotificationMention, user,
     ]);
 
-    const isOverlayOpen = inChat || inUserProfile || inOwnProfile || inComposeDM || inMeetupDetail || inPlusUpsell || inNotifications;
+    const isOverlayOpen = inChat || inUserProfile || inOwnProfile || inComposeDM || inMeetupDetail || inPlusUpsell || inNotifications || inReflection;
 
     return (
         <>
@@ -483,7 +523,7 @@ export function AppNavigator() {
                     {overlays}
                 </View>
 
-                {!inChat && !inUserProfile && !inOwnProfile && !inComposeDM && !inMeetupDetail && !inNotifications && !keyboardVisible && (
+                {!inChat && !inUserProfile && !inOwnProfile && !inComposeDM && !inMeetupDetail && !inNotifications && !inReflection && !keyboardVisible && (
                     <View style={[styles.tabBar, { paddingBottom: insets.bottom + 6 }]}>
                         {TABS.map(tab => (
                             <TouchableOpacity

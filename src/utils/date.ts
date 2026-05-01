@@ -108,3 +108,65 @@ export function formatRecoveryDuration(daysSober: number): string {
     if (daysSober === 1) return '1 day in recovery';
     return `${daysSober} days in recovery`;
 }
+
+export function getSoberDayCount(dateStr?: string): number | null {
+    const date = parseDateOnly(dateStr);
+    if (!date) return null;
+
+    const daysSober = getDayDifference(date, new Date());
+    return daysSober < 0 ? null : daysSober;
+}
+
+export function formatSoberCounter(dateStr?: string): string {
+    const start = parseDateOnly(dateStr);
+    if (!start) return '';
+
+    const now = new Date();
+    const daysSober = getDayDifference(start, now);
+    if (daysSober < 0) return '';
+    if (daysSober === 0) return 'Sober today';
+    if (daysSober === 1) return '1 day';
+    if (daysSober < 31) return `${daysSober} days`;
+
+    const duration = getCalendarDuration(start, now);
+    const parts: string[] = [];
+    if (duration.years > 0) parts.push(`${duration.years} ${duration.years === 1 ? 'year' : 'years'}`);
+    if (duration.months > 0) parts.push(`${duration.months} ${duration.months === 1 ? 'month' : 'months'}`);
+    if (duration.days > 0 && parts.length < 2) parts.push(`${duration.days} ${duration.days === 1 ? 'day' : 'days'}`);
+
+    return parts.length > 0 ? parts.join(', ') : `${daysSober} days`;
+}
+
+export function formatSoberSinceLine(dateStr?: string): string {
+    const formatted = formatSobrietyDate(dateStr);
+    return formatted ? `Since ${formatted}` : '';
+}
+
+function getCalendarDuration(start: Date, end: Date): { years: number; months: number; days: number } {
+    let years = end.getFullYear() - start.getFullYear();
+    let anchor = addCalendarMonths(start, years * 12);
+    if (anchor > end) {
+        years -= 1;
+        anchor = addCalendarMonths(start, years * 12);
+    }
+
+    let months = (end.getFullYear() - anchor.getFullYear()) * 12 + end.getMonth() - anchor.getMonth();
+    let monthAnchor = addCalendarMonths(anchor, months);
+    if (monthAnchor > end) {
+        months -= 1;
+        monthAnchor = addCalendarMonths(anchor, months);
+    }
+
+    return {
+        years,
+        months,
+        days: Math.max(0, getDayDifference(monthAnchor, end)),
+    };
+}
+
+function addCalendarMonths(date: Date, months: number): Date {
+    const result = new Date(date.getFullYear(), date.getMonth() + months, 1, 12);
+    const maxDay = new Date(result.getFullYear(), result.getMonth() + 1, 0).getDate();
+    result.setDate(Math.min(date.getDate(), maxDay));
+    return result;
+}

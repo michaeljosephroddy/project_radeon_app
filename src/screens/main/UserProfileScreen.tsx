@@ -9,6 +9,7 @@ import { EmptyState } from '../../components/ui/EmptyState';
 import { ScreenHeader } from '../../components/ui/ScreenHeader';
 import { ScrollToTopButton } from '../../components/ui/ScrollToTopButton';
 import { SectionLabel } from '../../components/ui/SectionLabel';
+import { SobrietyCounter } from '../../components/SobrietyCounter';
 import * as api from '../../api/client';
 import { useGuardedEndReached } from '../../hooks/useGuardedEndReached';
 import { useUserProfile } from '../../hooks/queries/useUserProfile';
@@ -21,7 +22,6 @@ import { dedupeById } from '../../utils/list';
 import { getListPerformanceProps } from '../../utils/listPerformance';
 import { Colors, Typography, Spacing, Radius, ContentInsets } from '../../theme';
 import { formatUsername } from '../../utils/identity';
-import { formatRecoveryDuration, formatSobrietyDate, getRecoveryMilestone } from '../../utils/date';
 
 // Formats profile post timestamps into compact relative labels.
 function timeAgo(dateStr: string): string {
@@ -64,8 +64,6 @@ export function UserProfileScreen({
     const loadingMorePosts = userPostsQuery.isFetchingNextPage;
     const postsHasMore = userPostsQuery.hasNextPage ?? false;
     const friendshipStatus = profile?.friendship_status === 'self' ? 'friends' : (profile?.friendship_status ?? 'none');
-    const formattedSobrietyDate = formatSobrietyDate(profile?.sober_since);
-    const recoveryMilestone = getRecoveryMilestone(profile?.sober_since);
 
     const onRefresh = async () => {
         resetInfiniteQueryToFirstPage(queryClient, queryKeys.userPosts(userId, 20));
@@ -157,25 +155,7 @@ export function UserProfileScreen({
                                 ))}
                             </View>
                         ) : null}
-                        {formattedSobrietyDate && (
-                            <Text style={styles.meta}>Sober since {formattedSobrietyDate}</Text>
-                        )}
-                        {recoveryMilestone && (
-                            <View style={styles.milestoneCard}>
-                                <Text style={styles.milestoneLabel}>MILESTONE</Text>
-                                <View style={styles.milestoneBadge}>
-                                    <Text style={styles.milestoneBadgeText}>{recoveryMilestone.currentLabel}</Text>
-                                </View>
-                                <Text style={styles.milestoneValue}>
-                                    {formatRecoveryDuration(recoveryMilestone.daysSober)}
-                                </Text>
-                                <Text style={styles.milestoneHint}>
-                                    {recoveryMilestone.nextLabel && recoveryMilestone.daysToNext
-                                        ? `${recoveryMilestone.daysToNext} days to ${recoveryMilestone.nextLabel}`
-                                        : 'Longest milestone badge unlocked'}
-                                </Text>
-                            </View>
-                        )}
+                        <SobrietyCounter soberSince={profile?.sober_since} compact style={styles.sobrietyCounter} />
                     </>
                 )}
 
@@ -236,6 +216,7 @@ export function UserProfileScreen({
                             <View style={styles.postHeadBody}>
                                 <Text style={styles.postName}>{formatUsername(item.username)}</Text>
                                 <Text style={styles.postMeta}>{timeAgo(item.created_at)}</Text>
+                                {item.source_label ? <Text style={styles.postSource}>{item.source_label}</Text> : null}
                             </View>
                         </View>
                         {!!item.body && <Text style={styles.postBody}>{item.body}</Text>}
@@ -353,6 +334,10 @@ const styles = StyleSheet.create({
         fontWeight: '500',
         color: Colors.text.secondary,
     },
+    sobrietyCounter: {
+        width: '100%',
+        marginTop: Spacing.md,
+    },
     milestoneCard: {
         width: '100%',
         backgroundColor: Colors.bg.surface,
@@ -443,6 +428,7 @@ const styles = StyleSheet.create({
     postHeadBody: { flex: 1 },
     postName: { fontSize: Typography.sizes.md, fontWeight: '500', color: Colors.text.primary },
     postMeta: { fontSize: Typography.sizes.xs, color: Colors.text.muted, marginTop: 1 },
+    postSource: { fontSize: Typography.sizes.xs, color: Colors.primary, marginTop: 2, fontWeight: '600' },
     postBody: {
         fontSize: Typography.sizes.base,
         color: Colors.text.secondary,
