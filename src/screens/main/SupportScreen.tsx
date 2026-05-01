@@ -28,7 +28,7 @@ import { useMySupportRequests, useSupportRequests } from '../../hooks/queries/us
 import { resetInfiniteQueryToFirstPage } from '../../query/infiniteQueryPolicy';
 import { queryKeys } from '../../query/queryKeys';
 import { screenStandards } from '../../styles/screenStandards';
-import { Colors, Radius, Spacing, Typography } from '../../theme';
+import { Colors, ContentInsets, Radius, Spacing, Typography } from '../../theme';
 import { formatUsername } from '../../utils/identity';
 import { dedupeById } from '../../utils/list';
 import { getListPerformanceProps } from '../../utils/listPerformance';
@@ -228,6 +228,10 @@ function SupportRequestCard({
             </View>
         </View>
     );
+}
+
+function SupportRequestSeparator() {
+    return <View style={styles.requestSeparator} />;
 }
 
 export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: SupportScreenProps) {
@@ -849,6 +853,7 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
                         />
                     }
                     ListFooterComponent={myRequestsQuery.isFetchingNextPage ? <ActivityIndicator style={styles.footerLoader} color={Colors.primary} /> : null}
+                    ItemSeparatorComponent={SupportRequestSeparator}
                     renderItem={renderCard}
                 />
                 {isActive && scrollToTop.isVisible ? (
@@ -912,6 +917,7 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
                     />
                 }
                 ListFooterComponent={feedQuery.isFetchingNextPage ? <ActivityIndicator style={styles.footerLoader} color={Colors.primary} /> : null}
+                ItemSeparatorComponent={SupportRequestSeparator}
                 renderItem={renderCard}
             />
             {isActive && scrollToTop.isVisible ? (
@@ -928,12 +934,14 @@ const styles = StyleSheet.create({
     supportTabs: { marginBottom: Spacing.sm },
     nestedTabs: { marginBottom: Spacing.md },
     card: {
-        backgroundColor: Colors.bg.surface,
-        borderRadius: Radius.lg,
-        borderWidth: 1,
-        borderColor: Colors.border.default,
+        backgroundColor: Colors.bg.page,
         padding: Spacing.md,
-        marginBottom: Spacing.sm,
+        marginHorizontal: -ContentInsets.screenHorizontal,
+    },
+    requestSeparator: {
+        height: 1,
+        backgroundColor: Colors.border.default,
+        marginHorizontal: -ContentInsets.screenHorizontal,
     },
     cardHead: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
     cardHeadBody: { flex: 1 },

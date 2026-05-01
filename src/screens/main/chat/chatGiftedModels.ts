@@ -16,9 +16,10 @@ export interface ChatGiftedMessage extends GiftedChatMessage {
 
 export function toGiftedChatMessages(
     messages: api.Message[],
-    currentUserId?: string,
+    currentUser?: ChatThreadCurrentUser,
     otherUserLastReadMessageId?: string | null,
 ): ChatGiftedMessage[] {
+    const currentUserId = currentUser?.id;
     const orderedMessages = [...messages];
     const messageIndexes = new Map(
         orderedMessages.map((message, index) => [message.id, index]),
@@ -40,8 +41,8 @@ export function toGiftedChatMessages(
             createdAt: new Date(message.sent_at),
             user: {
                 _id: isSystem ? 'system' : message.sender_id,
-                name: isSystem ? 'System' : formatUsername(message.username),
-                avatar: message.avatar_url,
+                name: isSystem ? 'System' : formatUsername(isOutgoing ? (currentUser?.username ?? message.username) : message.username),
+                avatar: isOutgoing ? (currentUser?.avatar_url ?? message.avatar_url) : message.avatar_url,
             },
             system: isSystem,
             sent: !pending,

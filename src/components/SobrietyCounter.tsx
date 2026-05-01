@@ -1,6 +1,6 @@
 import React from 'react';
 import { StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
-import { Colors, Radius, Spacing, Typography } from '../theme';
+import { Colors, Spacing, Typography } from '../theme';
 import { formatSoberCounter, formatSoberSinceLine } from '../utils/date';
 
 interface SobrietyCounterProps {
@@ -26,8 +26,9 @@ export function SobrietyCounter({ soberSince, style, compact = false }: Sobriety
 
 const styles = StyleSheet.create({
     container: {
-        backgroundColor: Colors.bg.surface,
-        borderRadius: Radius.md,
+        backgroundColor: Colors.bg.page,
+        borderBottomWidth: 1,
+        borderBottomColor: Colors.border.default,
         paddingHorizontal: Spacing.md,
         paddingVertical: Spacing.md,
         gap: 3,

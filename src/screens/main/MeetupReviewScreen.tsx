@@ -5,7 +5,7 @@ import { MeetupEventTypeBadge, formatMeetupEventTypeLabel } from '../../componen
 import { PrimaryButton } from '../../components/ui/PrimaryButton';
 import { ScreenHeader } from '../../components/ui/ScreenHeader';
 import { MeetupFormValues } from '../../components/events/MeetupFormState';
-import { Colors, Radius, Spacing, Typography } from '../../theme';
+import { Colors, ContentInsets, Radius, Spacing, Typography } from '../../theme';
 import { screenStandards } from '../../styles/screenStandards';
 
 interface MeetupReviewScreenProps {
@@ -199,11 +199,10 @@ const styles = StyleSheet.create({
         fontWeight: '600',
     },
     heroCard: {
-        backgroundColor: Colors.bg.surface,
-        borderRadius: Radius.xl,
-        borderWidth: 1,
-        borderColor: Colors.border.subtle,
-        overflow: 'hidden',
+        backgroundColor: Colors.bg.page,
+        borderBottomWidth: 1,
+        borderBottomColor: Colors.border.default,
+        marginHorizontal: -ContentInsets.screenHorizontal,
         marginBottom: Spacing.md,
     },
     coverImage: {
@@ -272,11 +271,12 @@ const styles = StyleSheet.create({
     },
     summaryCard: {
         gap: Spacing.xs,
-        padding: Spacing.md,
-        borderRadius: Radius.xl,
-        borderWidth: 1,
-        borderColor: Colors.border.subtle,
-        backgroundColor: Colors.bg.surface,
+        paddingHorizontal: ContentInsets.screenHorizontal,
+        paddingVertical: Spacing.md,
+        borderBottomWidth: 1,
+        borderBottomColor: Colors.border.default,
+        backgroundColor: Colors.bg.page,
+        marginHorizontal: -ContentInsets.screenHorizontal,
         marginBottom: Spacing.md,
     },
     summaryLabel: {

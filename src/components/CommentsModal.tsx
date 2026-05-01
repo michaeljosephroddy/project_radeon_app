@@ -13,7 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Avatar } from './Avatar';
 import { ScreenHeader } from './ui/ScreenHeader';
 import * as api from '../api/client';
-import { Colors, Header, Typography, Spacing, Radius } from '../theme';
+import { Colors, Header, Typography, Spacing } from '../theme';
 import { formatUsername } from '../utils/identity';
 import { formatReadableTimestamp } from '../utils/date';
 import { composerStandards } from '../styles/composerStandards';
@@ -554,11 +554,14 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
     },
     list: {
-        padding: Spacing.md,
+        paddingTop: Spacing.sm,
+        paddingBottom: Spacing.md,
         flexGrow: 1,
     },
     separator: {
-        height: Spacing.sm,
+        height: 1,
+        backgroundColor: Colors.border.default,
+        marginLeft: Spacing.md + 28 + Spacing.sm,
     },
     empty: {
         fontSize: Typography.sizes.sm,
@@ -611,18 +614,15 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'flex-start',
         gap: Spacing.sm,
+        paddingHorizontal: Spacing.md,
+        paddingVertical: Spacing.sm,
     },
     commentBodyWrap: {
         flex: 1,
         minWidth: 0,
     },
     commentBubble: {
-        backgroundColor: Colors.bg.surface,
-        borderRadius: Radius.md,
-        paddingHorizontal: Spacing.sm,
-        paddingVertical: 8,
-        borderWidth: 0.5,
-        borderColor: Colors.border.default,
+        backgroundColor: Colors.bg.page,
     },
     commentHeader: {
         flexDirection: 'row',

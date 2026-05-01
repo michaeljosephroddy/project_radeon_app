@@ -1,12 +1,23 @@
 import { StyleSheet } from 'react-native';
-import { Colors, Radius, Spacing } from '../theme';
+import { Colors, Spacing } from '../theme';
+
+const dataCardSeparator = {
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border.default,
+};
 
 export const commonStyles = StyleSheet.create({
     card: {
-        backgroundColor: Colors.bg.surface,
-        borderRadius: Radius.lg,
-        borderWidth: 1,
-        borderColor: Colors.border.default,
+        backgroundColor: Colors.bg.page,
+        ...dataCardSeparator,
+    },
+    dataCard: {
+        backgroundColor: Colors.bg.page,
+        ...dataCardSeparator,
+    },
+    dataSeparator: {
+        height: 1,
+        backgroundColor: Colors.border.default,
     },
     emptyState: {
         alignItems: 'center',

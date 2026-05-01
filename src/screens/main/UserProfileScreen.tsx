@@ -410,13 +410,9 @@ const styles = StyleSheet.create({
     },
 
     postCard: {
-        backgroundColor: Colors.bg.surface,
-        borderRadius: Radius.lg,
-        borderWidth: 1,
-        borderColor: Colors.border.default,
-        marginHorizontal: Spacing.md,
-        marginBottom: Spacing.sm,
-        overflow: 'hidden',
+        backgroundColor: Colors.bg.page,
+        borderBottomWidth: 1,
+        borderBottomColor: Colors.border.default,
     },
     postHead: {
         flexDirection: 'row',
@@ -447,8 +443,6 @@ const styles = StyleSheet.create({
         gap: 14,
         paddingHorizontal: Spacing.md,
         paddingVertical: 10,
-        borderTopWidth: 0.5,
-        borderTopColor: Colors.border.default,
     },
     postAction: { flexDirection: 'row', alignItems: 'center', gap: 4 },
     postActionText: { fontSize: Typography.sizes.sm, color: Colors.text.muted },

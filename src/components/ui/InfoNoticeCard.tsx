@@ -6,7 +6,7 @@ import {
     View,
     ViewStyle,
 } from 'react-native';
-import { Colors, Typography } from '../../theme';
+import { Colors, Radius, Typography } from '../../theme';
 import { SurfaceCard } from './SurfaceCard';
 
 export interface InfoNoticeCardProps {
@@ -29,6 +29,8 @@ export function InfoNoticeCard({ title, description, style }: InfoNoticeCardProp
 const styles = StyleSheet.create({
     card: {
         backgroundColor: 'rgba(13,110,253,0.18)',
+        borderRadius: Radius.lg,
+        borderWidth: 1,
         borderColor: 'rgba(13,110,253,0.38)',
     },
     content: {

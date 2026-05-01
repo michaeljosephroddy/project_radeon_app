@@ -1200,7 +1200,6 @@ export function MeetupsScreen({ isActive, onOpenUserProfile, onOpenMeetup }: Mee
                         onScroll={activeView === 'discover' ? discoverScroll.onScroll : undefined}
                         scrollEventThrottle={16}
                         contentContainerStyle={screenStandards.listContent}
-                        ItemSeparatorComponent={() => <View style={styles.separator} />}
                         {...listProps}
                     />
                     {activeView === 'discover' && discoverScroll.isVisible ? (
@@ -1368,9 +1367,6 @@ const styles = StyleSheet.create({
     scopeControl: {
         marginTop: Spacing.sm,
         marginBottom: 0,
-    },
-    separator: {
-        height: Spacing.md,
     },
     loadingMore: {
         textAlign: 'center',

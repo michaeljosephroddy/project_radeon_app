@@ -7,7 +7,7 @@ import { Avatar } from '../../components/Avatar';
 import { ScreenHeader } from '../../components/ui/ScreenHeader';
 import * as api from '../../api/client';
 import { useGuardedEndReached } from '../../hooks/useGuardedEndReached';
-import { Colors, Typography, Spacing, Radius } from '../../theme';
+import { Colors, ContentInsets, Typography, Spacing, Radius } from '../../theme';
 import { formatReadableTimestamp } from '../../utils/date';
 import { formatUsername } from '../../utils/identity';
 
@@ -155,8 +155,8 @@ const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: Colors.bg.page },
     center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
     listContent: {
-        padding: Spacing.md,
-        gap: Spacing.sm,
+        paddingTop: Spacing.md,
+        paddingBottom: Spacing.md,
     },
     emptyContent: {
         flexGrow: 1,
@@ -170,12 +170,12 @@ const styles = StyleSheet.create({
         textAlign: 'center',
     },
     card: {
-        backgroundColor: Colors.bg.surface,
-        borderRadius: Radius.lg,
-        borderWidth: 1,
-        borderColor: Colors.border.default,
+        backgroundColor: Colors.bg.page,
+        borderBottomWidth: 1,
+        borderBottomColor: Colors.border.default,
         padding: Spacing.md,
         gap: Spacing.sm,
+        paddingHorizontal: ContentInsets.screenHorizontal,
     },
     cardMain: {
         flexDirection: 'row',

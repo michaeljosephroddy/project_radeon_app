@@ -25,12 +25,11 @@ import { useAuth } from '../../hooks/useAuth';
 import { resetInfiniteQueryToFirstPage } from '../../query/infiniteQueryPolicy';
 import { queryKeys } from '../../query/queryKeys';
 import { getListPerformanceProps } from '../../utils/listPerformance';
-import { Colors, Typography, Spacing, Radius, Composer as ComposerMetrics } from '../../theme';
+import { Colors, Typography, Spacing, Radius, Composer as ComposerMetrics, ContentInsets } from '../../theme';
 import { formatUsername } from '../../utils/identity';
 import { dedupeById } from '../../utils/list';
 import { formatReadableTimestamp } from '../../utils/date';
 import { composerStandards } from '../../styles/composerStandards';
-import { screenStandards } from '../../styles/screenStandards';
 
 interface PostCardProps {
     item: api.FeedItem;
@@ -1090,6 +1089,7 @@ export function FeedScreen({
                             description={FEED_RESHARES_ENABLED
                                 ? 'Post updates and see friend activity, community posts, and reshares.'
                                 : 'Post updates and see friend activity and relevant community posts.'}
+                            style={styles.headerNotice}
                         />
                     </View>
                 }
@@ -1103,7 +1103,7 @@ export function FeedScreen({
                 }
                 renderItem={renderItem}
                 ListFooterComponent={activeFeedQuery.isFetchingNextPage ? <ActivityIndicator style={styles.footerLoader} color={Colors.primary} /> : null}
-                contentContainerStyle={[screenStandards.listContent, { paddingBottom: listPaddingBottom }]}
+                contentContainerStyle={[styles.feedListContent, { paddingBottom: listPaddingBottom }]}
             />
 
             {isActive && feedScrollToTop.isVisible ? (
@@ -1314,10 +1314,20 @@ const stylesViewabilityConfig = {
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: Colors.bg.page },
     center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-    listHeader: { gap: Spacing.sm, marginBottom: Spacing.md },
+    feedListContent: {
+        paddingTop: ContentInsets.screenHorizontal,
+    },
+    listHeader: {
+        gap: Spacing.sm,
+        marginBottom: Spacing.md,
+    },
+    headerNotice: {
+        marginHorizontal: ContentInsets.screenHorizontal,
+    },
     composeBar: {
-        backgroundColor: Colors.bg.surface,
-        borderRadius: Radius.md,
+        backgroundColor: Colors.bg.page,
+        borderBottomWidth: 1,
+        borderBottomColor: Colors.border.default,
         padding: Spacing.md,
         gap: Spacing.sm,
     },
@@ -1399,12 +1409,9 @@ const styles = StyleSheet.create({
     },
     postBtn: { minWidth: 72 },
     postCard: {
-        backgroundColor: Colors.bg.surface,
-        borderRadius: Radius.lg,
-        borderWidth: 1,
-        borderColor: Colors.border.default,
-        marginBottom: Spacing.sm,
-        overflow: 'hidden',
+        backgroundColor: Colors.bg.page,
+        borderBottomWidth: 1,
+        borderBottomColor: Colors.border.default,
     },
     postHeadBody: { flex: 1, minWidth: 0 },
     postHead: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, padding: Spacing.md, paddingBottom: Spacing.sm },
@@ -1428,7 +1435,7 @@ const styles = StyleSheet.create({
         marginTop: Spacing.sm,
         backgroundColor: Colors.bg.surface,
     },
-    postFoot: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: Spacing.md, paddingVertical: 10, borderTopWidth: 0.5, borderTopColor: Colors.border.default },
+    postFoot: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: Spacing.md, paddingVertical: 10 },
     postAction: { flexDirection: 'row', alignItems: 'center', gap: 4 },
     postActionText: { fontSize: Typography.sizes.sm, color: Colors.text.muted },
     liked: { color: Colors.danger },

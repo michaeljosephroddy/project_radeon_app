@@ -22,9 +22,8 @@ import { resetInfiniteQueryToFirstPage } from '../../query/infiniteQueryPolicy';
 import { queryKeys } from '../../query/queryKeys';
 import { dedupeById } from '../../utils/list';
 import { getListPerformanceProps } from '../../utils/listPerformance';
-import { Colors, Typography, Spacing, Radius } from '../../theme';
+import { Colors, ContentInsets, Typography, Spacing, Radius } from '../../theme';
 import { formatUsername } from '../../utils/identity';
-import { screenStandards } from '../../styles/screenStandards';
 
 // Formats chat timestamps into short labels that fit the list layout.
 function timeLabel(dateStr?: string): string {
@@ -257,7 +256,7 @@ export function ChatsScreen({ isActive, onOpenChat }: ChatsScreenProps) {
                     tintColor={Colors.primary}
                 />
             }
-            contentContainerStyle={screenStandards.listContent}
+            contentContainerStyle={styles.listContent}
             keyboardShouldPersistTaps="handled"
             onEndReached={chatsListPagination.onEndReached}
             onEndReachedThreshold={0.4}
@@ -321,15 +320,21 @@ function areChatItemPropsEqual(prev: ChatItemProps, next: ChatItemProps) {
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: Colors.bg.page },
     center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+    listContent: {
+        paddingTop: ContentInsets.screenHorizontal,
+        paddingBottom: ContentInsets.listBottom,
+    },
 
     searchBar: {
         marginBottom: Spacing.md,
+        marginHorizontal: ContentInsets.screenHorizontal,
     },
     searchStatusRow: {
         flexDirection: 'row',
         alignItems: 'center',
         gap: Spacing.xs,
         marginBottom: Spacing.sm,
+        paddingHorizontal: ContentInsets.screenHorizontal,
     },
     searchStatusText: {
         fontSize: Typography.sizes.sm,
@@ -340,12 +345,14 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         gap: 10,
+        paddingHorizontal: ContentInsets.screenHorizontal,
         paddingVertical: 11,
         backgroundColor: Colors.bg.page,
     },
     separator: {
-        height: StyleSheet.hairlineWidth,
+        height: 1,
         backgroundColor: Colors.border.default,
+        marginLeft: ContentInsets.screenHorizontal + 44 + 10,
     },
     deleteAction: {
         width: 68,

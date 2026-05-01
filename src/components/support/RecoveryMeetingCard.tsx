@@ -1,7 +1,7 @@
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors, Radius, Spacing, Typography } from '../../theme';
+import { Colors, ContentInsets, Radius, Spacing, Typography } from '../../theme';
 import {
     RecoveryMeeting,
     formatDayTime,
@@ -79,11 +79,10 @@ export const RecoveryMeetingCard = React.memo(function RecoveryMeetingCard({
 
 const styles = StyleSheet.create({
     card: {
-        backgroundColor: Colors.bg.surface,
-        borderRadius: Radius.lg,
-        borderWidth: 1,
-        borderColor: Colors.border.subtle,
-        overflow: 'hidden',
+        backgroundColor: Colors.bg.page,
+        borderBottomWidth: 1,
+        borderBottomColor: Colors.border.default,
+        marginHorizontal: -ContentInsets.screenHorizontal,
     },
     contentRow: {
         flexDirection: 'row',

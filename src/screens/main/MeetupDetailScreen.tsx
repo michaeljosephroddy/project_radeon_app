@@ -16,7 +16,7 @@ import { MeetupEventTypeBadge } from '../../components/events/MeetupEventTypeBad
 import { EmptyState } from '../../components/ui/EmptyState';
 import { PrimaryButton } from '../../components/ui/PrimaryButton';
 import { ScreenHeader } from '../../components/ui/ScreenHeader';
-import { Colors, Radius, Spacing, Typography } from '../../theme';
+import { Colors, ContentInsets, Radius, Spacing, Typography } from '../../theme';
 import { screenStandards } from '../../styles/screenStandards';
 
 interface MeetupDetailScreenProps {
@@ -319,11 +319,10 @@ const styles = StyleSheet.create({
         fontWeight: '600',
     },
     heroCard: {
-        borderRadius: Radius.xl,
-        overflow: 'hidden',
-        backgroundColor: Colors.bg.surface,
-        borderWidth: 1,
-        borderColor: Colors.border.subtle,
+        backgroundColor: Colors.bg.page,
+        borderBottomWidth: 1,
+        borderBottomColor: Colors.border.default,
+        marginHorizontal: -ContentInsets.screenHorizontal,
         marginBottom: Spacing.md,
     },
     coverImage: {
@@ -400,11 +399,12 @@ const styles = StyleSheet.create({
     },
     sectionCard: {
         marginTop: Spacing.md,
-        borderRadius: Radius.xl,
-        backgroundColor: Colors.bg.surface,
-        borderWidth: 1,
-        borderColor: Colors.border.subtle,
-        padding: Spacing.lg,
+        backgroundColor: Colors.bg.page,
+        borderBottomWidth: 1,
+        borderBottomColor: Colors.border.default,
+        paddingHorizontal: ContentInsets.screenHorizontal,
+        paddingVertical: Spacing.lg,
+        marginHorizontal: -ContentInsets.screenHorizontal,
         gap: Spacing.sm,
     },
     sectionTitle: {

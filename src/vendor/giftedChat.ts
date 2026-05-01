@@ -123,7 +123,7 @@ export interface GiftedChatProps<TMessage extends GiftedChatMessage> {
     renderSystemMessage?: (props: SystemMessageProps<TMessage>) => React.ReactNode;
     renderDay?: (props: DayProps) => React.ReactNode;
     renderInputToolbar?: (props: InputToolbarProps<TMessage>) => React.ReactNode;
-    renderAvatar?: ((props: { currentMessage: TMessage }) => React.ReactNode) | null;
+    renderAvatar?: ((props: { currentMessage: TMessage; position?: 'left' | 'right' }) => React.ReactNode) | null;
     renderLoading?: () => React.ReactNode;
     renderChatEmpty?: () => React.ReactNode;
 }
@@ -133,7 +133,6 @@ type GiftedChatModule = {
     InputToolbar: React.ComponentType<InputToolbarProps<GiftedChatMessage>>;
     Composer: React.ComponentType<ComposerProps>;
     Send: React.ComponentType<SendProps<GiftedChatMessage>>;
-    Bubble: React.ComponentType<BubbleProps<GiftedChatMessage>>;
     Day: React.ComponentType<DayProps>;
 };
 
@@ -152,9 +151,5 @@ export const Composer = giftedChatModule.Composer;
 export const Send = giftedChatModule.Send as unknown as <
     TMessage extends GiftedChatMessage,
 >(props: SendProps<TMessage>) => React.ReactElement;
-
-export const Bubble = giftedChatModule.Bubble as unknown as <
-    TMessage extends GiftedChatMessage,
->(props: BubbleProps<TMessage>) => React.ReactElement;
 
 export const Day = giftedChatModule.Day;

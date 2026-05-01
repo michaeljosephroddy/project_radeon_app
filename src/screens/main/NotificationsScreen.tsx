@@ -335,7 +335,7 @@ const styles = StyleSheet.create({
         color: Colors.text.muted,
     },
     separator: {
-        height: StyleSheet.hairlineWidth,
+        height: 1,
         backgroundColor: Colors.border.default,
     },
     footerLoader: {

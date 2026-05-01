@@ -7,13 +7,13 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
+import { Avatar } from '../../components/Avatar';
 import * as api from '../../api/client';
 import { useAuth } from '../../hooks/useAuth';
 import { Colors, Radius, Spacing, Typography } from '../../theme';
 import { formatUsername } from '../../utils/identity';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
-    Bubble,
     Composer,
     Day,
     GiftedChat,
@@ -58,7 +58,6 @@ export function ChatScreen({ chat, onBack }: ChatScreenProps) {
         () => toGiftedChatUser(currentUser),
         [currentUser],
     );
-
     const {
         messages,
         otherUserLastReadMessageId,
@@ -76,8 +75,8 @@ export function ChatScreen({ chat, onBack }: ChatScreenProps) {
     });
 
     const giftedMessages = useMemo(
-        () => toGiftedChatMessages(messages, currentUser?.id, otherUserLastReadMessageId),
-        [currentUser?.id, messages, otherUserLastReadMessageId],
+        () => toGiftedChatMessages(messages, currentUser, otherUserLastReadMessageId),
+        [currentUser, messages, otherUserLastReadMessageId],
     );
     const supportContext = supportChat.support_context;
     const supportStatus = supportContext?.status;
@@ -170,35 +169,73 @@ export function ChatScreen({ chat, onBack }: ChatScreenProps) {
                         isScrollToBottomEnabled
                         scrollToBottomOffset={120}
                         isDayAnimationEnabled={false}
+                        isUserAvatarVisible
+                        isAvatarVisibleForEveryMessage
                         messagesContainerStyle={styles.messagesContainer}
                         keyboardAvoidingViewProps={{
                             keyboardVerticalOffset,
                         }}
-                        renderBubble={(props) => (
-                            <Bubble
-                                {...props}
-                                wrapperStyle={{
-                                    left: styles.bubbleLeft,
-                                    right: styles.bubbleRight,
-                                }}
-                                textStyle={{
-                                    left: styles.bubbleTextLeft,
-                                    right: styles.bubbleTextRight,
-                                }}
-                                renderTime={(timeProps) => (
-                                    <Text
+                        renderAvatar={(props) => {
+                            const messageUser = props.currentMessage.user;
+                            if (!messageUser || messageUser._id === 'system') return null;
+                            if (props.position === 'right') return null;
+
+                            return (
+                                <Avatar
+                                    username={String(messageUser.name ?? '')}
+                                    avatarUrl={typeof messageUser.avatar === 'string' ? messageUser.avatar : undefined}
+                                    size={36}
+                                    fontSize={13}
+                                />
+                            );
+                        }}
+                        renderBubble={(props) => {
+                            const position = props.position ?? 'left';
+                            const isRight = position === 'right';
+                            const messageUser = props.currentMessage.user;
+                            const avatarUrl = typeof messageUser.avatar === 'string' ? messageUser.avatar : undefined;
+
+                            return (
+                                <View
+                                    style={[
+                                        styles.flatMessageRow,
+                                        isRight ? styles.flatMessageRowRight : styles.flatMessageRowLeft,
+                                    ]}
+                                >
+                                    <View
                                         style={[
-                                            styles.timeLabel,
-                                            timeProps.position === 'right'
-                                                ? styles.timeLabelRight
-                                                : styles.timeLabelLeft,
+                                            styles.flatBubble,
+                                            isRight ? styles.flatBubbleRight : styles.flatBubbleLeft,
                                         ]}
                                     >
-                                        {formatMessageTime(timeProps.currentMessage.createdAt)}
-                                    </Text>
-                                )}
-                            />
-                        )}
+                                        <Text
+                                            style={[
+                                                styles.flatBubbleText,
+                                                isRight ? styles.flatBubbleTextRight : styles.flatBubbleTextLeft,
+                                            ]}
+                                        >
+                                            {props.currentMessage.text}
+                                        </Text>
+                                        <Text
+                                            style={[
+                                                styles.timeLabel,
+                                                isRight ? styles.timeLabelRight : styles.timeLabelLeft,
+                                            ]}
+                                        >
+                                            {formatMessageTime(props.currentMessage.createdAt)}
+                                        </Text>
+                                    </View>
+                                    {isRight ? (
+                                        <Avatar
+                                            username={String(messageUser.name ?? '')}
+                                            avatarUrl={avatarUrl}
+                                            size={36}
+                                            fontSize={13}
+                                        />
+                                    ) : null}
+                                </View>
+                            );
+                        }}
                         renderDay={(props) => (
                             <Day
                                 {...props}
@@ -416,33 +453,48 @@ const styles = StyleSheet.create({
         fontWeight: '600',
         color: Colors.textOn.primary,
     },
-    bubbleLeft: {
-        backgroundColor: Colors.bg.raised,
+    flatMessageRow: {
+        flexDirection: 'row',
+        alignItems: 'flex-end',
+        gap: Spacing.sm,
+        maxWidth: '100%',
     },
-    bubbleRight: {
-        backgroundColor: Colors.success,
+    flatMessageRowLeft: {
+        justifyContent: 'flex-start',
     },
-    bubbleTextLeft: {
+    flatMessageRowRight: {
+        justifyContent: 'flex-end',
+    },
+    flatBubble: {
+        flexShrink: 1,
+        paddingVertical: 2,
+    },
+    flatBubbleLeft: {
+        alignItems: 'flex-start',
+    },
+    flatBubbleRight: {
+        alignItems: 'flex-end',
+    },
+    flatBubbleText: {
+        fontSize: Typography.sizes.lg,
+        lineHeight: 22,
+    },
+    flatBubbleTextLeft: {
         color: Colors.text.primary,
-        fontSize: Typography.sizes.lg,
-        lineHeight: 20,
     },
-    bubbleTextRight: {
-        color: Colors.textOn.primary,
-        fontSize: Typography.sizes.lg,
-        lineHeight: 20,
+    flatBubbleTextRight: {
+        color: Colors.text.primary,
+        textAlign: 'right',
     },
     timeLabel: {
         fontSize: Typography.sizes.xs,
-        marginTop: -2,
-        marginHorizontal: Spacing.xs,
-        marginBottom: 2,
+        marginTop: 3,
     },
     timeLabelLeft: {
-        color: Colors.text.secondary,
+        color: Colors.text.muted,
     },
     timeLabelRight: {
-        color: Colors.textOn.primary,
+        color: Colors.text.muted,
     },
     dayContainer: {
         marginVertical: Spacing.sm,

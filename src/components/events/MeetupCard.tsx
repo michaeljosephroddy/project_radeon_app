@@ -3,7 +3,7 @@ import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import * as api from '../../api/client';
 import { Avatar } from '../Avatar';
 import { MeetupEventTypeBadge } from './MeetupEventTypeBadge';
-import { Colors, Radius, Spacing, Typography } from '../../theme';
+import { Colors, ContentInsets, Radius, Spacing, Typography } from '../../theme';
 
 interface MeetupCardProps {
     meetup: api.Meetup;
@@ -134,11 +134,10 @@ export const MeetupCard = React.memo(function MeetupCard({
 
 const styles = StyleSheet.create({
     card: {
-        backgroundColor: Colors.bg.surface,
-        borderRadius: Radius.lg,
-        borderWidth: 1,
-        borderColor: Colors.border.subtle,
-        overflow: 'hidden',
+        backgroundColor: Colors.bg.page,
+        borderBottomWidth: 1,
+        borderBottomColor: Colors.border.default,
+        marginHorizontal: -ContentInsets.screenHorizontal,
     },
     coverImage: {
         width: '100%',

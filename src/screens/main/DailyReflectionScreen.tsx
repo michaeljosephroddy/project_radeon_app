@@ -834,12 +834,12 @@ const styles = StyleSheet.create({
         color: Colors.text.muted,
     },
     historyItem: {
-        backgroundColor: Colors.bg.surface,
-        borderRadius: Radius.md,
-        borderWidth: 1,
-        borderColor: Colors.border.default,
+        backgroundColor: Colors.bg.page,
+        borderBottomWidth: 1,
+        borderBottomColor: Colors.border.default,
         paddingHorizontal: Spacing.md,
         paddingVertical: Spacing.md,
+        marginHorizontal: -Spacing.md,
         gap: Spacing.sm,
     },
     historyHead: {

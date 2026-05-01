@@ -1,9 +1,9 @@
 export const Colors = {
   bg: {
-    page:    '#212529',
-    surface: '#2b3035',
-    raised:  '#343a40',
-    hover:   '#3d444b',
+    page:    '#111418',
+    surface: '#1a1f24',
+    raised:  '#242a30',
+    hover:   '#2d343b',
   },
 
   text: {
@@ -14,9 +14,9 @@ export const Colors = {
   },
 
   border: {
-    default:  '#373b3e',
-    subtle:   '#2e3338',
-    emphasis: '#495057',
+    default:  '#2a3036',
+    subtle:   '#20262b',
+    emphasis: '#3a424a',
   },
 
   primary:   '#0d6efd',
@@ -37,8 +37,8 @@ export const Colors = {
     primary:   '#ffffff',
     success:   '#ffffff',
     danger:    '#ffffff',
-    warning:   '#212529',
-    info:      '#212529',
+    warning:   '#111418',
+    info:      '#111418',
     secondary: '#ffffff',
   },
 

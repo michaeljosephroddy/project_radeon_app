@@ -1,7 +1,6 @@
 import React from 'react';
 import { StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
-import { commonStyles } from '../../styles/commonStyles';
-import { Spacing } from '../../theme';
+import { Colors, Radius, Spacing } from '../../theme';
 
 interface SurfaceCardProps {
     children: React.ReactNode;
@@ -11,13 +10,19 @@ interface SurfaceCardProps {
 
 export function SurfaceCard({ children, padding = 'md', style }: SurfaceCardProps) {
     return (
-        <View style={[commonStyles.card, padding === 'lg' ? styles.paddingLg : styles.paddingMd, style]}>
+        <View style={[styles.card, padding === 'lg' ? styles.paddingLg : styles.paddingMd, style]}>
             {children}
         </View>
     );
 }
 
 const styles = StyleSheet.create({
+    card: {
+        backgroundColor: Colors.bg.surface,
+        borderRadius: Radius.lg,
+        borderWidth: 1,
+        borderColor: Colors.border.default,
+    },
     paddingMd: {
         padding: Spacing.md,
     },
