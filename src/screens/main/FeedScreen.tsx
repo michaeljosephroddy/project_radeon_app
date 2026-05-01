@@ -4,18 +4,16 @@ import {
     StyleSheet, RefreshControl, ActivityIndicator, Alert, Modal,
     Platform, KeyboardAvoidingView,
 } from 'react-native';
-import type { AlertButton } from 'react-native';
+import type { AlertButton, NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import * as ImagePicker from 'expo-image-picker';
 import { Avatar } from '../../components/Avatar';
 import type { CommentThreadTarget } from '../../components/CommentsModal';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { InfoNoticeCard } from '../../components/ui/InfoNoticeCard';
 import { ScrollToTopButton } from '../../components/ui/ScrollToTopButton';
 import * as api from '../../api/client';
-import { useCreatePostMutation } from '../../hooks/queries/useCreatePostMutation';
 import { useHomeFeed } from '../../hooks/queries/useFeed';
 import { useGuardedEndReached } from '../../hooks/useGuardedEndReached';
 import { useLazyActivation } from '../../hooks/useLazyActivation';
@@ -25,11 +23,10 @@ import { useAuth } from '../../hooks/useAuth';
 import { resetInfiniteQueryToFirstPage } from '../../query/infiniteQueryPolicy';
 import { queryKeys } from '../../query/queryKeys';
 import { getListPerformanceProps } from '../../utils/listPerformance';
-import { Colors, Typography, Spacing, Radius, Composer as ComposerMetrics, ContentInsets } from '../../theme';
+import { Colors, Typography, Spacing, Radius, ContentInsets } from '../../theme';
 import { formatUsername } from '../../utils/identity';
 import { dedupeById } from '../../utils/list';
 import { formatReadableTimestamp } from '../../utils/date';
-import { composerStandards } from '../../styles/composerStandards';
 
 interface PostCardProps {
     item: api.FeedItem;
@@ -54,25 +51,6 @@ interface ReshareCardProps {
     onSharePost: (item: api.FeedItem) => void;
     onLocalReactionChange: (item: api.FeedItem, reacted: boolean) => void;
     showShareAction: boolean;
-}
-
-interface SelectedPostImage {
-    uri: string;
-    mimeType: string;
-    fileName: string;
-}
-
-interface ComposerImageState {
-    localImage: SelectedPostImage;
-    status: 'uploading' | 'uploaded' | 'failed';
-    uploadToken: number;
-    uploadedImage?: api.PostImage;
-}
-
-interface PreviewCacheEntry {
-    localUri: string;
-    remoteUri: string;
-    isRemoteReady: boolean;
 }
 
 // The feed is now a single ranked home surface, so telemetry always reports one mode.
@@ -170,6 +148,7 @@ const PostCard = React.memo(function PostCard({
                         resizeMode="cover"
                     />
                 ) : null}
+                {renderPostTags(post.tags)}
             </View>
             <View style={styles.postFoot}>
                 <TouchableOpacity style={styles.postAction} onPress={handleReact}>
@@ -296,6 +275,7 @@ const ReshareCard = React.memo(function ReshareCard({
                         resizeMode="cover"
                     />
                 ) : null}
+                {renderPostTags(originalPost.tags)}
             </View>
             <View style={styles.postFoot}>
                 <TouchableOpacity style={styles.postAction} onPress={handleReact}>
@@ -337,6 +317,7 @@ interface FeedScreenProps {
     isActive: boolean;
     onOpenUserProfile: (profile: { userId: string; username: string; avatarUrl?: string }) => void;
     onOpenComments: (thread: CommentThreadTarget, focusComposer: boolean, onCommentCreated?: (comment: api.Comment) => void) => void;
+    onOpenCreatePost: () => void;
     focusRequest?: { postId: string; commentId?: string; nonce: number } | null;
     onFocusRequestConsumed?: (nonce: number) => void;
 }
@@ -345,12 +326,12 @@ export function FeedScreen({
     isActive,
     onOpenUserProfile,
     onOpenComments,
+    onOpenCreatePost,
     focusRequest,
     onFocusRequestConsumed,
 }: FeedScreenProps) {
     const ScreenContainer = Platform.OS === 'ios' ? KeyboardAvoidingView : View;
     const { user } = useAuth();
-    const createPostMutation = useCreatePostMutation();
     const queryClient = useQueryClient();
     const hasActivated = useLazyActivation(isActive);
     const feedListProps = getListPerformanceProps('denseFeed');
@@ -364,9 +345,7 @@ export function FeedScreen({
     const feedScrollToTop = useScrollToTopButton({ threshold: 520 });
     const insets = useSafeAreaInsets();
     const [feedItems, setFeedItems] = useState<api.FeedItem[]>([]);
-    const [composing, setComposing] = useState(false);
-    const [draft, setDraft] = useState('');
-    const [selectedImage, setSelectedImage] = useState<ComposerImageState | null>(null);
+    const [isCreateFabVisible, setIsCreateFabVisible] = useState(true);
     const [shareTarget, setShareTarget] = useState<api.FeedItem | null>(null);
     const [shareCommentary, setShareCommentary] = useState('');
     const [isSubmittingShare, setIsSubmittingShare] = useState(false);
@@ -374,9 +353,8 @@ export function FeedScreen({
 
     const feedItemsRef = useRef<api.FeedItem[]>([]);
     const flatListRef = useRef<FlatList<api.FeedItem>>(null);
-    const imageUploadPromiseRef = useRef<Promise<api.PostImage> | null>(null);
-    const imageUploadTokenRef = useRef(0);
-    const previewCacheRef = useRef<Record<string, PreviewCacheEntry>>({});
+    const lastFeedScrollYRef = useRef(0);
+    const createFabRevealTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
     const localManagedPostIdsRef = useRef<Set<string>>(new Set());
     const feedSessionIdRef = useRef(`feed-${Date.now()}`);
     const activeImpressionsRef = useRef<Record<string, ActiveFeedImpression>>({});
@@ -389,6 +367,7 @@ export function FeedScreen({
 
     useEffect(() => () => {
         if (hiddenUndoTimerRef.current) clearTimeout(hiddenUndoTimerRef.current);
+        if (createFabRevealTimerRef.current) clearTimeout(createFabRevealTimerRef.current);
         if (impressionFlushTimerRef.current) clearTimeout(impressionFlushTimerRef.current);
         if (eventFlushTimerRef.current) clearTimeout(eventFlushTimerRef.current);
     }, []);
@@ -425,169 +404,60 @@ export function FeedScreen({
         await homeFeedQuery.refetch();
     }, [homeFeedQuery, queryClient]);
 
-    const beginImageUpload = useCallback((image: SelectedPostImage, uploadToken: number): Promise<api.PostImage> => {
-        const uploadPromise = api.uploadPostImage({
-            uri: image.uri,
-            mimeType: image.mimeType,
-            fileName: image.fileName,
-        });
-        imageUploadPromiseRef.current = uploadPromise;
+    const handleFeedScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
+        feedScrollToTop.onScroll(event);
 
-        void uploadPromise.then(uploadedImage => {
-            setSelectedImage(current => {
-                if (!current || current.uploadToken !== uploadToken) return current;
-                return { ...current, status: 'uploaded', uploadedImage };
-            });
-        }).catch(() => {
-            setSelectedImage(current => {
-                if (!current || current.uploadToken !== uploadToken) return current;
-                return { ...current, status: 'failed' };
-            });
-        }).finally(() => {
-            if (imageUploadTokenRef.current === uploadToken) {
-                imageUploadPromiseRef.current = null;
-            }
-        });
+        const offsetY = event.nativeEvent.contentOffset.y;
+        const deltaY = offsetY - lastFeedScrollYRef.current;
+        lastFeedScrollYRef.current = offsetY;
 
-        return uploadPromise;
-    }, []);
-
-    const removeSelectedImage = useCallback(() => {
-        imageUploadTokenRef.current += 1;
-        imageUploadPromiseRef.current = null;
-        setSelectedImage(null);
-    }, []);
+        if (createFabRevealTimerRef.current) {
+            clearTimeout(createFabRevealTimerRef.current);
+        }
+        if (Math.abs(deltaY) > 4) {
+            setIsCreateFabVisible((current) => (!current ? current : false));
+        }
+        createFabRevealTimerRef.current = setTimeout(() => {
+            setIsCreateFabVisible(true);
+        }, 320);
+    }, [feedScrollToTop.onScroll]);
 
     const resolvePostImageSource = useCallback((post: api.Post): string | null => {
         const image = post.images[0];
-        if (!image) return null;
-        const cachedPreview = previewCacheRef.current[post.id];
-        if (cachedPreview && cachedPreview.remoteUri === image.image_url && !cachedPreview.isRemoteReady) {
-            return cachedPreview.localUri;
-        }
-        return image.image_url;
+        return image?.image_url ?? null;
     }, []);
-
-    const warmRemotePostImage = useCallback((postId: string, remoteUri: string) => {
-        const cachedPreview = previewCacheRef.current[postId];
-        if (!cachedPreview || cachedPreview.remoteUri !== remoteUri || cachedPreview.isRemoteReady) return;
-
-        void Image.prefetch(remoteUri).finally(() => {
-            const latestPreview = previewCacheRef.current[postId];
-            if (!latestPreview || latestPreview.remoteUri !== remoteUri) return;
-            previewCacheRef.current[postId] = { ...latestPreview, isRemoteReady: true };
-            setFeedItems((current) => [...current]);
-        });
-    }, []);
-
-    const handlePost = () => {
-        if (!draft.trim() && !selectedImage) return;
-        if (!user) return;
-        const body = draft.trim();
-        const selectedImageState = selectedImage;
-        const optimisticPostId = `temp-${Date.now()}`;
-        const optimisticImages = selectedImageState
-            ? [selectedImageState.uploadedImage ?? {
-                id: `temp-image-${Date.now()}`,
-                image_url: selectedImageState.localImage.uri,
-                width: 0,
-                height: 0,
-                sort_order: 0,
-            }]
-            : [];
-
-        setFeedItems((current) => [
-            createOptimisticFeedItem(user, optimisticPostId, body, optimisticImages),
-            ...current,
-        ]);
-        localManagedPostIdsRef.current.add(optimisticPostId);
-        setDraft('');
-        removeSelectedImage();
-        setComposing(false);
-
-        void (async () => {
-            try {
-                let uploadedImages: api.PostImage[] = [];
-                if (selectedImageState) {
-                    if (selectedImageState.uploadedImage) {
-                        uploadedImages = [selectedImageState.uploadedImage];
-                    } else if (selectedImageState.status === 'uploading' && imageUploadPromiseRef.current) {
-                        uploadedImages = [await imageUploadPromiseRef.current];
-                    } else {
-                        const uploadToken = ++imageUploadTokenRef.current;
-                        uploadedImages = [await beginImageUpload(selectedImageState.localImage, uploadToken)];
-                    }
-                }
-
-                const createdPost = await createPostMutation.mutateAsync({
-                    body: body || undefined,
-                    images: uploadedImages,
-                    currentUserId: user.id,
-                });
-                if (selectedImageState?.localImage.uri && uploadedImages[0]?.image_url) {
-                    previewCacheRef.current[createdPost.id] = {
-                        localUri: selectedImageState.localImage.uri,
-                        remoteUri: uploadedImages[0].image_url,
-                        isRemoteReady: false,
-                    };
-                    warmRemotePostImage(createdPost.id, uploadedImages[0].image_url);
-                }
-                setFeedItems((current) => current.map((item) =>
-                        item.id === optimisticPostId
-                            ? createOptimisticFeedItem(user, createdPost.id, body, optimisticImages)
-                            : item
-                    ));
-                localManagedPostIdsRef.current.delete(optimisticPostId);
-                localManagedPostIdsRef.current.add(createdPost.id);
-                // A refetch lets the ranked server feed decide the final placement of the new post.
-                void queryClient.invalidateQueries({ queryKey: queryKeys.homeFeed() });
-            } catch (e: unknown) {
-                setFeedItems((current) => current.filter((item) => item.id !== optimisticPostId));
-                localManagedPostIdsRef.current.delete(optimisticPostId);
-                Alert.alert('Error', e instanceof Error ? e.message : 'Something went wrong.');
-            }
-        })();
-    };
-
-    const handlePickPostImage = async () => {
-        const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-        if (!perm.granted) {
-            Alert.alert('Permission required', 'Allow access to your photo library to attach a post image.');
-            return;
-        }
-
-        const result = await ImagePicker.launchImageLibraryAsync({
-            mediaTypes: ImagePicker.MediaTypeOptions.Images,
-            allowsEditing: true,
-            aspect: [6, 5],
-            quality: 1,
-            ...(Platform.OS === 'ios'
-                ? { preferredAssetRepresentationMode: ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Current }
-                : {}),
-        });
-        if (result.canceled) return;
-
-        try {
-            const nextSelectedImage = await buildSelectedPostImage(result.assets[0]);
-            const uploadToken = ++imageUploadTokenRef.current;
-            const nextComposerImage: ComposerImageState = {
-                localImage: nextSelectedImage,
-                status: 'uploading',
-                uploadToken,
-            };
-            setSelectedImage(nextComposerImage);
-            setComposing(true);
-            beginImageUpload(nextSelectedImage, uploadToken).catch(() => {});
-        } catch {
-            Alert.alert('Error', 'Could not prepare that image. Please try a different photo.');
-        }
-    };
 
     const handleLoadMore = useCallback(async () => {
         if (!isActive || !activeFeedQuery.hasNextPage || activeFeedQuery.isFetchingNextPage) return;
         await activeFeedQuery.fetchNextPage();
     }, [activeFeedQuery, isActive]);
     const feedListPagination = useGuardedEndReached(handleLoadMore);
+
+    const hideCreateFabDuringScroll = useCallback(() => {
+        if (createFabRevealTimerRef.current) {
+            clearTimeout(createFabRevealTimerRef.current);
+        }
+        setIsCreateFabVisible(false);
+    }, []);
+
+    const handleFeedScrollBeginDrag = useCallback(() => {
+        feedListPagination.onScrollBeginDrag();
+        hideCreateFabDuringScroll();
+    }, [feedListPagination.onScrollBeginDrag, hideCreateFabDuringScroll]);
+
+    const handleFeedMomentumScrollBegin = useCallback(() => {
+        feedListPagination.onMomentumScrollBegin();
+        hideCreateFabDuringScroll();
+    }, [feedListPagination.onMomentumScrollBegin, hideCreateFabDuringScroll]);
+
+    const handleFeedScrollEnd = useCallback(() => {
+        if (createFabRevealTimerRef.current) {
+            clearTimeout(createFabRevealTimerRef.current);
+        }
+        createFabRevealTimerRef.current = setTimeout(() => {
+            setIsCreateFabVisible(true);
+        }, 180);
+    }, []);
 
     const getImpressionKey = useCallback((item: api.FeedItem, feedMode: api.FeedMode = HOME_FEED_MODE) => {
         return `${feedMode}:${item.kind}:${item.id}`;
@@ -959,6 +829,7 @@ export function FeedScreen({
     }, [activeFeedQuery, focusRequest, isActive, onFocusRequestConsumed, onOpenComments]);
 
     const listPaddingBottom = (hiddenUndo ? 110 : 72) + insets.bottom;
+    const createFabBottom = hiddenUndo ? 60 + insets.bottom : 20;
 
     const renderItem = useCallback(({ item }: { item: api.FeedItem }) => {
         if (item.kind === 'reshare') {
@@ -1016,9 +887,11 @@ export function FeedScreen({
                 refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
                 onEndReached={feedListPagination.onEndReached}
                 onEndReachedThreshold={0.4}
-                onMomentumScrollBegin={feedListPagination.onMomentumScrollBegin}
-                onScrollBeginDrag={feedListPagination.onScrollBeginDrag}
-                onScroll={feedScrollToTop.onScroll}
+                onMomentumScrollBegin={handleFeedMomentumScrollBegin}
+                onScrollBeginDrag={handleFeedScrollBeginDrag}
+                onScrollEndDrag={handleFeedScrollEnd}
+                onMomentumScrollEnd={handleFeedScrollEnd}
+                onScroll={handleFeedScroll}
                 scrollEventThrottle={16}
                 onViewableItemsChanged={handleViewableItemsChanged}
                 viewabilityConfig={stylesViewabilityConfig}
@@ -1030,60 +903,6 @@ export function FeedScreen({
                 }}
                 ListHeaderComponent={
                     <View style={styles.listHeader}>
-                        <View style={styles.composeBar}>
-                            <View style={styles.composeMainRow}>
-                                <TouchableOpacity style={composerStandards.iconButton} onPress={handlePickPostImage}>
-                                    <Ionicons name="image-outline" size={18} color={Colors.primary} />
-                                </TouchableOpacity>
-                                {composing ? (
-                                    <View style={[styles.composeField, styles.composeExpanded]}>
-                                        <TextInput
-                                            style={styles.composeInput}
-                                            placeholder="What's on your mind?"
-                                            placeholderTextColor={Colors.text.muted}
-                                            value={draft}
-                                            onChangeText={setDraft}
-                                            multiline
-                                            autoFocus={!selectedImage}
-                                        />
-                                    </View>
-                                ) : (
-                                    <TouchableOpacity style={styles.composeField} onPress={() => setComposing(true)}>
-                                        <Text style={styles.composePlaceholder}>What's on your mind?</Text>
-                                    </TouchableOpacity>
-                                )}
-                            </View>
-                            {selectedImage ? (
-                                <View style={styles.composePreviewRow}>
-                                    <View style={styles.composeImagePreviewWrap}>
-                                        <Image source={{ uri: selectedImage.localImage.uri }} style={styles.composeImagePreview} resizeMode="cover" />
-                                        <TouchableOpacity style={styles.removeImageButton} onPress={removeSelectedImage}>
-                                            <Ionicons name="close" size={14} color={Colors.textOn.primary} />
-                                        </TouchableOpacity>
-                                        <View style={styles.composeImageStatusBadge}>
-                                            <Text style={styles.composeImageStatusText}>
-                                                {selectedImage.status === 'uploading'
-                                                    ? 'Uploading...'
-                                                    : selectedImage.status === 'uploaded'
-                                                        ? 'Ready'
-                                                        : 'Retry on post'}
-                                            </Text>
-                                        </View>
-                                    </View>
-                                </View>
-                            ) : null}
-                            <View style={styles.composeActionsRow}>
-                                {composing ? (
-                                    <TouchableOpacity
-                                        style={[composerStandards.actionButton, composerStandards.actionButtonSuccess, styles.postBtn]}
-                                        onPress={handlePost}
-                                    >
-                                        <Text style={composerStandards.actionButtonText}>Post</Text>
-                                    </TouchableOpacity>
-                                ) : null}
-                            </View>
-                        </View>
-
                         <InfoNoticeCard
                             title="Community feed"
                             description={FEED_RESHARES_ENABLED
@@ -1108,6 +927,17 @@ export function FeedScreen({
 
             {isActive && feedScrollToTop.isVisible ? (
                 <ScrollToTopButton onPress={() => flatListRef.current?.scrollToOffset({ offset: 0, animated: true })} />
+            ) : null}
+
+            {isActive && user && isCreateFabVisible ? (
+                <TouchableOpacity
+                    style={[styles.createFab, { bottom: createFabBottom }]}
+                    onPress={onOpenCreatePost}
+                    activeOpacity={0.9}
+                >
+                    <Ionicons name="add" size={20} color={Colors.textOn.primary} />
+                    <Text style={styles.createFabText}>Create</Text>
+                </TouchableOpacity>
             ) : null}
 
             {hiddenUndo ? (
@@ -1198,47 +1028,15 @@ function areReshareCardPropsEqual(prev: ReshareCardProps, next: ReshareCardProps
         && prev.showShareAction === next.showShareAction;
 }
 
-function createOptimisticPost(user: api.User, postId: string, body: string, images: api.PostImage[]): api.Post {
-    return {
-        id: postId,
-        user_id: user.id,
-        username: user.username,
-        avatar_url: user.avatar_url,
-        body,
-        created_at: new Date().toISOString(),
-        comment_count: 0,
-        like_count: 0,
-        images,
-    };
-}
-
-function createOptimisticFeedItem(user: api.User, postId: string, body: string, images: api.PostImage[]): api.FeedItem {
-    return {
-        id: postId,
-        kind: 'post',
-        score: 0,
-        served_at_key: new Date().toISOString(),
-        author: {
-            user_id: user.id,
-            username: user.username,
-            avatar_url: user.avatar_url,
-        },
-        body,
-        images,
-        created_at: new Date().toISOString(),
-        like_count: 0,
-        comment_count: 0,
-        share_count: 0,
-        viewer_state: {
-            is_friend: false,
-            is_liked: false,
-            is_hidden: false,
-            is_muted: false,
-            is_reshared: false,
-            is_own_post: true,
-            is_own_share: false,
-        },
-    };
+function renderPostTags(tags: string[]): React.ReactElement | null {
+    if (tags.length === 0) return null;
+    return (
+        <View style={styles.postTags}>
+            {tags.map((tag) => (
+                <Text key={tag} style={styles.postTag}>#{tag}</Text>
+            ))}
+        </View>
+    );
 }
 
 function feedItemToPost(item: api.FeedItem): api.Post {
@@ -1255,6 +1053,7 @@ function feedItemToPost(item: api.FeedItem): api.Post {
         comment_count: item.comment_count,
         like_count: item.like_count,
         images: item.images,
+        tags: item.tags,
     };
 }
 
@@ -1274,6 +1073,7 @@ function findFeedPost(items: api.FeedItem[], postId: string): api.Post | null {
                 comment_count: item.original_post.comment_count,
                 like_count: item.original_post.like_count,
                 images: item.original_post.images,
+                tags: item.original_post.tags,
             };
         }
     }
@@ -1283,28 +1083,6 @@ function findFeedPost(items: api.FeedItem[], postId: string): api.Post | null {
 function resolveEmbeddedImageSource(item: api.FeedItem): string | null {
     const image = item.original_post?.images[0];
     return image?.image_url ?? null;
-}
-
-function inferMimeType(uri: string | undefined, fallback = 'image/jpeg'): string {
-    if (!uri) return fallback;
-    const normalizedUri = uri.toLowerCase();
-    if (normalizedUri.endsWith('.png')) return 'image/png';
-    if (normalizedUri.endsWith('.jpg') || normalizedUri.endsWith('.jpeg')) return 'image/jpeg';
-    return fallback;
-}
-
-function inferFileName(uri: string | undefined, fallback: string): string {
-    if (!uri) return fallback;
-    const path = uri.split('/').pop();
-    return path && path.includes('.') ? path : fallback;
-}
-
-async function buildSelectedPostImage(asset: ImagePicker.ImagePickerAsset): Promise<SelectedPostImage> {
-    return {
-        uri: asset.uri,
-        mimeType: asset.mimeType ?? inferMimeType(asset.uri),
-        fileName: asset.fileName ?? inferFileName(asset.uri, 'post.jpg'),
-    };
 }
 
 const stylesViewabilityConfig = {
@@ -1324,90 +1102,29 @@ const styles = StyleSheet.create({
     headerNotice: {
         marginHorizontal: ContentInsets.screenHorizontal,
     },
-    composeBar: {
-        backgroundColor: Colors.bg.page,
-        borderBottomWidth: 1,
-        borderBottomColor: Colors.border.default,
-        padding: Spacing.md,
-        gap: Spacing.sm,
-    },
-    composeMainRow: {
-        flexDirection: 'row',
-        alignItems: 'flex-end',
-        gap: Spacing.sm,
-    },
-    composeActionsRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        gap: Spacing.sm,
-    },
-    composePreviewRow: {
-        alignItems: 'flex-start',
-    },
-    composeField: {
-        flex: 1,
-        minHeight: ComposerMetrics.minHeight,
-        borderRadius: Radius.pill,
-        backgroundColor: Colors.bg.page,
-        borderWidth: 0.5,
-        borderColor: Colors.border.default,
-        paddingHorizontal: ComposerMetrics.inputHorizontal,
-        paddingVertical: ComposerMetrics.inputVertical,
-        justifyContent: 'center',
-    },
-    composeExpanded: { gap: Spacing.sm },
-    composeInput: {
-        flex: 1,
-        maxHeight: ComposerMetrics.maxHeight,
-        fontSize: Typography.body.fontSize,
-        lineHeight: Typography.body.lineHeight,
-        color: Colors.text.primary,
-        padding: 0,
-        textAlignVertical: 'top',
-    },
-    composePlaceholder: {
-        fontSize: Typography.body.fontSize,
-        lineHeight: Typography.body.lineHeight,
-        color: Colors.text.muted,
-    },
-    composeImagePreviewWrap: {
-        position: 'relative',
-        width: 104,
-        height: 104,
-    },
-    composeImagePreview: {
-        width: 104,
-        height: 104,
-        borderRadius: Radius.md,
-        backgroundColor: Colors.bg.page,
-    },
-    composeImageStatusBadge: {
+    createFab: {
         position: 'absolute',
-        left: 6,
-        bottom: 6,
-        paddingHorizontal: 8,
-        paddingVertical: 4,
+        alignSelf: 'center',
+        minHeight: 44,
         borderRadius: Radius.pill,
-        backgroundColor: 'rgba(15, 23, 42, 0.72)',
-    },
-    composeImageStatusText: {
-        fontSize: Typography.sizes.xs,
-        color: Colors.textOn.primary,
-        fontWeight: '600',
-    },
-    removeImageButton: {
-        position: 'absolute',
-        top: 6,
-        right: 6,
-        width: 22,
-        height: 22,
-        borderRadius: 11,
         backgroundColor: Colors.primary,
+        paddingHorizontal: Spacing.lg,
+        flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
+        gap: Spacing.xs,
+        shadowColor: Colors.shadow,
+        shadowOpacity: 0.2,
+        shadowRadius: 12,
+        shadowOffset: { width: 0, height: 5 },
+        elevation: 5,
+        zIndex: 10,
     },
-    postBtn: { minWidth: 72 },
+    createFabText: {
+        fontSize: Typography.sizes.md,
+        fontWeight: '700',
+        color: Colors.textOn.primary,
+    },
     postCard: {
         backgroundColor: Colors.bg.page,
         borderBottomWidth: 1,
@@ -1434,6 +1151,22 @@ const styles = StyleSheet.create({
         borderRadius: Radius.md,
         marginTop: Spacing.sm,
         backgroundColor: Colors.bg.surface,
+    },
+    postTags: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: Spacing.xs,
+        marginTop: Spacing.sm,
+    },
+    postTag: {
+        overflow: 'hidden',
+        borderRadius: Radius.pill,
+        paddingHorizontal: Spacing.sm,
+        paddingVertical: 4,
+        backgroundColor: Colors.primarySubtle,
+        color: Colors.primary,
+        fontSize: Typography.sizes.xs,
+        fontWeight: '700',
     },
     postFoot: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: Spacing.md, paddingVertical: 10 },
     postAction: { flexDirection: 'row', alignItems: 'center', gap: 4 },
