@@ -45,6 +45,13 @@ export function ProfilePostCard({ post, onPressComments }: ProfilePostCardProps)
                         resizeMode="cover"
                     />
                 ) : null}
+                {post.tags.length > 0 ? (
+                    <View style={styles.postTags}>
+                        {post.tags.map((tag) => (
+                            <Text key={tag} style={styles.postTag}>#{tag}</Text>
+                        ))}
+                    </View>
+                ) : null}
             </View>
             <View style={styles.postFoot}>
                 <View style={styles.postAction}>
@@ -121,6 +128,22 @@ const styles = StyleSheet.create({
         borderRadius: Radius.md,
         marginTop: Spacing.sm,
         backgroundColor: Colors.bg.surface,
+    },
+    postTags: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: Spacing.xs,
+        marginTop: Spacing.sm,
+    },
+    postTag: {
+        overflow: 'hidden',
+        borderRadius: Radius.pill,
+        paddingHorizontal: Spacing.sm,
+        paddingVertical: 4,
+        backgroundColor: Colors.primarySubtle,
+        color: Colors.primary,
+        fontSize: Typography.sizes.xs,
+        fontWeight: '700',
     },
     postFoot: {
         flexDirection: 'row',

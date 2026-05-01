@@ -153,6 +153,7 @@ export interface Post {
     comment_count: number;
     like_count: number;
     images: PostImage[];
+    tags: string[];
 }
 
 export type FeedMode = 'home';
@@ -197,6 +198,7 @@ export interface EmbeddedPost {
     like_count: number;
     comment_count: number;
     share_count: number;
+    tags: string[];
 }
 
 export interface ReshareMetadata {
@@ -217,6 +219,7 @@ export interface FeedItem {
     source_id?: string | null;
     source_label?: string | null;
     images: PostImage[];
+    tags: string[];
     created_at: string;
     like_count: number;
     comment_count: number;
@@ -257,16 +260,19 @@ export interface FeedEventInput {
     payload?: Record<string, unknown>;
 }
 
-interface RawPost extends Omit<Post, 'images'> {
+interface RawPost extends Omit<Post, 'images' | 'tags'> {
     images?: RawPostImage[] | null;
+    tags?: string[] | null;
 }
 
-interface RawEmbeddedPost extends Omit<EmbeddedPost, 'images'> {
+interface RawEmbeddedPost extends Omit<EmbeddedPost, 'images' | 'tags'> {
     images?: RawPostImage[] | null;
+    tags?: string[] | null;
 }
 
-interface RawFeedItem extends Omit<FeedItem, 'images' | 'original_post'> {
+interface RawFeedItem extends Omit<FeedItem, 'images' | 'tags' | 'original_post'> {
     images?: RawPostImage[] | null;
+    tags?: string[] | null;
     original_post?: RawEmbeddedPost | null;
 }
 
@@ -913,7 +919,12 @@ function normalizePost(post: RawPost): Post {
     return {
         ...post,
         images: (post.images ?? []).map(normalizePostImage),
+        tags: normalizePostTags(post.tags),
     };
+}
+
+function normalizePostTags(tags?: string[] | null): string[] {
+    return (tags ?? []).filter((tag): tag is string => typeof tag === 'string' && tag.trim().length > 0);
 }
 
 function normalizePostImage(image: RawPostImage): PostImage {
@@ -930,6 +941,7 @@ function normalizeEmbeddedPost(post: RawEmbeddedPost): EmbeddedPost {
     return {
         ...post,
         images: (post.images ?? []).map(normalizePostImage),
+        tags: normalizePostTags(post.tags),
     };
 }
 
@@ -937,6 +949,7 @@ function normalizeFeedItem(item: RawFeedItem): FeedItem {
     return {
         ...item,
         images: (item.images ?? []).map(normalizePostImage),
+        tags: normalizePostTags(item.tags),
         original_post: item.original_post ? normalizeEmbeddedPost(item.original_post) : item.original_post,
     };
 }
@@ -991,7 +1004,7 @@ export async function uploadPostImage(input: {
 }
 
 // Creates a new feed post from the supplied text body and optional images.
-export async function createPost(data: { body?: string; images?: PostImage[] }): Promise<{ id: string }> {
+export async function createPost(data: { body?: string; images?: PostImage[]; tags?: string[] }): Promise<{ id: string }> {
     return request('/posts', { method: 'POST', body: JSON.stringify(data) });
 }
 

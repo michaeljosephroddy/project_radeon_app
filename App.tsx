@@ -3,6 +3,7 @@ import { View, ActivityIndicator } from 'react-native';
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { AuthProvider, useAuth } from './src/hooks/useAuth';
 import { AuthNavigator } from './src/navigation/AuthNavigator';
 import { AppNavigator } from './src/navigation/AppNavigator';
@@ -45,19 +46,21 @@ export default function App() {
         // handling, safe-area layout, and auth state are shared across every screen.
         <GestureHandlerRootView style={{ flex: 1 }}>
             <SafeAreaProvider>
-                <StatusBar style="dark" />
-                <PersistQueryClientProvider
-                    client={queryClient}
-                    persistOptions={{
-                        persister: asyncStoragePersister,
-                        maxAge: 1000 * 60 * 60 * 24 * 7,
-                        buster: 'client-cache-v2-chat-cursor',
-                    }}
-                >
-                    <AuthProvider>
-                        <RootNavigator />
-                    </AuthProvider>
-                </PersistQueryClientProvider>
+                <KeyboardProvider statusBarTranslucent navigationBarTranslucent>
+                    <StatusBar style="dark" />
+                    <PersistQueryClientProvider
+                        client={queryClient}
+                        persistOptions={{
+                            persister: asyncStoragePersister,
+                            maxAge: 1000 * 60 * 60 * 24 * 7,
+                            buster: 'client-cache-v2-chat-cursor',
+                        }}
+                    >
+                        <AuthProvider>
+                            <RootNavigator />
+                        </AuthProvider>
+                    </PersistQueryClientProvider>
+                </KeyboardProvider>
             </SafeAreaProvider>
         </GestureHandlerRootView>
     );
