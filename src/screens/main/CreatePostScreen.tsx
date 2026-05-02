@@ -14,6 +14,7 @@ import * as api from "../../api/client";
 import { Colors, Spacing } from "../../theme";
 import { useAuth } from "../../hooks/useAuth";
 import { useCreatePostMutation } from "../../hooks/queries/useCreatePostMutation";
+import { useCreateGroupPostMutation } from "../../hooks/queries/useGroups";
 import {
   DraftPayload,
   useCreatePostDrafts,
@@ -32,7 +33,12 @@ import {
 
 interface CreatePostScreenProps {
   onBack: () => void;
+  target?: CreatePostTarget;
 }
+
+export type CreatePostTarget =
+  | { type: "feed" }
+  | { type: "group"; groupId: string; groupName: string };
 
 interface SelectedPostImage {
   uri: string;
@@ -66,9 +72,13 @@ const TAG_PATTERN = /^[a-z0-9_-]+$/;
 
 export function CreatePostScreen({
   onBack,
+  target = { type: "feed" },
 }: CreatePostScreenProps): React.ReactElement | null {
   const { user } = useAuth();
   const createPostMutation = useCreatePostMutation();
+  const createGroupPostMutation = useCreateGroupPostMutation(
+    target.type === "group" ? target.groupId : "",
+  );
   const insets = useSafeAreaInsets();
   const [body, setBody] = useState("");
   const [tags, setTags] = useState<string[]>([]);
@@ -115,7 +125,10 @@ export function CreatePostScreen({
 
   const hasContent =
     body.trim().length > 0 || tags.length > 0 || selectedImage !== null;
-  const isSubmitting = createPostMutation.isPending;
+  const isSubmitting =
+    target.type === "group"
+      ? createGroupPostMutation.isPending
+      : createPostMutation.isPending;
   const canSubmit =
     (body.trim().length > 0 || selectedImage !== null) &&
     body.length <= MAX_BODY_LENGTH &&
@@ -334,11 +347,23 @@ export function CreatePostScreen({
           }
         }
 
-        await createPostMutation.mutateAsync({
-          body: trimmedBody || undefined,
-          images,
-          tags,
-        });
+        if (target.type === "group") {
+          await createGroupPostMutation.mutateAsync({
+            body: trimmedBody || "Shared a photo",
+            post_type: "standard",
+            images: images.map((image) => ({
+              image_url: image.image_url,
+              width: image.width,
+              height: image.height,
+            })),
+          });
+        } else {
+          await createPostMutation.mutateAsync({
+            body: trimmedBody || undefined,
+            images,
+            tags,
+          });
+        }
         await clearCurrent(draftSessionId);
         onBack();
       } catch (e: unknown) {
@@ -353,11 +378,13 @@ export function CreatePostScreen({
     body,
     canSubmit,
     clearCurrent,
+    createGroupPostMutation,
     createPostMutation,
     draftSessionId,
     onBack,
     selectedImage,
     tags,
+    target,
   ]);
 
   if (!user) return null;
@@ -421,6 +448,7 @@ export function CreatePostScreen({
         isSubmitting={isSubmitting}
         maxLength={MAX_BODY_LENGTH}
         postType={selectedImage ? "photo" : "text"}
+        title={target.type === "group" ? `Post to ${target.groupName}` : undefined}
         onBack={handleBack}
         onOpenDrafts={() => setIsDraftsOpen(true)}
         onSubmit={handleSubmit}

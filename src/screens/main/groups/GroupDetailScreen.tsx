@@ -1,23 +1,19 @@
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
     FlatList,
     Image,
-    Modal,
     ScrollView,
     StyleSheet,
     Text,
     TouchableOpacity,
     View,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import * as ImagePicker from 'expo-image-picker';
 import * as api from '../../../api/client';
 import { Avatar } from '../../../components/Avatar';
-import { CommentThreadModal } from '../../../components/comments/CommentThreadModal';
-import { CommentThreadAdapter, groupCommentToDisplayModel } from '../../../components/comments/commentTypes';
 import { CreatePostFab } from '../../../components/posts/CreatePostFab';
 import { PostCard } from '../../../components/posts/PostCard';
 import { groupPostToPostDisplayModel } from '../../../components/posts/postMappers';
@@ -26,9 +22,7 @@ import { ScreenHeader } from '../../../components/ui/ScreenHeader';
 import { SegmentedControl } from '../../../components/ui/SegmentedControl';
 import { TextField } from '../../../components/ui/TextField';
 import {
-    useCreateGroupPostMutation,
     useContactGroupAdminsMutation,
-    useCreateGroupCommentMutation,
     useDeleteGroupPostMutation,
     useCreateGroupInviteMutation,
     useGroup,
@@ -40,7 +34,6 @@ import {
     usePinGroupPostMutation,
     useToggleGroupPostReactionMutation,
 } from '../../../hooks/queries/useGroups';
-import { useAuth } from '../../../hooks/useAuth';
 import { Colors, Radius, Spacing, Typography } from '../../../theme';
 import { GroupAdminScreen } from './GroupAdminScreen';
 import { GroupReportScreen } from './GroupReportScreen';
@@ -48,26 +41,19 @@ import { GroupReportScreen } from './GroupReportScreen';
 interface GroupDetailScreenProps {
     groupId: string;
     onBack: () => void;
+    onOpenComments: (post: api.GroupPost) => void;
+    onOpenCreatePost: (group: api.Group) => void;
 }
 
 type GroupDetailTab = 'posts' | 'media' | 'members' | 'about';
 type GroupDetailSurface = 'detail' | 'admin' | 'report';
 
-interface SelectedGroupImage {
-    uri: string;
-    mimeType: string;
-    fileName: string;
-    width: number | null;
-    height: number | null;
-}
-
-interface GroupImageState {
-    localImage: SelectedGroupImage;
-    status: 'uploading' | 'uploaded' | 'failed';
-    uploadedImage?: api.PostImage;
-}
-
-export function GroupDetailScreen({ groupId, onBack }: GroupDetailScreenProps): React.ReactElement {
+export function GroupDetailScreen({
+    groupId,
+    onBack,
+    onOpenComments,
+    onOpenCreatePost,
+}: GroupDetailScreenProps): React.ReactElement {
     const [activeTab, setActiveTab] = useState<GroupDetailTab>('posts');
     const [surface, setSurface] = useState<GroupDetailSurface>('detail');
     const groupQuery = useGroup(groupId, true);
@@ -88,7 +74,7 @@ export function GroupDetailScreen({ groupId, onBack }: GroupDetailScreenProps): 
     }
 
     return (
-        <View style={styles.container}>
+        <SafeAreaView style={styles.container} edges={['bottom']}>
             <ScreenHeader title="Group" onBack={onBack} />
             {groupQuery.isLoading ? (
                 <View style={styles.centered}>
@@ -121,7 +107,11 @@ export function GroupDetailScreen({ groupId, onBack }: GroupDetailScreenProps): 
                         style={styles.tabs}
                     />
                     {activeTab === 'posts' ? (
-                        <GroupPostsTab group={group} />
+                        <GroupPostsTab
+                            group={group}
+                            onOpenComments={onOpenComments}
+                            onOpenCreatePost={onOpenCreatePost}
+                        />
                     ) : activeTab === 'media' ? (
                         <GroupMediaTab groupId={groupId} />
                     ) : activeTab === 'members' ? (
@@ -137,23 +127,22 @@ export function GroupDetailScreen({ groupId, onBack }: GroupDetailScreenProps): 
             ) : (
                 <EmptyState title="Group not found" />
             )}
-        </View>
+        </SafeAreaView>
     );
 }
 
-function GroupPostsTab({ group }: { group: api.Group }): React.ReactElement {
+function GroupPostsTab({
+    group,
+    onOpenComments,
+    onOpenCreatePost,
+}: {
+    group: api.Group;
+    onOpenComments: (post: api.GroupPost) => void;
+    onOpenCreatePost: (group: api.Group) => void;
+}): React.ReactElement {
     const groupId = group.id;
     const insets = useSafeAreaInsets();
-    const { user } = useAuth();
-    const [draft, setDraft] = useState('');
-    const [composerOpen, setComposerOpen] = useState(false);
-    const [commentPost, setCommentPost] = useState<api.GroupPost | null>(null);
-    const [selectedImage, setSelectedImage] = useState<GroupImageState | null>(null);
-    const uploadPromiseRef = useRef<Promise<api.PostImage> | null>(null);
     const postsQuery = useGroupPosts(groupId, 20, true);
-    const createPostMutation = useCreateGroupPostMutation(groupId);
-    const createCommentMutation = useCreateGroupCommentMutation(groupId, commentPost?.id ?? '');
-    const createGroupComment = createCommentMutation.mutateAsync;
     const reactionMutation = useToggleGroupPostReactionMutation(groupId);
     const pinPostMutation = usePinGroupPostMutation(groupId);
     const deletePostMutation = useDeleteGroupPostMutation(groupId);
@@ -161,87 +150,6 @@ function GroupPostsTab({ group }: { group: api.Group }): React.ReactElement {
         () => (postsQuery.data?.pages ?? []).flatMap(page => page.items ?? []),
         [postsQuery.data?.pages],
     );
-
-    const handleCreatePost = async (): Promise<void> => {
-        const body = draft.trim();
-        if (!body && !selectedImage) return;
-        try {
-            let images: api.PostImage[] = [];
-            if (selectedImage) {
-                if (selectedImage.uploadedImage) {
-                    images = [selectedImage.uploadedImage];
-                } else if (selectedImage.status === 'uploading' && uploadPromiseRef.current) {
-                    images = [await uploadPromiseRef.current];
-                } else {
-                    images = [await beginImageUpload(selectedImage.localImage)];
-                }
-            }
-            await createPostMutation.mutateAsync({
-                body: body || 'Shared a photo',
-                post_type: 'standard',
-                images: images.map(image => ({
-                    image_url: image.image_url,
-                    width: image.width,
-                    height: image.height,
-                })),
-            });
-            setDraft('');
-            setSelectedImage(null);
-            setComposerOpen(false);
-            uploadPromiseRef.current = null;
-        } catch (e: unknown) {
-            Alert.alert(
-                'Could not post',
-                e instanceof Error ? e.message : 'Something went wrong.',
-            );
-        }
-    };
-
-    const beginImageUpload = useCallback((image: SelectedGroupImage): Promise<api.PostImage> => {
-        const uploadPromise = api.uploadPostImage({
-            uri: image.uri,
-            mimeType: image.mimeType,
-            fileName: image.fileName,
-        });
-        uploadPromiseRef.current = uploadPromise;
-        void uploadPromise
-            .then((uploadedImage) => {
-                setSelectedImage((current) => {
-                    if (!current || current.localImage.uri !== image.uri) return current;
-                    return { ...current, status: 'uploaded', uploadedImage };
-                });
-            })
-            .catch(() => {
-                setSelectedImage((current) => {
-                    if (!current || current.localImage.uri !== image.uri) return current;
-                    return { ...current, status: 'failed' };
-                });
-            });
-        return uploadPromise;
-    }, []);
-
-    const handlePickImage = useCallback(async (): Promise<void> => {
-        const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-        if (!permission.granted) {
-            Alert.alert('Permission required', 'Allow access to your photo library to attach a group photo.');
-            return;
-        }
-        const result = await ImagePicker.launchImageLibraryAsync({
-            mediaTypes: ['images'],
-            quality: 1,
-        });
-        if (result.canceled) return;
-        const asset = result.assets[0];
-        const image: SelectedGroupImage = {
-            uri: asset.uri,
-            mimeType: asset.mimeType ?? inferMimeType(asset.uri),
-            fileName: asset.fileName ?? inferFileName(asset.uri, 'group-photo.jpg'),
-            width: asset.width,
-            height: asset.height,
-        };
-        setSelectedImage({ localImage: image, status: 'uploading' });
-        beginImageUpload(image).catch(() => {});
-    }, [beginImageUpload]);
 
     const handlePinPost = async (post: api.GroupPost): Promise<void> => {
         try {
@@ -290,23 +198,6 @@ function GroupPostsTab({ group }: { group: api.Group }): React.ReactElement {
         );
     }, [handleDeletePost, handlePinPost]);
 
-    const commentAdapter = useMemo<CommentThreadAdapter | null>(() => {
-        if (!commentPost) return null;
-        return {
-            loadComments: async (cursor?: string) => {
-                const result = await api.listGroupComments(groupId, commentPost.id, cursor);
-                return {
-                    ...result,
-                    items: (result.items ?? []).map(groupCommentToDisplayModel),
-                };
-            },
-            createComment: async (body: string) => {
-                const comment = await createGroupComment(body);
-                return groupCommentToDisplayModel(comment);
-            },
-        };
-    }, [commentPost, createGroupComment, groupId]);
-
     return (
         <View style={styles.postsSurface}>
             <FlatList
@@ -315,9 +206,9 @@ function GroupPostsTab({ group }: { group: api.Group }): React.ReactElement {
                 contentContainerStyle={[styles.postListContent, { paddingBottom: Spacing.xl + insets.bottom + 72 }]}
                 renderItem={({ item }) => (
                     <PostCard
-                        post={groupPostToPostDisplayModel(item, user?.id ?? '')}
+                        post={groupPostToPostDisplayModel(item, '')}
                         onReact={() => reactionMutation.mutate(item.id)}
-                        onOpenComments={() => setCommentPost(item)}
+                        onOpenComments={() => onOpenComments(item)}
                         onOpenActions={group.can_moderate_content ? () => handleOpenPostActions(item) : undefined}
                     />
                 )}
@@ -338,98 +229,8 @@ function GroupPostsTab({ group }: { group: api.Group }): React.ReactElement {
             <CreatePostFab
                 visible={group.can_post}
                 bottom={insets.bottom + 20}
-                onPress={() => setComposerOpen(true)}
+                onPress={() => onOpenCreatePost(group)}
             />
-
-            <Modal
-                visible={composerOpen}
-                transparent
-                animationType="fade"
-                onRequestClose={() => {
-                    if (createPostMutation.isPending) return;
-                    setComposerOpen(false);
-                }}
-            >
-                <View style={styles.composerBackdrop}>
-                    <View style={styles.composerModal}>
-                        <Text style={styles.composerTitle}>Post to {group.name}</Text>
-                        <TextField
-                            value={draft}
-                            onChangeText={setDraft}
-                            placeholder="Post to the group"
-                            multiline
-                            style={styles.composerInput}
-                        />
-                        {selectedImage ? (
-                            <View style={styles.selectedImageRow}>
-                                <Image source={{ uri: selectedImage.localImage.uri }} style={styles.selectedImage} />
-                                <View style={styles.selectedImageCopy}>
-                                    <Text style={styles.selectedImageTitle}>
-                                        {selectedImage.status === 'uploaded'
-                                            ? 'Photo ready'
-                                            : selectedImage.status === 'failed'
-                                                ? 'Upload failed'
-                                                : 'Uploading photo'}
-                                    </Text>
-                                    <TouchableOpacity
-                                        onPress={() => {
-                                            uploadPromiseRef.current = null;
-                                            setSelectedImage(null);
-                                        }}
-                                    >
-                                        <Text style={styles.removeImageText}>Remove</Text>
-                                    </TouchableOpacity>
-                                </View>
-                            </View>
-                        ) : null}
-                        <View style={styles.composerActions}>
-                            <TouchableOpacity style={styles.photoButton} onPress={handlePickImage}>
-                                <Ionicons name="image-outline" size={17} color={Colors.primary} />
-                                <Text style={styles.photoButtonText}>Photo</Text>
-                            </TouchableOpacity>
-                            <View style={styles.composerModalActions}>
-                                <TouchableOpacity
-                                    style={styles.composerSecondaryButton}
-                                    disabled={createPostMutation.isPending}
-                                    onPress={() => setComposerOpen(false)}
-                                >
-                                    <Text style={styles.composerSecondaryText}>Cancel</Text>
-                                </TouchableOpacity>
-                                <TouchableOpacity
-                                    style={[
-                                        styles.composerButton,
-                                        ((!draft.trim() && !selectedImage) || createPostMutation.isPending) && styles.composerButtonDisabled,
-                                    ]}
-                                    onPress={handleCreatePost}
-                                    disabled={(!draft.trim() && !selectedImage) || createPostMutation.isPending}
-                                >
-                                    {createPostMutation.isPending ? (
-                                        <ActivityIndicator size="small" color={Colors.textOn.primary} />
-                                    ) : (
-                                        <Text style={styles.composerButtonText}>Post</Text>
-                                    )}
-                                </TouchableOpacity>
-                            </View>
-                        </View>
-                    </View>
-                </View>
-            </Modal>
-
-            {commentPost && user && commentAdapter ? (
-                <View style={StyleSheet.absoluteFillObject}>
-                    <CommentThreadModal
-                        title={commentPost.comment_count > 0
-                            ? `${commentPost.comment_count} Comment${commentPost.comment_count === 1 ? '' : 's'}`
-                            : 'Comments'}
-                        adapter={commentAdapter}
-                        currentUser={user}
-                        initialCommentCount={commentPost.comment_count}
-                        focusComposer={false}
-                        onClose={() => setCommentPost(null)}
-                        onPressUser={() => {}}
-                    />
-                </View>
-            ) : null}
         </View>
     );
 }
@@ -620,18 +421,6 @@ function visibilityLabel(visibility: api.GroupVisibility): string {
     return 'Public';
 }
 
-function inferMimeType(uri: string): string {
-    const lower = uri.toLowerCase();
-    if (lower.endsWith('.png')) return 'image/png';
-    if (lower.endsWith('.webp')) return 'image/webp';
-    return 'image/jpeg';
-}
-
-function inferFileName(uri: string, fallback: string): string {
-    const parts = uri.split('/');
-    return parts[parts.length - 1] || fallback;
-}
-
 const styles = StyleSheet.create({
     container: {
         flex: 1,
@@ -684,113 +473,8 @@ const styles = StyleSheet.create({
     postListContent: {
         paddingTop: Spacing.md,
     },
-    composerBackdrop: {
-        flex: 1,
-        backgroundColor: 'rgba(0, 0, 0, 0.56)',
-        justifyContent: 'center',
-        padding: Spacing.lg,
-    },
-    composerModal: {
-        borderRadius: Radius.lg,
-        borderWidth: 1,
-        borderColor: Colors.border.default,
-        backgroundColor: Colors.bg.page,
-        padding: Spacing.lg,
-        gap: Spacing.sm,
-    },
-    composerTitle: {
-        fontSize: Typography.sizes.lg,
-        fontWeight: '800',
-        color: Colors.text.primary,
-    },
-    composerInput: {
-        minHeight: 78,
-        textAlignVertical: 'top',
-    },
-    composerButton: {
-        alignSelf: 'flex-end',
-        minWidth: 82,
-        minHeight: 38,
-        alignItems: 'center',
-        justifyContent: 'center',
-        borderRadius: Radius.pill,
-        backgroundColor: Colors.primary,
-        paddingHorizontal: Spacing.md,
-    },
     composerButtonDisabled: {
         opacity: 0.5,
-    },
-    composerButtonText: {
-        fontSize: Typography.sizes.sm,
-        fontWeight: '800',
-        color: Colors.textOn.primary,
-    },
-    composerActions: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        gap: Spacing.sm,
-    },
-    composerModalActions: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: Spacing.sm,
-    },
-    composerSecondaryButton: {
-        minHeight: 38,
-        alignItems: 'center',
-        justifyContent: 'center',
-        borderRadius: Radius.pill,
-        borderWidth: 1,
-        borderColor: Colors.border.default,
-        paddingHorizontal: Spacing.md,
-    },
-    composerSecondaryText: {
-        fontSize: Typography.sizes.sm,
-        fontWeight: '800',
-        color: Colors.text.primary,
-    },
-    photoButton: {
-        minHeight: 36,
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: Spacing.xs,
-        borderRadius: Radius.pill,
-        paddingHorizontal: Spacing.md,
-        backgroundColor: Colors.primarySubtle,
-    },
-    photoButtonText: {
-        fontSize: Typography.sizes.sm,
-        fontWeight: '800',
-        color: Colors.primary,
-    },
-    selectedImageRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: Spacing.sm,
-        borderRadius: Radius.md,
-        backgroundColor: Colors.bg.page,
-        padding: Spacing.sm,
-    },
-    selectedImage: {
-        width: 54,
-        height: 54,
-        borderRadius: Radius.sm,
-        backgroundColor: Colors.bg.surface,
-    },
-    selectedImageCopy: {
-        flex: 1,
-        gap: 4,
-    },
-    selectedImageTitle: {
-        fontSize: Typography.sizes.sm,
-        fontWeight: '800',
-        color: Colors.text.primary,
-    },
-    removeImageText: {
-        fontSize: Typography.sizes.sm,
-        fontWeight: '700',
-        color: Colors.danger,
     },
     mediaGrid: {
         padding: Spacing.md,

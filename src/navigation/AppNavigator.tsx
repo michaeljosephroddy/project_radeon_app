@@ -2,11 +2,14 @@ import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react'
 import {
     View, Text, TouchableOpacity, StyleSheet, Keyboard, Platform, AppState,
 } from 'react-native';
+import { useQueryClient } from '@tanstack/react-query';
 import { getDeviceCoords, reverseGeocode } from '../utils/location';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { CommentsModal, type CommentThreadTarget } from '../components/CommentsModal';
+import { CommentThreadModal } from '../components/comments/CommentThreadModal';
+import { CommentThreadAdapter, groupCommentToDisplayModel } from '../components/comments/commentTypes';
 import { SegmentedControl } from '../components/ui/SegmentedControl';
 import { FeedScreen } from '../screens/main/FeedScreen';
 import { GroupsScreen } from '../screens/main/GroupsScreen';
@@ -19,7 +22,7 @@ import { ProfileTabScreen } from '../screens/main/ProfileTabScreen';
 import { ChatScreen } from '../screens/main/ChatScreen';
 import { NotificationsScreen } from '../screens/main/NotificationsScreen';
 import { ComposeDMScreen } from '../screens/main/ComposeDMScreen';
-import { CreatePostScreen } from '../screens/main/CreatePostScreen';
+import { CreatePostScreen, type CreatePostTarget } from '../screens/main/CreatePostScreen';
 import { UserProfileScreen } from '../screens/main/UserProfileScreen';
 import { MeetupDetailScreen } from '../screens/main/MeetupDetailScreen';
 import { Avatar } from '../components/Avatar';
@@ -36,6 +39,12 @@ interface OpenUserProfile {
     userId: string;
     username: string;
     avatarUrl?: string;
+}
+
+interface OpenGroupComments {
+    groupId: string;
+    postId: string;
+    commentCount: number;
 }
 
 type Tab = 'community' | 'discover' | 'support' | 'meetups' | 'chats';
@@ -145,6 +154,7 @@ const ChatsTab = React.memo(function ChatsTab({ isActive, onOpenChat }: { isActi
 });
 
 export function AppNavigator() {
+    const queryClient = useQueryClient();
     const { user, refreshUser } = useAuth();
     const { intent, consumeIntent } = useNotificationIntent();
     const {
@@ -157,6 +167,7 @@ export function AppNavigator() {
     const [openUserProfile, setOpenUserProfile] = useState<OpenUserProfile | null>(null);
     const [pendingDM, setPendingDM] = useState<{ recipientId: string; username: string; avatarUrl?: string } | null>(null);
     const [createPostOpen, setCreatePostOpen] = useState(false);
+    const [createPostTarget, setCreatePostTarget] = useState<CreatePostTarget>({ type: 'feed' });
     const [createPostSessionKey, setCreatePostSessionKey] = useState(0);
     const [ownProfileOpen, setOwnProfileOpen] = useState(false);
     const [openMeetup, setOpenMeetup] = useState<api.Meetup | null>(null);
@@ -169,6 +180,7 @@ export function AppNavigator() {
         focusComposer: boolean;
         onCommentCreated?: (comment: api.Comment) => void;
     } | null>(null);
+    const [openGroupComments, setOpenGroupComments] = useState<OpenGroupComments | null>(null);
     const [keyboardVisible, setKeyboardVisible] = useState(false);
     const [feedFocusRequest, setFeedFocusRequest] = useState<{ postId: string; commentId?: string; nonce: number } | null>(null);
     const insets = useSafeAreaInsets();
@@ -183,6 +195,24 @@ export function AppNavigator() {
     const inPlusUpsell = plusUpsellOpen;
     const inNotifications = notificationsOpen;
     const inComments = openComments !== null;
+    const inGroupComments = openGroupComments !== null;
+
+    const groupCommentAdapter = useMemo<CommentThreadAdapter | null>(() => {
+        if (!openGroupComments) return null;
+        return {
+            loadComments: async (cursor?: string) => {
+                const result = await api.listGroupComments(openGroupComments.groupId, openGroupComments.postId, cursor);
+                return {
+                    ...result,
+                    items: (result.items ?? []).map(groupCommentToDisplayModel),
+                };
+            },
+            createComment: async (body: string) => {
+                const comment = await api.createGroupComment(openGroupComments.groupId, openGroupComments.postId, body);
+                return groupCommentToDisplayModel(comment);
+            },
+        };
+    }, [openGroupComments]);
 
     const handleOpenUserProfile = useCallback((profile: OpenUserProfile) => {
         setOpenUserProfile(profile);
@@ -231,10 +261,12 @@ export function AppNavigator() {
         setPendingDM(null);
         setOpenMeetup(null);
         setPlusUpsellOpen(false);
+        setOpenGroupComments(null);
     }, []);
 
     const handleCloseGroup = useCallback(() => {
         setOpenGroupId(null);
+        setOpenGroupComments(null);
     }, []);
 
     const handleCloseChat = useCallback(() => {
@@ -263,9 +295,33 @@ export function AppNavigator() {
         setOpenComments({ thread, focusComposer, onCommentCreated });
     }, []);
 
+    const handleOpenGroupComments = useCallback((post: api.GroupPost) => {
+        setOpenGroupComments({
+            groupId: post.group_id,
+            postId: post.id,
+            commentCount: post.comment_count,
+        });
+    }, []);
+
     const openCreatePost = useCallback(() => {
+        setCreatePostTarget({ type: 'feed' });
         setCreatePostSessionKey((current) => current + 1);
         setCreatePostOpen(true);
+        setOpenGroupComments(null);
+        setOpenChat(null);
+        setOpenUserProfile(null);
+        setOwnProfileOpen(false);
+        setPendingDM(null);
+        setOpenMeetup(null);
+        setPlusUpsellOpen(false);
+        setNotificationsOpen(false);
+    }, []);
+
+    const openGroupCreatePost = useCallback((group: api.Group) => {
+        setCreatePostTarget({ type: 'group', groupId: group.id, groupName: group.name });
+        setCreatePostSessionKey((current) => current + 1);
+        setCreatePostOpen(true);
+        setOpenGroupComments(null);
         setOpenChat(null);
         setOpenUserProfile(null);
         setOwnProfileOpen(false);
@@ -277,6 +333,7 @@ export function AppNavigator() {
 
     const closeCreatePost = useCallback(() => {
         setCreatePostOpen(false);
+        setCreatePostTarget({ type: 'feed' });
     }, []);
 
     const handleFeedFocusRequestConsumed = useCallback((nonce: number) => {
@@ -531,6 +588,7 @@ export function AppNavigator() {
                 <View style={StyleSheet.absoluteFill}>
                     <CreatePostScreen
                         key={createPostSessionKey}
+                        target={createPostTarget}
                         onBack={closeCreatePost}
                     />
                 </View>
@@ -549,6 +607,8 @@ export function AppNavigator() {
                     <GroupDetailScreen
                         groupId={openGroupId!}
                         onBack={handleCloseGroup}
+                        onOpenComments={handleOpenGroupComments}
+                        onOpenCreatePost={openGroupCreatePost}
                     />
                 </View>
             )}
@@ -588,9 +648,9 @@ export function AppNavigator() {
         </>
     ), [
         inOwnProfile, inUserProfile, inChat, inComposeDM, inCreatePost, inMeetupDetail, inGroupDetail, inPlusUpsell, inNotifications,
-        openUserProfile, openChat, pendingDM, openMeetup, openGroupId, ownProfileInitialContentTab, createPostSessionKey,
+        openUserProfile, openChat, pendingDM, openMeetup, openGroupId, ownProfileInitialContentTab, createPostSessionKey, createPostTarget,
         handleOpenUserProfile, handleOpenGroup, handleCloseChat, closeUserProfile, closeOwnProfile,
-        handleOpenComments, closeCreatePost,
+        handleOpenComments, handleOpenGroupComments, openGroupCreatePost, closeCreatePost,
         handleComposeDM, handleComposeDMComplete, handleCloseMeetup, handleCloseGroup, closePlusUpsell,
         closeNotifications, handleOpenNotificationChat, handleOpenNotificationMention,
     ]);
@@ -659,6 +719,25 @@ export function AppNavigator() {
                     />
                 </View>
             )}
+
+            {inGroupComments && user && openGroupComments && groupCommentAdapter ? (
+                <View style={StyleSheet.absoluteFillObject}>
+                    <CommentThreadModal
+                        title={openGroupComments.commentCount > 0
+                            ? `${openGroupComments.commentCount} Comment${openGroupComments.commentCount === 1 ? '' : 's'}`
+                            : 'Comments'}
+                        adapter={groupCommentAdapter}
+                        currentUser={user}
+                        initialCommentCount={openGroupComments.commentCount}
+                        focusComposer={false}
+                        onClose={() => setOpenGroupComments(null)}
+                        onPressUser={handleOpenUserProfile}
+                        onCommentCreated={() => {
+                            void queryClient.invalidateQueries({ queryKey: ['groups', 'posts', openGroupComments.groupId] });
+                        }}
+                    />
+                </View>
+            ) : null}
         </>
     );
 }

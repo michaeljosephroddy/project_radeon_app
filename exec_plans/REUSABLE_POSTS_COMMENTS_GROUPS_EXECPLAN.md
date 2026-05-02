@@ -23,6 +23,9 @@ After this change, the Groups posts tab should visually and behaviorally mirror 
 - [x] (2026-05-02T20:47Z) Implemented Milestone 4: migrated the Groups posts tab to shared `PostCard`, shared `CommentThreadModal`, shared `CreatePostFab`, and a modal group post composer.
 - [x] (2026-05-02T20:47Z) Ran `npx tsc --noEmit`; TypeScript passed.
 - [x] (2026-05-02T20:47Z) Ran `git diff --check`; whitespace validation passed.
+- [x] (2026-05-02T20:56Z) Fixed follow-up QA findings: group comments now open through the root app overlay like Community feed comments, group post creation now uses `CreatePostScreen` in group-target mode instead of a temporary modal composer, and `GroupDetailScreen` handles bottom safe area when replacing the tab bar.
+- [x] (2026-05-02T20:56Z) Reran `npx tsc --noEmit`; TypeScript passed.
+- [x] (2026-05-02T20:56Z) Reran `git diff --check`; whitespace validation passed.
 - [ ] Perform device/simulator visual QA for Community feed and Groups posts.
 
 ## Surprises & Discoveries
@@ -41,6 +44,9 @@ After this change, the Groups posts tab should visually and behaviorally mirror 
 
 - Observation: The reusable comment extraction could preserve the existing feed import path.
     Evidence: `src/components/CommentsModal.tsx` is now a small compatibility wrapper that builds a feed comment adapter and renders `CommentThreadModal`.
+
+- Observation: Rendering group comments inside `GroupPostsTab` constrained the modal to the area below the group header and tabs.
+    Evidence: User QA reported that the group comments modal was not fullscreen. The fix moved group comment state and `CommentThreadModal` rendering into `AppNavigator`, matching the root overlay path used by Community feed comments.
 
 ## Decision Log
 
@@ -66,9 +72,11 @@ After this change, the Groups posts tab should visually and behaviorally mirror 
 
 ## Outcomes & Retrospective
 
-The first implementation pass is complete at the code-validation level. Shared post display models, a reusable post card, a reusable create-post FAB, reusable comment thread components, and adapter-driven feed/group comment wiring now exist. The Community feed still uses its existing feed-specific logic for telemetry, share, hide, mute, and reactions, while normal feed post rendering and the FAB come from shared components. The Groups posts tab now renders with the shared post card, opens the shared comments modal, and uses the shared FAB to open a group post composer modal instead of showing an always-visible inline composer.
+The first implementation pass is complete at the code-validation level. Shared post display models, a reusable post card, a reusable create-post FAB, reusable comment thread components, and adapter-driven feed/group comment wiring now exist. The Community feed still uses its existing feed-specific logic for telemetry, share, hide, mute, and reactions, while normal feed post rendering and the FAB come from shared components. The Groups posts tab now renders with the shared post card, opens the shared root-level comments modal, and uses the shared FAB to open `CreatePostScreen` in group-target mode instead of showing an always-visible inline composer.
 
 Remaining risk is visual and interaction QA on a simulator or device. `npx tsc --noEmit` and `git diff --check` pass, but those commands do not prove that the modal composer feels right on small screens, that the group FAB clears the tab bar in every device size, or that comment modal keyboard behavior matches the existing feed behavior after extraction.
+
+Follow-up QA changed the direction for group creation: the group FAB now opens the same full-screen `CreatePostScreen` used by the Community feed, configured with a group target so submission calls `createGroupPost`. Group comments now render from `AppNavigator` as a root overlay, so they should match the Community feed modal footprint rather than being constrained by the group posts tab. `GroupDetailScreen` now uses bottom safe-area handling because it replaces the app tab bar.
 
 ## Context and Orientation
 
