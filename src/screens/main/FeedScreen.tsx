@@ -197,6 +197,7 @@ interface FeedScreenProps {
     onOpenCreatePost: () => void;
     focusRequest?: { postId: string; commentId?: string; nonce: number } | null;
     onFocusRequestConsumed?: (nonce: number) => void;
+    topContentInset?: number;
 }
 
 export function FeedScreen({
@@ -206,6 +207,7 @@ export function FeedScreen({
     onOpenCreatePost,
     focusRequest,
     onFocusRequestConsumed,
+    topContentInset = 0,
 }: FeedScreenProps) {
     const ScreenContainer = Platform.OS === 'ios' ? KeyboardAvoidingView : View;
     const { user } = useAuth();
@@ -797,7 +799,10 @@ export function FeedScreen({
                 }
                 renderItem={renderItem}
                 ListFooterComponent={activeFeedQuery.isFetchingNextPage ? <ActivityIndicator style={styles.footerLoader} color={Colors.primary} /> : null}
-                contentContainerStyle={[styles.feedListContent, { paddingBottom: listPaddingBottom }]}
+                contentContainerStyle={[
+                    styles.feedListContent,
+                    { paddingTop: ContentInsets.screenHorizontal + topContentInset, paddingBottom: listPaddingBottom },
+                ]}
             />
 
             {isActive && feedScrollToTop.isVisible ? (

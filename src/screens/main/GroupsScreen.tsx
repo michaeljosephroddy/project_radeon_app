@@ -24,6 +24,7 @@ import { Colors, ContentInsets, Radius, Spacing, Typography, getAvatarColors } f
 interface GroupsScreenProps {
     isActive: boolean;
     onOpenGroup: (groupId: string) => void;
+    topContentInset?: number;
 }
 
 type GroupScope = 'discover' | 'joined';
@@ -121,7 +122,7 @@ const GroupSearchRow = React.memo(function GroupSearchRow({
     );
 });
 
-export function GroupsScreen({ isActive, onOpenGroup }: GroupsScreenProps): React.ReactElement {
+export function GroupsScreen({ isActive, onOpenGroup, topContentInset = 0 }: GroupsScreenProps): React.ReactElement {
     const [query, setQuery] = useState('');
     const [scope, setScope] = useState<GroupScope>('discover');
     const [activeChip, setActiveChip] = useState<GroupFilterChip | null>(null);
@@ -232,7 +233,7 @@ export function GroupsScreen({ isActive, onOpenGroup }: GroupsScreenProps): Reac
                 data={groups}
                 keyExtractor={item => item.id}
                 renderItem={renderItem}
-                contentContainerStyle={styles.listContent}
+                contentContainerStyle={[styles.listContent, { paddingTop: topContentInset }]}
                 ListHeaderComponent={(
                     <View style={styles.headerContent}>
                         <GroupSearchRow
