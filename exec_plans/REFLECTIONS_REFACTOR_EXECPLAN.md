@@ -17,7 +17,7 @@ To see this working: open the app, navigate to the reflection feature, type some
 ## Progress
 
 
-- [ ] Milestone 1 — Keyboard pattern migration on `DailyReflectionScreen` (editor + detail).
+- [x] (2026-05-02) Milestone 1 — Keyboard pattern migration on `DailyReflectionScreen` (editor + detail). Also updated review and history views for the bottom-safe-area redistribution.
 - [ ] Milestone 2 — Today-reflection awareness via `useTodayReflection` + `upsertTodayReflection` path.
 - [ ] Milestone 3 — Local-date helper in `src/utils/date.ts` and timezone fix in `useUpdateReflectionMutation`.
 - [ ] Milestone 4 — Unify the `useReflectionHistory` limit so screen and profile tab share cache.
@@ -31,7 +31,11 @@ Use timestamps when checking items off, e.g. `- [x] (2026-05-02 14:00Z) Mileston
 ## Surprises & Discoveries
 
 
-Empty at start. Add observations here as work proceeds. For each, include a one-line evidence snippet (a log line, a diff, a screenshot description).
+- Observation (2026-05-02, M1): The screen root used `<SafeAreaView edges={['bottom']}>`, providing bottom safe-area to all four views uniformly. Migrating only the editor and detail views to the spacer pattern would have left a doubled cushion (animated spacer + safe-area inset) in those two views. Resolved by dropping `edges={['bottom']}` at the root and redistributing per view: editor and detail rely on the animated spacer (closedHeight = `max(insets.bottom, Spacing.sm)`), review adds a static `<View style={{ height: bottomSafeSpace }} />` after its dock, and history adds `insets.bottom` to its content padding.
+    Evidence: edits to `src/screens/main/DailyReflectionScreen.tsx` lines 213-214 (root) and per-view bodies; `npx tsc --noEmit` clean after the change.
+
+- Observation (2026-05-02, M1): The `actionDock` style was shared across editor, review, and detail with `position: 'absolute'`. Flattening it to flex flow affected all three at once. Review view did not need keyboard tracking but did still need an action dock above the safe-area, so the shared style stays shared — only its positioning props were dropped.
+    Evidence: single edit to the `actionDock` StyleSheet entry; behavior preserved in all three views.
 
 
 ## Decision Log
@@ -49,11 +53,15 @@ Empty at start. Add observations here as work proceeds. For each, include a one-
     Rationale: Streak is derivable from the existing data and the first page (20 items) covers 20-day streaks comfortably. If streaks longer than 20 days become common, escalate to a server endpoint as a follow-up.
     Date/Author: 2026-05-02 / Claude (initial plan).
 
+- Decision (M1): Drop `<SafeAreaView edges={['bottom']}>` at the screen root and have each view handle its own bottom safe-area, instead of keeping the SafeAreaView and adjusting `closedHeight` to compensate.
+    Rationale: Matches CreatePostScreen's pattern exactly. Keeping the SafeAreaView would have required either a negative `openedOffset` (subtract `insets.bottom` when keyboard is up) or per-view conditional padding — both more fragile than the chosen redistribution. Each view explicitly stating its bottom space also makes the intent legible.
+    Date/Author: 2026-05-02 / Claude (M1 execution).
+
 
 ## Outcomes & Retrospective
 
 
-Empty at start. At completion of each milestone, append a short paragraph: what was achieved, what remains, what surprised you. At full completion, add a closing summary.
+- Milestone 1 (2026-05-02): Editor and detail views no longer wrap in `KeyboardAvoidingView`; both drive an `Animated.View` spacer via `useGradualKeyboardInset`, matching CreatePostScreen's behavior. Review and history views were rewired in the same pass to absorb the safe-area cushion that the screen-root `SafeAreaView` previously provided. Added `keyboardDismissMode="interactive"` and the iOS auto-inset disablers to both editing scrolls. `tsc --noEmit` clean. Manual verification still pending — to be done in the simulator before merge.
 
 
 ## Context and Orientation

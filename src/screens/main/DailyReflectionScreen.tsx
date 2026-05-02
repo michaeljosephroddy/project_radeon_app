@@ -10,10 +10,11 @@ import {
     View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import Animated, { useAnimatedStyle } from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as api from '../../api/client';
 import { ScreenHeader } from '../../components/ui/ScreenHeader';
+import { useGradualKeyboardInset } from '../../hooks/useGradualKeyboardInset';
 import {
     useCreateReflectionMutation,
     useDeleteReflectionMutation,
@@ -211,7 +212,7 @@ export function DailyReflectionScreen({
     );
 
     return (
-        <SafeAreaView style={styles.container} edges={['bottom']}>
+        <View style={styles.container}>
             <ScreenHeader
                 onBack={
                     view === 'detail'
@@ -276,7 +277,7 @@ export function DailyReflectionScreen({
                     <ActivityIndicator color={Colors.primary} />
                 </View>
             ) : null}
-        </SafeAreaView>
+        </View>
     );
 }
 
@@ -304,16 +305,27 @@ function ReflectionEditor({
     onChangeOnMind,
     onChangeBlockingToday,
     onSave,
-}: ReflectionEditorProps) {
+}: ReflectionEditorProps): React.ReactElement {
+    const insets = useSafeAreaInsets();
+    const bottomSafeSpace = Math.max(insets.bottom, Spacing.sm);
+    const { height: keyboardInset } = useGradualKeyboardInset({
+        closedHeight: bottomSafeSpace,
+        openedOffset: Spacing.sm,
+    });
+    const spacerStyle = useAnimatedStyle((): { height: number } => ({
+        height: keyboardInset.value,
+    }));
+
     return (
-        <KeyboardAvoidingView
-            style={styles.keyboardView}
-            behavior="translate-with-padding"
-        >
+        <View style={styles.keyboardView}>
             <ScrollView
                 style={styles.scroll}
                 contentContainerStyle={styles.writeContent}
                 keyboardShouldPersistTaps="handled"
+                keyboardDismissMode="interactive"
+                automaticallyAdjustContentInsets={false}
+                automaticallyAdjustKeyboardInsets={false}
+                contentInsetAdjustmentBehavior="never"
             >
                 <View style={styles.hero}>
                     <Text style={styles.dateLabel}>{dateLabel}</Text>
@@ -350,7 +362,8 @@ function ReflectionEditor({
                     </TouchableOpacity>
                 </View>
             </View>
-        </KeyboardAvoidingView>
+            <Animated.View style={spacerStyle} />
+        </View>
     );
 }
 
@@ -374,7 +387,9 @@ function ReflectionReviewView({
     canSave,
     onEdit,
     onSave,
-}: ReflectionReviewViewProps) {
+}: ReflectionReviewViewProps): React.ReactElement {
+    const insets = useSafeAreaInsets();
+    const bottomSafeSpace = Math.max(insets.bottom, Spacing.sm);
     return (
         <View style={styles.keyboardView}>
             <ScrollView style={styles.scroll} contentContainerStyle={styles.reviewContent}>
@@ -418,6 +433,7 @@ function ReflectionReviewView({
                     </TouchableOpacity>
                 </View>
             </View>
+            <View style={{ height: bottomSafeSpace }} />
         </View>
     );
 }
@@ -524,11 +540,15 @@ function ReflectionHistoryView({
     hasNextPage,
     onFetchNextPage,
     onOpenReflection,
-}: ReflectionHistoryViewProps) {
+}: ReflectionHistoryViewProps): React.ReactElement {
+    const insets = useSafeAreaInsets();
     const isEmpty = groupedHistory.every(group => group.items.length === 0);
 
     return (
-        <ScrollView style={styles.scroll} contentContainerStyle={styles.historyContent}>
+        <ScrollView
+            style={styles.scroll}
+            contentContainerStyle={[styles.historyContent, { paddingBottom: Spacing.xl + insets.bottom }]}
+        >
             {isLoading ? (
                 <View style={styles.historyLoading}>
                     <ActivityIndicator color={Colors.primary} />
@@ -612,13 +632,28 @@ function ReflectionDetailView({
     onSave,
     onShare,
     onDelete,
-}: ReflectionDetailViewProps) {
+}: ReflectionDetailViewProps): React.ReactElement {
+    const insets = useSafeAreaInsets();
+    const bottomSafeSpace = Math.max(insets.bottom, Spacing.sm);
+    const { height: keyboardInset } = useGradualKeyboardInset({
+        closedHeight: bottomSafeSpace,
+        openedOffset: Spacing.sm,
+    });
+    const spacerStyle = useAnimatedStyle((): { height: number } => ({
+        height: keyboardInset.value,
+    }));
+
     return (
-        <KeyboardAvoidingView
-            style={styles.keyboardView}
-            behavior="translate-with-padding"
-        >
-            <ScrollView style={styles.scroll} contentContainerStyle={styles.detailContent} keyboardShouldPersistTaps="handled">
+        <View style={styles.keyboardView}>
+            <ScrollView
+                style={styles.scroll}
+                contentContainerStyle={styles.detailContent}
+                keyboardShouldPersistTaps="handled"
+                keyboardDismissMode="interactive"
+                automaticallyAdjustContentInsets={false}
+                automaticallyAdjustKeyboardInsets={false}
+                contentInsetAdjustmentBehavior="never"
+            >
                 <View style={styles.detailHero}>
                     <Text style={styles.dateLabel}>{formatSobrietyDate(reflection.reflection_date)}</Text>
                     {reflection.shared_post_id ? (
@@ -674,7 +709,8 @@ function ReflectionDetailView({
                     </TouchableOpacity>
                 </View>
             </View>
-        </KeyboardAvoidingView>
+            <Animated.View style={spacerStyle} />
+        </View>
     );
 }
 
@@ -746,19 +782,19 @@ const styles = StyleSheet.create({
     writeContent: {
         paddingHorizontal: Spacing.md,
         paddingTop: Spacing.xl,
-        paddingBottom: 156,
+        paddingBottom: Spacing.md,
         gap: Spacing.lg,
     },
     detailContent: {
         paddingHorizontal: Spacing.md,
         paddingTop: Spacing.lg,
-        paddingBottom: 156,
+        paddingBottom: Spacing.md,
         gap: Spacing.lg,
     },
     reviewContent: {
         paddingHorizontal: Spacing.md,
         paddingTop: Spacing.xl,
-        paddingBottom: 156,
+        paddingBottom: Spacing.md,
         gap: Spacing.md,
     },
     detailLoading: {
@@ -827,10 +863,6 @@ const styles = StyleSheet.create({
         color: Colors.text.primary,
     },
     actionDock: {
-        position: 'absolute',
-        left: 0,
-        right: 0,
-        bottom: 0,
         paddingHorizontal: Spacing.md,
         paddingTop: Spacing.md,
         paddingBottom: Spacing.md,
