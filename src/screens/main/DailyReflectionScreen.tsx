@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
@@ -16,11 +16,12 @@ import * as api from '../../api/client';
 import { ScreenHeader } from '../../components/ui/ScreenHeader';
 import { useGradualKeyboardInset } from '../../hooks/useGradualKeyboardInset';
 import {
-    useCreateReflectionMutation,
     useDeleteReflectionMutation,
     useReflection,
     useReflectionHistory,
+    useSaveTodayReflectionMutation,
     useShareReflectionMutation,
+    useTodayReflection,
     useUpdateReflectionMutation,
 } from '../../hooks/queries/useReflections';
 import { Colors, Radius, Spacing, Typography } from '../../theme';
@@ -49,10 +50,12 @@ export function DailyReflectionScreen({
     const [detailBackCloses, setDetailBackCloses] = useState(false);
     const initialReflectionQuery = useReflection(initialReflectionId ?? null, isActive && Boolean(initialReflectionId));
     const historyQuery = useReflectionHistory(18, isActive && view === 'history');
-    const createMutation = useCreateReflectionMutation();
+    const todayQuery = useTodayReflection(isActive && !initialReflectionId);
+    const saveTodayMutation = useSaveTodayReflectionMutation();
     const updateMutation = useUpdateReflectionMutation();
     const shareMutation = useShareReflectionMutation(currentUserId);
     const deleteMutation = useDeleteReflectionMutation();
+    const hasRoutedToTodayRef = useRef(false);
 
     const [gratefulFor, setGratefulFor] = useState('');
     const [onMind, setOnMind] = useState('');
@@ -76,7 +79,7 @@ export function DailyReflectionScreen({
         && (detailGratefulFor.trim() !== getGratefulFor(selectedReflection).trim()
             || detailOnMind.trim() !== getOnMind(selectedReflection).trim()
             || detailBlockingToday.trim() !== getBlockingToday(selectedReflection).trim());
-    const canSave = composedBody.length > 0 && !createMutation.isPending;
+    const canSave = composedBody.length > 0 && !saveTodayMutation.isPending;
     const canSaveDetail = Boolean(selectedReflection) && detailComposedBody.length > 0 && detailHasChanges && !updateMutation.isPending;
 
     useEffect(() => {
@@ -92,6 +95,18 @@ export function DailyReflectionScreen({
         setDetailBackCloses(true);
         setView('detail');
     }, [initialReflectionId]);
+
+    useEffect(() => {
+        if (hasRoutedToTodayRef.current) return;
+        const today = todayQuery.data;
+        if (!today) return;
+        if (view !== 'write') return;
+        if (composedBody.length > 0) return;
+        hasRoutedToTodayRef.current = true;
+        setSelectedReflection(today);
+        setDetailBackCloses(true);
+        setView('detail');
+    }, [todayQuery.data, view, composedBody]);
 
     useEffect(() => {
         const reflection = initialReflectionQuery.data;
@@ -114,7 +129,7 @@ export function DailyReflectionScreen({
         if (!composedBody) return;
 
         try {
-            const saved = await createMutation.mutateAsync({
+            const saved = await saveTodayMutation.mutateAsync({
                 body: composedBody,
                 grateful_for: gratefulFor.trim() || null,
                 on_mind: onMind.trim() || null,
@@ -241,7 +256,7 @@ export function DailyReflectionScreen({
                     gratefulFor={gratefulFor}
                     onMind={onMind}
                     blockingToday={blockingToday}
-                    isSaving={createMutation.isPending}
+                    isSaving={saveTodayMutation.isPending}
                     canSave={canSave}
                     onEdit={() => setView('write')}
                     onSave={handleConfirmSave}

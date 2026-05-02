@@ -38,6 +38,7 @@ export function useSaveTodayReflectionMutation() {
         mutationFn: api.upsertTodayReflection,
         onSuccess: async (reflection) => {
             queryClient.setQueryData(queryKeys.todayReflection(), reflection);
+            queryClient.setQueryData(queryKeys.reflection(reflection.id), reflection);
             await queryClient.invalidateQueries({ queryKey: queryKeys.reflections() });
         },
     });
