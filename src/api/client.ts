@@ -686,28 +686,211 @@ export interface UpdateMeInput {
     lng?: number;
 }
 
-export interface DailyReflection {
+export type GroupVisibility = 'public' | 'approval_required' | 'invite_only' | 'private_hidden';
+export type GroupPostingPermission = 'members' | 'admins';
+export type GroupRole = 'owner' | 'admin' | 'moderator' | 'member';
+export type GroupMembershipStatus = 'active' | 'banned';
+
+export interface Group {
     id: string;
-    user_id: string;
-    reflection_date: string;
-    prompt_key?: string | null;
-    prompt_text?: string | null;
-    grateful_for?: string | null;
-    on_mind?: string | null;
-    blocking_today?: string | null;
-    body: string;
-    shared_post_id?: string | null;
+    owner_id: string;
+    name: string;
+    slug: string;
+    description?: string | null;
+    rules?: string | null;
+    avatar_url?: string | null;
+    cover_url?: string | null;
+    visibility: GroupVisibility;
+    posting_permission: GroupPostingPermission;
+    allow_anonymous_posts: boolean;
+    city?: string | null;
+    country?: string | null;
+    tags: string[];
+    recovery_pathways: string[];
+    member_count: number;
+    post_count: number;
+    media_count: number;
+    pending_request_count: number;
+    viewer_role?: GroupRole | null;
+    viewer_status?: GroupMembershipStatus | null;
+    has_pending_request: boolean;
+    can_post: boolean;
+    can_invite: boolean;
+    can_manage_members: boolean;
+    can_manage_settings: boolean;
+    can_moderate_content: boolean;
     created_at: string;
     updated_at: string;
 }
 
-export interface UpsertDailyReflectionInput {
-    prompt_key?: string | null;
-    prompt_text?: string | null;
-    grateful_for?: string | null;
-    on_mind?: string | null;
-    blocking_today?: string | null;
+export interface GroupMember {
+    user_id: string;
+    username: string;
+    avatar_url?: string | null;
+    role: GroupRole;
+    status: GroupMembershipStatus;
+    joined_at?: string | null;
+    created_at: string;
+    updated_at: string;
+}
+
+export type GroupPostType = 'standard' | 'milestone' | 'need_support' | 'admin_announcement' | 'check_in';
+
+export interface GroupPostImage {
+    id: string;
+    image_url: string;
+    thumb_url?: string | null;
+    width: number;
+    height: number;
+    position: number;
+    created_at: string;
+}
+
+export interface GroupPost {
+    id: string;
+    group_id: string;
+    user_id: string;
+    username: string;
+    avatar_url?: string | null;
+    post_type: GroupPostType;
     body: string;
+    anonymous: boolean;
+    pinned_at?: string | null;
+    pinned_by?: string | null;
+    comment_count: number;
+    reaction_count: number;
+    image_count: number;
+    viewer_has_reacted: boolean;
+    images: GroupPostImage[];
+    created_at: string;
+    updated_at: string;
+}
+
+export interface GroupComment {
+    id: string;
+    group_id: string;
+    post_id: string;
+    user_id: string;
+    username: string;
+    avatar_url?: string | null;
+    body: string;
+    created_at: string;
+    updated_at: string;
+}
+
+export interface GroupMediaItem {
+    id: string;
+    group_id: string;
+    post_id: string;
+    image_url: string;
+    thumb_url?: string | null;
+    width: number;
+    height: number;
+    created_at: string;
+}
+
+export interface CreateGroupPostInput {
+    post_type?: GroupPostType;
+    body: string;
+    anonymous?: boolean;
+    images?: Array<{
+        image_url: string;
+        thumb_url?: string | null;
+        width: number;
+        height: number;
+    }>;
+}
+
+export interface ListGroupsParams {
+    q?: string;
+    city?: string;
+    country?: string;
+    tag?: string;
+    recovery_pathway?: string;
+    member_scope?: 'joined' | 'discover';
+    cursor?: string;
+    limit?: number;
+}
+
+export interface CreateGroupInput {
+    name: string;
+    description?: string | null;
+    rules?: string | null;
+    avatar_url?: string | null;
+    cover_url?: string | null;
+    visibility?: GroupVisibility;
+    posting_permission?: GroupPostingPermission;
+    allow_anonymous_posts?: boolean;
+    city?: string | null;
+    country?: string | null;
+    tags?: string[];
+    recovery_pathways?: string[];
+}
+
+export interface JoinGroupResult {
+    state: 'member' | 'pending';
+    group?: Group;
+}
+
+export interface GroupInvite {
+    id: string;
+    group_id: string;
+    token?: string;
+    expires_at?: string | null;
+    max_uses?: number | null;
+    use_count: number;
+    requires_approval: boolean;
+    revoked_at?: string | null;
+    created_at: string;
+}
+
+export interface GroupJoinRequest {
+    id: string;
+    group_id: string;
+    user_id: string;
+    username: string;
+    avatar_url?: string | null;
+    message?: string | null;
+    status: 'pending' | 'approved' | 'rejected' | 'cancelled';
+    reviewed_by?: string | null;
+    reviewed_at?: string | null;
+    created_at: string;
+    updated_at: string;
+}
+
+export interface GroupAdminMessage {
+    id: string;
+    thread_id: string;
+    sender_id: string;
+    username: string;
+    avatar_url?: string | null;
+    body: string;
+    created_at: string;
+}
+
+export interface GroupAdminThread {
+    id: string;
+    group_id: string;
+    user_id: string;
+    username: string;
+    avatar_url?: string | null;
+    status: 'open' | 'resolved';
+    subject?: string | null;
+    created_at: string;
+    updated_at: string;
+    messages?: GroupAdminMessage[];
+}
+
+export interface GroupReport {
+    id: string;
+    group_id: string;
+    reporter_id: string;
+    target_type: 'group' | 'member' | 'post' | 'comment';
+    target_id?: string | null;
+    reason: string;
+    details?: string | null;
+    status: 'open' | 'reviewing' | 'resolved' | 'dismissed';
+    created_at: string;
 }
 
 export interface RegisterInput {
@@ -805,40 +988,166 @@ export async function getUser(id: string): Promise<User> {
     return request(`/users/${id}`);
 }
 
-// ── Daily reflections ─────────────────────────────────────────────────────
+// ── Groups ────────────────────────────────────────────────────────────────
 
-export async function getTodayReflection(): Promise<DailyReflection | null> {
-    return request('/reflections/today');
+export async function listGroups(params: ListGroupsParams = {}): Promise<CursorResponse<Group>> {
+    const search = new URLSearchParams({ limit: String(params.limit ?? 20) });
+    if (params.cursor) search.set('before', params.cursor);
+    if (params.q) search.set('q', params.q);
+    if (params.city) search.set('city', params.city);
+    if (params.country) search.set('country', params.country);
+    if (params.tag) search.set('tag', params.tag);
+    if (params.recovery_pathway) search.set('recovery_pathway', params.recovery_pathway);
+    if (params.member_scope) search.set('member_scope', params.member_scope);
+    return request(`/groups?${search.toString()}`);
 }
 
-export async function upsertTodayReflection(input: UpsertDailyReflectionInput): Promise<DailyReflection> {
-    return request('/reflections/today', { method: 'PUT', body: JSON.stringify(input) });
+export async function createGroup(input: CreateGroupInput): Promise<Group> {
+    return request('/groups', { method: 'POST', body: JSON.stringify(input) });
 }
 
-export async function createReflection(input: UpsertDailyReflectionInput): Promise<DailyReflection> {
-    return request('/reflections', { method: 'POST', body: JSON.stringify(input) });
+export async function getGroup(id: string): Promise<Group> {
+    return request(`/groups/${id}`);
 }
 
-export async function listReflections(cursor?: string, limit = 20): Promise<CursorResponse<DailyReflection>> {
+export async function joinGroup(id: string, message?: string): Promise<JoinGroupResult> {
+    return request(`/groups/${id}/join`, {
+        method: 'POST',
+        body: JSON.stringify({ message: message ?? '' }),
+    });
+}
+
+export async function leaveGroup(id: string): Promise<void> {
+    await request(`/groups/${id}/leave`, { method: 'POST' });
+}
+
+export async function listGroupMembers(
+    groupId: string,
+    cursor?: string,
+    limit = 20,
+): Promise<CursorResponse<GroupMember>> {
     const search = new URLSearchParams({ limit: String(limit) });
     if (cursor) search.set('before', cursor);
-    return request(`/reflections?${search.toString()}`);
+    return request(`/groups/${groupId}/members?${search.toString()}`);
 }
 
-export async function getReflection(id: string): Promise<DailyReflection> {
-    return request(`/reflections/${id}`);
+export async function listGroupPosts(
+    groupId: string,
+    cursor?: string,
+    limit = 20,
+): Promise<CursorResponse<GroupPost>> {
+    const search = new URLSearchParams({ limit: String(limit) });
+    if (cursor) search.set('before', cursor);
+    return request(`/groups/${groupId}/posts?${search.toString()}`);
 }
 
-export async function updateReflection(id: string, input: Partial<UpsertDailyReflectionInput>): Promise<DailyReflection> {
-    return request(`/reflections/${id}`, { method: 'PATCH', body: JSON.stringify(input) });
+export async function createGroupPost(groupId: string, input: CreateGroupPostInput): Promise<GroupPost> {
+    return request(`/groups/${groupId}/posts`, { method: 'POST', body: JSON.stringify(input) });
 }
 
-export async function deleteReflection(id: string): Promise<void> {
-    await request(`/reflections/${id}`, { method: 'DELETE' });
+export async function listGroupMedia(
+    groupId: string,
+    cursor?: string,
+    limit = 30,
+): Promise<CursorResponse<GroupMediaItem>> {
+    const search = new URLSearchParams({ limit: String(limit) });
+    if (cursor) search.set('before', cursor);
+    return request(`/groups/${groupId}/media?${search.toString()}`);
 }
 
-export async function shareReflection(id: string): Promise<{ post_id: string }> {
-    return request(`/reflections/${id}/share`, { method: 'POST' });
+export async function listGroupComments(
+    groupId: string,
+    postId: string,
+    cursor?: string,
+    limit = 20,
+): Promise<CursorResponse<GroupComment>> {
+    const search = new URLSearchParams({ limit: String(limit) });
+    if (cursor) search.set('after', cursor);
+    return request(`/groups/${groupId}/posts/${postId}/comments?${search.toString()}`);
+}
+
+export async function createGroupComment(groupId: string, postId: string, body: string): Promise<GroupComment> {
+    return request(`/groups/${groupId}/posts/${postId}/comments`, {
+        method: 'POST',
+        body: JSON.stringify({ body }),
+    });
+}
+
+export async function toggleGroupPostReaction(groupId: string, postId: string): Promise<GroupPost> {
+    return request(`/groups/${groupId}/posts/${postId}/reactions`, { method: 'POST' });
+}
+
+export async function pinGroupPost(groupId: string, postId: string): Promise<GroupPost> {
+    return request(`/groups/${groupId}/posts/${postId}/pin`, { method: 'POST' });
+}
+
+export async function unpinGroupPost(groupId: string, postId: string): Promise<GroupPost> {
+    return request(`/groups/${groupId}/posts/${postId}/pin`, { method: 'DELETE' });
+}
+
+export async function deleteGroupPost(groupId: string, postId: string): Promise<void> {
+    await request(`/groups/${groupId}/posts/${postId}`, { method: 'DELETE' });
+}
+
+export async function createGroupInvite(groupId: string, input: {
+    expires_at?: string | null;
+    max_uses?: number | null;
+    requires_approval?: boolean;
+} = {}): Promise<GroupInvite> {
+    return request(`/groups/${groupId}/invites`, { method: 'POST', body: JSON.stringify(input) });
+}
+
+export async function acceptGroupInvite(token: string): Promise<JoinGroupResult> {
+    return request(`/group-invites/${encodeURIComponent(token)}/accept`, { method: 'POST' });
+}
+
+export async function listGroupJoinRequests(groupId: string): Promise<{ items: GroupJoinRequest[] }> {
+    return request(`/groups/${groupId}/join-requests`);
+}
+
+export async function approveGroupJoinRequest(groupId: string, requestId: string): Promise<GroupJoinRequest> {
+    return request(`/groups/${groupId}/join-requests/${requestId}/approve`, { method: 'POST' });
+}
+
+export async function rejectGroupJoinRequest(groupId: string, requestId: string): Promise<GroupJoinRequest> {
+    return request(`/groups/${groupId}/join-requests/${requestId}/reject`, { method: 'POST' });
+}
+
+export async function contactGroupAdmins(groupId: string, input: {
+    subject?: string;
+    body: string;
+}): Promise<GroupAdminThread> {
+    return request(`/groups/${groupId}/contact-admins`, { method: 'POST', body: JSON.stringify(input) });
+}
+
+export async function listGroupAdminThreads(
+    groupId: string,
+    cursor?: string,
+    limit = 20,
+): Promise<CursorResponse<GroupAdminThread>> {
+    const search = new URLSearchParams({ limit: String(limit) });
+    if (cursor) search.set('before', cursor);
+    return request(`/groups/${groupId}/admin-inbox?${search.toString()}`);
+}
+
+export async function replyGroupAdminThread(groupId: string, threadId: string, body: string): Promise<GroupAdminMessage> {
+    return request(`/groups/${groupId}/admin-inbox/${threadId}/messages`, {
+        method: 'POST',
+        body: JSON.stringify({ body }),
+    });
+}
+
+export async function resolveGroupAdminThread(groupId: string, threadId: string): Promise<GroupAdminThread> {
+    return request(`/groups/${groupId}/admin-inbox/${threadId}/resolve`, { method: 'POST' });
+}
+
+export async function reportGroupTarget(groupId: string, input: {
+    target_type: 'group' | 'member' | 'post' | 'comment';
+    target_id?: string | null;
+    reason: string;
+    details?: string | null;
+}): Promise<GroupReport> {
+    return request(`/groups/${groupId}/report`, { method: 'POST', body: JSON.stringify(input) });
 }
 
 // Loads the curated interest catalog used in profile editing.

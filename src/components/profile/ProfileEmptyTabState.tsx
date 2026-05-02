@@ -16,14 +16,6 @@ interface EmptyCopy {
 }
 
 function getEmptyCopy(tab: ProfileContentTabKey, username: string): EmptyCopy {
-    if (tab === 'reflections') {
-        return {
-            icon: 'journal-outline',
-            title: 'No reflections yet',
-            body: 'Private reflections you save will appear here.',
-        };
-    }
-
     if (tab === 'reposts') {
         return {
             icon: 'repeat-outline',

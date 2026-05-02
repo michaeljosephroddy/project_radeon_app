@@ -28,6 +28,7 @@ interface NotificationsScreenProps {
     onBack: () => void;
     onOpenChat: (chatId: string) => Promise<void> | void;
     onOpenMention: (target: { postId: string; commentId?: string }) => void;
+    onOpenGroup: (groupId: string) => void;
 }
 
 interface NotificationRowProps {
@@ -46,6 +47,7 @@ function readPayloadString(payload: Record<string, unknown>, key: string): strin
 function getNotificationIcon(type: string): keyof typeof Ionicons.glyphMap {
     if (type === 'chat.message') return 'chatbubble-outline';
     if (type === 'comment.mention') return 'at-outline';
+    if (type.startsWith('group.')) return 'people-outline';
     return 'notifications-outline';
 }
 
@@ -56,6 +58,13 @@ function getNotificationTitle(item: api.NotificationItem): string {
     if (item.type === 'comment.mention') {
         return `${formatUsername(item.title)} mentioned you`;
     }
+    if (item.type === 'group.join_request') return `New request in ${item.title}`;
+    if (item.type === 'group.join_approved') return `You're in ${item.title}`;
+    if (item.type === 'group.post') return `New post in ${item.title}`;
+    if (item.type === 'group.comment') return `New comment in ${item.title}`;
+    if (item.type === 'group.admin_contact') return `Admin inbox: ${item.title}`;
+    if (item.type === 'group.admin_reply') return `Admin reply from ${item.title}`;
+    if (item.type === 'group.report') return `New report in ${item.title}`;
     return item.title;
 }
 
@@ -96,6 +105,7 @@ export function NotificationsScreen({
     onBack,
     onOpenChat,
     onOpenMention,
+    onOpenGroup,
 }: NotificationsScreenProps) {
     const queryClient = useQueryClient();
     const notificationsQuery = useNotifications(PAGE_SIZE, isActive);
@@ -169,12 +179,22 @@ export function NotificationsScreen({
                 });
                 return;
             }
+
+            if (item.type.startsWith('group.')) {
+                const groupId = readPayloadString(item.payload, 'group_id');
+                if (!groupId) {
+                    Alert.alert('Notification unavailable', 'This group notification can no longer be opened.');
+                    return;
+                }
+                onOpenGroup(groupId);
+                return;
+            }
         } catch (error: unknown) {
             Alert.alert('Could not open notification', error instanceof Error ? error.message : 'Please try again.');
         } finally {
             setPendingId(null);
         }
-    }, [invalidateNotifications, onOpenChat, onOpenMention, pendingId]);
+    }, [invalidateNotifications, onOpenChat, onOpenGroup, onOpenMention, pendingId]);
 
     const renderItem = useCallback(({ item }: { item: api.NotificationItem }) => (
         <NotificationRow item={item} pending={pendingId === item.id} onPress={handlePressNotification} />
