@@ -1,6 +1,7 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as api from '../../api/client';
 import { queryKeys } from '../../query/queryKeys';
+import { getLocalDateString } from '../../utils/date';
 
 export function useTodayReflection(enabled = true) {
     return useQuery({
@@ -74,7 +75,7 @@ export function useUpdateReflectionMutation() {
         mutationFn: ({ id, input }: { id: string; input: Partial<api.UpsertDailyReflectionInput> }) => api.updateReflection(id, input),
         onSuccess: async (reflection) => {
             queryClient.setQueryData(queryKeys.reflection(reflection.id), reflection);
-            if (reflection.reflection_date === new Date().toISOString().slice(0, 10)) {
+            if (reflection.reflection_date === getLocalDateString()) {
                 queryClient.setQueryData(queryKeys.todayReflection(), reflection);
             }
             await queryClient.invalidateQueries({ queryKey: queryKeys.reflections() });

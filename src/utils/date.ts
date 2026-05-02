@@ -1,3 +1,14 @@
+// Returns today's date (or the given date) as YYYY-MM-DD in the user's local
+// calendar. Use this instead of `new Date().toISOString().slice(0, 10)` when
+// comparing against a backend-provided local-calendar date — the ISO form is
+// UTC, which disagrees with local in early-morning hours.
+export function getLocalDateString(date: Date = new Date()): string {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
+
 // Formats timestamps into compact readable labels with 24-hour time.
 export function formatReadableTimestamp(dateStr?: string): string {
     if (!dateStr) return '';

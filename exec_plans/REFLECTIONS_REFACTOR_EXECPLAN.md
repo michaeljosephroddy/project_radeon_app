@@ -19,7 +19,7 @@ To see this working: open the app, navigate to the reflection feature, type some
 
 - [x] (2026-05-02) Milestone 1 — Keyboard pattern migration on `DailyReflectionScreen` (editor + detail). Also updated review and history views for the bottom-safe-area redistribution.
 - [x] (2026-05-02) Milestone 2 — Today-reflection awareness. `useTodayReflection` fires on mount (gated by `!initialReflectionId`); a one-shot `useRef` routes the user to detail view when today already exists. Save path now uses `useSaveTodayReflectionMutation` (upsert), and that hook also caches the reflection by id.
-- [ ] Milestone 3 — Local-date helper in `src/utils/date.ts` and timezone fix in `useUpdateReflectionMutation`.
+- [x] (2026-05-02) Milestone 3 — Added `getLocalDateString` helper to `src/utils/date.ts`. `useUpdateReflectionMutation` now uses it instead of `new Date().toISOString().slice(0, 10)` (the only such site in the codebase, verified via grep).
 - [ ] Milestone 4 — Unify the `useReflectionHistory` limit so screen and profile tab share cache.
 - [ ] Milestone 5 — Split `DailyReflectionScreen.tsx` into `src/screens/main/reflection/`; introduce `useReflectionForm`.
 - [ ] Milestone 6 — Drafts with debounced autosave (`useReflectionDraft`).
@@ -72,6 +72,8 @@ Use timestamps when checking items off, e.g. `- [x] (2026-05-02 14:00Z) Mileston
 - Milestone 1 (2026-05-02): Editor and detail views no longer wrap in `KeyboardAvoidingView`; both drive an `Animated.View` spacer via `useGradualKeyboardInset`, matching CreatePostScreen's behavior. Review and history views were rewired in the same pass to absorb the safe-area cushion that the screen-root `SafeAreaView` previously provided. Added `keyboardDismissMode="interactive"` and the iOS auto-inset disablers to both editing scrolls. `tsc --noEmit` clean. Manual verification still pending — to be done in the simulator before merge.
 
 - Milestone 2 (2026-05-02): `DailyReflectionScreen` now consults `useTodayReflection` on mount (gated by `!initialReflectionId`). When today's reflection exists and the user has not started typing, the screen routes once to detail view via a `useRef` flag. Save path swapped from `useCreateReflectionMutation` to `useSaveTodayReflectionMutation`; that mutation now also writes `queryKeys.reflection(id)` cache for parity. `tsc --noEmit` clean. Net effect: re-opening the reflection feature after writing earlier today no longer creates a duplicate row.
+
+- Milestone 3 (2026-05-02): `getLocalDateString` lives at the top of `src/utils/date.ts` with a docstring explaining the UTC vs local trap. The single offender in `useUpdateReflectionMutation` now calls it. A repo-wide grep confirmed no other `toISOString().slice(0, 10)` usages exist. `tsc --noEmit` clean.
 
 
 ## Context and Orientation
