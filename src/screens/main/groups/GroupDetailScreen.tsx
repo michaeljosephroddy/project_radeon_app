@@ -4,16 +4,23 @@ import {
     Alert,
     FlatList,
     Image,
+    Modal,
     ScrollView,
     StyleSheet,
     Text,
     TouchableOpacity,
     View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import * as api from '../../../api/client';
 import { Avatar } from '../../../components/Avatar';
+import { CommentThreadModal } from '../../../components/comments/CommentThreadModal';
+import { CommentThreadAdapter, groupCommentToDisplayModel } from '../../../components/comments/commentTypes';
+import { CreatePostFab } from '../../../components/posts/CreatePostFab';
+import { PostCard } from '../../../components/posts/PostCard';
+import { groupPostToPostDisplayModel } from '../../../components/posts/postMappers';
 import { EmptyState } from '../../../components/ui/EmptyState';
 import { ScreenHeader } from '../../../components/ui/ScreenHeader';
 import { SegmentedControl } from '../../../components/ui/SegmentedControl';
@@ -25,7 +32,6 @@ import {
     useDeleteGroupPostMutation,
     useCreateGroupInviteMutation,
     useGroup,
-    useGroupComments,
     useGroupJoinRequests,
     useGroupMedia,
     useGroupMembers,
@@ -34,6 +40,7 @@ import {
     usePinGroupPostMutation,
     useToggleGroupPostReactionMutation,
 } from '../../../hooks/queries/useGroups';
+import { useAuth } from '../../../hooks/useAuth';
 import { Colors, Radius, Spacing, Typography } from '../../../theme';
 import { GroupAdminScreen } from './GroupAdminScreen';
 import { GroupReportScreen } from './GroupReportScreen';
@@ -136,12 +143,17 @@ export function GroupDetailScreen({ groupId, onBack }: GroupDetailScreenProps): 
 
 function GroupPostsTab({ group }: { group: api.Group }): React.ReactElement {
     const groupId = group.id;
+    const insets = useSafeAreaInsets();
+    const { user } = useAuth();
     const [draft, setDraft] = useState('');
-    const [expandedPostId, setExpandedPostId] = useState<string | null>(null);
+    const [composerOpen, setComposerOpen] = useState(false);
+    const [commentPost, setCommentPost] = useState<api.GroupPost | null>(null);
     const [selectedImage, setSelectedImage] = useState<GroupImageState | null>(null);
     const uploadPromiseRef = useRef<Promise<api.PostImage> | null>(null);
     const postsQuery = useGroupPosts(groupId, 20, true);
     const createPostMutation = useCreateGroupPostMutation(groupId);
+    const createCommentMutation = useCreateGroupCommentMutation(groupId, commentPost?.id ?? '');
+    const createGroupComment = createCommentMutation.mutateAsync;
     const reactionMutation = useToggleGroupPostReactionMutation(groupId);
     const pinPostMutation = usePinGroupPostMutation(groupId);
     const deletePostMutation = useDeleteGroupPostMutation(groupId);
@@ -175,6 +187,7 @@ function GroupPostsTab({ group }: { group: api.Group }): React.ReactElement {
             });
             setDraft('');
             setSelectedImage(null);
+            setComposerOpen(false);
             uploadPromiseRef.current = null;
         } catch (e: unknown) {
             Alert.alert(
@@ -265,214 +278,158 @@ function GroupPostsTab({ group }: { group: api.Group }): React.ReactElement {
         );
     };
 
+    const handleOpenPostActions = useCallback((post: api.GroupPost): void => {
+        Alert.alert(
+            'Post options',
+            'Choose a moderation action for this group post.',
+            [
+                { text: 'Cancel', style: 'cancel' },
+                { text: post.pinned_at ? 'Unpin' : 'Pin', onPress: () => { void handlePinPost(post); } },
+                { text: 'Remove', style: 'destructive', onPress: () => handleDeletePost(post) },
+            ],
+        );
+    }, [handleDeletePost, handlePinPost]);
+
+    const commentAdapter = useMemo<CommentThreadAdapter | null>(() => {
+        if (!commentPost) return null;
+        return {
+            loadComments: async (cursor?: string) => {
+                const result = await api.listGroupComments(groupId, commentPost.id, cursor);
+                return {
+                    ...result,
+                    items: (result.items ?? []).map(groupCommentToDisplayModel),
+                };
+            },
+            createComment: async (body: string) => {
+                const comment = await createGroupComment(body);
+                return groupCommentToDisplayModel(comment);
+            },
+        };
+    }, [commentPost, createGroupComment, groupId]);
+
     return (
-        <FlatList
-            data={posts}
-            keyExtractor={item => item.id}
-            contentContainerStyle={styles.listContent}
-            ListHeaderComponent={group.can_post ? (
-                <View style={styles.composer}>
-                    <TextField
-                        value={draft}
-                        onChangeText={setDraft}
-                        placeholder="Post to the group"
-                        multiline
-                        style={styles.composerInput}
+        <View style={styles.postsSurface}>
+            <FlatList
+                data={posts}
+                keyExtractor={item => item.id}
+                contentContainerStyle={[styles.postListContent, { paddingBottom: Spacing.xl + insets.bottom + 72 }]}
+                renderItem={({ item }) => (
+                    <PostCard
+                        post={groupPostToPostDisplayModel(item, user?.id ?? '')}
+                        onReact={() => reactionMutation.mutate(item.id)}
+                        onOpenComments={() => setCommentPost(item)}
+                        onOpenActions={group.can_moderate_content ? () => handleOpenPostActions(item) : undefined}
                     />
-                    {selectedImage ? (
-                        <View style={styles.selectedImageRow}>
-                            <Image source={{ uri: selectedImage.localImage.uri }} style={styles.selectedImage} />
-                            <View style={styles.selectedImageCopy}>
-                                <Text style={styles.selectedImageTitle}>
-                                    {selectedImage.status === 'uploaded'
-                                        ? 'Photo ready'
-                                        : selectedImage.status === 'failed'
-                                            ? 'Upload failed'
-                                            : 'Uploading photo'}
-                                </Text>
+                )}
+                ListEmptyComponent={!postsQuery.isLoading ? (
+                    <EmptyState title="No posts yet" compact />
+                ) : null}
+                ListFooterComponent={postsQuery.isFetchingNextPage ? (
+                    <ActivityIndicator color={Colors.primary} />
+                ) : null}
+                onEndReachedThreshold={0.4}
+                onEndReached={() => {
+                    if (postsQuery.hasNextPage && !postsQuery.isFetchingNextPage) {
+                        postsQuery.fetchNextPage();
+                    }
+                }}
+            />
+
+            <CreatePostFab
+                visible={group.can_post}
+                bottom={insets.bottom + 20}
+                onPress={() => setComposerOpen(true)}
+            />
+
+            <Modal
+                visible={composerOpen}
+                transparent
+                animationType="fade"
+                onRequestClose={() => {
+                    if (createPostMutation.isPending) return;
+                    setComposerOpen(false);
+                }}
+            >
+                <View style={styles.composerBackdrop}>
+                    <View style={styles.composerModal}>
+                        <Text style={styles.composerTitle}>Post to {group.name}</Text>
+                        <TextField
+                            value={draft}
+                            onChangeText={setDraft}
+                            placeholder="Post to the group"
+                            multiline
+                            style={styles.composerInput}
+                        />
+                        {selectedImage ? (
+                            <View style={styles.selectedImageRow}>
+                                <Image source={{ uri: selectedImage.localImage.uri }} style={styles.selectedImage} />
+                                <View style={styles.selectedImageCopy}>
+                                    <Text style={styles.selectedImageTitle}>
+                                        {selectedImage.status === 'uploaded'
+                                            ? 'Photo ready'
+                                            : selectedImage.status === 'failed'
+                                                ? 'Upload failed'
+                                                : 'Uploading photo'}
+                                    </Text>
+                                    <TouchableOpacity
+                                        onPress={() => {
+                                            uploadPromiseRef.current = null;
+                                            setSelectedImage(null);
+                                        }}
+                                    >
+                                        <Text style={styles.removeImageText}>Remove</Text>
+                                    </TouchableOpacity>
+                                </View>
+                            </View>
+                        ) : null}
+                        <View style={styles.composerActions}>
+                            <TouchableOpacity style={styles.photoButton} onPress={handlePickImage}>
+                                <Ionicons name="image-outline" size={17} color={Colors.primary} />
+                                <Text style={styles.photoButtonText}>Photo</Text>
+                            </TouchableOpacity>
+                            <View style={styles.composerModalActions}>
                                 <TouchableOpacity
-                                    onPress={() => {
-                                        uploadPromiseRef.current = null;
-                                        setSelectedImage(null);
-                                    }}
+                                    style={styles.composerSecondaryButton}
+                                    disabled={createPostMutation.isPending}
+                                    onPress={() => setComposerOpen(false)}
                                 >
-                                    <Text style={styles.removeImageText}>Remove</Text>
+                                    <Text style={styles.composerSecondaryText}>Cancel</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    style={[
+                                        styles.composerButton,
+                                        ((!draft.trim() && !selectedImage) || createPostMutation.isPending) && styles.composerButtonDisabled,
+                                    ]}
+                                    onPress={handleCreatePost}
+                                    disabled={(!draft.trim() && !selectedImage) || createPostMutation.isPending}
+                                >
+                                    {createPostMutation.isPending ? (
+                                        <ActivityIndicator size="small" color={Colors.textOn.primary} />
+                                    ) : (
+                                        <Text style={styles.composerButtonText}>Post</Text>
+                                    )}
                                 </TouchableOpacity>
                             </View>
                         </View>
-                    ) : null}
-                    <View style={styles.composerActions}>
-                        <TouchableOpacity style={styles.photoButton} onPress={handlePickImage}>
-                            <Ionicons name="image-outline" size={17} color={Colors.primary} />
-                            <Text style={styles.photoButtonText}>Photo</Text>
-                        </TouchableOpacity>
-                    <TouchableOpacity
-                        style={[
-                            styles.composerButton,
-                                (!draft.trim() && !selectedImage || createPostMutation.isPending) && styles.composerButtonDisabled,
-                        ]}
-                        onPress={handleCreatePost}
-                            disabled={(!draft.trim() && !selectedImage) || createPostMutation.isPending}
-                    >
-                        {createPostMutation.isPending ? (
-                            <ActivityIndicator size="small" color={Colors.textOn.primary} />
-                        ) : (
-                            <Text style={styles.composerButtonText}>Post</Text>
-                        )}
-                    </TouchableOpacity>
                     </View>
                 </View>
-            ) : null}
-            renderItem={({ item }) => (
-                <GroupPostCard
-                    post={item}
-                    canModerate={group.can_moderate_content}
-                    onReact={() => reactionMutation.mutate(item.id)}
-                    onPin={() => handlePinPost(item)}
-                    onDelete={() => handleDeletePost(item)}
-                    commentsExpanded={expandedPostId === item.id}
-                    onToggleComments={() => setExpandedPostId(current => current === item.id ? null : item.id)}
-                />
-            )}
-            ListEmptyComponent={!postsQuery.isLoading ? (
-                <EmptyState title="No posts yet" compact />
-            ) : null}
-            ListFooterComponent={postsQuery.isFetchingNextPage ? (
-                <ActivityIndicator color={Colors.primary} />
-            ) : null}
-            onEndReachedThreshold={0.4}
-            onEndReached={() => {
-                if (postsQuery.hasNextPage && !postsQuery.isFetchingNextPage) {
-                    postsQuery.fetchNextPage();
-                }
-            }}
-        />
-    );
-}
+            </Modal>
 
-function GroupPostCard({
-    post,
-    canModerate,
-    onReact,
-    onPin,
-    onDelete,
-    commentsExpanded,
-    onToggleComments,
-}: {
-    post: api.GroupPost;
-    canModerate: boolean;
-    onReact: () => void;
-    onPin: () => void;
-    onDelete: () => void;
-    commentsExpanded: boolean;
-    onToggleComments: () => void;
-}): React.ReactElement {
-    return (
-        <View style={styles.postCard}>
-            <View style={styles.postHeader}>
-                <Avatar username={post.username} avatarUrl={post.avatar_url ?? undefined} size={34} fontSize={12} />
-                <View style={styles.postHeaderCopy}>
-                    <Text style={styles.postAuthor}>{post.anonymous ? 'Anonymous member' : post.username}</Text>
-                    <Text style={styles.postType}>{postTypeLabel(post.post_type)}</Text>
-                </View>
-                {post.pinned_at ? (
-                    <Ionicons name="pin" size={16} color={Colors.primary} />
-                ) : null}
-            </View>
-            {canModerate ? (
-                <View style={styles.moderationRow}>
-                    <TouchableOpacity style={styles.moderationButton} onPress={onPin}>
-                        <Ionicons
-                            name={post.pinned_at ? 'remove-circle-outline' : 'pin-outline'}
-                            size={15}
-                            color={Colors.text.secondary}
-                        />
-                        <Text style={styles.moderationText}>{post.pinned_at ? 'Unpin' : 'Pin'}</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={styles.moderationButton} onPress={onDelete}>
-                        <Ionicons name="trash-outline" size={15} color={Colors.danger} />
-                        <Text style={[styles.moderationText, styles.moderationTextDanger]}>Remove</Text>
-                    </TouchableOpacity>
-                </View>
-            ) : null}
-            <Text style={styles.postBody}>{post.body}</Text>
-            {post.images[0] ? (
-                <Image source={{ uri: post.images[0].thumb_url ?? post.images[0].image_url }} style={styles.postImage} />
-            ) : null}
-            <View style={styles.postActions}>
-                <TouchableOpacity style={styles.actionButton} onPress={onReact}>
-                    <Ionicons
-                        name={post.viewer_has_reacted ? 'heart' : 'heart-outline'}
-                        size={17}
-                        color={post.viewer_has_reacted ? Colors.danger : Colors.text.secondary}
+            {commentPost && user && commentAdapter ? (
+                <View style={StyleSheet.absoluteFillObject}>
+                    <CommentThreadModal
+                        title={commentPost.comment_count > 0
+                            ? `${commentPost.comment_count} Comment${commentPost.comment_count === 1 ? '' : 's'}`
+                            : 'Comments'}
+                        adapter={commentAdapter}
+                        currentUser={user}
+                        initialCommentCount={commentPost.comment_count}
+                        focusComposer={false}
+                        onClose={() => setCommentPost(null)}
+                        onPressUser={() => {}}
                     />
-                    <Text style={styles.actionText}>{post.reaction_count}</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.actionButton} onPress={onToggleComments}>
-                    <Ionicons name="chatbubble-outline" size={16} color={Colors.text.secondary} />
-                    <Text style={styles.actionText}>{post.comment_count}</Text>
-                </TouchableOpacity>
-            </View>
-            {commentsExpanded ? <GroupCommentsPanel post={post} /> : null}
-        </View>
-    );
-}
-
-function GroupCommentsPanel({ post }: { post: api.GroupPost }): React.ReactElement {
-    const [draft, setDraft] = useState('');
-    const commentsQuery = useGroupComments(post.group_id, post.id, 20, true);
-    const createCommentMutation = useCreateGroupCommentMutation(post.group_id, post.id);
-    const comments = useMemo(
-        () => (commentsQuery.data?.pages ?? []).flatMap(page => page.items ?? []),
-        [commentsQuery.data?.pages],
-    );
-
-    const handleComment = async (): Promise<void> => {
-        const body = draft.trim();
-        if (!body) return;
-        try {
-            await createCommentMutation.mutateAsync(body);
-            setDraft('');
-        } catch (e: unknown) {
-            Alert.alert(
-                'Could not comment',
-                e instanceof Error ? e.message : 'Something went wrong.',
-            );
-        }
-    };
-
-    return (
-        <View style={styles.commentsPanel}>
-            {comments.map(comment => (
-                <View key={comment.id} style={styles.commentRow}>
-                    <Avatar username={comment.username} avatarUrl={comment.avatar_url ?? undefined} size={28} fontSize={10} />
-                    <View style={styles.commentBubble}>
-                        <Text style={styles.commentAuthor}>{comment.username}</Text>
-                        <Text style={styles.commentBody}>{comment.body}</Text>
-                    </View>
                 </View>
-            ))}
-            {comments.length === 0 && !commentsQuery.isLoading ? (
-                <Text style={styles.noCommentsText}>No comments yet</Text>
             ) : null}
-            <View style={styles.commentComposer}>
-                <TextField
-                    value={draft}
-                    onChangeText={setDraft}
-                    placeholder="Write a comment"
-                    style={styles.commentInput}
-                />
-                <TouchableOpacity
-                    style={[
-                        styles.commentButton,
-                        (!draft.trim() || createCommentMutation.isPending) && styles.commentButtonDisabled,
-                    ]}
-                    onPress={handleComment}
-                    disabled={!draft.trim() || createCommentMutation.isPending}
-                >
-                    <Ionicons name="send" size={15} color={Colors.textOn.primary} />
-                </TouchableOpacity>
-            </View>
         </View>
     );
 }
@@ -663,14 +620,6 @@ function visibilityLabel(visibility: api.GroupVisibility): string {
     return 'Public';
 }
 
-function postTypeLabel(type: api.GroupPostType): string {
-    if (type === 'need_support') return 'Needs support';
-    if (type === 'admin_announcement') return 'Announcement';
-    if (type === 'check_in') return 'Check-in';
-    if (type === 'milestone') return 'Milestone';
-    return 'Post';
-}
-
 function inferMimeType(uri: string): string {
     const lower = uri.toLowerCase();
     if (lower.endsWith('.png')) return 'image/png';
@@ -729,76 +678,30 @@ const styles = StyleSheet.create({
         padding: Spacing.md,
         gap: Spacing.md,
     },
-    postCard: {
-        borderWidth: 1,
-        borderColor: Colors.border.default,
-        borderRadius: Radius.md,
-        backgroundColor: Colors.bg.surface,
-        padding: Spacing.md,
-        gap: Spacing.md,
-    },
-    postHeader: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: Spacing.sm,
-    },
-    postHeaderCopy: {
+    postsSurface: {
         flex: 1,
     },
-    postAuthor: {
-        fontSize: Typography.sizes.sm,
-        fontWeight: '700',
-        color: Colors.text.primary,
+    postListContent: {
+        paddingTop: Spacing.md,
     },
-    postType: {
-        fontSize: Typography.sizes.xs,
-        fontWeight: '600',
-        color: Colors.text.muted,
+    composerBackdrop: {
+        flex: 1,
+        backgroundColor: 'rgba(0, 0, 0, 0.56)',
+        justifyContent: 'center',
+        padding: Spacing.lg,
     },
-    postBody: {
-        fontSize: Typography.sizes.base,
-        lineHeight: 22,
-        color: Colors.text.primary,
-    },
-    moderationRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: Spacing.md,
-        paddingTop: Spacing.xs,
-        borderTopWidth: 1,
-        borderTopColor: Colors.border.subtle,
-    },
-    moderationButton: {
-        minHeight: 30,
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: Spacing.xs,
-    },
-    moderationText: {
-        fontSize: Typography.sizes.xs,
-        fontWeight: '800',
-        color: Colors.text.secondary,
-    },
-    moderationTextDanger: {
-        color: Colors.danger,
-    },
-    postImage: {
-        width: '100%',
-        aspectRatio: 4 / 3,
-        borderRadius: Radius.md,
-        backgroundColor: Colors.bg.page,
-    },
-    postActions: {
-        flexDirection: 'row',
-        gap: Spacing.md,
-    },
-    composer: {
+    composerModal: {
+        borderRadius: Radius.lg,
         borderWidth: 1,
         borderColor: Colors.border.default,
-        borderRadius: Radius.md,
-        backgroundColor: Colors.bg.surface,
-        padding: Spacing.md,
+        backgroundColor: Colors.bg.page,
+        padding: Spacing.lg,
         gap: Spacing.sm,
+    },
+    composerTitle: {
+        fontSize: Typography.sizes.lg,
+        fontWeight: '800',
+        color: Colors.text.primary,
     },
     composerInput: {
         minHeight: 78,
@@ -827,6 +730,25 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'space-between',
         gap: Spacing.sm,
+    },
+    composerModalActions: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: Spacing.sm,
+    },
+    composerSecondaryButton: {
+        minHeight: 38,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderRadius: Radius.pill,
+        borderWidth: 1,
+        borderColor: Colors.border.default,
+        paddingHorizontal: Spacing.md,
+    },
+    composerSecondaryText: {
+        fontSize: Typography.sizes.sm,
+        fontWeight: '800',
+        color: Colors.text.primary,
     },
     photoButton: {
         minHeight: 36,
@@ -869,69 +791,6 @@ const styles = StyleSheet.create({
         fontSize: Typography.sizes.sm,
         fontWeight: '700',
         color: Colors.danger,
-    },
-    actionButton: {
-        minHeight: 32,
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: Spacing.xs,
-    },
-    actionText: {
-        fontSize: Typography.sizes.sm,
-        fontWeight: '700',
-        color: Colors.text.secondary,
-    },
-    commentsPanel: {
-        borderTopWidth: 1,
-        borderTopColor: Colors.border.subtle,
-        paddingTop: Spacing.md,
-        gap: Spacing.sm,
-    },
-    commentRow: {
-        flexDirection: 'row',
-        gap: Spacing.sm,
-    },
-    commentBubble: {
-        flex: 1,
-        borderRadius: Radius.md,
-        backgroundColor: Colors.bg.page,
-        padding: Spacing.sm,
-        gap: 2,
-    },
-    commentAuthor: {
-        fontSize: Typography.sizes.xs,
-        fontWeight: '800',
-        color: Colors.text.primary,
-    },
-    commentBody: {
-        fontSize: Typography.sizes.sm,
-        lineHeight: 18,
-        color: Colors.text.secondary,
-    },
-    noCommentsText: {
-        fontSize: Typography.sizes.sm,
-        color: Colors.text.muted,
-    },
-    commentComposer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: Spacing.sm,
-    },
-    commentInput: {
-        flex: 1,
-        paddingVertical: 10,
-        fontSize: Typography.sizes.sm,
-    },
-    commentButton: {
-        width: 38,
-        height: 38,
-        borderRadius: 19,
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: Colors.primary,
-    },
-    commentButtonDisabled: {
-        opacity: 0.5,
     },
     mediaGrid: {
         padding: Spacing.md,

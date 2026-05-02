@@ -13,6 +13,9 @@ import type { CommentThreadTarget } from '../../components/CommentsModal';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { InfoNoticeCard } from '../../components/ui/InfoNoticeCard';
 import { ScrollToTopButton } from '../../components/ui/ScrollToTopButton';
+import { CreatePostFab } from '../../components/posts/CreatePostFab';
+import { PostCard } from '../../components/posts/PostCard';
+import { feedItemToPostDisplayModel } from '../../components/posts/postMappers';
 import * as api from '../../api/client';
 import { useHomeFeed } from '../../hooks/queries/useFeed';
 import { useGuardedEndReached } from '../../hooks/useGuardedEndReached';
@@ -27,20 +30,6 @@ import { Colors, Typography, Spacing, Radius, ContentInsets } from '../../theme'
 import { formatUsername } from '../../utils/identity';
 import { dedupeById } from '../../utils/list';
 import { formatReadableTimestamp } from '../../utils/date';
-
-interface PostCardProps {
-    item: api.FeedItem;
-    post: api.Post;
-    resolvedImageSource: string | null;
-    displayedCommentCount: number;
-    currentUserId: string;
-    onToggleComments: (item: api.FeedItem, focusComposer?: boolean) => void;
-    onPressUser: (profile: { userId: string; username: string; avatarUrl?: string }) => void;
-    onSharePost: (item: api.FeedItem) => void;
-    onOpenItemActions: (item: api.FeedItem) => void;
-    onLocalReactionChange: (item: api.FeedItem, reacted: boolean) => void;
-    showShareAction: boolean;
-}
 
 interface ReshareCardProps {
     item: api.FeedItem;
@@ -73,118 +62,6 @@ interface HiddenUndoState {
     item: api.FeedItem;
     index: number;
 }
-
-const PostCard = React.memo(function PostCard({
-    item,
-    post,
-    resolvedImageSource,
-    displayedCommentCount,
-    currentUserId,
-    onToggleComments,
-    onPressUser,
-    onSharePost,
-    onOpenItemActions,
-    onLocalReactionChange,
-    showShareAction,
-}: PostCardProps) {
-    const [liked, setLiked] = useState(item.viewer_state.is_liked);
-    const [likeCount, setLikeCount] = useState(post.like_count);
-    const isOwn = post.user_id === currentUserId;
-
-    useEffect(() => {
-        setLiked(item.viewer_state.is_liked);
-        setLikeCount(post.like_count);
-    }, [item.viewer_state.is_liked, post.like_count]);
-
-    const handleReact = useCallback(async () => {
-        try {
-            const res = await api.reactToFeedItem(item.id, item.kind);
-            setLiked(res.reacted);
-            setLikeCount(prev => res.reacted ? prev + 1 : prev - 1);
-            onLocalReactionChange(item, res.reacted);
-        } catch { }
-    }, [item, onLocalReactionChange]);
-
-    const handleToggleComments = useCallback(
-        () => onToggleComments(item),
-        [item, onToggleComments],
-    );
-    const handlePressUser = useCallback(
-        () => onPressUser({ userId: post.user_id, username: post.username, avatarUrl: post.avatar_url }),
-        [post.user_id, post.username, post.avatar_url, onPressUser],
-    );
-    const handleShare = useCallback(
-        () => onSharePost(item),
-        [item, onSharePost],
-    );
-    const handleOpenActions = useCallback(
-        () => onOpenItemActions(item),
-        [item, onOpenItemActions],
-    );
-
-    return (
-        <View style={styles.postCard}>
-            <View style={styles.postHead}>
-                <TouchableOpacity onPress={isOwn ? undefined : handlePressUser} disabled={isOwn}>
-                    <Avatar username={post.username} avatarUrl={post.avatar_url} size={44} />
-                </TouchableOpacity>
-                <View style={styles.postHeadBody}>
-                    <View style={styles.postTitleRow}>
-                        <Text style={styles.postName}>{formatUsername(post.username)}</Text>
-                        <Text style={styles.postMeta}>{formatReadableTimestamp(post.created_at)}</Text>
-                    </View>
-                    {post.source_label ? <Text style={styles.postSource}>{post.source_label}</Text> : null}
-                </View>
-                <TouchableOpacity style={styles.headActionButton} onPress={handleOpenActions}>
-                    <Ionicons name="ellipsis-horizontal" size={18} color={Colors.text.muted} />
-                </TouchableOpacity>
-            </View>
-            <View style={styles.postContent}>
-                {!!post.body && <Text style={styles.postBody}>{post.body}</Text>}
-                {resolvedImageSource ? (
-                    <Image
-                        source={{ uri: resolvedImageSource }}
-                        style={styles.postImage}
-                        resizeMode="cover"
-                    />
-                ) : null}
-                {renderPostTags(post.tags)}
-            </View>
-            <View style={styles.postFoot}>
-                <TouchableOpacity style={styles.postAction} onPress={handleReact}>
-                    <Ionicons
-                        name={liked ? 'heart' : 'heart-outline'}
-                        size={16}
-                        color={liked ? Colors.danger : Colors.text.muted}
-                    />
-                    <Text style={[styles.postActionText, liked && styles.liked]}>
-                        {likeCount > 0 ? likeCount : 'Like'}
-                    </Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.postAction} onPress={handleToggleComments}>
-                    <Ionicons
-                        name="chatbubble-outline"
-                        size={15}
-                        color={Colors.text.muted}
-                    />
-                    <Text style={styles.postActionText}>
-                        {displayedCommentCount > 0 ? `${displayedCommentCount} comments` : 'Comment'}
-                    </Text>
-                </TouchableOpacity>
-                {showShareAction ? (
-                    <TouchableOpacity style={styles.postAction} onPress={handleShare}>
-                        <Ionicons
-                            name="repeat-outline"
-                            size={16}
-                            color={Colors.text.muted}
-                        />
-                        <Text style={styles.postActionText}>Share</Text>
-                    </TouchableOpacity>
-                ) : null}
-            </View>
-        </View>
-    );
-}, arePostCardPropsEqual);
 
 const ReshareCard = React.memo(function ReshareCard({
     item,
@@ -421,11 +298,6 @@ export function FeedScreen({
             setIsCreateFabVisible(true);
         }, 320);
     }, [feedScrollToTop.onScroll]);
-
-    const resolvePostImageSource = useCallback((post: api.Post): string | null => {
-        const image = post.images[0];
-        return image?.image_url ?? null;
-    }, []);
 
     const handleLoadMore = useCallback(async () => {
         if (!isActive || !activeFeedQuery.hasNextPage || activeFeedQuery.isFetchingNextPage) return;
@@ -771,6 +643,13 @@ export function FeedScreen({
         }));
     }, [logFeedEvent, markVisibleItemInteraction]);
 
+    const handleFeedPostReact = useCallback(async (item: api.FeedItem): Promise<void> => {
+        try {
+            const res = await api.reactToFeedItem(item.id, item.kind);
+            handleLocalReactionChange(item, res.reacted);
+        } catch { }
+    }, [handleLocalReactionChange]);
+
     const handleViewableItemsChanged = useCallback(({ changed, viewableItems }: {
         changed: Array<{ item: api.FeedItem | null; index: number | null; isViewable: boolean }>;
         viewableItems: Array<{ item: api.FeedItem | null; index: number | null }>;
@@ -847,23 +726,19 @@ export function FeedScreen({
             );
         }
 
-        const post = feedItemToPost(item);
+        const post = feedItemToPostDisplayModel(item, currentUserId);
         return (
             <PostCard
-                item={item}
                 post={post}
-                resolvedImageSource={resolvePostImageSource(post)}
-                displayedCommentCount={post.comment_count}
-                currentUserId={currentUserId}
-                onToggleComments={handleOpenComments}
-                onPressUser={onOpenUserProfile}
-                onSharePost={handleSharePost}
-                onOpenItemActions={handleOpenItemActions}
-                onLocalReactionChange={handleLocalReactionChange}
+                onReact={() => { void handleFeedPostReact(item); }}
+                onOpenComments={() => handleOpenComments(item)}
+                onPressUser={() => onOpenUserProfile({ userId: item.author.user_id, username: item.author.username, avatarUrl: item.author.avatar_url ?? undefined })}
+                onShare={() => handleSharePost(item)}
+                onOpenActions={() => handleOpenItemActions(item)}
                 showShareAction={FEED_RESHARES_ENABLED}
             />
         );
-    }, [currentUserId, handleLocalReactionChange, handleOpenComments, handleOpenItemActions, handleSharePost, onOpenUserProfile, resolvePostImageSource]);
+    }, [currentUserId, handleFeedPostReact, handleOpenComments, handleOpenItemActions, handleSharePost, onOpenUserProfile]);
 
     const isInitialLoading = feedItems.length === 0 && activeFeedQuery.isLoading;
     const isRefreshing = activeFeedQuery.isRefetching && !activeFeedQuery.isFetchingNextPage;
@@ -929,16 +804,11 @@ export function FeedScreen({
                 <ScrollToTopButton onPress={() => flatListRef.current?.scrollToOffset({ offset: 0, animated: true })} />
             ) : null}
 
-            {isActive && user && isCreateFabVisible ? (
-                <TouchableOpacity
-                    style={[styles.createFab, { bottom: createFabBottom }]}
-                    onPress={onOpenCreatePost}
-                    activeOpacity={0.9}
-                >
-                    <Ionicons name="add" size={20} color={Colors.textOn.primary} />
-                    <Text style={styles.createFabText}>Create</Text>
-                </TouchableOpacity>
-            ) : null}
+            <CreatePostFab
+                visible={isActive && Boolean(user) && isCreateFabVisible}
+                bottom={createFabBottom}
+                onPress={onOpenCreatePost}
+            />
 
             {hiddenUndo ? (
                 <View style={styles.hiddenUndoBanner}>
@@ -1001,20 +871,6 @@ export function FeedScreen({
             </Modal>
         </ScreenContainer>
     );
-}
-
-function arePostCardPropsEqual(prev: PostCardProps, next: PostCardProps) {
-    return prev.post === next.post
-        && prev.resolvedImageSource === next.resolvedImageSource
-        && prev.displayedCommentCount === next.displayedCommentCount
-        && prev.currentUserId === next.currentUserId
-        && prev.onToggleComments === next.onToggleComments
-        && prev.onPressUser === next.onPressUser
-        && prev.onSharePost === next.onSharePost
-        && prev.onOpenItemActions === next.onOpenItemActions
-        && prev.onLocalReactionChange === next.onLocalReactionChange
-        && prev.showShareAction === next.showShareAction
-        && prev.item === next.item;
 }
 
 function areReshareCardPropsEqual(prev: ReshareCardProps, next: ReshareCardProps) {
@@ -1101,29 +957,6 @@ const styles = StyleSheet.create({
     },
     headerNotice: {
         marginHorizontal: ContentInsets.screenHorizontal,
-    },
-    createFab: {
-        position: 'absolute',
-        alignSelf: 'center',
-        minHeight: 44,
-        borderRadius: Radius.pill,
-        backgroundColor: Colors.primary,
-        paddingHorizontal: Spacing.lg,
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: Spacing.xs,
-        shadowColor: Colors.shadow,
-        shadowOpacity: 0.2,
-        shadowRadius: 12,
-        shadowOffset: { width: 0, height: 5 },
-        elevation: 5,
-        zIndex: 10,
-    },
-    createFabText: {
-        fontSize: Typography.sizes.md,
-        fontWeight: '700',
-        color: Colors.textOn.primary,
     },
     postCard: {
         backgroundColor: Colors.bg.page,

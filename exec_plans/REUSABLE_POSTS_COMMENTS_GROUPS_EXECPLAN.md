@@ -17,11 +17,13 @@ After this change, the Groups posts tab should visually and behaviorally mirror 
 - [x] (2026-05-02T20:35Z) Reviewed `PLANS.md` and the existing Groups ExecPlan to match the required living-document format.
 - [x] (2026-05-02T20:35Z) Reviewed `src/screens/main/FeedScreen.tsx`, `src/components/CommentsModal.tsx`, `src/screens/main/groups/GroupDetailScreen.tsx`, `src/navigation/AppNavigator.tsx`, and `src/hooks/queries/useGroups.ts` to identify duplication and API differences.
 - [x] (2026-05-02T20:35Z) Authored this ExecPlan in `exec_plans/REUSABLE_POSTS_COMMENTS_GROUPS_EXECPLAN.md`.
-- [ ] Implement Milestone 1: introduce shared display types, mappers, and non-visual adapters.
-- [ ] Implement Milestone 2: extract reusable post card and create-post FAB from the Community feed.
-- [ ] Implement Milestone 3: split the existing comments modal into a reusable comment thread UI plus feed and group adapters.
-- [ ] Implement Milestone 4: migrate the Groups posts tab to the shared post card, shared comments modal, and shared FAB.
-- [ ] Implement Milestone 5: validate visual parity, interaction parity, pagination, cache updates, and TypeScript.
+- [x] (2026-05-02T20:47Z) Implemented Milestone 1: added shared post display types and feed/group mapping helpers under `src/components/posts/`.
+- [x] (2026-05-02T20:47Z) Implemented Milestone 2: extracted `PostCard` and `CreatePostFab`, then migrated `FeedScreen` normal feed posts and feed FAB to use them.
+- [x] (2026-05-02T20:47Z) Implemented Milestone 3: split comments into `CommentThread`, `CommentThreadModal`, comment adapter types, and a feed-compatible `CommentsModal` wrapper.
+- [x] (2026-05-02T20:47Z) Implemented Milestone 4: migrated the Groups posts tab to shared `PostCard`, shared `CommentThreadModal`, shared `CreatePostFab`, and a modal group post composer.
+- [x] (2026-05-02T20:47Z) Ran `npx tsc --noEmit`; TypeScript passed.
+- [x] (2026-05-02T20:47Z) Ran `git diff --check`; whitespace validation passed.
+- [ ] Perform device/simulator visual QA for Community feed and Groups posts.
 
 ## Surprises & Discoveries
 
@@ -36,6 +38,9 @@ After this change, the Groups posts tab should visually and behaviorally mirror 
 
 - Observation: Group post creation currently happens through an inline composer at the top of the group posts list, not through the feed-style FAB.
     Evidence: `GroupPostsTab` renders a `ListHeaderComponent` containing `TextField`, photo picker, and post button in `src/screens/main/groups/GroupDetailScreen.tsx`.
+
+- Observation: The reusable comment extraction could preserve the existing feed import path.
+    Evidence: `src/components/CommentsModal.tsx` is now a small compatibility wrapper that builds a feed comment adapter and renders `CommentThreadModal`.
 
 ## Decision Log
 
@@ -61,7 +66,9 @@ After this change, the Groups posts tab should visually and behaviorally mirror 
 
 ## Outcomes & Retrospective
 
-This section is intentionally empty at initial authoring. Update it after each major milestone and at completion. The final retrospective should compare the implemented behavior against the goal: Groups posts should look and behave like Community feed posts, while feed behavior remains unchanged.
+The first implementation pass is complete at the code-validation level. Shared post display models, a reusable post card, a reusable create-post FAB, reusable comment thread components, and adapter-driven feed/group comment wiring now exist. The Community feed still uses its existing feed-specific logic for telemetry, share, hide, mute, and reactions, while normal feed post rendering and the FAB come from shared components. The Groups posts tab now renders with the shared post card, opens the shared comments modal, and uses the shared FAB to open a group post composer modal instead of showing an always-visible inline composer.
+
+Remaining risk is visual and interaction QA on a simulator or device. `npx tsc --noEmit` and `git diff --check` pass, but those commands do not prove that the modal composer feels right on small screens, that the group FAB clears the tab bar in every device size, or that comment modal keyboard behavior matches the existing feed behavior after extraction.
 
 ## Context and Orientation
 
