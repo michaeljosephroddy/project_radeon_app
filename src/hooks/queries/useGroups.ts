@@ -19,6 +19,7 @@ export function useGroups(params: api.ListGroupsParams, enabled = true) {
         }),
         initialPageParam: undefined as string | undefined,
         getNextPageParam: (lastPage) => lastPage.next_cursor ?? undefined,
+        placeholderData: (previousData) => previousData,
         staleTime: GROUPS_STALE_TIME,
         refetchOnMount: policy?.refetchOnMount,
         enabled,

@@ -7,6 +7,7 @@ import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { CommentsModal, type CommentThreadTarget } from '../components/CommentsModal';
+import { SegmentedControl } from '../components/ui/SegmentedControl';
 import { FeedScreen } from '../screens/main/FeedScreen';
 import { GroupsScreen } from '../screens/main/GroupsScreen';
 import { GroupDetailScreen } from '../screens/main/groups/GroupDetailScreen';
@@ -37,11 +38,11 @@ interface OpenUserProfile {
     avatarUrl?: string;
 }
 
-type Tab = 'community' | 'groups' | 'discover' | 'support' | 'meetups' | 'chats';
+type Tab = 'community' | 'discover' | 'support' | 'meetups' | 'chats';
+type CommunityMode = 'for-you' | 'groups';
 
 const TABS: { key: Tab; label: string; icon: keyof typeof Ionicons.glyphMap; iconActive: keyof typeof Ionicons.glyphMap }[] = [
     { key: 'community', label: 'community', icon: 'newspaper-outline', iconActive: 'newspaper' },
-    { key: 'groups',    label: 'groups',    icon: 'people-outline', iconActive: 'people' },
     { key: 'discover',  label: 'discover',  icon: 'grid-outline', iconActive: 'grid' },
     { key: 'support',   label: 'support',   icon: 'heart-outline', iconActive: 'heart' },
     { key: 'meetups',   label: 'meetups',   icon: 'calendar-outline', iconActive: 'calendar' },
@@ -66,14 +67,53 @@ const DiscoverTab = React.memo(function DiscoverTab({
     return <View style={isActive ? styles.tabVisible : styles.tabHidden}><DiscoverScreen isActive={isActive} onOpenUserProfile={onOpenUserProfile} onOpenPlus={onOpenPlus} /></View>;
 });
 
-const GroupsTab = React.memo(function GroupsTab({
+const CommunityTab = React.memo(function CommunityTab({
     isActive,
+    mode,
+    onChangeMode,
+    onOpenUserProfile,
+    onOpenComments,
+    onOpenCreatePost,
     onOpenGroup,
+    focusRequest,
+    onFocusRequestConsumed,
 }: {
     isActive: boolean;
+    mode: CommunityMode;
+    onChangeMode: (mode: CommunityMode) => void;
+    onOpenUserProfile: (p: OpenUserProfile) => void;
+    onOpenComments: (thread: CommentThreadTarget, focusComposer: boolean, onCommentCreated?: (comment: api.Comment) => void) => void;
+    onOpenCreatePost: () => void;
     onOpenGroup: (groupId: string) => void;
+    focusRequest: { postId: string; commentId?: string; nonce: number } | null;
+    onFocusRequestConsumed: (nonce: number) => void;
 }) {
-    return <View style={isActive ? styles.tabVisible : styles.tabHidden}><GroupsScreen isActive={isActive} onOpenGroup={onOpenGroup} /></View>;
+    return (
+        <View style={isActive ? styles.tabVisible : styles.tabHidden}>
+            <SegmentedControl
+                items={[
+                    { key: 'for-you', label: 'For You' },
+                    { key: 'groups', label: 'Groups' },
+                ]}
+                activeKey={mode}
+                onChange={(key) => onChangeMode(key as CommunityMode)}
+                style={styles.communityTabs}
+            />
+            <View style={mode === 'for-you' ? styles.tabVisible : styles.tabHidden}>
+                <FeedScreen
+                    isActive={isActive && mode === 'for-you'}
+                    onOpenUserProfile={onOpenUserProfile}
+                    onOpenComments={onOpenComments}
+                    onOpenCreatePost={onOpenCreatePost}
+                    focusRequest={focusRequest}
+                    onFocusRequestConsumed={onFocusRequestConsumed}
+                />
+            </View>
+            <View style={mode === 'groups' ? styles.tabVisible : styles.tabHidden}>
+                <GroupsScreen isActive={isActive && mode === 'groups'} onOpenGroup={onOpenGroup} />
+            </View>
+        </View>
+    );
 });
 
 const SupportTab = React.memo(function SupportTab({ isActive, onOpenChat, onOpenUserProfile }: { isActive: boolean; onOpenChat: (c: Chat) => void; onOpenUserProfile: (p: OpenUserProfile) => void }) {
@@ -112,6 +152,7 @@ export function AppNavigator() {
         refetch: refetchNotificationSummary,
     } = useNotificationSummary(Boolean(user?.id));
     const [activeTab, setActiveTab] = useState<Tab>('community');
+    const [communityMode, setCommunityMode] = useState<CommunityMode>('for-you');
     const [openChat, setOpenChat] = useState<Chat | null>(null);
     const [openUserProfile, setOpenUserProfile] = useState<OpenUserProfile | null>(null);
     const [pendingDM, setPendingDM] = useState<{ recipientId: string; username: string; avatarUrl?: string } | null>(null);
@@ -181,6 +222,7 @@ export function AppNavigator() {
     }, []);
 
     const handleOpenGroup = useCallback((groupId: string) => {
+        setCommunityMode('groups');
         setOpenGroupId(groupId);
         setNotificationsOpen(false);
         setOpenChat(null);
@@ -371,7 +413,8 @@ export function AppNavigator() {
         }
 
         if (intent.kind === 'group') {
-            setActiveTab('groups');
+            setActiveTab('community');
+            setCommunityMode('groups');
             setOpenChat(null);
             setOpenUserProfile(null);
             setOwnProfileOpen(false);
@@ -407,7 +450,6 @@ export function AppNavigator() {
                 </Text>
             ),
             discover: <Text style={styles.pageTitle}>Discover</Text>,
-            groups: <Text style={styles.pageTitle}>Groups</Text>,
             support: <Text style={styles.pageTitle}>Support</Text>,
             meetups: <Text style={styles.pageTitle}>Meetups</Text>,
             chats: <Text style={styles.pageTitle}>Chats</Text>,
@@ -561,17 +603,17 @@ export function AppNavigator() {
             <SafeAreaView style={styles.container} edges={['top']}>
                 {header}
                 <View style={styles.content}>
-                    <View style={activeTab === 'community' && !isOverlayOpen ? styles.tabVisible : styles.tabHidden}>
-                        <FeedScreen
-                            isActive={activeTab === 'community' && !isOverlayOpen}
-                            onOpenUserProfile={handleOpenUserProfile}
-                            onOpenComments={handleOpenComments}
-                            onOpenCreatePost={openCreatePost}
-                            focusRequest={feedFocusRequest}
-                            onFocusRequestConsumed={handleFeedFocusRequestConsumed}
-                        />
-                    </View>
-                    <GroupsTab isActive={activeTab === 'groups' && !isOverlayOpen} onOpenGroup={handleOpenGroup} />
+                    <CommunityTab
+                        isActive={activeTab === 'community' && !isOverlayOpen}
+                        mode={communityMode}
+                        onChangeMode={setCommunityMode}
+                        onOpenUserProfile={handleOpenUserProfile}
+                        onOpenComments={handleOpenComments}
+                        onOpenCreatePost={openCreatePost}
+                        onOpenGroup={handleOpenGroup}
+                        focusRequest={feedFocusRequest}
+                        onFocusRequestConsumed={handleFeedFocusRequestConsumed}
+                    />
                     <DiscoverTab isActive={activeTab === 'discover' && !isOverlayOpen} onOpenUserProfile={handleOpenUserProfile} onOpenPlus={openPlusUpsell} />
                     <SupportTab isActive={activeTab === 'support' && !isOverlayOpen} onOpenChat={setOpenChat} onOpenUserProfile={handleOpenUserProfile} />
                     <MeetupsTab
@@ -626,6 +668,10 @@ const styles = StyleSheet.create({
     content: { flex: 1 },
     tabVisible: { flex: 1, display: 'flex' },
     tabHidden: { flex: 1, display: 'none' },
+    communityTabs: {
+        marginHorizontal: Spacing.md,
+        marginBottom: Spacing.sm,
+    },
 
     topBar: {
         flexDirection: 'row',

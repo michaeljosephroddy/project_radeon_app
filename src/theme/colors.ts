@@ -1,6 +1,6 @@
 export const Colors = {
   bg: {
-    page:    '#111418',
+    page:    '#07090c',
     surface: '#1a1f24',
     raised:  '#242a30',
     hover:   '#2d343b',

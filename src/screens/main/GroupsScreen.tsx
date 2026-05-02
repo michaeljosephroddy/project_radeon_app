@@ -1,22 +1,25 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
     FlatList,
+    Modal,
     RefreshControl,
+    ScrollView,
     StyleSheet,
     Text,
     TouchableOpacity,
     View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import * as api from '../../api/client';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { SearchBar } from '../../components/ui/SearchBar';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { TextField } from '../../components/ui/TextField';
 import { useCreateGroupMutation, useGroups, useJoinGroupMutation } from '../../hooks/queries/useGroups';
-import { Colors, Radius, Spacing, Typography, getAvatarColors } from '../../theme';
+import { Colors, ContentInsets, Radius, Spacing, Typography, getAvatarColors } from '../../theme';
 
 interface GroupsScreenProps {
     isActive: boolean;
@@ -41,6 +44,33 @@ const FILTER_CHIPS: GroupFilterChip[] = [
     { label: 'Local', tag: 'local' },
 ];
 
+const COUNTRY_FILTERS = ['United States', 'United Kingdom', 'Ireland', 'Canada', 'Australia'];
+
+interface FilterChipProps {
+    label: string;
+    selected: boolean;
+    onPress: () => void;
+}
+
+function FilterChip({ label, selected, onPress }: FilterChipProps): React.ReactElement {
+    return (
+        <TouchableOpacity
+            style={[styles.filterChip, selected && styles.filterChipSelected]}
+            onPress={onPress}
+            activeOpacity={0.85}
+        >
+            <Text style={[styles.filterChipText, selected && styles.filterChipTextSelected]}>{label}</Text>
+        </TouchableOpacity>
+    );
+}
+
+interface GroupSearchRowProps {
+    activeFilterCount: number;
+    onOpenFilters: () => void;
+    onQueryChange: (query: string) => void;
+    onToggleCreating: () => void;
+}
+
 function useDebounce<T>(value: T, delay: number): T {
     const [debounced, setDebounced] = useState(value);
 
@@ -52,23 +82,95 @@ function useDebounce<T>(value: T, delay: number): T {
     return debounced;
 }
 
+const GroupSearchRow = React.memo(function GroupSearchRow({
+    activeFilterCount,
+    onOpenFilters,
+    onQueryChange,
+    onToggleCreating,
+}: GroupSearchRowProps): React.ReactElement {
+    const [draftQuery, setDraftQuery] = useState('');
+    const debouncedQuery = useDebounce(draftQuery.trim(), 250);
+
+    useEffect(() => {
+        onQueryChange(debouncedQuery);
+    }, [debouncedQuery, onQueryChange]);
+
+    return (
+        <View style={styles.searchRow}>
+            <SearchBar
+                style={styles.searchBar}
+                primaryField={{
+                    value: draftQuery,
+                    onChangeText: setDraftQuery,
+                    placeholder: 'Search groups',
+                    returnKeyType: 'search',
+                }}
+                leading={<Ionicons name="search-outline" size={18} color={Colors.text.muted} />}
+                actionLabel="+"
+                onActionPress={onToggleCreating}
+            />
+            <TouchableOpacity style={styles.filterButton} onPress={onOpenFilters} activeOpacity={0.86}>
+                <Ionicons name="options-outline" size={20} color={Colors.text.primary} />
+                {activeFilterCount ? (
+                    <View style={styles.filterBadge}>
+                        <Text style={styles.filterBadgeText}>{activeFilterCount}</Text>
+                    </View>
+                ) : null}
+            </TouchableOpacity>
+        </View>
+    );
+});
+
 export function GroupsScreen({ isActive, onOpenGroup }: GroupsScreenProps): React.ReactElement {
     const [query, setQuery] = useState('');
     const [scope, setScope] = useState<GroupScope>('discover');
     const [activeChip, setActiveChip] = useState<GroupFilterChip | null>(null);
+    const [draftChip, setDraftChip] = useState<GroupFilterChip | null>(null);
+    const [country, setCountry] = useState('');
+    const [draftCountry, setDraftCountry] = useState('');
+    const [filterOpen, setFilterOpen] = useState(false);
     const [creating, setCreating] = useState(false);
     const [newGroupName, setNewGroupName] = useState('');
     const [newGroupDescription, setNewGroupDescription] = useState('');
     const [newGroupVisibility, setNewGroupVisibility] = useState<api.GroupVisibility>('public');
-    const debouncedQuery = useDebounce(query.trim(), 250);
     const joinMutation = useJoinGroupMutation();
     const createGroupMutation = useCreateGroupMutation();
+    const activeFilterCount = (activeChip ? 1 : 0) + (country ? 1 : 0);
+
+    const openFilters = useCallback((): void => {
+        setDraftChip(activeChip);
+        setDraftCountry(country);
+        setFilterOpen(true);
+    }, [activeChip, country]);
+
+    const handleSearchChange = useCallback((nextQuery: string): void => {
+        setQuery(nextQuery);
+    }, []);
+
+    const handleToggleCreating = useCallback((): void => {
+        setCreating(current => !current);
+    }, []);
+
+    const applyFilters = (): void => {
+        setActiveChip(draftChip);
+        setCountry(draftCountry);
+        setFilterOpen(false);
+    };
+
+    const resetFilters = (): void => {
+        setDraftChip(null);
+        setActiveChip(null);
+        setDraftCountry('');
+        setCountry('');
+        setFilterOpen(false);
+    };
 
     const groupsQuery = useGroups({
-        q: debouncedQuery || undefined,
+        q: query || undefined,
         member_scope: scope,
         tag: activeChip?.tag,
         recovery_pathway: activeChip?.recoveryPathway,
+        country: country || undefined,
         limit: 20,
     }, isActive);
 
@@ -133,16 +235,11 @@ export function GroupsScreen({ isActive, onOpenGroup }: GroupsScreenProps): Reac
                 contentContainerStyle={styles.listContent}
                 ListHeaderComponent={(
                     <View style={styles.headerContent}>
-                        <SearchBar
-                            primaryField={{
-                                value: query,
-                                onChangeText: setQuery,
-                                placeholder: 'Search groups',
-                                returnKeyType: 'search',
-                            }}
-                            leading={<Ionicons name="search-outline" size={18} color={Colors.text.muted} />}
-                            actionLabel="+"
-                            onActionPress={() => setCreating(current => !current)}
+                        <GroupSearchRow
+                            activeFilterCount={activeFilterCount}
+                            onOpenFilters={openFilters}
+                            onQueryChange={handleSearchChange}
+                            onToggleCreating={handleToggleCreating}
                         />
                         {creating ? (
                             <View style={styles.createPanel}>
@@ -201,26 +298,6 @@ export function GroupsScreen({ isActive, onOpenGroup }: GroupsScreenProps): Reac
                             activeKey={scope}
                             onChange={(next) => setScope(next as GroupScope)}
                         />
-                        <FlatList
-                            horizontal
-                            showsHorizontalScrollIndicator={false}
-                            data={FILTER_CHIPS}
-                            keyExtractor={item => item.label}
-                            contentContainerStyle={styles.chipRow}
-                            renderItem={({ item }) => {
-                                const isSelected = activeChip?.label === item.label;
-                                return (
-                                    <TouchableOpacity
-                                        style={[styles.chip, isSelected && styles.chipSelected]}
-                                        onPress={() => setActiveChip(isSelected ? null : item)}
-                                    >
-                                        <Text style={[styles.chipText, isSelected && styles.chipTextSelected]}>
-                                            {item.label}
-                                        </Text>
-                                    </TouchableOpacity>
-                                );
-                            }}
-                        />
                     </View>
                 )}
                 ListEmptyComponent={!groupsQuery.isLoading ? (
@@ -255,6 +332,70 @@ export function GroupsScreen({ isActive, onOpenGroup }: GroupsScreenProps): Reac
                     <ActivityIndicator color={Colors.primary} />
                 </View>
             ) : null}
+            <Modal
+                visible={filterOpen}
+                animationType="slide"
+                transparent={false}
+                presentationStyle="pageSheet"
+                onRequestClose={() => setFilterOpen(false)}
+            >
+                <SafeAreaView style={styles.filterScreen} edges={['top', 'bottom']}>
+                    <View style={styles.filterHeader}>
+                        <TouchableOpacity style={styles.filterHeaderButton} onPress={() => setFilterOpen(false)}>
+                            <Ionicons name="close" size={22} color={Colors.text.primary} />
+                        </TouchableOpacity>
+                        <Text style={styles.filterTitle}>Group filters</Text>
+                        <TouchableOpacity style={styles.filterHeaderButton} onPress={resetFilters}>
+                            <Text style={styles.resetText}>Reset</Text>
+                        </TouchableOpacity>
+                    </View>
+                    <ScrollView
+                        style={styles.filterScroll}
+                        contentContainerStyle={styles.filterContent}
+                        showsVerticalScrollIndicator={false}
+                    >
+                        <View style={styles.filterSection}>
+                            <Text style={styles.filterSectionLabel}>Focus</Text>
+                            <View style={styles.filterOptions}>
+                                {FILTER_CHIPS.map((item) => {
+                                    const isSelected = draftChip?.label === item.label;
+                                    return (
+                                        <FilterChip
+                                            key={item.label}
+                                            label={item.label}
+                                            selected={isSelected}
+                                            onPress={() => setDraftChip(isSelected ? null : item)}
+                                        />
+                                    );
+                                })}
+                            </View>
+                        </View>
+                        <View style={styles.filterSection}>
+                            <Text style={styles.filterSectionLabel}>Country</Text>
+                            <View style={styles.filterOptions}>
+                                <FilterChip
+                                    label="All countries"
+                                    selected={!draftCountry}
+                                    onPress={() => setDraftCountry('')}
+                                />
+                                {COUNTRY_FILTERS.map((item) => (
+                                    <FilterChip
+                                        key={item}
+                                        label={item}
+                                        selected={draftCountry === item}
+                                        onPress={() => setDraftCountry(draftCountry === item ? '' : item)}
+                                    />
+                                ))}
+                            </View>
+                        </View>
+                    </ScrollView>
+                    <View style={styles.filterFooter}>
+                        <TouchableOpacity style={styles.applyButton} onPress={applyFilters}>
+                            <Text style={styles.applyButtonText}>Apply filters</Text>
+                        </TouchableOpacity>
+                    </View>
+                </SafeAreaView>
+            </Modal>
         </View>
     );
 }
@@ -270,6 +411,7 @@ function GroupCard({ group, isJoining, onJoin, onOpen }: GroupCardProps): React.
     const colors = getAvatarColors(group.name);
     const isMember = group.viewer_status === 'active';
     const canRequest = !isMember && !group.has_pending_request;
+    const location = [group.city, group.country].filter(Boolean).join(', ');
 
     return (
         <TouchableOpacity style={styles.card} activeOpacity={0.86} onPress={onOpen}>
@@ -280,9 +422,20 @@ function GroupCard({ group, isJoining, onJoin, onOpen }: GroupCardProps): React.
                     </Text>
                 </View>
                 <View style={styles.cardCopy}>
-                    <View style={styles.cardTitleRow}>
-                        <Text style={styles.groupName} numberOfLines={1}>{group.name}</Text>
-                        <VisibilityPill visibility={group.visibility} />
+                    <View style={styles.cardHeaderRow}>
+                        <View style={styles.cardTitleBlock}>
+                            <Text style={styles.groupName} numberOfLines={1}>{group.name}</Text>
+                            <View style={styles.badgeRow}>
+                                <VisibilityPill visibility={group.visibility} />
+                            </View>
+                        </View>
+                        <GroupStatusAction
+                            group={group}
+                            isMember={isMember}
+                            canRequest={canRequest}
+                            isJoining={isJoining}
+                            onJoin={onJoin}
+                        />
                     </View>
                     {group.description ? (
                         <Text style={styles.description} numberOfLines={2}>{group.description}</Text>
@@ -291,40 +444,65 @@ function GroupCard({ group, isJoining, onJoin, onOpen }: GroupCardProps): React.
                         <Text style={styles.metaText}>{group.member_count} members</Text>
                         <Text style={styles.metaDot}>•</Text>
                         <Text style={styles.metaText}>{group.post_count} posts</Text>
-                        {group.city ? (
+                        {location ? (
                             <>
                                 <Text style={styles.metaDot}>•</Text>
-                                <Text style={styles.metaText} numberOfLines={1}>{group.city}</Text>
+                                <Text style={[styles.metaText, styles.locationMeta]} numberOfLines={1}>
+                                    {location}
+                                </Text>
                             </>
                         ) : null}
                     </View>
                 </View>
             </View>
-            <View style={styles.cardActions}>
-                {isMember ? (
-                    <View style={styles.memberPill}>
-                        <Ionicons name="checkmark-circle" size={15} color={Colors.success} />
-                        <Text style={styles.memberPillText}>Joined</Text>
-                    </View>
-                ) : group.has_pending_request ? (
-                    <View style={styles.pendingPill}>
-                        <Text style={styles.pendingPillText}>Pending</Text>
-                    </View>
-                ) : (
-                    <TouchableOpacity
-                        style={[styles.joinButton, !canRequest && styles.joinButtonDisabled]}
-                        onPress={(event) => {
-                            event.stopPropagation();
-                            onJoin();
-                        }}
-                        disabled={!canRequest || isJoining}
-                    >
-                        <Text style={styles.joinButtonText}>
-                            {group.visibility === 'approval_required' ? 'Request' : 'Join'}
-                        </Text>
-                    </TouchableOpacity>
-                )}
+        </TouchableOpacity>
+    );
+}
+
+interface GroupStatusActionProps {
+    group: api.Group;
+    isMember: boolean;
+    canRequest: boolean;
+    isJoining: boolean;
+    onJoin: () => void;
+}
+
+function GroupStatusAction({
+    group,
+    isMember,
+    canRequest,
+    isJoining,
+    onJoin,
+}: GroupStatusActionProps): React.ReactElement {
+    if (isMember) {
+        return (
+            <View style={styles.memberPill}>
+                <Ionicons name="checkmark-circle" size={14} color={Colors.success} />
+                <Text style={styles.memberPillText}>Joined</Text>
             </View>
+        );
+    }
+
+    if (group.has_pending_request) {
+        return (
+            <View style={styles.pendingPill}>
+                <Text style={styles.pendingPillText}>Pending</Text>
+            </View>
+        );
+    }
+
+    return (
+        <TouchableOpacity
+            style={[styles.joinButton, !canRequest && styles.joinButtonDisabled]}
+            onPress={(event) => {
+                event.stopPropagation();
+                onJoin();
+            }}
+            disabled={!canRequest || isJoining}
+        >
+            <Text style={styles.joinButtonText}>
+                {group.visibility === 'approval_required' ? 'Request' : 'Join'}
+            </Text>
         </TouchableOpacity>
     );
 }
@@ -351,23 +529,55 @@ const styles = StyleSheet.create({
         backgroundColor: Colors.bg.page,
     },
     listContent: {
-        paddingHorizontal: Spacing.md,
-        paddingBottom: Spacing.xl,
-        gap: Spacing.md,
+        paddingBottom: ContentInsets.listBottom,
     },
     headerContent: {
-        paddingTop: Spacing.sm,
+        paddingHorizontal: ContentInsets.screenHorizontal,
+        paddingTop: ContentInsets.screenHorizontal,
+        paddingBottom: Spacing.md,
         gap: Spacing.md,
     },
-    chipRow: {
+    searchRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
         gap: Spacing.sm,
-        paddingRight: Spacing.md,
+    },
+    searchBar: {
+        flex: 1,
+    },
+    filterButton: {
+        width: 48,
+        height: 48,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderRadius: Radius.md,
+        borderWidth: 1,
+        borderColor: Colors.border.default,
+        backgroundColor: Colors.bg.raised,
+    },
+    filterBadge: {
+        position: 'absolute',
+        top: 7,
+        right: 7,
+        minWidth: 17,
+        height: 17,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderRadius: Radius.pill,
+        backgroundColor: Colors.primary,
+        paddingHorizontal: 4,
+    },
+    filterBadgeText: {
+        fontSize: 10,
+        lineHeight: 12,
+        fontWeight: '800',
+        color: Colors.textOn.primary,
     },
     createPanel: {
         borderWidth: 1,
         borderColor: Colors.border.default,
         borderRadius: Radius.md,
-        backgroundColor: Colors.bg.surface,
+        backgroundColor: Colors.bg.raised,
         padding: Spacing.md,
         gap: Spacing.sm,
     },
@@ -393,8 +603,10 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
         borderRadius: Radius.pill,
+        borderWidth: 1,
+        borderColor: Colors.border.default,
         paddingHorizontal: Spacing.md,
-        backgroundColor: Colors.bg.page,
+        backgroundColor: Colors.bg.surface,
     },
     cancelButtonText: {
         fontSize: Typography.sizes.sm,
@@ -418,42 +630,107 @@ const styles = StyleSheet.create({
         fontWeight: '800',
         color: Colors.textOn.primary,
     },
-    chip: {
+    filterScreen: {
+        flex: 1,
+        backgroundColor: Colors.bg.page,
+    },
+    filterHeader: {
+        minHeight: 58,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        borderBottomWidth: 1,
+        borderBottomColor: Colors.border.subtle,
+        paddingHorizontal: Spacing.md,
+    },
+    filterHeaderButton: {
+        minWidth: 54,
+        minHeight: 40,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    filterTitle: {
+        fontSize: Typography.sizes.lg,
+        fontWeight: '800',
+        color: Colors.text.primary,
+    },
+    resetText: {
+        fontSize: Typography.sizes.sm,
+        fontWeight: '800',
+        color: Colors.primary,
+    },
+    filterScroll: {
+        flex: 1,
+    },
+    filterContent: {
+        padding: Spacing.md,
+        paddingBottom: Spacing.xl,
+        gap: Spacing.lg,
+    },
+    filterSection: {
+        gap: Spacing.sm,
+    },
+    filterSectionLabel: {
+        fontSize: Typography.sizes.sm,
+        fontWeight: '800',
+        color: Colors.text.primary,
+    },
+    filterOptions: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: Spacing.sm,
+    },
+    filterChip: {
         borderWidth: 1,
         borderColor: Colors.border.default,
-        backgroundColor: Colors.bg.surface,
+        backgroundColor: Colors.bg.raised,
         borderRadius: Radius.pill,
         paddingHorizontal: Spacing.md,
-        paddingVertical: 9,
+        paddingVertical: 10,
     },
-    chipSelected: {
+    filterChipSelected: {
         borderColor: Colors.primary,
-        backgroundColor: Colors.primarySubtle,
+        backgroundColor: Colors.primary,
     },
-    chipText: {
+    filterChipText: {
         fontSize: Typography.sizes.sm,
         fontWeight: '600',
         color: Colors.text.secondary,
     },
-    chipTextSelected: {
-        color: Colors.primary,
+    filterChipTextSelected: {
+        color: Colors.textOn.primary,
+    },
+    filterFooter: {
+        borderTopWidth: 1,
+        borderTopColor: Colors.border.subtle,
+        padding: Spacing.md,
+    },
+    applyButton: {
+        minHeight: 46,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderRadius: Radius.pill,
+        backgroundColor: Colors.primary,
+    },
+    applyButtonText: {
+        fontSize: Typography.sizes.sm,
+        fontWeight: '800',
+        color: Colors.textOn.primary,
     },
     card: {
-        borderWidth: 1,
-        borderColor: Colors.border.default,
-        borderRadius: Radius.md,
-        backgroundColor: Colors.bg.surface,
+        borderBottomWidth: 1,
+        borderBottomColor: Colors.border.default,
+        backgroundColor: Colors.bg.page,
         padding: Spacing.md,
-        gap: Spacing.md,
     },
     cardMain: {
         flexDirection: 'row',
         gap: Spacing.md,
     },
     groupMark: {
-        width: 48,
-        height: 48,
-        borderRadius: Radius.md,
+        width: 44,
+        height: 44,
+        borderRadius: Radius.pill,
         alignItems: 'center',
         justifyContent: 'center',
     },
@@ -463,17 +740,26 @@ const styles = StyleSheet.create({
     },
     cardCopy: {
         flex: 1,
+        minWidth: 0,
         gap: Spacing.xs,
     },
-    cardTitleRow: {
+    cardHeaderRow: {
         flexDirection: 'row',
-        alignItems: 'center',
+        alignItems: 'flex-start',
         gap: Spacing.sm,
     },
-    groupName: {
+    cardTitleBlock: {
         flex: 1,
+        minWidth: 0,
+        gap: 5,
+    },
+    badgeRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    groupName: {
         fontSize: Typography.sizes.md,
-        fontWeight: '700',
+        fontWeight: '500',
         color: Colors.text.primary,
     },
     description: {
@@ -484,39 +770,41 @@ const styles = StyleSheet.create({
     metaRow: {
         flexDirection: 'row',
         alignItems: 'center',
+        flexWrap: 'wrap',
         gap: Spacing.xs,
     },
     metaText: {
         fontSize: Typography.sizes.xs,
-        fontWeight: '600',
         color: Colors.text.muted,
+    },
+    locationMeta: {
+        flexShrink: 1,
+        minWidth: 0,
+        maxWidth: '100%',
     },
     metaDot: {
         fontSize: Typography.sizes.xs,
         color: Colors.text.muted,
     },
-    cardActions: {
-        flexDirection: 'row',
-        justifyContent: 'flex-end',
-    },
     joinButton: {
-        minHeight: 36,
+        minHeight: 32,
+        minWidth: 70,
         alignItems: 'center',
         justifyContent: 'center',
         borderRadius: Radius.pill,
-        paddingHorizontal: Spacing.lg,
+        paddingHorizontal: Spacing.md,
         backgroundColor: Colors.primary,
     },
     joinButtonDisabled: {
         opacity: 0.5,
     },
     joinButtonText: {
-        fontSize: Typography.sizes.sm,
+        fontSize: Typography.sizes.xs,
         fontWeight: '700',
         color: Colors.textOn.primary,
     },
     memberPill: {
-        minHeight: 34,
+        minHeight: 32,
         flexDirection: 'row',
         alignItems: 'center',
         gap: Spacing.xs,
@@ -525,12 +813,12 @@ const styles = StyleSheet.create({
         backgroundColor: Colors.successSubtle,
     },
     memberPillText: {
-        fontSize: Typography.sizes.sm,
+        fontSize: Typography.sizes.xs,
         fontWeight: '700',
         color: Colors.text.primary,
     },
     pendingPill: {
-        minHeight: 34,
+        minHeight: 32,
         alignItems: 'center',
         justifyContent: 'center',
         borderRadius: Radius.pill,
@@ -538,7 +826,7 @@ const styles = StyleSheet.create({
         backgroundColor: Colors.warningSubtle,
     },
     pendingPillText: {
-        fontSize: Typography.sizes.sm,
+        fontSize: Typography.sizes.xs,
         fontWeight: '700',
         color: Colors.warning,
     },
@@ -546,14 +834,12 @@ const styles = StyleSheet.create({
         borderRadius: Radius.pill,
         paddingHorizontal: Spacing.sm,
         paddingVertical: 4,
-        backgroundColor: Colors.bg.page,
-        borderWidth: 1,
-        borderColor: Colors.border.subtle,
+        backgroundColor: Colors.primarySubtle,
     },
     visibilityPillText: {
         fontSize: Typography.sizes.xs,
         fontWeight: '700',
-        color: Colors.text.secondary,
+        color: Colors.primary,
     },
     footerLoading: {
         paddingVertical: Spacing.lg,
