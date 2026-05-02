@@ -12,6 +12,7 @@ interface ComposerToolbarProps {
   hasImage: boolean;
   tagCount: number;
   maxTags: number;
+  tagsEnabled?: boolean;
   onPickImage: () => void;
   onOpenTagPicker: () => void;
 }
@@ -20,6 +21,7 @@ export function ComposerToolbar({
   hasImage,
   tagCount,
   maxTags,
+  tagsEnabled = true,
   onPickImage,
   onOpenTagPicker,
 }: ComposerToolbarProps): React.ReactElement {
@@ -39,20 +41,22 @@ export function ComposerToolbar({
         />
       </TouchableOpacity>
 
-      <TouchableOpacity
-        style={styles.iconButton}
-        onPress={onOpenTagPicker}
-        accessibilityRole="button"
-        accessibilityLabel={`Add tags. ${tagCount} of ${maxTags} selected`}
-        hitSlop={4}
-      >
-        <Ionicons name="pricetag-outline" size={20} color={Colors.primary} />
-        {tagCount > 0 ? (
-          <View style={styles.badge}>
-            <Text style={styles.badgeText}>{tagCount}</Text>
-          </View>
-        ) : null}
-      </TouchableOpacity>
+      {tagsEnabled ? (
+        <TouchableOpacity
+          style={styles.iconButton}
+          onPress={onOpenTagPicker}
+          accessibilityRole="button"
+          accessibilityLabel={`Add tags. ${tagCount} of ${maxTags} selected`}
+          hitSlop={4}
+        >
+          <Ionicons name="pricetag-outline" size={20} color={Colors.primary} />
+          {tagCount > 0 ? (
+            <View style={styles.badge}>
+              <Text style={styles.badgeText}>{tagCount}</Text>
+            </View>
+          ) : null}
+        </TouchableOpacity>
+      ) : null}
     </View>
   );
 }

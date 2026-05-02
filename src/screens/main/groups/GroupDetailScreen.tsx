@@ -34,6 +34,7 @@ import {
     usePinGroupPostMutation,
     useToggleGroupPostReactionMutation,
 } from '../../../hooks/queries/useGroups';
+import { useAuth } from '../../../hooks/useAuth';
 import { Colors, Radius, Spacing, Typography } from '../../../theme';
 import { GroupAdminScreen } from './GroupAdminScreen';
 import { GroupReportScreen } from './GroupReportScreen';
@@ -142,6 +143,7 @@ function GroupPostsTab({
 }): React.ReactElement {
     const groupId = group.id;
     const insets = useSafeAreaInsets();
+    const { user } = useAuth();
     const postsQuery = useGroupPosts(groupId, 20, true);
     const reactionMutation = useToggleGroupPostReactionMutation(groupId);
     const pinPostMutation = usePinGroupPostMutation(groupId);
@@ -206,7 +208,7 @@ function GroupPostsTab({
                 contentContainerStyle={[styles.postListContent, { paddingBottom: Spacing.xl + insets.bottom + 72 }]}
                 renderItem={({ item }) => (
                     <PostCard
-                        post={groupPostToPostDisplayModel(item, '')}
+                        post={groupPostToPostDisplayModel(item, user?.id ?? '')}
                         onReact={() => reactionMutation.mutate(item.id)}
                         onOpenComments={() => onOpenComments(item)}
                         onOpenActions={group.can_moderate_content ? () => handleOpenPostActions(item) : undefined}

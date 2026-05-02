@@ -26,6 +26,9 @@ After this change, the Groups posts tab should visually and behaviorally mirror 
 - [x] (2026-05-02T20:56Z) Fixed follow-up QA findings: group comments now open through the root app overlay like Community feed comments, group post creation now uses `CreatePostScreen` in group-target mode instead of a temporary modal composer, and `GroupDetailScreen` handles bottom safe area when replacing the tab bar.
 - [x] (2026-05-02T20:56Z) Reran `npx tsc --noEmit`; TypeScript passed.
 - [x] (2026-05-02T20:56Z) Reran `git diff --check`; whitespace validation passed.
+- [x] (2026-05-02T21:07Z) Decoupled feature wrappers from shared UI: extracted `PostComposer`, restored `CreatePostScreen` to a feed wrapper, added `GroupCreatePostScreen`, added `FeedCommentsModal`, added `GroupCommentsModal`, removed the old generic-looking `components/CommentsModal.tsx`, and removed feed/group API branching from shared components.
+- [x] (2026-05-02T21:07Z) Reran `npx tsc --noEmit`; TypeScript passed.
+- [x] (2026-05-02T21:07Z) Reran `git diff --check`; whitespace validation passed.
 - [ ] Perform device/simulator visual QA for Community feed and Groups posts.
 
 ## Surprises & Discoveries
@@ -42,11 +45,14 @@ After this change, the Groups posts tab should visually and behaviorally mirror 
 - Observation: Group post creation currently happens through an inline composer at the top of the group posts list, not through the feed-style FAB.
     Evidence: `GroupPostsTab` renders a `ListHeaderComponent` containing `TextField`, photo picker, and post button in `src/screens/main/groups/GroupDetailScreen.tsx`.
 
-- Observation: The reusable comment extraction could preserve the existing feed import path.
-    Evidence: `src/components/CommentsModal.tsx` is now a small compatibility wrapper that builds a feed comment adapter and renders `CommentThreadModal`.
+- Observation: Keeping feed comment API wiring in `src/components/CommentsModal.tsx` made a component-layer file look generic while it was actually feed-specific.
+    Evidence: The cleanup moved feed comment wiring into `src/screens/main/feed/FeedCommentsModal.tsx` and group comment wiring into `src/screens/main/groups/GroupCommentsModal.tsx`.
 
 - Observation: Rendering group comments inside `GroupPostsTab` constrained the modal to the area below the group header and tabs.
     Evidence: User QA reported that the group comments modal was not fullscreen. The fix moved group comment state and `CommentThreadModal` rendering into `AppNavigator`, matching the root overlay path used by Community feed comments.
+
+- Observation: Making `CreatePostScreen` target-aware coupled the feed composer screen to group post submission.
+    Evidence: The cleanup extracted `src/screens/main/createPost/PostComposer.tsx`; `CreatePostScreen` now submits feed posts only, while `GroupCreatePostScreen` submits group posts only.
 
 ## Decision Log
 
@@ -70,13 +76,17 @@ After this change, the Groups posts tab should visually and behaviorally mirror 
     Rationale: The backend already has feed comments and group comments endpoints. This work is about making the frontend use one UI implementation with separate adapters.
     Date/Author: 2026-05-02 / Codex
 
+- Decision: Keep shared UI components generic and move feed/group API calls into feature wrappers.
+    Rationale: `PostComposer`, `PostCard`, `CreatePostFab`, `CommentThread`, and `CommentThreadModal` should be reusable without importing feed or group mutations. Feed and group wrappers can transform shared UI outputs into their own API payloads without coupling the shared layer to product-specific endpoints.
+    Date/Author: 2026-05-02 / Codex
+
 ## Outcomes & Retrospective
 
 The first implementation pass is complete at the code-validation level. Shared post display models, a reusable post card, a reusable create-post FAB, reusable comment thread components, and adapter-driven feed/group comment wiring now exist. The Community feed still uses its existing feed-specific logic for telemetry, share, hide, mute, and reactions, while normal feed post rendering and the FAB come from shared components. The Groups posts tab now renders with the shared post card, opens the shared root-level comments modal, and uses the shared FAB to open `CreatePostScreen` in group-target mode instead of showing an always-visible inline composer.
 
 Remaining risk is visual and interaction QA on a simulator or device. `npx tsc --noEmit` and `git diff --check` pass, but those commands do not prove that the modal composer feels right on small screens, that the group FAB clears the tab bar in every device size, or that comment modal keyboard behavior matches the existing feed behavior after extraction.
 
-Follow-up QA changed the direction for group creation: the group FAB now opens the same full-screen `CreatePostScreen` used by the Community feed, configured with a group target so submission calls `createGroupPost`. Group comments now render from `AppNavigator` as a root overlay, so they should match the Community feed modal footprint rather than being constrained by the group posts tab. `GroupDetailScreen` now uses bottom safe-area handling because it replaces the app tab bar.
+Follow-up QA changed the direction for group creation: the group FAB now opens a full-screen group create-post wrapper that uses the same shared `PostComposer` as the Community feed. Group comments now render through `GroupCommentsModal` as a root overlay, so they should match the Community feed modal footprint rather than being constrained by the group posts tab. `GroupDetailScreen` now uses bottom safe-area handling because it replaces the app tab bar. A later cleanup pass removed the temporary target-aware `CreatePostScreen` and replaced it with feed-specific and group-specific wrappers around shared UI.
 
 ## Context and Orientation
 
@@ -84,7 +94,7 @@ This repository is `/home/michaelroddy/repos/project_radeon_app`, an Expo React 
 
 The Community feed lives in `src/screens/main/FeedScreen.tsx`. It currently owns its local `PostCard`, `ReshareCard`, feed scroll behavior, telemetry, local reaction state, hide/mute/share actions, comments opening, and create-post FAB. In this plan, "FAB" means floating action button: the pill-shaped Create button that floats near the bottom of the feed and opens the post composer.
 
-The existing comments surface lives in `src/components/CommentsModal.tsx`. It is currently reusable only in name because its internal data loading and submit functions directly call feed endpoints. It supports paginated comments, optimistic submit, mention parsing, mention user search, keyboard-aware composer positioning, profile taps, and a slide-in animated full-screen presentation.
+The reusable comments surface lives in `src/components/comments/CommentThread.tsx` and `src/components/comments/CommentThreadModal.tsx`. Feed-specific wiring lives in `src/screens/main/feed/FeedCommentsModal.tsx`. Group-specific wiring lives in `src/screens/main/groups/GroupCommentsModal.tsx`.
 
 The Groups list lives in `src/screens/main/GroupsScreen.tsx`. Opening a group renders `src/screens/main/groups/GroupDetailScreen.tsx` through `src/navigation/AppNavigator.tsx`. The group detail posts tab currently owns the group post list, inline create composer, inline group post card, inline comment panel, image picker, group post mutations, group reaction mutation, pin mutation, and delete mutation.
 
@@ -128,7 +138,7 @@ Create `src/components/comments/CommentThread.tsx`. Move the comment list, row, 
 
 Create `src/components/comments/CommentThreadModal.tsx`. Move the slide-in animation, safe-area-aware header, Android back handler, keyboard provider, and close button from `CommentsModal.tsx` into this wrapper. It should render `CommentThread` inside the modal shell.
 
-Keep `src/components/CommentsModal.tsx` as a compatibility wrapper during migration. It should build a feed comment adapter from the current `CommentThreadTarget` and render `CommentThreadModal`. This allows `AppNavigator`, `FeedScreen`, profile screens, and user profile screens to continue using the old import while the shared comments components are introduced.
+Add feed and group wrapper modals instead of keeping endpoint wiring in the shared component layer. `src/screens/main/feed/FeedCommentsModal.tsx` should build the feed comment adapter from the current `CommentThreadTarget` and render `CommentThreadModal`. `src/screens/main/groups/GroupCommentsModal.tsx` should build the group comment adapter from the selected group post and render the same shared modal.
 
 Validation after this milestone: run `npx tsc --noEmit`, open comments from a feed post, load existing comments, add a new comment, mention a user if discover search is available, close the modal, and verify the feed post comment count updates through the existing `onCommentCreated` callback.
 
@@ -241,7 +251,7 @@ Technical validation:
 
 This refactor is additive before it is subtractive. First create shared components and use them in the feed while keeping behavior unchanged. Then migrate group posts. Only remove old inline group components after the shared path is working.
 
-If feed comments regress, keep `src/components/CommentsModal.tsx` as the fallback wrapper and revert only the compatibility wrapper changes rather than reverting the new shared files. If group comments regress, restore the old inline `GroupCommentsPanel` from git history while keeping the shared comment components for feed.
+If feed comments regress, restore the previous feed wrapper behavior in `src/screens/main/feed/FeedCommentsModal.tsx` rather than changing the shared `CommentThread` components. If group comments regress, restore the old inline `GroupCommentsPanel` from git history while keeping the shared comment components for feed.
 
 If the group composer refactor grows too large, keep the inline composer temporarily and complete the shared post card plus shared comments migration first. The FAB composer can be completed in a follow-up milestone, but this plan should record that deviation in `Decision Log` and `Progress`.
 

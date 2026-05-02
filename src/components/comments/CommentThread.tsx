@@ -15,7 +15,7 @@ import Reanimated, { useAnimatedStyle } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Avatar } from '../Avatar';
-import * as api from '../../api/client';
+import type { CommentMention, User } from '../../api/client';
 import { Colors, Spacing, Typography } from '../../theme';
 import { formatReadableTimestamp } from '../../utils/date';
 import { formatUsername } from '../../utils/identity';
@@ -24,7 +24,7 @@ import { CommentDisplayModel, CommentThreadAdapter, CommentThreadUserProfile } f
 
 const INITIAL_VISIBLE = 20;
 const PAGE_VISIBLE = 20;
-const EMPTY_SUGGESTIONS: api.User[] = [];
+const EMPTY_SUGGESTIONS: User[] = [];
 
 interface ActiveMentionState {
     query: string;
@@ -34,7 +34,7 @@ interface ActiveMentionState {
 
 export interface CommentThreadProps {
     adapter: CommentThreadAdapter;
-    currentUser: api.User;
+    currentUser: User;
     initialCommentCount: number;
     focusComposer: boolean;
     onPressUser: (profile: CommentThreadUserProfile) => void;
@@ -87,7 +87,7 @@ function pruneSelectedMentions(value: string, store: Record<string, string>): Re
 function buildOptimisticComment(params: {
     threadId: string;
     body: string;
-    user: api.User;
+    user: User;
     selectedMentionUserIds: Record<string, string>;
 }): CommentDisplayModel {
     const mentionEntries = Object.entries(params.selectedMentionUserIds)
@@ -111,7 +111,7 @@ function renderCommentBody(
     const mentionByUsername = new Map(
         (comment.mentions ?? []).map(m => [m.username.toLowerCase(), m]),
     );
-    const parts: Array<{ key: string; text: string; mention?: api.CommentMention }> = [];
+    const parts: Array<{ key: string; text: string; mention?: CommentMention }> = [];
     let cursor = 0;
     let lastPlainStart = 0;
     let keyIndex = 0;
@@ -222,7 +222,7 @@ export function CommentThread({
     const [draft, setDraft] = useState('');
     const [submitting, setSubmitting] = useState(false);
     const [activeMention, setActiveMention] = useState<ActiveMentionState | undefined>(undefined);
-    const [activeMentionSuggestions, setActiveMentionSuggestions] = useState<api.User[]>(EMPTY_SUGGESTIONS);
+    const [activeMentionSuggestions, setActiveMentionSuggestions] = useState<User[]>(EMPTY_SUGGESTIONS);
     const [isMentionSearching, setIsMentionSearching] = useState(false);
 
     useEffect(() => {
@@ -306,11 +306,14 @@ export function CommentThread({
 
         mentionSearchTimerRef.current = setTimeout(async () => {
             const seq = ++mentionSearchSeqRef.current;
+            if (!adapter.searchMentionUsers) {
+                setActiveMentionSuggestions(EMPTY_SUGGESTIONS);
+                setIsMentionSearching(false);
+                return;
+            }
             setIsMentionSearching(true);
             try {
-                const result = adapter.searchMentionUsers
-                    ? await adapter.searchMentionUsers(nextMention.query)
-                    : await api.discoverUsers({ query: nextMention.query, limit: 5 }).then(page => page.items ?? EMPTY_SUGGESTIONS);
+                const result = await adapter.searchMentionUsers(nextMention.query);
                 if (mentionSearchSeqRef.current !== seq) return;
                 setActiveMentionSuggestions(result);
             } catch {
@@ -323,7 +326,7 @@ export function CommentThread({
         }, 180);
     }, [adapter]);
 
-    const handleSelectMention = useCallback((selectedUser: api.User): void => {
+    const handleSelectMention = useCallback((selectedUser: User): void => {
         if (!activeMention) return;
         const nextValue = `${draft.slice(0, activeMention.tokenStart)}@${selectedUser.username} ${draft.slice(activeMention.tokenEnd)}`;
         setDraft(nextValue);

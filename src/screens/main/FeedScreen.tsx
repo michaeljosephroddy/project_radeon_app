@@ -9,7 +9,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Avatar } from '../../components/Avatar';
-import type { CommentThreadTarget } from '../../components/CommentsModal';
+import type { CommentThreadTarget } from './feed/FeedCommentsModal';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { InfoNoticeCard } from '../../components/ui/InfoNoticeCard';
 import { ScrollToTopButton } from '../../components/ui/ScrollToTopButton';

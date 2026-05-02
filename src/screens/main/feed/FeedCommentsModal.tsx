@@ -1,7 +1,11 @@
 import React, { useMemo } from 'react';
-import * as api from '../api/client';
-import { CommentThreadAdapter, displayCommentToFeedComment, feedCommentToDisplayModel } from './comments/commentTypes';
-import { CommentThreadModal } from './comments/CommentThreadModal';
+import * as api from '../../../api/client';
+import {
+    CommentThreadAdapter,
+    displayCommentToFeedComment,
+    feedCommentToDisplayModel,
+} from '../../../components/comments/commentTypes';
+import { CommentThreadModal } from '../../../components/comments/CommentThreadModal';
 
 export interface CommentThreadTarget {
     itemId: string;
@@ -10,7 +14,7 @@ export interface CommentThreadTarget {
     title?: string;
 }
 
-export interface CommentsModalProps {
+interface FeedCommentsModalProps {
     thread: CommentThreadTarget;
     currentUser: api.User;
     focusComposer: boolean;
@@ -19,14 +23,14 @@ export interface CommentsModalProps {
     onCommentCreated?: (comment: api.Comment) => void;
 }
 
-export function CommentsModal({
+export function FeedCommentsModal({
     thread,
     currentUser,
     focusComposer,
     onClose,
     onPressUser,
     onCommentCreated,
-}: CommentsModalProps): React.ReactElement {
+}: FeedCommentsModalProps): React.ReactElement {
     const adapter = useMemo<CommentThreadAdapter>(() => ({
         loadComments: async (cursor?: string) => {
             const result = await api.getFeedItemComments(thread.itemId, thread.itemKind, cursor);

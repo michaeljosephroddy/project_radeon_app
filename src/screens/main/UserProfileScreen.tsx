@@ -11,7 +11,7 @@ import { SobrietyCounter } from '../../components/SobrietyCounter';
 import { ProfileContentTabs, ProfileContentTabKey } from '../../components/profile/ProfileContentTabs';
 import { ProfileEmptyTabState } from '../../components/profile/ProfileEmptyTabState';
 import { ProfilePostCard } from '../../components/profile/ProfilePostCard';
-import type { CommentThreadTarget } from '../../components/CommentsModal';
+import type { CommentThreadTarget } from './feed/FeedCommentsModal';
 import * as api from '../../api/client';
 import { useGuardedEndReached } from '../../hooks/useGuardedEndReached';
 import { useUserProfile } from '../../hooks/queries/useUserProfile';
