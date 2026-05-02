@@ -23,6 +23,7 @@ interface CreatePostHeaderProps {
   isSubmitting: boolean;
   maxLength: number;
   postType: "text" | "photo";
+  title?: string;
   onBack: () => void;
   onOpenDrafts: () => void;
   onSubmit: () => void;
@@ -35,11 +36,12 @@ export function CreatePostHeader({
   isSubmitting,
   maxLength,
   postType,
+  title,
   onBack,
   onOpenDrafts,
   onSubmit,
 }: CreatePostHeaderProps): React.ReactElement {
-  const subtitle = postType === "photo" ? "Photo post" : "Text post";
+  const subtitle = title ?? (postType === "photo" ? "Photo post" : "Text post");
 
   return (
     <View style={styles.header}>

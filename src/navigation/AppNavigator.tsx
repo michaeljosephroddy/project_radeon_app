@@ -6,11 +6,13 @@ import { getDeviceCoords, reverseGeocode } from '../utils/location';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { CommentsModal, type CommentThreadTarget } from '../components/CommentsModal';
+import { FeedCommentsModal, type CommentThreadTarget } from '../screens/main/feed/FeedCommentsModal';
 import { SegmentedControl } from '../components/ui/SegmentedControl';
 import { FeedScreen } from '../screens/main/FeedScreen';
 import { GroupsScreen } from '../screens/main/GroupsScreen';
 import { GroupDetailScreen } from '../screens/main/groups/GroupDetailScreen';
+import { GroupCommentsModal } from '../screens/main/groups/GroupCommentsModal';
+import { GroupCreatePostScreen } from '../screens/main/groups/GroupCreatePostScreen';
 import { DiscoverScreen } from '../screens/main/DiscoverScreen';
 import { SupportScreen } from '../screens/main/SupportScreen';
 import { MeetupsScreen } from '../screens/main/MeetupsScreen';
@@ -157,6 +159,7 @@ export function AppNavigator() {
     const [openUserProfile, setOpenUserProfile] = useState<OpenUserProfile | null>(null);
     const [pendingDM, setPendingDM] = useState<{ recipientId: string; username: string; avatarUrl?: string } | null>(null);
     const [createPostOpen, setCreatePostOpen] = useState(false);
+    const [groupCreatePostTarget, setGroupCreatePostTarget] = useState<api.Group | null>(null);
     const [createPostSessionKey, setCreatePostSessionKey] = useState(0);
     const [ownProfileOpen, setOwnProfileOpen] = useState(false);
     const [openMeetup, setOpenMeetup] = useState<api.Meetup | null>(null);
@@ -169,6 +172,7 @@ export function AppNavigator() {
         focusComposer: boolean;
         onCommentCreated?: (comment: api.Comment) => void;
     } | null>(null);
+    const [openGroupComments, setOpenGroupComments] = useState<api.GroupPost | null>(null);
     const [keyboardVisible, setKeyboardVisible] = useState(false);
     const [feedFocusRequest, setFeedFocusRequest] = useState<{ postId: string; commentId?: string; nonce: number } | null>(null);
     const insets = useSafeAreaInsets();
@@ -177,12 +181,13 @@ export function AppNavigator() {
     const inUserProfile = openUserProfile !== null;
     const inOwnProfile = ownProfileOpen;
     const inComposeDM = pendingDM !== null;
-    const inCreatePost = createPostOpen;
+    const inCreatePost = createPostOpen || groupCreatePostTarget !== null;
     const inMeetupDetail = openMeetup !== null;
     const inGroupDetail = openGroupId !== null;
     const inPlusUpsell = plusUpsellOpen;
     const inNotifications = notificationsOpen;
     const inComments = openComments !== null;
+    const inGroupComments = openGroupComments !== null;
 
     const handleOpenUserProfile = useCallback((profile: OpenUserProfile) => {
         setOpenUserProfile(profile);
@@ -231,10 +236,12 @@ export function AppNavigator() {
         setPendingDM(null);
         setOpenMeetup(null);
         setPlusUpsellOpen(false);
+        setOpenGroupComments(null);
     }, []);
 
     const handleCloseGroup = useCallback(() => {
         setOpenGroupId(null);
+        setOpenGroupComments(null);
     }, []);
 
     const handleCloseChat = useCallback(() => {
@@ -263,9 +270,29 @@ export function AppNavigator() {
         setOpenComments({ thread, focusComposer, onCommentCreated });
     }, []);
 
+    const handleOpenGroupComments = useCallback((post: api.GroupPost) => {
+        setOpenGroupComments(post);
+    }, []);
+
     const openCreatePost = useCallback(() => {
+        setGroupCreatePostTarget(null);
         setCreatePostSessionKey((current) => current + 1);
         setCreatePostOpen(true);
+        setOpenGroupComments(null);
+        setOpenChat(null);
+        setOpenUserProfile(null);
+        setOwnProfileOpen(false);
+        setPendingDM(null);
+        setOpenMeetup(null);
+        setPlusUpsellOpen(false);
+        setNotificationsOpen(false);
+    }, []);
+
+    const handleOpenGroupCreatePost = useCallback((group: api.Group) => {
+        setCreatePostOpen(false);
+        setGroupCreatePostTarget(group);
+        setCreatePostSessionKey((current) => current + 1);
+        setOpenGroupComments(null);
         setOpenChat(null);
         setOpenUserProfile(null);
         setOwnProfileOpen(false);
@@ -277,6 +304,7 @@ export function AppNavigator() {
 
     const closeCreatePost = useCallback(() => {
         setCreatePostOpen(false);
+        setGroupCreatePostTarget(null);
     }, []);
 
     const handleFeedFocusRequestConsumed = useCallback((nonce: number) => {
@@ -527,14 +555,6 @@ export function AppNavigator() {
                     />
                 </View>
             )}
-            {inCreatePost && (
-                <View style={StyleSheet.absoluteFill}>
-                    <CreatePostScreen
-                        key={createPostSessionKey}
-                        onBack={closeCreatePost}
-                    />
-                </View>
-            )}
             {inMeetupDetail && (
                 <View style={StyleSheet.absoluteFill}>
                     <MeetupDetailScreen
@@ -549,7 +569,25 @@ export function AppNavigator() {
                     <GroupDetailScreen
                         groupId={openGroupId!}
                         onBack={handleCloseGroup}
+                        onOpenComments={handleOpenGroupComments}
+                        onOpenCreatePost={handleOpenGroupCreatePost}
                     />
+                </View>
+            )}
+            {inCreatePost && (
+                <View style={StyleSheet.absoluteFill}>
+                    {groupCreatePostTarget ? (
+                        <GroupCreatePostScreen
+                            key={createPostSessionKey}
+                            group={groupCreatePostTarget}
+                            onBack={closeCreatePost}
+                        />
+                    ) : (
+                        <CreatePostScreen
+                            key={createPostSessionKey}
+                            onBack={closeCreatePost}
+                        />
+                    )}
                 </View>
             )}
             {inUserProfile && (
@@ -588,9 +626,9 @@ export function AppNavigator() {
         </>
     ), [
         inOwnProfile, inUserProfile, inChat, inComposeDM, inCreatePost, inMeetupDetail, inGroupDetail, inPlusUpsell, inNotifications,
-        openUserProfile, openChat, pendingDM, openMeetup, openGroupId, ownProfileInitialContentTab, createPostSessionKey,
+        openUserProfile, openChat, pendingDM, openMeetup, openGroupId, ownProfileInitialContentTab, createPostSessionKey, groupCreatePostTarget,
         handleOpenUserProfile, handleOpenGroup, handleCloseChat, closeUserProfile, closeOwnProfile,
-        handleOpenComments, closeCreatePost,
+        handleOpenComments, handleOpenGroupComments, handleOpenGroupCreatePost, closeCreatePost,
         handleComposeDM, handleComposeDMComplete, handleCloseMeetup, handleCloseGroup, closePlusUpsell,
         closeNotifications, handleOpenNotificationChat, handleOpenNotificationMention,
     ]);
@@ -649,7 +687,7 @@ export function AppNavigator() {
 
             {inComments && user && (
                 <View style={StyleSheet.absoluteFillObject}>
-                    <CommentsModal
+                    <FeedCommentsModal
                         thread={openComments!.thread}
                         currentUser={user}
                         focusComposer={openComments!.focusComposer}
@@ -659,6 +697,17 @@ export function AppNavigator() {
                     />
                 </View>
             )}
+
+            {inGroupComments && user && openGroupComments ? (
+                <View style={StyleSheet.absoluteFillObject}>
+                    <GroupCommentsModal
+                        post={openGroupComments}
+                        currentUser={user}
+                        onClose={() => setOpenGroupComments(null)}
+                        onPressUser={handleOpenUserProfile}
+                    />
+                </View>
+            ) : null}
         </>
     );
 }

@@ -1,26 +1,30 @@
-import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-    View, Text, FlatList, TextInput, TouchableOpacity,
-    StyleSheet, ActivityIndicator, Keyboard, Alert, BackHandler,
-    Dimensions,
+    ActivityIndicator,
+    Alert,
+    FlatList,
+    Keyboard,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from 'react-native';
-import { KeyboardProvider, KeyboardAvoidingView, useReanimatedKeyboardAnimation } from 'react-native-keyboard-controller';
-import Reanimated, {
-    useSharedValue, useAnimatedStyle, withTiming, runOnJS, Easing,
-} from 'react-native-reanimated';
+import { KeyboardAvoidingView, useReanimatedKeyboardAnimation } from 'react-native-keyboard-controller';
+import Reanimated, { useAnimatedStyle } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { Avatar } from './Avatar';
-import { ScreenHeader } from './ui/ScreenHeader';
-import * as api from '../api/client';
-import { Colors, Header, Typography, Spacing } from '../theme';
-import { formatUsername } from '../utils/identity';
-import { formatReadableTimestamp } from '../utils/date';
-import { composerStandards } from '../styles/composerStandards';
+import { Avatar } from '../Avatar';
+import type { CommentMention, User } from '../../api/client';
+import { Colors, Spacing, Typography } from '../../theme';
+import { formatReadableTimestamp } from '../../utils/date';
+import { formatUsername } from '../../utils/identity';
+import { composerStandards } from '../../styles/composerStandards';
+import { CommentDisplayModel, CommentThreadAdapter, CommentThreadUserProfile } from './commentTypes';
 
 const INITIAL_VISIBLE = 20;
 const PAGE_VISIBLE = 20;
-const SCREEN_HEIGHT = Dimensions.get('screen').height;
+const EMPTY_SUGGESTIONS: User[] = [];
 
 interface ActiveMentionState {
     query: string;
@@ -28,20 +32,13 @@ interface ActiveMentionState {
     tokenEnd: number;
 }
 
-export interface CommentThreadTarget {
-    itemId: string;
-    itemKind: api.FeedItemKind;
-    commentCount: number;
-    title?: string;
-}
-
-export interface CommentsModalProps {
-    thread: CommentThreadTarget;
-    currentUser: api.User;
+export interface CommentThreadProps {
+    adapter: CommentThreadAdapter;
+    currentUser: User;
+    initialCommentCount: number;
     focusComposer: boolean;
-    onClose: () => void;
-    onPressUser: (profile: { userId: string; username: string; avatarUrl?: string }) => void;
-    onCommentCreated?: (comment: api.Comment) => void;
+    onPressUser: (profile: CommentThreadUserProfile) => void;
+    onCommentCreated?: (comment: CommentDisplayModel) => void;
 }
 
 function isMentionBodyChar(ch: string): boolean {
@@ -80,44 +77,41 @@ function collectMentionUserIds(value: string, selectedMentionUserIds: Record<str
     return Array.from(ids);
 }
 
-function pruneSelectedMentions(
-    value: string,
-    store: Record<string, string>,
-): Record<string, string> {
+function pruneSelectedMentions(value: string, store: Record<string, string>): Record<string, string> {
     const handles = new Set(extractMentionHandles(value));
     return Object.fromEntries(
-        Object.entries(store).filter(([username]) => handles.has(username))
+        Object.entries(store).filter(([username]) => handles.has(username)),
     );
 }
 
 function buildOptimisticComment(params: {
-    itemId: string;
+    threadId: string;
     body: string;
-    user: api.User;
+    user: User;
     selectedMentionUserIds: Record<string, string>;
-}): api.Comment {
+}): CommentDisplayModel {
     const mentionEntries = Object.entries(params.selectedMentionUserIds)
         .filter(([username]) => params.body.toLowerCase().includes(`@${username}`))
         .map(([username, userId]) => ({ user_id: userId, username }));
     return {
-        id: `optimistic-${params.itemId}-${Date.now()}`,
-        user_id: params.user.id,
+        id: `optimistic-${params.threadId}-${Date.now()}`,
+        userId: params.user.id,
         username: params.user.username,
-        avatar_url: params.user.avatar_url,
+        avatarUrl: params.user.avatar_url,
         body: params.body,
-        created_at: new Date().toISOString(),
+        createdAt: new Date().toISOString(),
         mentions: mentionEntries,
     };
 }
 
 function renderCommentBody(
-    comment: api.Comment,
-    onPressUser: (profile: { userId: string; username: string; avatarUrl?: string }) => void,
+    comment: CommentDisplayModel,
+    onPressUser: (profile: CommentThreadUserProfile) => void,
 ): React.ReactNode {
     const mentionByUsername = new Map(
-        (comment.mentions ?? []).map(m => [m.username.toLowerCase(), m])
+        (comment.mentions ?? []).map(m => [m.username.toLowerCase(), m]),
     );
-    const parts: Array<{ key: string; text: string; mention?: api.CommentMention }> = [];
+    const parts: Array<{ key: string; text: string; mention?: CommentMention }> = [];
     let cursor = 0;
     let lastPlainStart = 0;
     let keyIndex = 0;
@@ -166,7 +160,7 @@ function renderCommentBody(
             </Text>
         ) : (
             <Text key={part.key}>{part.text}</Text>
-        )
+        ),
     );
 }
 
@@ -174,17 +168,17 @@ const CommentItem = React.memo(function CommentItem({
     comment,
     onPressUser,
 }: {
-    comment: api.Comment;
-    onPressUser: (profile: { userId: string; username: string; avatarUrl?: string }) => void;
+    comment: CommentDisplayModel;
+    onPressUser: (profile: CommentThreadUserProfile) => void;
 }) {
     return (
         <View style={styles.commentRow}>
-            <Avatar username={comment.username} avatarUrl={comment.avatar_url} size={28} fontSize={11} />
+            <Avatar username={comment.username} avatarUrl={comment.avatarUrl} size={28} fontSize={11} />
             <View style={styles.commentBodyWrap}>
                 <View style={styles.commentBubble}>
                     <View style={styles.commentHeader}>
                         <Text style={styles.commentAuthor}>{formatUsername(comment.username)}</Text>
-                        <Text style={styles.commentMeta}>{formatReadableTimestamp(comment.created_at)}</Text>
+                        <Text style={styles.commentMeta}>{formatReadableTimestamp(comment.createdAt)}</Text>
                     </View>
                     <Text style={styles.commentBody}>
                         {renderCommentBody(comment, onPressUser)}
@@ -195,9 +189,7 @@ const CommentItem = React.memo(function CommentItem({
     );
 });
 
-// Wraps the composer row and smoothly removes the bottom safe-area padding as
-// the keyboard rises (the keyboard already covers the home-indicator area).
-function ComposerPadding({ basePadding, children }: { basePadding: number; children: React.ReactNode }) {
+function ComposerPadding({ basePadding, children }: { basePadding: number; children: React.ReactNode }): React.ReactElement {
     const { height } = useReanimatedKeyboardAnimation();
     const style = useAnimatedStyle(() => ({
         paddingBottom: Math.max(basePadding + height.value, Spacing.sm),
@@ -205,16 +197,14 @@ function ComposerPadding({ basePadding, children }: { basePadding: number; child
     return <Reanimated.View style={[composerStandards.row, styles.composer, style]}>{children}</Reanimated.View>;
 }
 
-const EMPTY_SUGGESTIONS: api.User[] = [];
-
-export function CommentsModal({
-    thread,
+export function CommentThread({
+    adapter,
     currentUser,
+    initialCommentCount,
     focusComposer,
-    onClose,
     onPressUser,
     onCommentCreated,
-}: CommentsModalProps) {
+}: CommentThreadProps): React.ReactElement {
     const insets = useSafeAreaInsets();
     const inputRef = useRef<TextInput>(null);
     const mentionSearchTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -223,46 +213,16 @@ export function CommentsModal({
     const isLoadingMoreRef = useRef(false);
     const cursorRef = useRef<string | undefined>(undefined);
 
-    // Slide-in animation
-    const slideY = useSharedValue(SCREEN_HEIGHT);
-    const animatedStyle = useAnimatedStyle(() => ({
-        transform: [{ translateY: slideY.value }],
-    }));
-
-    useEffect(() => {
-        slideY.value = withTiming(0, { duration: 300, easing: Easing.out(Easing.cubic) });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
-
-    const handleClose = useCallback(() => {
-        Keyboard.dismiss();
-        slideY.value = withTiming(SCREEN_HEIGHT, { duration: 220 }, () => {
-            runOnJS(onClose)();
-        });
-    }, [onClose, slideY]);
-
-    // Android back button
-    useEffect(() => {
-        const sub = BackHandler.addEventListener('hardwareBackPress', () => {
-            handleClose();
-            return true;
-        });
-        return () => sub.remove();
-    }, [handleClose]);
-
-    // Comments data
-    const [comments, setComments] = useState<api.Comment[]>([]);
+    const [comments, setComments] = useState<CommentDisplayModel[]>([]);
     const [hasMore, setHasMore] = useState(false);
     const [isLoadingInitial, setIsLoadingInitial] = useState(true);
     const [isLoadingMore, setIsLoadingMore] = useState(false);
-    const [commentCount, setCommentCount] = useState(thread.commentCount);
-
-    // Comment UI state
+    const [commentCount, setCommentCount] = useState(initialCommentCount);
     const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE);
     const [draft, setDraft] = useState('');
     const [submitting, setSubmitting] = useState(false);
     const [activeMention, setActiveMention] = useState<ActiveMentionState | undefined>(undefined);
-    const [activeMentionSuggestions, setActiveMentionSuggestions] = useState<api.User[]>(EMPTY_SUGGESTIONS);
+    const [activeMentionSuggestions, setActiveMentionSuggestions] = useState<User[]>(EMPTY_SUGGESTIONS);
     const [isMentionSearching, setIsMentionSearching] = useState(false);
 
     useEffect(() => {
@@ -270,10 +230,10 @@ export function CommentsModal({
         setIsLoadingInitial(true);
         setComments([]);
         setHasMore(false);
-        setCommentCount(thread.commentCount);
+        setCommentCount(initialCommentCount);
         cursorRef.current = undefined;
 
-        api.getFeedItemComments(thread.itemId, thread.itemKind)
+        adapter.loadComments()
             .then(result => {
                 if (cancelled) return;
                 setComments(result.items ?? []);
@@ -288,13 +248,12 @@ export function CommentsModal({
             });
 
         return () => { cancelled = true; };
-    }, [thread.commentCount, thread.itemId, thread.itemKind]);
+    }, [adapter, initialCommentCount]);
 
     useEffect(() => () => {
         if (mentionSearchTimerRef.current) clearTimeout(mentionSearchTimerRef.current);
     }, []);
 
-    // Auto-focus composer when opened from a notification or explicit request.
     useEffect(() => {
         if (!focusComposer) return;
         const timer = setTimeout(() => inputRef.current?.focus(), 350);
@@ -306,7 +265,7 @@ export function CommentsModal({
         [comments, visibleCount],
     );
 
-    const handleEndReached = useCallback(async () => {
+    const handleEndReached = useCallback(async (): Promise<void> => {
         if (visibleCount < comments.length) {
             setVisibleCount(v => v + PAGE_VISIBLE);
             return;
@@ -315,7 +274,7 @@ export function CommentsModal({
         isLoadingMoreRef.current = true;
         setIsLoadingMore(true);
         try {
-            const result = await api.getFeedItemComments(thread.itemId, thread.itemKind, cursorRef.current);
+            const result = await adapter.loadComments(cursorRef.current);
             cursorRef.current = result.next_cursor ?? undefined;
             setHasMore(result.has_more);
             setComments(prev => {
@@ -328,9 +287,9 @@ export function CommentsModal({
             isLoadingMoreRef.current = false;
             setIsLoadingMore(false);
         }
-    }, [visibleCount, comments.length, hasMore, thread.itemId, thread.itemKind]);
+    }, [adapter, comments.length, hasMore, visibleCount]);
 
-    const handleDraftChange = useCallback((value: string) => {
+    const handleDraftChange = useCallback((value: string): void => {
         setDraft(value);
         selectedMentionUserIdsRef.current = pruneSelectedMentions(value, selectedMentionUserIdsRef.current);
 
@@ -347,11 +306,16 @@ export function CommentsModal({
 
         mentionSearchTimerRef.current = setTimeout(async () => {
             const seq = ++mentionSearchSeqRef.current;
+            if (!adapter.searchMentionUsers) {
+                setActiveMentionSuggestions(EMPTY_SUGGESTIONS);
+                setIsMentionSearching(false);
+                return;
+            }
             setIsMentionSearching(true);
             try {
-                const result = await api.discoverUsers({ query: nextMention.query, limit: 5 });
+                const result = await adapter.searchMentionUsers(nextMention.query);
                 if (mentionSearchSeqRef.current !== seq) return;
-                setActiveMentionSuggestions(result.items ?? EMPTY_SUGGESTIONS);
+                setActiveMentionSuggestions(result);
             } catch {
                 if (mentionSearchSeqRef.current !== seq) return;
                 setActiveMentionSuggestions(EMPTY_SUGGESTIONS);
@@ -360,9 +324,9 @@ export function CommentsModal({
                 setIsMentionSearching(false);
             }
         }, 180);
-    }, []);
+    }, [adapter]);
 
-    const handleSelectMention = useCallback((selectedUser: api.User) => {
+    const handleSelectMention = useCallback((selectedUser: User): void => {
         if (!activeMention) return;
         const nextValue = `${draft.slice(0, activeMention.tokenStart)}@${selectedUser.username} ${draft.slice(activeMention.tokenEnd)}`;
         setDraft(nextValue);
@@ -373,16 +337,20 @@ export function CommentsModal({
         setActiveMention(undefined);
         setActiveMentionSuggestions(EMPTY_SUGGESTIONS);
         setIsMentionSearching(false);
-    }, [draft, activeMention]);
+    }, [activeMention, draft]);
 
-    const handleSubmit = useCallback(async () => {
+    const handleSubmit = useCallback(async (): Promise<void> => {
         const body = draft.trim();
         if (!body || submitting) return;
 
         const mentionUserIds = collectMentionUserIds(body, selectedMentionUserIdsRef.current);
         const selectedMentionUserIds = { ...selectedMentionUserIdsRef.current };
-
-        const optimisticComment = buildOptimisticComment({ body, itemId: thread.itemId, user: currentUser, selectedMentionUserIds });
+        const optimisticComment = buildOptimisticComment({
+            body,
+            threadId: currentUser.id,
+            user: currentUser,
+            selectedMentionUserIds,
+        });
 
         setSubmitting(true);
         setDraft('');
@@ -395,7 +363,7 @@ export function CommentsModal({
         setVisibleCount(v => v + 1);
 
         try {
-            const newComment = await api.addFeedItemComment(thread.itemId, thread.itemKind, body, mentionUserIds);
+            const newComment = await adapter.createComment(body, mentionUserIds);
             setComments(prev => prev.map(c => c.id === optimisticComment.id ? newComment : c));
             onCommentCreated?.(newComment);
         } catch (e) {
@@ -406,147 +374,110 @@ export function CommentsModal({
         } finally {
             setSubmitting(false);
         }
-    }, [draft, submitting, thread.itemId, thread.itemKind, currentUser, onCommentCreated]);
+    }, [adapter, currentUser, draft, onCommentCreated, submitting]);
 
     const renderComment = useCallback(
-        ({ item }: { item: api.Comment }) => (
+        ({ item }: { item: CommentDisplayModel }) => (
             <CommentItem comment={item} onPressUser={onPressUser} />
         ),
         [onPressUser],
     );
 
-    const keyExtractor = useCallback((item: api.Comment) => item.id, []);
+    const keyExtractor = useCallback((item: CommentDisplayModel) => item.id, []);
     const ItemSeparator = useCallback(() => <View style={styles.separator} />, []);
 
     const listFooter = isLoadingMore
         ? <ActivityIndicator style={styles.loadingMore} color={Colors.primary} size="small" />
         : null;
-
-    const headerTitle = thread.title?.trim()
-        ? thread.title
-        : commentCount > 0
-            ? `${commentCount} Comment${commentCount === 1 ? '' : 's'}`
-            : 'Comments';
-
-    const topPad = insets.top + Header.paddingVertical;
     const bottomPad = insets.bottom + Spacing.sm;
 
     return (
-        <Reanimated.View style={[styles.container, animatedStyle]}>
-            <KeyboardProvider statusBarTranslucent navigationBarTranslucent>
-                {/* Header stays outside KAV so it doesn't move with the keyboard */}
-                <ScreenHeader
-                    title={headerTitle}
-                    style={[styles.header, { paddingTop: topPad }]}
-                    trailing={(
-                        <TouchableOpacity onPress={handleClose} style={styles.closeButton} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                            <Ionicons name="close" size={22} color={Colors.text.primary} />
-                        </TouchableOpacity>
-                    )}
+        <KeyboardAvoidingView behavior="padding" style={styles.fill}>
+            {isLoadingInitial ? (
+                <View style={styles.loadingInitial}>
+                    <ActivityIndicator color={Colors.primary} />
+                </View>
+            ) : (
+                <FlatList
+                    data={visibleComments}
+                    keyExtractor={keyExtractor}
+                    renderItem={renderComment}
+                    ItemSeparatorComponent={ItemSeparator}
+                    contentContainerStyle={styles.list}
+                    onEndReached={handleEndReached}
+                    onEndReachedThreshold={0.4}
+                    keyboardShouldPersistTaps="handled"
+                    ListEmptyComponent={
+                        <Text style={styles.empty}>No comments yet. Be the first!</Text>
+                    }
+                    ListFooterComponent={listFooter}
                 />
+            )}
 
-                {/* List + mention panel + composer rise together with the keyboard */}
-                <KeyboardAvoidingView
-                    behavior="padding"
-                    style={styles.fill}
-                >
-                    {isLoadingInitial ? (
-                        <View style={styles.loadingInitial}>
-                            <ActivityIndicator color={Colors.primary} />
-                        </View>
+            {!!activeMention?.query.trim() && (
+                <View style={styles.mentionPanel}>
+                    {isMentionSearching ? (
+                        <ActivityIndicator size="small" color={Colors.primary} style={styles.mentionLoader} />
+                    ) : activeMentionSuggestions.length > 0 ? (
+                        activeMentionSuggestions.map(u => (
+                            <TouchableOpacity
+                                key={u.id}
+                                style={styles.mentionRow}
+                                onPress={() => handleSelectMention(u)}
+                            >
+                                <Avatar username={u.username} avatarUrl={u.avatar_url} size={26} fontSize={10} />
+                                <Text style={styles.mentionRowText}>{formatUsername(u.username)}</Text>
+                            </TouchableOpacity>
+                        ))
                     ) : (
-                        <FlatList
-                            data={visibleComments}
-                            keyExtractor={keyExtractor}
-                            renderItem={renderComment}
-                            ItemSeparatorComponent={ItemSeparator}
-                            contentContainerStyle={styles.list}
-                            onEndReached={handleEndReached}
-                            onEndReachedThreshold={0.4}
-                            keyboardShouldPersistTaps="handled"
-                            ListEmptyComponent={
-                                <Text style={styles.empty}>No comments yet. Be the first!</Text>
-                            }
-                            ListFooterComponent={listFooter}
-                        />
+                        <Text style={styles.mentionEmpty}>No matches for @{activeMention.query}</Text>
                     )}
+                </View>
+            )}
 
-                    {!!activeMention?.query.trim() && (
-                        <View style={styles.mentionPanel}>
-                            {isMentionSearching ? (
-                                <ActivityIndicator size="small" color={Colors.primary} style={styles.mentionLoader} />
-                            ) : activeMentionSuggestions.length > 0 ? (
-                                activeMentionSuggestions.map(u => (
-                                    <TouchableOpacity
-                                        key={u.id}
-                                        style={styles.mentionRow}
-                                        onPress={() => handleSelectMention(u)}
-                                    >
-                                        <Avatar username={u.username} avatarUrl={u.avatar_url} size={26} fontSize={10} />
-                                        <Text style={styles.mentionRowText}>{formatUsername(u.username)}</Text>
-                                    </TouchableOpacity>
-                                ))
-                            ) : (
-                                <Text style={styles.mentionEmpty}>No matches for @{activeMention.query}</Text>
-                            )}
-                        </View>
-                    )}
-
-                    <ComposerPadding basePadding={bottomPad}>
-                        <Avatar
-                            username={currentUser.username}
-                            avatarUrl={currentUser.avatar_url}
-                            size={30}
-                            fontSize={12}
-                        />
-                        <TextInput
-                            ref={inputRef}
-                            style={[composerStandards.input, styles.composerInput]}
-                            placeholder="Write a comment…"
-                            placeholderTextColor={Colors.text.muted}
-                            value={draft}
-                            onChangeText={handleDraftChange}
-                            editable={!submitting}
-                            multiline
-                            autoCapitalize="none"
-                            autoCorrect={false}
-                            maxLength={1000}
-                            textAlignVertical="top"
-                        />
-                        <TouchableOpacity
-                            style={[
-                                composerStandards.sendButton,
-                                (!draft.trim() || submitting) && composerStandards.sendButtonDisabled,
-                                (!draft.trim() || submitting) && styles.sendButtonDisabled,
-                            ]}
-                            onPress={handleSubmit}
-                            disabled={!draft.trim() || submitting}
-                        >
-                            {submitting
-                                ? <ActivityIndicator size="small" color={Colors.textOn.primary} />
-                                : <Ionicons name="send" size={16} color={Colors.textOn.primary} />
-                            }
-                        </TouchableOpacity>
-                    </ComposerPadding>
-                </KeyboardAvoidingView>
-            </KeyboardProvider>
-        </Reanimated.View>
+            <ComposerPadding basePadding={bottomPad}>
+                <Avatar
+                    username={currentUser.username}
+                    avatarUrl={currentUser.avatar_url}
+                    size={30}
+                    fontSize={12}
+                />
+                <TextInput
+                    ref={inputRef}
+                    style={[composerStandards.input, styles.composerInput]}
+                    placeholder="Write a comment..."
+                    placeholderTextColor={Colors.text.muted}
+                    value={draft}
+                    onChangeText={handleDraftChange}
+                    editable={!submitting}
+                    multiline
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    maxLength={1000}
+                    textAlignVertical="top"
+                />
+                <TouchableOpacity
+                    style={[
+                        composerStandards.sendButton,
+                        (!draft.trim() || submitting) && composerStandards.sendButtonDisabled,
+                        (!draft.trim() || submitting) && styles.sendButtonDisabled,
+                    ]}
+                    onPress={handleSubmit}
+                    disabled={!draft.trim() || submitting}
+                >
+                    {submitting
+                        ? <ActivityIndicator size="small" color={Colors.textOn.primary} />
+                        : <Ionicons name="send" size={16} color={Colors.textOn.primary} />
+                    }
+                </TouchableOpacity>
+            </ComposerPadding>
+        </KeyboardAvoidingView>
     );
 }
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: Colors.bg.page,
-    },
     fill: {
         flex: 1,
-    },
-    header: {
-        paddingBottom: Spacing.sm,
-    },
-    closeButton: {
-        padding: 4,
     },
     loadingInitial: {
         flex: 1,
