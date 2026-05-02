@@ -21,7 +21,7 @@ To see this working: open the app, navigate to the reflection feature, type some
 - [x] (2026-05-02) Milestone 2 — Today-reflection awareness. `useTodayReflection` fires on mount (gated by `!initialReflectionId`); a one-shot `useRef` routes the user to detail view when today already exists. Save path now uses `useSaveTodayReflectionMutation` (upsert), and that hook also caches the reflection by id.
 - [x] (2026-05-02) Milestone 3 — Added `getLocalDateString` helper to `src/utils/date.ts`. `useUpdateReflectionMutation` now uses it instead of `new Date().toISOString().slice(0, 10)` (the only such site in the codebase, verified via grep).
 - [x] (2026-05-02) Milestone 4 — `DailyReflectionScreen` now requests `useReflectionHistory(20, ...)` to match `ReflectionsTab`. Both surfaces now hit the same `['reflections', 'history', { limit: 20 }]` query key and warm a shared cache.
-- [ ] Milestone 5 — Split `DailyReflectionScreen.tsx` into `src/screens/main/reflection/`; introduce `useReflectionForm`.
+- [x] (2026-05-02) Milestone 5 — Screen shell shrank from 1068 to 306 lines. Six leaf files in `src/screens/main/reflection/` (Editor, ReviewView, DetailView, HistoryView, PromptFields, Field, AnswerPreview, plus `utils.ts` and shared `styles.ts`). Doubled write/detail form state collapsed into two `useReflectionForm` instances. Back-button ternary extracted to `getBackHandler`.
 - [ ] Milestone 6 — Drafts with debounced autosave (`useReflectionDraft`).
 - [ ] Milestone 7 — Streak computation + display on the Profile reflections tab.
 
@@ -65,6 +65,14 @@ Use timestamps when checking items off, e.g. `- [x] (2026-05-02 14:00Z) Mileston
     Rationale: Dead imports rot. The hook is still exported from `useReflections.ts` and can be re-imported when an explicit back-fill flow is built. CLAUDE.md prefers deleting unused code over preserving it speculatively.
     Date/Author: 2026-05-02 / Claude (M2 execution).
 
+- Decision (M5): Accept 306 lines for the slimmed `DailyReflectionScreen.tsx` even though the plan stated "under 200" as the target.
+    Rationale: The handlers (`handleConfirmSave`, `handleSaveDetail`, `handleShare`, `handleDelete`) plus the four-branch view router make up the irreducible orchestration core. Extracting handlers into a `useReflectionActions` hook would have to thread `selectedReflection`, `detailForm`, `writeForm`, navigation callbacks, and view setters through, which trades line count for indirection. Every leaf file is comfortably under 200; the shell is 70% smaller than its 1068-line predecessor. Calling it good.
+    Date/Author: 2026-05-02 / Claude (M5 execution).
+
+- Decision (M5): Collapsed the original nested `editorShell` + `loadingBox` Views (border container wrapping a centering container) into a single `loadingShell` style on `ReflectionEditor`.
+    Rationale: Two Views with no separation between them; one View with the merged styles renders identically. Saves a tree node for each editor mount.
+    Date/Author: 2026-05-02 / Claude (M5 execution).
+
 
 ## Outcomes & Retrospective
 
@@ -76,6 +84,8 @@ Use timestamps when checking items off, e.g. `- [x] (2026-05-02 14:00Z) Mileston
 - Milestone 3 (2026-05-02): `getLocalDateString` lives at the top of `src/utils/date.ts` with a docstring explaining the UTC vs local trap. The single offender in `useUpdateReflectionMutation` now calls it. A repo-wide grep confirmed no other `toISOString().slice(0, 10)` usages exist. `tsc --noEmit` clean.
 
 - Milestone 4 (2026-05-02): One-line change — `DailyReflectionScreen.tsx` now calls `useReflectionHistory(20, ...)` (was 18). Both this screen and `ReflectionsTab` now hit the same query key and share cache. `tsc --noEmit` clean.
+
+- Milestone 5 (2026-05-02): Big structural diff. `DailyReflectionScreen.tsx` shrank from 1068 to 306 lines and the per-view monoliths now live in `src/screens/main/reflection/` (Editor 105, ReviewView 113, DetailView 166, HistoryView 180, PromptFields 45, Field 60, AnswerPreview 43, plus `styles.ts` 89 and `utils.ts` 75). The doubled `gratefulFor`/`detailGratefulFor` state pairs collapsed into two `useReflectionForm` instances. The back-button ternary moved to `getBackHandler` in `utils.ts`. `tsc --noEmit` clean. Behavior unchanged from M4 — manual sim verification still pending. Shell is 306 lines vs. the plan's "under 200" target; rationale logged in Decision Log.
 
 
 ## Context and Orientation
