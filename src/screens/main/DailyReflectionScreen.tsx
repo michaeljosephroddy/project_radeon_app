@@ -49,7 +49,7 @@ export function DailyReflectionScreen({
     const [selectedReflection, setSelectedReflection] = useState<api.DailyReflection | null>(null);
     const [detailBackCloses, setDetailBackCloses] = useState(false);
     const initialReflectionQuery = useReflection(initialReflectionId ?? null, isActive && Boolean(initialReflectionId));
-    const historyQuery = useReflectionHistory(18, isActive && view === 'history');
+    const historyQuery = useReflectionHistory(20, isActive && view === 'history');
     const todayQuery = useTodayReflection(isActive && !initialReflectionId);
     const saveTodayMutation = useSaveTodayReflectionMutation();
     const updateMutation = useUpdateReflectionMutation();
