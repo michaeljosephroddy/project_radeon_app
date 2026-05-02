@@ -43,8 +43,6 @@ interface OpenUserProfile {
 type Tab = 'community' | 'discover' | 'support' | 'meetups' | 'chats';
 type CommunityMode = 'for-you' | 'groups';
 
-const COMMUNITY_SUBTAB_INSET = 70;
-
 const TABS: { key: Tab; label: string; icon: keyof typeof Ionicons.glyphMap; iconActive: keyof typeof Ionicons.glyphMap }[] = [
     { key: 'community', label: 'community', icon: 'newspaper-outline', iconActive: 'newspaper' },
     { key: 'discover',  label: 'discover',  icon: 'grid-outline', iconActive: 'grid' },
@@ -94,19 +92,15 @@ const CommunityTab = React.memo(function CommunityTab({
 }) {
     return (
         <View style={isActive ? styles.tabVisible : styles.tabHidden}>
-            <View pointerEvents="box-none" style={styles.communityTabsDock}>
-                <View style={styles.communityTabsGroup}>
-                    <SegmentedControl
-                        items={[
-                            { key: 'for-you', label: 'For You' },
-                            { key: 'groups', label: 'Groups' },
-                        ]}
-                        activeKey={mode}
-                        onChange={(key) => onChangeMode(key as CommunityMode)}
-                        style={styles.communityTabs}
-                    />
-                </View>
-            </View>
+            <SegmentedControl
+                items={[
+                    { key: 'for-you', label: 'For You' },
+                    { key: 'groups', label: 'Groups' },
+                ]}
+                activeKey={mode}
+                onChange={(key) => onChangeMode(key as CommunityMode)}
+                style={styles.communityTabs}
+            />
             <View style={mode === 'for-you' ? styles.tabVisible : styles.tabHidden}>
                 <FeedScreen
                     isActive={isActive && mode === 'for-you'}
@@ -115,15 +109,10 @@ const CommunityTab = React.memo(function CommunityTab({
                     onOpenCreatePost={onOpenCreatePost}
                     focusRequest={focusRequest}
                     onFocusRequestConsumed={onFocusRequestConsumed}
-                    topContentInset={COMMUNITY_SUBTAB_INSET}
                 />
             </View>
             <View style={mode === 'groups' ? styles.tabVisible : styles.tabHidden}>
-                <GroupsScreen
-                    isActive={isActive && mode === 'groups'}
-                    onOpenGroup={onOpenGroup}
-                    topContentInset={COMMUNITY_SUBTAB_INSET}
-                />
+                <GroupsScreen isActive={isActive && mode === 'groups'} onOpenGroup={onOpenGroup} />
             </View>
         </View>
     );
@@ -728,28 +717,9 @@ const styles = StyleSheet.create({
     content: { flex: 1 },
     tabVisible: { flex: 1, display: 'flex' },
     tabHidden: { flex: 1, display: 'none' },
-    communityTabsDock: {
-        position: 'absolute',
-        top: 0,
-        right: 0,
-        left: 0,
-        zIndex: 20,
-        paddingHorizontal: Spacing.md,
-        paddingTop: Spacing.xs,
-        paddingBottom: Spacing.sm,
-        backgroundColor: Colors.bg.page,
-        borderBottomWidth: 1,
-        borderBottomColor: Colors.border.subtle,
-    },
-    communityTabsGroup: {
-        padding: Spacing.xs,
-        borderRadius: Radius.lg,
-        borderWidth: 1,
-        borderColor: Colors.border.default,
-        backgroundColor: Colors.bg.surface,
-    },
     communityTabs: {
-        marginBottom: 0,
+        marginHorizontal: Spacing.md,
+        marginBottom: Spacing.sm,
     },
 
     topBar: {
