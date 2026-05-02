@@ -555,22 +555,6 @@ export function AppNavigator() {
                     />
                 </View>
             )}
-            {inCreatePost && (
-                <View style={StyleSheet.absoluteFill}>
-                    {groupCreatePostTarget ? (
-                        <GroupCreatePostScreen
-                            key={createPostSessionKey}
-                            group={groupCreatePostTarget}
-                            onBack={closeCreatePost}
-                        />
-                    ) : (
-                        <CreatePostScreen
-                            key={createPostSessionKey}
-                            onBack={closeCreatePost}
-                        />
-                    )}
-                </View>
-            )}
             {inMeetupDetail && (
                 <View style={StyleSheet.absoluteFill}>
                     <MeetupDetailScreen
@@ -588,6 +572,22 @@ export function AppNavigator() {
                         onOpenComments={handleOpenGroupComments}
                         onOpenCreatePost={handleOpenGroupCreatePost}
                     />
+                </View>
+            )}
+            {inCreatePost && (
+                <View style={StyleSheet.absoluteFill}>
+                    {groupCreatePostTarget ? (
+                        <GroupCreatePostScreen
+                            key={createPostSessionKey}
+                            group={groupCreatePostTarget}
+                            onBack={closeCreatePost}
+                        />
+                    ) : (
+                        <CreatePostScreen
+                            key={createPostSessionKey}
+                            onBack={closeCreatePost}
+                        />
+                    )}
                 </View>
             )}
             {inUserProfile && (

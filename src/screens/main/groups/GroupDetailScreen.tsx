@@ -230,7 +230,7 @@ function GroupPostsTab({
 
             <CreatePostFab
                 visible={group.can_post}
-                bottom={insets.bottom + 20}
+                bottom={20}
                 onPress={() => onOpenCreatePost(group)}
             />
         </View>
