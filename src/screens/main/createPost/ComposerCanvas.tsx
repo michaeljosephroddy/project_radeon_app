@@ -61,29 +61,6 @@ export function ComposerCanvas({
     >
       <AuthorPill username={user.username} avatarUrl={user.avatar_url} />
 
-      <TextInput
-        ref={inputRef}
-        style={styles.bodyInput}
-        value={body}
-        onChangeText={onBodyChange}
-        placeholder="What's on your mind?"
-        placeholderTextColor={Colors.text.muted}
-        multiline
-        maxLength={maxBodyLength}
-        scrollEnabled={false}
-        textAlignVertical="top"
-        accessibilityLabel="Post text"
-      />
-
-      {image && imageStatus ? (
-        <ImagePreviewCard
-          image={image}
-          status={imageStatus}
-          onRemove={onRemoveImage}
-          onRetry={onRetryImage}
-        />
-      ) : null}
-
       {tags.length > 0 ? (
         <View style={styles.selectedTags}>
           {tags.map((tag) => (
@@ -100,6 +77,29 @@ export function ComposerCanvas({
           ))}
         </View>
       ) : null}
+
+      {image && imageStatus ? (
+        <ImagePreviewCard
+          image={image}
+          status={imageStatus}
+          onRemove={onRemoveImage}
+          onRetry={onRetryImage}
+        />
+      ) : null}
+
+      <TextInput
+        ref={inputRef}
+        style={styles.bodyInput}
+        value={body}
+        onChangeText={onBodyChange}
+        placeholder="What's on your mind?"
+        placeholderTextColor={Colors.text.muted}
+        multiline
+        maxLength={maxBodyLength}
+        scrollEnabled={false}
+        textAlignVertical="top"
+        accessibilityLabel="Post text"
+      />
     </ScrollView>
   );
 }

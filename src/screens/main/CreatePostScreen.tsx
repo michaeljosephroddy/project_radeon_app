@@ -6,7 +6,7 @@ import React, {
   useState,
 } from "react";
 import { Alert, StyleSheet, View } from "react-native";
-import { KeyboardAvoidingView } from "react-native-keyboard-controller";
+import Animated, { useAnimatedStyle } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as ImagePicker from "expo-image-picker";
 import * as Haptics from "expo-haptics";
@@ -18,6 +18,7 @@ import {
   DraftPayload,
   useCreatePostDrafts,
 } from "../../hooks/useCreatePostDrafts";
+import { useGradualKeyboardInset } from "../../hooks/useGradualKeyboardInset";
 import { useRecentTags } from "../../hooks/useRecentTags";
 import { ComposerCanvas } from "./createPost/ComposerCanvas";
 import { ComposerToolbar } from "./createPost/ComposerToolbar";
@@ -80,6 +81,16 @@ export function CreatePostScreen({
   const [isDraftsOpen, setIsDraftsOpen] = useState(false);
   const [draftSessionId, setDraftSessionId] = useState(() => createDraftId());
   const uploadPromiseRef = useRef<Promise<api.PostImage> | null>(null);
+  const bottomSafeSpace = Math.max(insets.bottom, Spacing.sm);
+  const { height: keyboardInsetHeight } = useGradualKeyboardInset({
+    closedHeight: bottomSafeSpace,
+    openedOffset: Spacing.sm,
+  });
+  const keyboardSpacerStyle = useAnimatedStyle(
+    (): { height: number } => ({
+      height: keyboardInsetHeight.value,
+    }),
+  );
 
   const userId = user?.id ?? null;
   const {
@@ -351,7 +362,6 @@ export function CreatePostScreen({
 
   if (!user) return null;
 
-  const bottomSafeSpace = Math.max(insets.bottom, Spacing.sm);
   const previewImage: ImagePreviewSource | null = selectedImage
     ? {
         uri: selectedImage.localImage.uri,
@@ -363,52 +373,46 @@ export function CreatePostScreen({
   return (
     <View style={styles.container}>
       <View style={styles.bodyWrap}>
-        <KeyboardAvoidingView
-          behavior="translate-with-padding"
-          keyboardVerticalOffset={insets.top}
-          style={styles.fill}
-        >
-          <ComposerCanvas
-            body={body}
-            image={previewImage}
-            imageStatus={selectedImage?.status ?? null}
-            tags={tags}
-            user={user}
-            maxBodyLength={MAX_BODY_LENGTH}
-            onBodyChange={setBody}
-            onRemoveImage={handleRemoveImage}
+        <ComposerCanvas
+          body={body}
+          image={previewImage}
+          imageStatus={selectedImage?.status ?? null}
+          tags={tags}
+          user={user}
+          maxBodyLength={MAX_BODY_LENGTH}
+          onBodyChange={setBody}
+          onRemoveImage={handleRemoveImage}
+          onRemoveTag={removeTag}
+          onRetryImage={handleRetryImageUpload}
+        />
+
+        {isTagPickerOpen ? (
+          <TagPickerPanel
+            categories={TAG_CATEGORIES}
+            customTag={customTag}
+            error={tagError}
+            recentTags={recentTags}
+            selectedTags={tags}
+            tagCount={tags.length}
+            maxTags={MAX_POST_TAGS}
+            onAddTag={addTag}
+            onChangeCustomTag={setCustomTag}
+            onClose={() => setIsTagPickerOpen(false)}
             onRemoveTag={removeTag}
-            onRetryImage={handleRetryImageUpload}
+            onToggleTag={toggleTag}
           />
+        ) : (
+          <ComposerToolbar
+            hasImage={selectedImage !== null}
+            tagCount={tags.length}
+            maxTags={MAX_POST_TAGS}
+            onPickImage={handlePickImage}
+            onOpenTagPicker={() => setIsTagPickerOpen(true)}
+          />
+        )}
 
-          {isTagPickerOpen ? (
-            <TagPickerPanel
-              categories={TAG_CATEGORIES}
-              customTag={customTag}
-              error={tagError}
-              recentTags={recentTags}
-              selectedTags={tags}
-              tagCount={tags.length}
-              maxTags={MAX_POST_TAGS}
-              onAddTag={addTag}
-              onChangeCustomTag={setCustomTag}
-              onClose={() => setIsTagPickerOpen(false)}
-              onRemoveTag={removeTag}
-              onToggleTag={toggleTag}
-            />
-          ) : (
-            <ComposerToolbar
-              hasImage={selectedImage !== null}
-              tagCount={tags.length}
-              maxTags={MAX_POST_TAGS}
-              onPickImage={handlePickImage}
-              onOpenTagPicker={() => setIsTagPickerOpen(true)}
-            />
-          )}
-        </KeyboardAvoidingView>
+        <Animated.View style={[styles.keyboardSpacer, keyboardSpacerStyle]} />
       </View>
-
-      <View style={[styles.bottomSpacer, { height: bottomSafeSpace }]} />
 
       <CreatePostHeader
         bodyLength={body.length}
@@ -491,14 +495,12 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.bg.page,
   },
-  fill: {
-    flex: 1,
-  },
   bodyWrap: {
     flex: 1,
     paddingTop: HEADER_HEIGHT,
   },
-  bottomSpacer: {
+  keyboardSpacer: {
     flexShrink: 0,
+    backgroundColor: Colors.bg.page,
   },
 });

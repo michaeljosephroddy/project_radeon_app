@@ -815,6 +815,10 @@ export async function upsertTodayReflection(input: UpsertDailyReflectionInput): 
     return request('/reflections/today', { method: 'PUT', body: JSON.stringify(input) });
 }
 
+export async function createReflection(input: UpsertDailyReflectionInput): Promise<DailyReflection> {
+    return request('/reflections', { method: 'POST', body: JSON.stringify(input) });
+}
+
 export async function listReflections(cursor?: string, limit = 20): Promise<CursorResponse<DailyReflection>> {
     const search = new URLSearchParams({ limit: String(limit) });
     if (cursor) search.set('before', cursor);

@@ -22,6 +22,15 @@ export function useReflectionHistory(limit = 20, enabled = true) {
     });
 }
 
+export function useReflection(reflectionId: string | null, enabled = true) {
+    return useQuery({
+        queryKey: queryKeys.reflection(reflectionId ?? ''),
+        queryFn: () => api.getReflection(reflectionId ?? ''),
+        enabled: enabled && Boolean(reflectionId),
+        staleTime: 1000 * 30,
+    });
+}
+
 export function useSaveTodayReflectionMutation() {
     const queryClient = useQueryClient();
 
@@ -29,6 +38,18 @@ export function useSaveTodayReflectionMutation() {
         mutationFn: api.upsertTodayReflection,
         onSuccess: async (reflection) => {
             queryClient.setQueryData(queryKeys.todayReflection(), reflection);
+            await queryClient.invalidateQueries({ queryKey: queryKeys.reflections() });
+        },
+    });
+}
+
+export function useCreateReflectionMutation() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: api.createReflection,
+        onSuccess: async (reflection) => {
+            queryClient.setQueryData(queryKeys.reflection(reflection.id), reflection);
             await queryClient.invalidateQueries({ queryKey: queryKeys.reflections() });
         },
     });

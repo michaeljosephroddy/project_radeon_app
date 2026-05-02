@@ -22,6 +22,7 @@ import { UserProfileScreen } from '../screens/main/UserProfileScreen';
 import { MeetupDetailScreen } from '../screens/main/MeetupDetailScreen';
 import { Avatar } from '../components/Avatar';
 import { PlusUpsellScreen } from '../components/PlusUpsellScreen';
+import type { ProfileContentTabKey } from '../components/profile/ProfileContentTabs';
 import * as api from '../api/client';
 import { Colors, Radius, Typography, Spacing } from '../theme';
 import { useAuth } from '../hooks/useAuth';
@@ -103,11 +104,14 @@ export function AppNavigator() {
     const [openUserProfile, setOpenUserProfile] = useState<OpenUserProfile | null>(null);
     const [pendingDM, setPendingDM] = useState<{ recipientId: string; username: string; avatarUrl?: string } | null>(null);
     const [createPostOpen, setCreatePostOpen] = useState(false);
+    const [createPostSessionKey, setCreatePostSessionKey] = useState(0);
     const [ownProfileOpen, setOwnProfileOpen] = useState(false);
     const [openMeetup, setOpenMeetup] = useState<api.Meetup | null>(null);
     const [plusUpsellOpen, setPlusUpsellOpen] = useState(false);
     const [notificationsOpen, setNotificationsOpen] = useState(false);
     const [reflectionOpen, setReflectionOpen] = useState(false);
+    const [openReflectionId, setOpenReflectionId] = useState<string | null>(null);
+    const [ownProfileInitialContentTab, setOwnProfileInitialContentTab] = useState<ProfileContentTabKey>('posts');
     const [openComments, setOpenComments] = useState<{
         thread: CommentThreadTarget;
         focusComposer: boolean;
@@ -166,6 +170,7 @@ export function AppNavigator() {
     }, []);
 
     const openReflection = useCallback(() => {
+        setOpenReflectionId(null);
         setReflectionOpen(true);
         setNotificationsOpen(false);
         setOpenChat(null);
@@ -178,6 +183,31 @@ export function AppNavigator() {
 
     const closeReflection = useCallback(() => {
         setReflectionOpen(false);
+        setOpenReflectionId(null);
+    }, []);
+
+    const openSavedReflection = useCallback((reflectionId: string) => {
+        setOpenReflectionId(reflectionId);
+        setReflectionOpen(true);
+        setNotificationsOpen(false);
+        setOpenChat(null);
+        setOpenUserProfile(null);
+        setPendingDM(null);
+        setOpenMeetup(null);
+        setPlusUpsellOpen(false);
+    }, []);
+
+    const handleReflectionSaved = useCallback((reflectionId: string) => {
+        setReflectionOpen(false);
+        setOpenReflectionId(null);
+        setOwnProfileInitialContentTab('reflections');
+        setOwnProfileOpen(true);
+        setOpenUserProfile(null);
+        setOpenChat(null);
+        setPendingDM(null);
+        setOpenMeetup(null);
+        setPlusUpsellOpen(false);
+        setNotificationsOpen(false);
     }, []);
 
     const handleCloseChat = useCallback(() => {
@@ -208,6 +238,7 @@ export function AppNavigator() {
     }, []);
 
     const openCreatePost = useCallback(() => {
+        setCreatePostSessionKey((current) => current + 1);
         setCreatePostOpen(true);
         setOpenChat(null);
         setOpenUserProfile(null);
@@ -234,6 +265,7 @@ export function AppNavigator() {
     }, []);
 
     const openOwnProfile = useCallback(() => {
+        setOwnProfileInitialContentTab('posts');
         setOwnProfileOpen(true);
         setOpenUserProfile(null);
         setOpenChat(null);
@@ -433,9 +465,11 @@ export function AppNavigator() {
                 <View style={StyleSheet.absoluteFill}>
                     <ProfileTabScreen
                         isActive={inOwnProfile}
+                        initialContentTab={ownProfileInitialContentTab}
                         onBack={closeOwnProfile}
                         onOpenUserProfile={handleOpenUserProfile}
                         onOpenComments={handleOpenComments}
+                        onOpenReflection={openSavedReflection}
                     />
                 </View>
             )}
@@ -461,6 +495,7 @@ export function AppNavigator() {
             {inCreatePost && (
                 <View style={StyleSheet.absoluteFill}>
                     <CreatePostScreen
+                        key={createPostSessionKey}
                         onBack={closeCreatePost}
                     />
                 </View>
@@ -510,19 +545,21 @@ export function AppNavigator() {
                 <View style={StyleSheet.absoluteFill}>
                     <DailyReflectionScreen
                         currentUserId={user.id}
+                        initialReflectionId={openReflectionId}
                         isActive={inReflection}
                         onBack={closeReflection}
+                        onReflectionSaved={handleReflectionSaved}
                     />
                 </View>
             )}
         </>
     ), [
         inOwnProfile, inUserProfile, inChat, inComposeDM, inCreatePost, inMeetupDetail, inPlusUpsell, inNotifications, inReflection,
-        openUserProfile, openChat, pendingDM, openMeetup,
+        openUserProfile, openChat, pendingDM, openMeetup, openReflectionId, ownProfileInitialContentTab, createPostSessionKey,
         handleOpenUserProfile, handleCloseChat, closeUserProfile, closeOwnProfile,
-        handleOpenComments, closeCreatePost,
+        handleOpenComments, closeCreatePost, openSavedReflection,
         handleComposeDM, handleComposeDMComplete, handleCloseMeetup, closePlusUpsell,
-        closeNotifications, closeReflection, handleOpenNotificationChat, handleOpenNotificationMention, user,
+        closeNotifications, closeReflection, handleOpenNotificationChat, handleOpenNotificationMention, handleReflectionSaved, user,
     ]);
 
     const isOverlayOpen = inChat || inUserProfile || inOwnProfile || inComposeDM || inCreatePost || inMeetupDetail || inPlusUpsell || inNotifications || inReflection;

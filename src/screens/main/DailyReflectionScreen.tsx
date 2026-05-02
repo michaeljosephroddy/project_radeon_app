@@ -2,8 +2,6 @@ import React, { useEffect, useMemo, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
-    KeyboardAvoidingView,
-    Platform,
     ScrollView,
     StyleSheet,
     Text,
@@ -12,34 +10,45 @@ import {
     View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as api from '../../api/client';
 import { ScreenHeader } from '../../components/ui/ScreenHeader';
 import {
+    useCreateReflectionMutation,
     useDeleteReflectionMutation,
+    useReflection,
     useReflectionHistory,
-    useSaveTodayReflectionMutation,
     useShareReflectionMutation,
-    useTodayReflection,
     useUpdateReflectionMutation,
 } from '../../hooks/queries/useReflections';
 import { Colors, Radius, Spacing, Typography } from '../../theme';
 import { formatSobrietyDate } from '../../utils/date';
+import { REFLECTION_QUESTIONS } from '../../utils/reflections';
 
 interface DailyReflectionScreenProps {
     currentUserId: string;
+    initialReflectionId?: string | null;
     isActive: boolean;
     onBack: () => void;
+    onReflectionSaved?: (reflectionId: string) => void;
 }
 
-type ReflectionView = 'write' | 'history' | 'detail';
+type ReflectionView = 'write' | 'review' | 'history' | 'detail';
 
-export function DailyReflectionScreen({ currentUserId, isActive, onBack }: DailyReflectionScreenProps) {
+export function DailyReflectionScreen({
+    currentUserId,
+    initialReflectionId,
+    isActive,
+    onBack,
+    onReflectionSaved,
+}: DailyReflectionScreenProps) {
     const [view, setView] = useState<ReflectionView>('write');
     const [selectedReflection, setSelectedReflection] = useState<api.DailyReflection | null>(null);
-    const todayReflectionQuery = useTodayReflection(isActive);
+    const [detailBackCloses, setDetailBackCloses] = useState(false);
+    const initialReflectionQuery = useReflection(initialReflectionId ?? null, isActive && Boolean(initialReflectionId));
     const historyQuery = useReflectionHistory(18, isActive && view === 'history');
-    const saveMutation = useSaveTodayReflectionMutation();
+    const createMutation = useCreateReflectionMutation();
     const updateMutation = useUpdateReflectionMutation();
     const shareMutation = useShareReflectionMutation(currentUserId);
     const deleteMutation = useDeleteReflectionMutation();
@@ -51,7 +60,6 @@ export function DailyReflectionScreen({ currentUserId, isActive, onBack }: Daily
     const [detailOnMind, setDetailOnMind] = useState('');
     const [detailBlockingToday, setDetailBlockingToday] = useState('');
 
-    const todayReflection = todayReflectionQuery.data ?? null;
     const historyItems = useMemo(
         () => (historyQuery.data?.pages ?? []).flatMap(page => page.items ?? []),
         [historyQuery.data],
@@ -63,28 +71,12 @@ export function DailyReflectionScreen({ currentUserId, isActive, onBack }: Daily
     }, []);
     const composedBody = composeReflectionBody(gratefulFor, onMind, blockingToday);
     const detailComposedBody = composeReflectionBody(detailGratefulFor, detailOnMind, detailBlockingToday);
-    const hasUnsavedChanges = gratefulFor.trim() !== getGratefulFor(todayReflection).trim()
-        || onMind.trim() !== getOnMind(todayReflection).trim()
-        || blockingToday.trim() !== getBlockingToday(todayReflection).trim();
     const detailHasChanges = Boolean(selectedReflection)
         && (detailGratefulFor.trim() !== getGratefulFor(selectedReflection).trim()
             || detailOnMind.trim() !== getOnMind(selectedReflection).trim()
             || detailBlockingToday.trim() !== getBlockingToday(selectedReflection).trim());
-    const canSave = composedBody.length > 0 && !saveMutation.isPending;
-    const canShare = Boolean(todayReflection?.id) && !hasUnsavedChanges && !shareMutation.isPending;
+    const canSave = composedBody.length > 0 && !createMutation.isPending;
     const canSaveDetail = Boolean(selectedReflection) && detailComposedBody.length > 0 && detailHasChanges && !updateMutation.isPending;
-
-    useEffect(() => {
-        if (!todayReflection) {
-            setGratefulFor('');
-            setOnMind('');
-            setBlockingToday('');
-            return;
-        }
-        setGratefulFor(getGratefulFor(todayReflection));
-        setOnMind(getOnMind(todayReflection));
-        setBlockingToday(getBlockingToday(todayReflection));
-    }, [todayReflection]);
 
     useEffect(() => {
         if (!selectedReflection) return;
@@ -93,16 +85,45 @@ export function DailyReflectionScreen({ currentUserId, isActive, onBack }: Daily
         setDetailBlockingToday(getBlockingToday(selectedReflection));
     }, [selectedReflection]);
 
-    const handleSave = async () => {
+    useEffect(() => {
+        if (!initialReflectionId) return;
+        setSelectedReflection(null);
+        setDetailBackCloses(true);
+        setView('detail');
+    }, [initialReflectionId]);
+
+    useEffect(() => {
+        const reflection = initialReflectionQuery.data;
+        if (!reflection) return;
+        setSelectedReflection(reflection);
+    }, [initialReflectionQuery.data]);
+
+    const handleReview = () => {
+        if (!composedBody) return;
+        setView('review');
+    };
+
+    const resetWriteState = () => {
+        setGratefulFor('');
+        setOnMind('');
+        setBlockingToday('');
+    };
+
+    const handleConfirmSave = async () => {
         if (!composedBody) return;
 
         try {
-            await saveMutation.mutateAsync({
+            const saved = await createMutation.mutateAsync({
                 body: composedBody,
                 grateful_for: gratefulFor.trim() || null,
                 on_mind: onMind.trim() || null,
                 blocking_today: blockingToday.trim() || null,
             });
+            setSelectedReflection(saved);
+            setDetailBackCloses(true);
+            setView('detail');
+            resetWriteState();
+            onReflectionSaved?.(saved.id);
         } catch (e: unknown) {
             Alert.alert('Could not save reflection', e instanceof Error ? e.message : 'Something went wrong.');
         }
@@ -137,11 +158,6 @@ export function DailyReflectionScreen({ currentUserId, isActive, onBack }: Daily
         }
     };
 
-    const handleShareToday = async () => {
-        if (!todayReflection || hasUnsavedChanges) return;
-        await handleShare(todayReflection);
-    };
-
     const handleDelete = (reflection: api.DailyReflection) => {
         Alert.alert('Delete reflection?', 'This removes the private reflection. Shared feed posts stay on the feed.', [
             { text: 'Cancel', style: 'cancel' },
@@ -149,11 +165,16 @@ export function DailyReflectionScreen({ currentUserId, isActive, onBack }: Daily
                 text: 'Delete',
                 style: 'destructive',
                 onPress: () => {
+                    const deletingReflectionId = reflection.id;
                     deleteMutation.mutate(reflection.id, {
                         onSuccess: () => {
-                            if (selectedReflection?.id === reflection.id) {
+                            if (selectedReflection?.id === deletingReflectionId) {
                                 setSelectedReflection(null);
-                                setView('history');
+                                if (detailBackCloses) {
+                                    onBack();
+                                } else {
+                                    setView('history');
+                                }
                             }
                         },
                         onError: (e: unknown) => Alert.alert('Could not delete reflection', e instanceof Error ? e.message : 'Something went wrong.'),
@@ -166,14 +187,16 @@ export function DailyReflectionScreen({ currentUserId, isActive, onBack }: Daily
     const openHistory = () => setView('history');
     const openWrite = () => {
         setSelectedReflection(null);
+        setDetailBackCloses(false);
         setView('write');
     };
     const openDetail = (reflection: api.DailyReflection) => {
         setSelectedReflection(reflection);
+        setDetailBackCloses(false);
         setView('detail');
     };
 
-    const trailing = (
+    const trailing = view === 'review' ? null : (
         <TouchableOpacity
             style={styles.headerAction}
             onPress={view === 'write' ? openHistory : openWrite}
@@ -190,8 +213,12 @@ export function DailyReflectionScreen({ currentUserId, isActive, onBack }: Daily
     return (
         <SafeAreaView style={styles.container} edges={['bottom']}>
             <ScreenHeader
-                onBack={view === 'detail' ? () => setView('history') : onBack}
-                title={view === 'history' ? 'Journal' : 'Reflection'}
+                onBack={
+                    view === 'detail'
+                        ? detailBackCloses ? onBack : () => setView('history')
+                        : view === 'review' || view === 'history' ? () => setView('write') : onBack
+                }
+                title={view === 'history' ? 'Journal' : view === 'review' ? 'Review' : 'Reflection'}
                 trailing={trailing}
             />
             {view === 'write' ? (
@@ -200,17 +227,23 @@ export function DailyReflectionScreen({ currentUserId, isActive, onBack }: Daily
                     gratefulFor={gratefulFor}
                     onMind={onMind}
                     blockingToday={blockingToday}
-                    isLoading={todayReflectionQuery.isLoading}
-                    isSaving={saveMutation.isPending}
-                    isSharing={shareMutation.isPending}
-                    shared={Boolean(todayReflection?.shared_post_id)}
+                    isLoading={false}
                     canSave={canSave}
-                    canShare={canShare}
                     onChangeGratefulFor={setGratefulFor}
                     onChangeOnMind={setOnMind}
                     onChangeBlockingToday={setBlockingToday}
-                    onSave={handleSave}
-                    onShare={handleShareToday}
+                    onSave={handleReview}
+                />
+            ) : view === 'review' ? (
+                <ReflectionReviewView
+                    dateLabel={todayLabel}
+                    gratefulFor={gratefulFor}
+                    onMind={onMind}
+                    blockingToday={blockingToday}
+                    isSaving={createMutation.isPending}
+                    canSave={canSave}
+                    onEdit={() => setView('write')}
+                    onSave={handleConfirmSave}
                 />
             ) : view === 'history' ? (
                 <ReflectionHistoryView
@@ -238,6 +271,10 @@ export function DailyReflectionScreen({ currentUserId, isActive, onBack }: Daily
                     onShare={() => handleShare(selectedReflection)}
                     onDelete={() => handleDelete(selectedReflection)}
                 />
+            ) : initialReflectionQuery.isLoading ? (
+                <View style={styles.detailLoading}>
+                    <ActivityIndicator color={Colors.primary} />
+                </View>
             ) : null}
         </SafeAreaView>
     );
@@ -249,16 +286,11 @@ interface ReflectionEditorProps {
     onMind: string;
     blockingToday: string;
     isLoading: boolean;
-    isSaving: boolean;
-    isSharing: boolean;
-    shared: boolean;
     canSave: boolean;
-    canShare: boolean;
     onChangeGratefulFor: (value: string) => void;
     onChangeOnMind: (value: string) => void;
     onChangeBlockingToday: (value: string) => void;
     onSave: () => void;
-    onShare: () => void;
 }
 
 function ReflectionEditor({
@@ -267,21 +299,16 @@ function ReflectionEditor({
     onMind,
     blockingToday,
     isLoading,
-    isSaving,
-    isSharing,
-    shared,
     canSave,
-    canShare,
     onChangeGratefulFor,
     onChangeOnMind,
     onChangeBlockingToday,
     onSave,
-    onShare,
 }: ReflectionEditorProps) {
     return (
         <KeyboardAvoidingView
             style={styles.keyboardView}
-            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            behavior="translate-with-padding"
         >
             <ScrollView
                 style={styles.scroll}
@@ -313,26 +340,70 @@ function ReflectionEditor({
             </ScrollView>
 
             <View style={styles.actionDock}>
-                {shared ? (
-                    <View style={styles.sharedPill}>
-                        <Ionicons name="checkmark-circle" size={15} color={Colors.success} />
-                        <Text style={styles.sharedPillText}>Shared to feed</Text>
-                    </View>
-                ) : null}
                 <View style={styles.actionRow}>
                     <TouchableOpacity
-                        style={[styles.secondaryButton, !canShare && styles.buttonDisabled]}
-                        onPress={onShare}
-                        disabled={!canShare}
+                        style={[styles.primaryButton, !canSave && styles.buttonDisabled]}
+                        onPress={onSave}
+                        disabled={!canSave}
                     >
-                        {isSharing ? (
-                            <ActivityIndicator size="small" color={Colors.primary} />
-                        ) : (
-                            <>
-                                <Ionicons name="share-outline" size={16} color={Colors.primary} />
-                                <Text style={styles.secondaryButtonText}>Share</Text>
-                            </>
-                        )}
+                        <Text style={styles.primaryButtonText}>Review</Text>
+                    </TouchableOpacity>
+                </View>
+            </View>
+        </KeyboardAvoidingView>
+    );
+}
+
+interface ReflectionReviewViewProps {
+    dateLabel: string;
+    gratefulFor: string;
+    onMind: string;
+    blockingToday: string;
+    isSaving: boolean;
+    canSave: boolean;
+    onEdit: () => void;
+    onSave: () => void;
+}
+
+function ReflectionReviewView({
+    dateLabel,
+    gratefulFor,
+    onMind,
+    blockingToday,
+    isSaving,
+    canSave,
+    onEdit,
+    onSave,
+}: ReflectionReviewViewProps) {
+    return (
+        <View style={styles.keyboardView}>
+            <ScrollView style={styles.scroll} contentContainerStyle={styles.reviewContent}>
+                <View style={styles.hero}>
+                    <Text style={styles.dateLabel}>{dateLabel}</Text>
+                    <Text style={styles.prompt}>Review your reflection</Text>
+                    <View style={styles.privatePill}>
+                        <Ionicons name="lock-closed-outline" size={13} color={Colors.text.secondary} />
+                        <Text style={styles.privatePillText}>Private</Text>
+                    </View>
+                </View>
+                <ReflectionAnswerPreview
+                    question={REFLECTION_QUESTIONS.gratefulFor}
+                    answer={gratefulFor}
+                />
+                <ReflectionAnswerPreview
+                    question={REFLECTION_QUESTIONS.onMind}
+                    answer={onMind}
+                />
+                <ReflectionAnswerPreview
+                    question={REFLECTION_QUESTIONS.blockingToday}
+                    answer={blockingToday}
+                />
+            </ScrollView>
+            <View style={styles.actionDock}>
+                <View style={styles.actionRow}>
+                    <TouchableOpacity style={styles.secondaryButton} onPress={onEdit}>
+                        <Ionicons name="create-outline" size={16} color={Colors.primary} />
+                        <Text style={styles.secondaryButtonText}>Edit</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                         style={[styles.primaryButton, !canSave && styles.buttonDisabled]}
@@ -342,12 +413,32 @@ function ReflectionEditor({
                         {isSaving ? (
                             <ActivityIndicator size="small" color={Colors.textOn.primary} />
                         ) : (
-                            <Text style={styles.primaryButtonText}>Save</Text>
+                            <Text style={styles.primaryButtonText}>Save reflection</Text>
                         )}
                     </TouchableOpacity>
                 </View>
             </View>
-        </KeyboardAvoidingView>
+        </View>
+    );
+}
+
+interface ReflectionAnswerPreviewProps {
+    question: string;
+    answer: string;
+}
+
+function ReflectionAnswerPreview({
+    question,
+    answer,
+}: ReflectionAnswerPreviewProps) {
+    const trimmedAnswer = answer.trim();
+    if (!trimmedAnswer) return null;
+
+    return (
+        <View style={styles.reviewAnswer}>
+            <Text style={styles.reviewQuestion}>{question}</Text>
+            <Text style={styles.reviewAnswerText}>{trimmedAnswer}</Text>
+        </View>
     );
 }
 
@@ -371,19 +462,19 @@ function ReflectionPromptFields({
     return (
         <View style={styles.promptFields}>
             <ReflectionField
-                label="Today I'm grateful for"
+                label={REFLECTION_QUESTIONS.gratefulFor}
                 value={gratefulFor}
                 onChangeText={onChangeGratefulFor}
                 placeholder="One person, moment, or small thing..."
             />
             <ReflectionField
-                label="What's on my mind?"
+                label={REFLECTION_QUESTIONS.onMind}
                 value={onMind}
                 onChangeText={onChangeOnMind}
                 placeholder="A thought you keep coming back to..."
             />
             <ReflectionField
-                label="What's blocking me today?"
+                label={REFLECTION_QUESTIONS.blockingToday}
                 value={blockingToday}
                 onChangeText={onChangeBlockingToday}
                 placeholder="A pressure, fear, craving, or obstacle..."
@@ -525,7 +616,7 @@ function ReflectionDetailView({
     return (
         <KeyboardAvoidingView
             style={styles.keyboardView}
-            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            behavior="translate-with-padding"
         >
             <ScrollView style={styles.scroll} contentContainerStyle={styles.detailContent} keyboardShouldPersistTaps="handled">
                 <View style={styles.detailHero}>
@@ -592,9 +683,9 @@ function composeReflectionBody(gratefulFor: string, onMind: string, blockingToda
     const grateful = gratefulFor.trim();
     const mind = onMind.trim();
     const blocking = blockingToday.trim();
-    if (grateful) parts.push(`Today I'm grateful for\n${grateful}`);
-    if (mind) parts.push(`What's on my mind?\n${mind}`);
-    if (blocking) parts.push(`What's blocking me today?\n${blocking}`);
+    if (grateful) parts.push(`${REFLECTION_QUESTIONS.gratefulFor}\n${grateful}`);
+    if (mind) parts.push(`${REFLECTION_QUESTIONS.onMind}\n${mind}`);
+    if (blocking) parts.push(`${REFLECTION_QUESTIONS.blockingToday}\n${blocking}`);
     return parts.join('\n\n');
 }
 
@@ -664,6 +755,17 @@ const styles = StyleSheet.create({
         paddingBottom: 156,
         gap: Spacing.lg,
     },
+    reviewContent: {
+        paddingHorizontal: Spacing.md,
+        paddingTop: Spacing.xl,
+        paddingBottom: 156,
+        gap: Spacing.md,
+    },
+    detailLoading: {
+        flex: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
     hero: {
         gap: Spacing.sm,
     },
@@ -721,6 +823,7 @@ const styles = StyleSheet.create({
         paddingBottom: Spacing.lg,
         fontSize: Typography.sizes.base,
         lineHeight: 21,
+        includeFontPadding: false,
         color: Colors.text.primary,
     },
     actionDock: {
@@ -749,6 +852,39 @@ const styles = StyleSheet.create({
     sharedPillText: {
         fontSize: Typography.sizes.sm,
         fontWeight: '600',
+        color: Colors.text.secondary,
+    },
+    privatePill: {
+        alignSelf: 'flex-start',
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: Spacing.xs,
+        paddingHorizontal: Spacing.sm,
+        paddingVertical: 6,
+        borderRadius: Radius.pill,
+        backgroundColor: Colors.bg.surface,
+    },
+    privatePillText: {
+        fontSize: Typography.sizes.sm,
+        fontWeight: '600',
+        color: Colors.text.secondary,
+    },
+    reviewAnswer: {
+        borderRadius: Radius.lg,
+        backgroundColor: Colors.bg.surface,
+        borderWidth: 1,
+        borderColor: Colors.border.default,
+        padding: Spacing.lg,
+        gap: Spacing.sm,
+    },
+    reviewQuestion: {
+        fontSize: Typography.sizes.md,
+        fontWeight: '700',
+        color: Colors.text.primary,
+    },
+    reviewAnswerText: {
+        fontSize: Typography.sizes.base,
+        lineHeight: 21,
         color: Colors.text.secondary,
     },
     actionRow: {

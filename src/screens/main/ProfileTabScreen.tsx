@@ -17,6 +17,7 @@ import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { TextField } from '../../components/ui/TextField';
 import { SettingsScreen } from './SettingsScreen';
 import { HiddenContentScreen } from './HiddenContentScreen';
+import { ReflectionsTab } from './profile/ReflectionsTab';
 import { ProfileContentTabs, ProfileContentTabKey } from '../../components/profile/ProfileContentTabs';
 import { ProfileEmptyTabState } from '../../components/profile/ProfileEmptyTabState';
 import { ProfilePostCard } from '../../components/profile/ProfilePostCard';
@@ -41,13 +42,22 @@ const MAX_INTERESTS = 5;
 
 interface ProfileTabScreenProps {
     isActive: boolean;
+    initialContentTab?: ProfileContentTabKey;
     onOpenUserProfile: (profile: { userId: string; username: string; avatarUrl?: string }) => void;
     onOpenComments: (thread: CommentThreadTarget, focusComposer: boolean, onCommentCreated?: (comment: api.Comment) => void) => void;
+    onOpenReflection: (reflectionId: string) => void;
     onBack?: () => void;
 }
 
 // Renders the current user's profile tab plus friends, requests, and settings subviews.
-export function ProfileTabScreen({ isActive, onOpenUserProfile, onOpenComments, onBack }: ProfileTabScreenProps) {
+export function ProfileTabScreen({
+    isActive,
+    initialContentTab,
+    onOpenUserProfile,
+    onOpenComments,
+    onOpenReflection,
+    onBack,
+}: ProfileTabScreenProps) {
     const { user, refreshUser, logout } = useAuth();
     const [subView, setSubView] = useState<SubView>('profile');
     const [requestsSubView, setRequestsSubView] = useState<RequestsSubView>('incoming');
@@ -168,6 +178,12 @@ export function ProfileTabScreen({ isActive, onOpenUserProfile, onOpenComments, 
             loadFriendSummary();
         }
     }, [isActive, loadFriendSummary, refreshUser]);
+
+    useEffect(() => {
+        if (!initialContentTab) return;
+        setSubView('profile');
+        setActiveContentTab(initialContentTab);
+    }, [initialContentTab]);
 
     // Opens the media picker and uploads a replacement avatar.
     const handlePickAvatar = async () => {
@@ -618,9 +634,19 @@ export function ProfileTabScreen({ isActive, onOpenUserProfile, onOpenComments, 
                             </View>
 
                             <View style={styles.profileContentTabsWrap}>
-                                <ProfileContentTabs activeTab={activeContentTab} onChange={setActiveContentTab} />
+                                <ProfileContentTabs
+                                    activeTab={activeContentTab}
+                                    includeReflections
+                                    onChange={setActiveContentTab}
+                                />
                             </View>
-                            {userPostsQuery.isLoading && activeContentTab === 'posts' ? (
+                            {activeContentTab === 'reflections' ? (
+                                <ReflectionsTab
+                                    isActive={isActive && subView === 'profile' && activeContentTab === 'reflections'}
+                                    username={formatUsername(user.username)}
+                                    onOpenReflection={onOpenReflection}
+                                />
+                            ) : userPostsQuery.isLoading && activeContentTab === 'posts' ? (
                                 <ActivityIndicator color={Colors.primary} style={styles.profilePostsLoader} />
                             ) : activeContentItems.length > 0 ? (
                                 <View style={styles.profilePostList}>

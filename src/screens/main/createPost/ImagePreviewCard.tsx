@@ -9,7 +9,7 @@ import {
   useWindowDimensions,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { Colors, Radius, Spacing, Typography } from "../../../theme";
+import { Colors, Spacing, Typography } from "../../../theme";
 
 export interface ImagePreviewSource {
   uri: string;
@@ -36,8 +36,7 @@ export function ImagePreviewCard({
   onRetry,
 }: ImagePreviewCardProps): React.ReactElement {
   const { width: windowWidth } = useWindowDimensions();
-  const previewWidth = windowWidth - Spacing.md * 2;
-  const previewHeight = computeHeight(image, previewWidth);
+  const previewHeight = computeHeight(image, windowWidth);
 
   return (
     <View style={[styles.wrap, { height: previewHeight }]}>
@@ -93,10 +92,8 @@ const styles = StyleSheet.create({
   wrap: {
     position: "relative",
     alignSelf: "stretch",
-    marginHorizontal: Spacing.md,
     marginTop: Spacing.sm,
     marginBottom: Spacing.xs,
-    borderRadius: Radius.md,
     overflow: "hidden",
     backgroundColor: Colors.bg.surface,
   },
