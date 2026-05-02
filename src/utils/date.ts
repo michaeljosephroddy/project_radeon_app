@@ -9,6 +9,16 @@ export function getLocalDateString(date: Date = new Date()): string {
     return `${year}-${month}-${day}`;
 }
 
+export function shiftLocalDate(dateStr: string, days: number): string {
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateStr.trim());
+    const date = match
+        ? new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]), 12)
+        : new Date(dateStr);
+    if (Number.isNaN(date.getTime())) return dateStr;
+    date.setDate(date.getDate() + days);
+    return getLocalDateString(date);
+}
+
 // Formats timestamps into compact readable labels with 24-hour time.
 export function formatReadableTimestamp(dateStr?: string): string {
     if (!dateStr) return '';

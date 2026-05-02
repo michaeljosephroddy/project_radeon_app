@@ -3,7 +3,7 @@ import { View, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing } from '../../theme';
 
-export type ProfileContentTabKey = 'posts' | 'reposts' | 'tagged' | 'reflections';
+export type ProfileContentTabKey = 'posts' | 'reposts' | 'tagged';
 
 interface ProfileTabConfig {
     key: ProfileContentTabKey;
@@ -13,7 +13,6 @@ interface ProfileTabConfig {
 
 export interface ProfileContentTabsProps {
     activeTab: ProfileContentTabKey;
-    includeReflections?: boolean;
     onChange: (tab: ProfileContentTabKey) => void;
 }
 
@@ -23,22 +22,13 @@ const TABS: ProfileTabConfig[] = [
     { key: 'tagged', icon: 'person-outline', accessibilityLabel: 'Tagged posts' },
 ];
 
-const REFLECTIONS_TAB: ProfileTabConfig = {
-    key: 'reflections',
-    icon: 'journal-outline',
-    accessibilityLabel: 'Reflections',
-};
-
 export function ProfileContentTabs({
     activeTab,
-    includeReflections = false,
     onChange,
 }: ProfileContentTabsProps): React.ReactElement {
-    const tabs = includeReflections ? [...TABS, REFLECTIONS_TAB] : TABS;
-
     return (
         <View style={styles.container}>
-            {tabs.map((tab) => {
+            {TABS.map((tab) => {
                 const active = activeTab === tab.key;
                 return (
                     <TouchableOpacity

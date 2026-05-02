@@ -8,6 +8,8 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons';
 import { CommentsModal, type CommentThreadTarget } from '../components/CommentsModal';
 import { FeedScreen } from '../screens/main/FeedScreen';
+import { GroupsScreen } from '../screens/main/GroupsScreen';
+import { GroupDetailScreen } from '../screens/main/groups/GroupDetailScreen';
 import { DiscoverScreen } from '../screens/main/DiscoverScreen';
 import { SupportScreen } from '../screens/main/SupportScreen';
 import { MeetupsScreen } from '../screens/main/MeetupsScreen';
@@ -17,7 +19,6 @@ import { ChatScreen } from '../screens/main/ChatScreen';
 import { NotificationsScreen } from '../screens/main/NotificationsScreen';
 import { ComposeDMScreen } from '../screens/main/ComposeDMScreen';
 import { CreatePostScreen } from '../screens/main/CreatePostScreen';
-import { DailyReflectionScreen } from '../screens/main/DailyReflectionScreen';
 import { UserProfileScreen } from '../screens/main/UserProfileScreen';
 import { MeetupDetailScreen } from '../screens/main/MeetupDetailScreen';
 import { Avatar } from '../components/Avatar';
@@ -36,10 +37,11 @@ interface OpenUserProfile {
     avatarUrl?: string;
 }
 
-type Tab = 'community' | 'discover' | 'support' | 'meetups' | 'chats';
+type Tab = 'community' | 'groups' | 'discover' | 'support' | 'meetups' | 'chats';
 
 const TABS: { key: Tab; label: string; icon: keyof typeof Ionicons.glyphMap; iconActive: keyof typeof Ionicons.glyphMap }[] = [
     { key: 'community', label: 'community', icon: 'newspaper-outline', iconActive: 'newspaper' },
+    { key: 'groups',    label: 'groups',    icon: 'people-outline', iconActive: 'people' },
     { key: 'discover',  label: 'discover',  icon: 'grid-outline', iconActive: 'grid' },
     { key: 'support',   label: 'support',   icon: 'heart-outline', iconActive: 'heart' },
     { key: 'meetups',   label: 'meetups',   icon: 'calendar-outline', iconActive: 'calendar' },
@@ -62,6 +64,16 @@ const DiscoverTab = React.memo(function DiscoverTab({
     onOpenPlus: () => void;
 }) {
     return <View style={isActive ? styles.tabVisible : styles.tabHidden}><DiscoverScreen isActive={isActive} onOpenUserProfile={onOpenUserProfile} onOpenPlus={onOpenPlus} /></View>;
+});
+
+const GroupsTab = React.memo(function GroupsTab({
+    isActive,
+    onOpenGroup,
+}: {
+    isActive: boolean;
+    onOpenGroup: (groupId: string) => void;
+}) {
+    return <View style={isActive ? styles.tabVisible : styles.tabHidden}><GroupsScreen isActive={isActive} onOpenGroup={onOpenGroup} /></View>;
 });
 
 const SupportTab = React.memo(function SupportTab({ isActive, onOpenChat, onOpenUserProfile }: { isActive: boolean; onOpenChat: (c: Chat) => void; onOpenUserProfile: (p: OpenUserProfile) => void }) {
@@ -107,10 +119,9 @@ export function AppNavigator() {
     const [createPostSessionKey, setCreatePostSessionKey] = useState(0);
     const [ownProfileOpen, setOwnProfileOpen] = useState(false);
     const [openMeetup, setOpenMeetup] = useState<api.Meetup | null>(null);
+    const [openGroupId, setOpenGroupId] = useState<string | null>(null);
     const [plusUpsellOpen, setPlusUpsellOpen] = useState(false);
     const [notificationsOpen, setNotificationsOpen] = useState(false);
-    const [reflectionOpen, setReflectionOpen] = useState(false);
-    const [openReflectionId, setOpenReflectionId] = useState<string | null>(null);
     const [ownProfileInitialContentTab, setOwnProfileInitialContentTab] = useState<ProfileContentTabKey>('posts');
     const [openComments, setOpenComments] = useState<{
         thread: CommentThreadTarget;
@@ -127,9 +138,9 @@ export function AppNavigator() {
     const inComposeDM = pendingDM !== null;
     const inCreatePost = createPostOpen;
     const inMeetupDetail = openMeetup !== null;
+    const inGroupDetail = openGroupId !== null;
     const inPlusUpsell = plusUpsellOpen;
     const inNotifications = notificationsOpen;
-    const inReflection = reflectionOpen;
     const inComments = openComments !== null;
 
     const handleOpenUserProfile = useCallback((profile: OpenUserProfile) => {
@@ -156,12 +167,12 @@ export function AppNavigator() {
 
     const openNotifications = useCallback(() => {
         setNotificationsOpen(true);
-        setReflectionOpen(false);
         setOpenChat(null);
         setOpenUserProfile(null);
         setOwnProfileOpen(false);
         setPendingDM(null);
         setOpenMeetup(null);
+        setOpenGroupId(null);
         setPlusUpsellOpen(false);
     }, []);
 
@@ -169,9 +180,8 @@ export function AppNavigator() {
         setNotificationsOpen(false);
     }, []);
 
-    const openReflection = useCallback(() => {
-        setOpenReflectionId(null);
-        setReflectionOpen(true);
+    const handleOpenGroup = useCallback((groupId: string) => {
+        setOpenGroupId(groupId);
         setNotificationsOpen(false);
         setOpenChat(null);
         setOpenUserProfile(null);
@@ -181,40 +191,14 @@ export function AppNavigator() {
         setPlusUpsellOpen(false);
     }, []);
 
-    const closeReflection = useCallback(() => {
-        setReflectionOpen(false);
-        setOpenReflectionId(null);
-    }, []);
-
-    const openSavedReflection = useCallback((reflectionId: string) => {
-        setOpenReflectionId(reflectionId);
-        setReflectionOpen(true);
-        setNotificationsOpen(false);
-        setOpenChat(null);
-        setOpenUserProfile(null);
-        setPendingDM(null);
-        setOpenMeetup(null);
-        setPlusUpsellOpen(false);
-    }, []);
-
-    const handleReflectionSaved = useCallback((reflectionId: string) => {
-        setReflectionOpen(false);
-        setOpenReflectionId(null);
-        setOwnProfileInitialContentTab('reflections');
-        setOwnProfileOpen(true);
-        setOpenUserProfile(null);
-        setOpenChat(null);
-        setPendingDM(null);
-        setOpenMeetup(null);
-        setPlusUpsellOpen(false);
-        setNotificationsOpen(false);
+    const handleCloseGroup = useCallback(() => {
+        setOpenGroupId(null);
     }, []);
 
     const handleCloseChat = useCallback(() => {
         Keyboard.dismiss();
         setOpenChat(null);
         setNotificationsOpen(false);
-        setReflectionOpen(false);
         setOpenComments(null);
         setKeyboardVisible(false);
     }, []);
@@ -247,7 +231,6 @@ export function AppNavigator() {
         setOpenMeetup(null);
         setPlusUpsellOpen(false);
         setNotificationsOpen(false);
-        setReflectionOpen(false);
     }, []);
 
     const closeCreatePost = useCallback(() => {
@@ -285,7 +268,6 @@ export function AppNavigator() {
     const handleOpenNotificationChat = useCallback(async (chatId: string) => {
         const chat = await api.getChat(chatId);
         setNotificationsOpen(false);
-        setReflectionOpen(false);
         setActiveTab('chats');
         setOwnProfileOpen(false);
         setOpenUserProfile(null);
@@ -297,7 +279,6 @@ export function AppNavigator() {
 
     const handleOpenNotificationMention = useCallback((target: { postId: string; commentId?: string }) => {
         setNotificationsOpen(false);
-        setReflectionOpen(false);
         setActiveTab('community');
         setOpenChat(null);
         setOpenUserProfile(null);
@@ -379,7 +360,6 @@ export function AppNavigator() {
                     setOwnProfileOpen(false);
                     setOpenUserProfile(null);
                     setNotificationsOpen(false);
-                    setReflectionOpen(false);
                     setOpenChat(chat);
                 } finally {
                     if (!cancelled) consumeIntent();
@@ -390,12 +370,25 @@ export function AppNavigator() {
             };
         }
 
+        if (intent.kind === 'group') {
+            setActiveTab('groups');
+            setOpenChat(null);
+            setOpenUserProfile(null);
+            setOwnProfileOpen(false);
+            setNotificationsOpen(false);
+            setPendingDM(null);
+            setOpenMeetup(null);
+            setPlusUpsellOpen(false);
+            setOpenGroupId(intent.groupId);
+            consumeIntent();
+            return;
+        }
+
         setActiveTab('community');
         setOpenChat(null);
         setOpenUserProfile(null);
         setOwnProfileOpen(false);
         setNotificationsOpen(false);
-        setReflectionOpen(false);
         setFeedFocusRequest({
             postId: intent.postId,
             commentId: intent.commentId,
@@ -405,7 +398,7 @@ export function AppNavigator() {
     }, [consumeIntent, intent]);
 
     const header = useMemo(() => {
-        if (inChat || inUserProfile || inOwnProfile || inComposeDM || inCreatePost || inMeetupDetail || inPlusUpsell || inNotifications || inReflection) return null;
+        if (inChat || inUserProfile || inOwnProfile || inComposeDM || inCreatePost || inMeetupDetail || inGroupDetail || inPlusUpsell || inNotifications) return null;
 
         const titles: Record<Tab, React.ReactNode> = {
             community: (
@@ -414,6 +407,7 @@ export function AppNavigator() {
                 </Text>
             ),
             discover: <Text style={styles.pageTitle}>Discover</Text>,
+            groups: <Text style={styles.pageTitle}>Groups</Text>,
             support: <Text style={styles.pageTitle}>Support</Text>,
             meetups: <Text style={styles.pageTitle}>Meetups</Text>,
             chats: <Text style={styles.pageTitle}>Chats</Text>,
@@ -425,10 +419,10 @@ export function AppNavigator() {
                 <View style={styles.topBarActions}>
                     <TouchableOpacity
                         style={styles.headerIconButton}
-                        onPress={openReflection}
+                        onPress={openCreatePost}
                         disabled={!user}
                     >
-                        <Ionicons name="create-outline" size={22} color={Colors.text.primary} />
+                        <Ionicons name="add-circle-outline" size={23} color={Colors.text.primary} />
                     </TouchableOpacity>
                     <TouchableOpacity
                         style={styles.headerIconButton}
@@ -454,9 +448,9 @@ export function AppNavigator() {
             </View>
         );
     }, [
-        activeTab, inChat, inComposeDM, inCreatePost, inMeetupDetail, inNotifications, inReflection,
+        activeTab, inChat, inComposeDM, inCreatePost, inGroupDetail, inMeetupDetail, inNotifications,
         inOwnProfile, inPlusUpsell, inUserProfile, notificationSummary?.unread_count,
-        openNotifications, openOwnProfile, openReflection, user,
+        openCreatePost, openNotifications, openOwnProfile, user,
     ]);
 
     const overlays = useMemo(() => (
@@ -469,7 +463,6 @@ export function AppNavigator() {
                         onBack={closeOwnProfile}
                         onOpenUserProfile={handleOpenUserProfile}
                         onOpenComments={handleOpenComments}
-                        onOpenReflection={openSavedReflection}
                     />
                 </View>
             )}
@@ -509,6 +502,14 @@ export function AppNavigator() {
                     />
                 </View>
             )}
+            {inGroupDetail && (
+                <View style={StyleSheet.absoluteFill}>
+                    <GroupDetailScreen
+                        groupId={openGroupId!}
+                        onBack={handleCloseGroup}
+                    />
+                </View>
+            )}
             {inUserProfile && (
                 <View style={StyleSheet.absoluteFill}>
                     <UserProfileScreen
@@ -538,31 +539,21 @@ export function AppNavigator() {
                         onBack={closeNotifications}
                         onOpenChat={handleOpenNotificationChat}
                         onOpenMention={handleOpenNotificationMention}
-                    />
-                </View>
-            )}
-            {inReflection && user && (
-                <View style={StyleSheet.absoluteFill}>
-                    <DailyReflectionScreen
-                        currentUserId={user.id}
-                        initialReflectionId={openReflectionId}
-                        isActive={inReflection}
-                        onBack={closeReflection}
-                        onReflectionSaved={handleReflectionSaved}
+                        onOpenGroup={handleOpenGroup}
                     />
                 </View>
             )}
         </>
     ), [
-        inOwnProfile, inUserProfile, inChat, inComposeDM, inCreatePost, inMeetupDetail, inPlusUpsell, inNotifications, inReflection,
-        openUserProfile, openChat, pendingDM, openMeetup, openReflectionId, ownProfileInitialContentTab, createPostSessionKey,
-        handleOpenUserProfile, handleCloseChat, closeUserProfile, closeOwnProfile,
-        handleOpenComments, closeCreatePost, openSavedReflection,
-        handleComposeDM, handleComposeDMComplete, handleCloseMeetup, closePlusUpsell,
-        closeNotifications, closeReflection, handleOpenNotificationChat, handleOpenNotificationMention, handleReflectionSaved, user,
+        inOwnProfile, inUserProfile, inChat, inComposeDM, inCreatePost, inMeetupDetail, inGroupDetail, inPlusUpsell, inNotifications,
+        openUserProfile, openChat, pendingDM, openMeetup, openGroupId, ownProfileInitialContentTab, createPostSessionKey,
+        handleOpenUserProfile, handleOpenGroup, handleCloseChat, closeUserProfile, closeOwnProfile,
+        handleOpenComments, closeCreatePost,
+        handleComposeDM, handleComposeDMComplete, handleCloseMeetup, handleCloseGroup, closePlusUpsell,
+        closeNotifications, handleOpenNotificationChat, handleOpenNotificationMention,
     ]);
 
-    const isOverlayOpen = inChat || inUserProfile || inOwnProfile || inComposeDM || inCreatePost || inMeetupDetail || inPlusUpsell || inNotifications || inReflection;
+    const isOverlayOpen = inChat || inUserProfile || inOwnProfile || inComposeDM || inCreatePost || inMeetupDetail || inGroupDetail || inPlusUpsell || inNotifications;
 
     return (
         <>
@@ -580,6 +571,7 @@ export function AppNavigator() {
                             onFocusRequestConsumed={handleFeedFocusRequestConsumed}
                         />
                     </View>
+                    <GroupsTab isActive={activeTab === 'groups' && !isOverlayOpen} onOpenGroup={handleOpenGroup} />
                     <DiscoverTab isActive={activeTab === 'discover' && !isOverlayOpen} onOpenUserProfile={handleOpenUserProfile} onOpenPlus={openPlusUpsell} />
                     <SupportTab isActive={activeTab === 'support' && !isOverlayOpen} onOpenChat={setOpenChat} onOpenUserProfile={handleOpenUserProfile} />
                     <MeetupsTab
@@ -591,7 +583,7 @@ export function AppNavigator() {
                     {overlays}
                 </View>
 
-                {!inChat && !inUserProfile && !inOwnProfile && !inComposeDM && !inCreatePost && !inMeetupDetail && !inNotifications && !inReflection && !keyboardVisible && (
+                {!inChat && !inUserProfile && !inOwnProfile && !inComposeDM && !inCreatePost && !inMeetupDetail && !inGroupDetail && !inNotifications && !keyboardVisible && (
                     <View style={[styles.tabBar, { paddingBottom: insets.bottom + 6 }]}>
                         {TABS.map(tab => (
                             <TouchableOpacity

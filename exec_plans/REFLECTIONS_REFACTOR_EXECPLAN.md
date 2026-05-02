@@ -22,8 +22,8 @@ To see this working: open the app, navigate to the reflection feature, type some
 - [x] (2026-05-02) Milestone 3 — Added `getLocalDateString` helper to `src/utils/date.ts`. `useUpdateReflectionMutation` now uses it instead of `new Date().toISOString().slice(0, 10)` (the only such site in the codebase, verified via grep).
 - [x] (2026-05-02) Milestone 4 — `DailyReflectionScreen` now requests `useReflectionHistory(20, ...)` to match `ReflectionsTab`. Both surfaces now hit the same `['reflections', 'history', { limit: 20 }]` query key and warm a shared cache.
 - [x] (2026-05-02) Milestone 5 — Screen shell shrank from 1068 to 306 lines. Six leaf files in `src/screens/main/reflection/` (Editor, ReviewView, DetailView, HistoryView, PromptFields, Field, AnswerPreview, plus `utils.ts` and shared `styles.ts`). Doubled write/detail form state collapsed into two `useReflectionForm` instances. Back-button ternary extracted to `getBackHandler`.
-- [ ] Milestone 6 — Drafts with debounced autosave (`useReflectionDraft`).
-- [ ] Milestone 7 — Streak computation + display on the Profile reflections tab.
+- [x] (2026-05-02 14:57Z) Milestone 6 — Drafts with debounced autosave (`useReflectionDraft`). The hook persists one draft per user/local day, the write screen recovers it only after confirming no today reflection exists, and successful saves/back-empty clear storage.
+- [x] (2026-05-02 14:59Z) Milestone 7 — Streak computation + display on the Profile reflections tab. Added local-date shifting, client-side consecutive-day streak calculation, and a profile Reflections tab banner.
 
 Use timestamps when checking items off, e.g. `- [x] (2026-05-02 14:00Z) Milestone 1 complete.`
 
@@ -36,6 +36,9 @@ Use timestamps when checking items off, e.g. `- [x] (2026-05-02 14:00Z) Mileston
 
 - Observation (2026-05-02, M1): The `actionDock` style was shared across editor, review, and detail with `position: 'absolute'`. Flattening it to flex flow affected all three at once. Review view did not need keyboard tracking but did still need an action dock above the safe-area, so the shared style stays shared — only its positioning props were dropped.
     Evidence: single edit to the `actionDock` StyleSheet entry; behavior preserved in all three views.
+
+- Observation (2026-05-02, M6): `useReflectionDraft.ts` had already been started as an untracked file before this continuation. The existing shape matched the plan, but it was not yet wired into `DailyReflectionScreen`, and hydration state did not reset before loading a new user's draft.
+    Evidence: `git status --short` showed `?? src/hooks/useReflectionDraft.ts`; M6 edits connected it to the write form and reset `isHydrated`/`draft` at the start of each user load.
 
 
 ## Decision Log
@@ -73,6 +76,14 @@ Use timestamps when checking items off, e.g. `- [x] (2026-05-02 14:00Z) Mileston
     Rationale: Two Views with no separation between them; one View with the merged styles renders identically. Saves a tree node for each editor mount.
     Date/Author: 2026-05-02 / Claude (M5 execution).
 
+- Decision (M6): Draft recovery waits until `useTodayReflection` has fetched and returned no saved reflection for today.
+    Rationale: Today-awareness is the product source of truth. Recovering a stale local draft before the server confirms there is no today row could briefly show editable draft text and then route away to detail, or worse, overwrite a user's intent if they start editing during that race.
+    Date/Author: 2026-05-02 / Codex (M6 continuation).
+
+- Decision (M7): De-duplicate reflection dates before computing the client-side streak.
+    Rationale: Milestone 2 should prevent duplicate today rows going forward, but historical duplicates or imported data should not inflate the count. A streak is about calendar days with at least one reflection, not row count.
+    Date/Author: 2026-05-02 / Codex (M7 continuation).
+
 
 ## Outcomes & Retrospective
 
@@ -86,6 +97,10 @@ Use timestamps when checking items off, e.g. `- [x] (2026-05-02 14:00Z) Mileston
 - Milestone 4 (2026-05-02): One-line change — `DailyReflectionScreen.tsx` now calls `useReflectionHistory(20, ...)` (was 18). Both this screen and `ReflectionsTab` now hit the same query key and share cache. `tsc --noEmit` clean.
 
 - Milestone 5 (2026-05-02): Big structural diff. `DailyReflectionScreen.tsx` shrank from 1068 to 306 lines and the per-view monoliths now live in `src/screens/main/reflection/` (Editor 105, ReviewView 113, DetailView 166, HistoryView 180, PromptFields 45, Field 60, AnswerPreview 43, plus `styles.ts` 89 and `utils.ts` 75). The doubled `gratefulFor`/`detailGratefulFor` state pairs collapsed into two `useReflectionForm` instances. The back-button ternary moved to `getBackHandler` in `utils.ts`. `tsc --noEmit` clean. Behavior unchanged from M4 — manual sim verification still pending. Shell is 306 lines vs. the plan's "under 200" target; rationale logged in Decision Log.
+
+- Milestone 6 (2026-05-02 14:57Z): Added and wired `useReflectionDraft`, storing a single debounced AsyncStorage draft under `drafts:reflection:{userId}:{YYYY-MM-DD}`. `DailyReflectionScreen` now recovers a non-empty draft only in blank write mode after the today-reflection query has fetched with no result, shows a small "Recovered from draft" banner in `ReflectionEditor`, hides that banner on first edit, saves field changes through the debounced hook, and clears the draft after successful save or backing out with an empty editor. `tsc --noEmit` clean. Manual force-quit recovery verification is still pending.
+
+- Milestone 7 (2026-05-02 14:59Z): Added `shiftLocalDate` to `src/utils/date.ts` and `computeReflectionStreak` to `src/utils/reflections.ts`. `ReflectionsTab` now computes the streak from its first history page and renders a compact banner above the list with "Start your streak today", "1 day", or "{n} days in a row". Duplicate reflection dates are counted once. `tsc --noEmit` clean. Manual seeded-data verification is still pending.
 
 
 ## Context and Orientation

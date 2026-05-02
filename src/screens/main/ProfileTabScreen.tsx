@@ -17,7 +17,6 @@ import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { TextField } from '../../components/ui/TextField';
 import { SettingsScreen } from './SettingsScreen';
 import { HiddenContentScreen } from './HiddenContentScreen';
-import { ReflectionsTab } from './profile/ReflectionsTab';
 import { ProfileContentTabs, ProfileContentTabKey } from '../../components/profile/ProfileContentTabs';
 import { ProfileEmptyTabState } from '../../components/profile/ProfileEmptyTabState';
 import { ProfilePostCard } from '../../components/profile/ProfilePostCard';
@@ -45,7 +44,6 @@ interface ProfileTabScreenProps {
     initialContentTab?: ProfileContentTabKey;
     onOpenUserProfile: (profile: { userId: string; username: string; avatarUrl?: string }) => void;
     onOpenComments: (thread: CommentThreadTarget, focusComposer: boolean, onCommentCreated?: (comment: api.Comment) => void) => void;
-    onOpenReflection: (reflectionId: string) => void;
     onBack?: () => void;
 }
 
@@ -55,7 +53,6 @@ export function ProfileTabScreen({
     initialContentTab,
     onOpenUserProfile,
     onOpenComments,
-    onOpenReflection,
     onBack,
 }: ProfileTabScreenProps) {
     const { user, refreshUser, logout } = useAuth();
@@ -636,17 +633,10 @@ export function ProfileTabScreen({
                             <View style={styles.profileContentTabsWrap}>
                                 <ProfileContentTabs
                                     activeTab={activeContentTab}
-                                    includeReflections
                                     onChange={setActiveContentTab}
                                 />
                             </View>
-                            {activeContentTab === 'reflections' ? (
-                                <ReflectionsTab
-                                    isActive={isActive && subView === 'profile' && activeContentTab === 'reflections'}
-                                    username={formatUsername(user.username)}
-                                    onOpenReflection={onOpenReflection}
-                                />
-                            ) : userPostsQuery.isLoading && activeContentTab === 'posts' ? (
+                            {userPostsQuery.isLoading && activeContentTab === 'posts' ? (
                                 <ActivityIndicator color={Colors.primary} style={styles.profilePostsLoader} />
                             ) : activeContentItems.length > 0 ? (
                                 <View style={styles.profilePostList}>

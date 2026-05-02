@@ -9,7 +9,8 @@ import { queryKeys } from '../query/queryKeys';
 
 type NotificationIntent =
     | { kind: 'chat'; chatId: string; notificationId?: string }
-    | { kind: 'mention'; postId: string; commentId?: string; notificationId?: string };
+    | { kind: 'mention'; postId: string; commentId?: string; notificationId?: string }
+    | { kind: 'group'; groupId: string; postId?: string; notificationId?: string };
 
 interface NotificationContextValue {
     intent: NotificationIntent | null;
@@ -177,6 +178,7 @@ function isStaleLastResponse(response: Notifications.NotificationResponse | null
 function notificationIntentKey(intent: NotificationIntent): string {
     if (intent.notificationId) return intent.notificationId;
     if (intent.kind === 'chat') return `chat:${intent.chatId}`;
+    if (intent.kind === 'group') return `group:${intent.groupId}:${intent.postId ?? ''}`;
     return `mention:${intent.postId}:${intent.commentId ?? ''}`;
 }
 
@@ -198,6 +200,16 @@ function toIntent(response: Notifications.NotificationResponse | null): Notifica
             kind: 'mention',
             postId,
             commentId: readString(data, 'comment_id') ?? undefined,
+            notificationId: notificationId ?? undefined,
+        };
+    }
+    if (type?.startsWith('group.')) {
+        const groupId = readString(data, 'group_id');
+        if (!groupId) return null;
+        return {
+            kind: 'group',
+            groupId,
+            postId: readString(data, 'post_id') ?? undefined,
             notificationId: notificationId ?? undefined,
         };
     }

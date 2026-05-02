@@ -4,10 +4,22 @@ export const queryKeys = {
     homeFeed: (limit = 20) => ['home-feed', { limit }] as const,
     user: (userId: string) => ['user', userId] as const,
     userPosts: (userId: string, limit = 20) => ['user-posts', userId, { limit }] as const,
-    reflections: () => ['reflections'] as const,
-    todayReflection: () => ['reflections', 'today'] as const,
-    reflectionHistory: (limit = 20) => ['reflections', 'history', { limit }] as const,
-    reflection: (reflectionId: string) => ['reflections', 'detail', reflectionId] as const,
+    groups: (params?: {
+        q?: string;
+        city?: string;
+        country?: string;
+        tag?: string;
+        recovery_pathway?: string;
+        member_scope?: string;
+        limit?: number;
+    }) => ['groups', params ?? {}] as const,
+    group: (groupId: string) => ['groups', 'detail', groupId] as const,
+    groupMembers: (groupId: string, params?: { limit?: number }) => ['groups', 'members', groupId, params ?? {}] as const,
+    groupPosts: (groupId: string, params?: { limit?: number }) => ['groups', 'posts', groupId, params ?? {}] as const,
+    groupMedia: (groupId: string, params?: { limit?: number }) => ['groups', 'media', groupId, params ?? {}] as const,
+    groupComments: (groupId: string, postId: string, params?: { limit?: number }) => ['groups', 'comments', groupId, postId, params ?? {}] as const,
+    groupJoinRequests: (groupId: string) => ['groups', 'join-requests', groupId] as const,
+    groupAdminInbox: (groupId: string, params?: { limit?: number }) => ['groups', 'admin-inbox', groupId, params ?? {}] as const,
     chats: (params?: { query?: string; limit?: number }) => ['chats', params ?? {}] as const,
     chat: (chatId: string) => ['chat', chatId] as const,
     chatMessages: (chatId: string) => ['chat-messages', chatId] as const,
