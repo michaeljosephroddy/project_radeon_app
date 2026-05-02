@@ -17,7 +17,7 @@ import {
     DiscoverDraftFilters,
     getDiscoverDistanceLabel,
 } from '../../hooks/useDiscoverFilters';
-import { Colors, Radius, Spacing, Typography } from '../../theme';
+import { Colors, ControlSizes, Radius, Spacing, TextStyles, Typography } from '../../theme';
 import { screenStandards } from '../../styles/screenStandards';
 import { PrimaryButton } from '../ui/PrimaryButton';
 import { ScreenHeader } from '../ui/ScreenHeader';
@@ -305,9 +305,7 @@ const styles = StyleSheet.create({
     },
     previewText: {
         flex: 1,
-        fontSize: Typography.sizes.sm,
-        color: Colors.text.secondary,
-        lineHeight: 20,
+        ...TextStyles.secondary,
     },
     section: {
         gap: Spacing.sm,
@@ -319,8 +317,8 @@ const styles = StyleSheet.create({
         gap: Spacing.md,
     },
     sectionTitle: {
-        fontSize: Typography.sizes.sm,
-        fontWeight: '700',
+        fontSize: TextStyles.label.fontSize,
+        fontWeight: TextStyles.label.fontWeight,
         color: Colors.text.primary,
         textTransform: 'uppercase',
         letterSpacing: 0.6,
@@ -339,6 +337,7 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: Colors.border.default,
         backgroundColor: Colors.bg.surface,
+        minHeight: ControlSizes.chipMinHeight,
         paddingHorizontal: Spacing.md,
         paddingVertical: Spacing.sm,
     },
@@ -347,9 +346,7 @@ const styles = StyleSheet.create({
         backgroundColor: Colors.primarySubtle,
     },
     optionChipText: {
-        fontSize: Typography.sizes.sm,
-        fontWeight: '500',
-        color: Colors.text.secondary,
+        ...TextStyles.chip,
     },
     optionChipTextSelected: {
         color: Colors.primary,
@@ -362,8 +359,7 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     fieldLabel: {
-        fontSize: Typography.sizes.sm,
-        color: Colors.text.muted,
+        ...TextStyles.meta,
         marginBottom: Spacing.xs,
     },
     slider: {
@@ -398,19 +394,15 @@ const styles = StyleSheet.create({
         gap: 4,
     },
     toggleTitle: {
-        fontSize: Typography.sizes.base,
-        fontWeight: '600',
-        color: Colors.text.primary,
+        ...TextStyles.bodyEmphasis,
     },
     toggleSubtitle: {
-        fontSize: Typography.sizes.sm,
-        color: Colors.text.secondary,
-        lineHeight: 19,
+        ...TextStyles.secondary,
     },
     checkbox: {
-        width: 28,
-        height: 28,
-        borderRadius: 14,
+        width: ControlSizes.chipMinHeight,
+        height: ControlSizes.chipMinHeight,
+        borderRadius: Radius.pill,
         borderWidth: 1,
         borderColor: Colors.border.default,
         alignItems: 'center',
@@ -438,11 +430,10 @@ const styles = StyleSheet.create({
         paddingVertical: 14,
     },
     resetButtonText: {
-        fontSize: Typography.sizes.md,
-        fontWeight: '600',
+        ...TextStyles.bodyEmphasis,
         color: Colors.text.secondary,
     },
     applyButton: {
-        minHeight: 52,
+        minHeight: ControlSizes.fabMinHeight,
     },
 });

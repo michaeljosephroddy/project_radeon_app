@@ -18,7 +18,7 @@ import * as api from '../../api/client';
 import { useNotifications } from '../../hooks/queries/useNotifications';
 import { useNotificationSummary } from '../../hooks/queries/useNotificationSummary';
 import { queryKeys } from '../../query/queryKeys';
-import { Colors, Header, Radius, Spacing, Typography } from '../../theme';
+import { Colors, ControlSizes, Header, Radius, Spacing, TextStyles } from '../../theme';
 import { formatReadableTimestamp } from '../../utils/date';
 import { formatUsername } from '../../utils/identity';
 import { dedupeById } from '../../utils/list';
@@ -314,9 +314,9 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     iconCircle: {
-        width: 36,
-        height: 36,
-        borderRadius: 18,
+        width: ControlSizes.iconButton,
+        height: ControlSizes.iconButton,
+        borderRadius: Radius.pill,
         backgroundColor: Colors.bg.raised,
         alignItems: 'center',
         justifyContent: 'center',
@@ -337,8 +337,7 @@ const styles = StyleSheet.create({
         minWidth: 0,
     },
     rowTitle: {
-        fontSize: Typography.sizes.base,
-        color: Colors.text.primary,
+        ...TextStyles.bodyEmphasis,
         fontWeight: '500',
     },
     rowTitleUnread: {
@@ -346,13 +345,11 @@ const styles = StyleSheet.create({
     },
     rowText: {
         marginTop: Spacing.xs,
-        fontSize: Typography.sizes.sm,
-        color: Colors.text.secondary,
+        ...TextStyles.secondary,
     },
     rowMeta: {
         marginTop: Spacing.xs,
-        fontSize: Typography.sizes.xs,
-        color: Colors.text.muted,
+        ...TextStyles.meta,
     },
     separator: {
         height: 1,

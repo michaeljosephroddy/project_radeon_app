@@ -2,7 +2,7 @@ import React from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { DiscoverActiveChip } from '../../hooks/useDiscoverFilters';
-import { Colors, Radius, Spacing, Typography } from '../../theme';
+import { Colors, ControlSizes, Radius, Spacing, TextStyles } from '../../theme';
 
 interface DiscoverActiveFiltersBarProps {
     chips: DiscoverActiveChip[];
@@ -65,6 +65,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         gap: Spacing.xs,
+        minHeight: ControlSizes.chipMinHeight,
         backgroundColor: Colors.primarySubtle,
         borderRadius: Radius.pill,
         paddingHorizontal: Spacing.md,
@@ -72,8 +73,8 @@ const styles = StyleSheet.create({
         alignSelf: 'flex-start',
     },
     infoText: {
-        fontSize: Typography.sizes.sm,
-        fontWeight: '500',
+        fontSize: TextStyles.chip.fontSize,
+        fontWeight: TextStyles.chip.fontWeight,
         color: Colors.primary,
     },
     scrollContent: {
@@ -84,6 +85,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         gap: Spacing.xs,
+        minHeight: ControlSizes.chipMinHeight,
         borderRadius: Radius.pill,
         borderWidth: 1,
         borderColor: Colors.primary,
@@ -92,8 +94,8 @@ const styles = StyleSheet.create({
         paddingVertical: Spacing.sm,
     },
     chipText: {
-        fontSize: Typography.sizes.sm,
-        fontWeight: '500',
+        fontSize: TextStyles.chip.fontSize,
+        fontWeight: TextStyles.chip.fontWeight,
         color: Colors.primary,
     },
     clearAll: {
@@ -101,8 +103,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: Spacing.sm,
     },
     clearAllText: {
-        fontSize: Typography.sizes.sm,
-        fontWeight: '600',
+        ...TextStyles.chip,
         color: Colors.text.secondary,
     },
 });

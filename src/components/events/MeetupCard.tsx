@@ -3,7 +3,7 @@ import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import * as api from '../../api/client';
 import { Avatar } from '../Avatar';
 import { MeetupEventTypeBadge } from './MeetupEventTypeBadge';
-import { Colors, ContentInsets, Radius, Spacing, Typography } from '../../theme';
+import { Colors, ContentInsets, ControlSizes, Radius, Spacing, TextStyles, Typography } from '../../theme';
 
 interface MeetupCardProps {
     meetup: api.Meetup;
@@ -168,22 +168,17 @@ const styles = StyleSheet.create({
     },
     pillText: {
         color: Colors.primary,
-        fontSize: Typography.sizes.xs,
-        fontWeight: '700',
+        fontSize: TextStyles.caption.fontSize,
+        fontWeight: TextStyles.caption.fontWeight,
     },
     title: {
-        fontSize: Typography.sizes.lg,
-        fontWeight: '700',
-        color: Colors.text.primary,
+        ...TextStyles.sectionTitle,
     },
     description: {
-        color: Colors.text.secondary,
-        fontSize: Typography.sizes.sm,
-        lineHeight: 20,
+        ...TextStyles.secondary,
     },
     detailLine: {
-        color: Colors.text.secondary,
-        fontSize: Typography.sizes.sm,
+        ...TextStyles.secondary,
     },
     previewRow: {
         flexDirection: 'row',
@@ -200,14 +195,13 @@ const styles = StyleSheet.create({
         top: 0,
     },
     previewLabel: {
-        color: Colors.text.secondary,
-        fontSize: Typography.sizes.xs,
-        fontWeight: '600',
+        ...TextStyles.caption,
     },
     actionButton: {
         alignSelf: 'flex-start',
         paddingHorizontal: Spacing.md,
         paddingVertical: 10,
+        minHeight: ControlSizes.chipMinHeight,
         borderRadius: Radius.pill,
         borderWidth: 1,
         borderColor: Colors.primary,
@@ -230,8 +224,8 @@ const styles = StyleSheet.create({
     },
     actionText: {
         color: Colors.primary,
-        fontSize: Typography.sizes.sm,
-        fontWeight: '700',
+        fontSize: TextStyles.chip.fontSize,
+        fontWeight: TextStyles.label.fontWeight,
     },
     actionTextOnDark: {
         color: Colors.textOn.primary,

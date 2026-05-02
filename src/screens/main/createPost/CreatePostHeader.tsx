@@ -9,10 +9,11 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import {
   Colors,
+  ControlSizes,
   ContentInsets,
   Radius,
   Spacing,
-  Typography,
+  TextStyles,
 } from "../../../theme";
 import { CharacterCounterRing } from "./CharacterCounterRing";
 
@@ -109,8 +110,8 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
   },
   headerButton: {
-    width: 40,
-    height: 40,
+    width: ControlSizes.iconButton,
+    height: ControlSizes.iconButton,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -120,16 +121,13 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   subtitle: {
-    fontSize: Typography.sizes.xs,
-    color: Colors.text.muted,
-    fontWeight: "600",
+    ...TextStyles.caption,
     letterSpacing: 0.2,
     textTransform: "uppercase",
   },
   draftsLink: {
-    fontSize: Typography.sizes.sm,
+    ...TextStyles.chip,
     color: Colors.primary,
-    fontWeight: "600",
     marginTop: 2,
   },
   right: {
@@ -139,7 +137,7 @@ const styles = StyleSheet.create({
   },
   postButton: {
     minWidth: 72,
-    height: 36,
+    minHeight: ControlSizes.iconButton,
     borderRadius: Radius.pill,
     alignItems: "center",
     justifyContent: "center",
@@ -150,8 +148,8 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   postButtonText: {
+    ...TextStyles.button,
     color: Colors.textOn.primary,
-    fontSize: Typography.sizes.sm,
-    fontWeight: "700",
+    fontSize: TextStyles.chip.fontSize,
   },
 });

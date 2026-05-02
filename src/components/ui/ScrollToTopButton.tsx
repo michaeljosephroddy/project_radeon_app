@@ -1,7 +1,7 @@
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors, Radius, Spacing, Typography } from '../../theme';
+import { Colors, ControlSizes, Radius, Spacing, TextStyles } from '../../theme';
 
 interface ScrollToTopButtonProps {
     onPress: () => void;
@@ -28,6 +28,7 @@ const styles = StyleSheet.create({
         gap: 6,
         backgroundColor: Colors.primary,
         borderRadius: Radius.pill,
+        minHeight: ControlSizes.iconButton,
         paddingHorizontal: Spacing.md,
         paddingVertical: 10,
         shadowColor: '#000',
@@ -37,8 +38,7 @@ const styles = StyleSheet.create({
         elevation: 4,
     },
     label: {
-        fontSize: Typography.sizes.sm,
-        fontWeight: '700',
-        color: Colors.textOn.primary,
+        ...TextStyles.button,
+        fontSize: TextStyles.chip.fontSize,
     },
 });

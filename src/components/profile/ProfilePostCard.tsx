@@ -3,7 +3,7 @@ import { View, Text, Image, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Avatar } from '../Avatar';
 import * as api from '../../api/client';
-import { Colors, Radius, Spacing, Typography } from '../../theme';
+import { Colors, Radius, Spacing, TextStyles, Typography } from '../../theme';
 import { formatUsername } from '../../utils/identity';
 
 export interface ProfilePostCardProps {
@@ -36,23 +36,25 @@ export function ProfilePostCard({ post, onPressComments }: ProfilePostCardProps)
                     {post.source_label ? <Text style={styles.postSource}>{post.source_label}</Text> : null}
                 </View>
             </View>
-            <View style={styles.postContent}>
-                {!!post.body && <Text style={styles.postBody}>{post.body}</Text>}
-                {image ? (
-                    <Image
-                        source={{ uri: image.image_url }}
-                        style={styles.postImage}
-                        resizeMode="cover"
-                    />
-                ) : null}
-                {post.tags.length > 0 ? (
-                    <View style={styles.postTags}>
-                        {post.tags.map((tag) => (
-                            <Text key={tag} style={styles.postTag}>#{tag}</Text>
-                        ))}
-                    </View>
-                ) : null}
-            </View>
+            {!!post.body ? (
+                <View style={styles.postContent}>
+                    <Text style={styles.postBody}>{post.body}</Text>
+                </View>
+            ) : null}
+            {image ? (
+                <Image
+                    source={{ uri: image.image_url }}
+                    style={styles.postImage}
+                    resizeMode="cover"
+                />
+            ) : null}
+            {post.tags.length > 0 ? (
+                <View style={styles.postTags}>
+                    {post.tags.map((tag) => (
+                        <Text key={tag} style={styles.postTag}>#{tag}</Text>
+                    ))}
+                </View>
+            ) : null}
             <View style={styles.postFoot}>
                 <View style={styles.postAction}>
                     <Ionicons name="heart-outline" size={16} color={Colors.text.muted} />
@@ -99,13 +101,10 @@ const styles = StyleSheet.create({
         flexWrap: 'wrap',
     },
     postName: {
-        fontSize: Typography.sizes.md,
-        fontWeight: '500',
-        color: Colors.text.primary,
+        ...TextStyles.cardTitle,
     },
     postMeta: {
-        fontSize: Typography.sizes.xs,
-        color: Colors.text.muted,
+        ...TextStyles.meta,
     },
     postSource: {
         fontSize: Typography.sizes.xs,
@@ -118,21 +117,19 @@ const styles = StyleSheet.create({
         paddingBottom: Spacing.sm,
     },
     postBody: {
-        fontSize: Typography.sizes.base,
-        color: Colors.text.secondary,
-        lineHeight: 19,
+        ...TextStyles.postBody,
     },
     postImage: {
         width: '100%',
         aspectRatio: 1.2,
-        borderRadius: Radius.md,
-        marginTop: Spacing.sm,
         backgroundColor: Colors.bg.surface,
     },
     postTags: {
         flexDirection: 'row',
         flexWrap: 'wrap',
         gap: Spacing.xs,
+        paddingHorizontal: Spacing.md,
+        paddingBottom: Spacing.sm,
         marginTop: Spacing.sm,
     },
     postTag: {
@@ -142,15 +139,15 @@ const styles = StyleSheet.create({
         paddingVertical: 4,
         backgroundColor: Colors.primarySubtle,
         color: Colors.primary,
-        fontSize: Typography.sizes.xs,
-        fontWeight: '700',
+        fontSize: TextStyles.caption.fontSize,
+        fontWeight: TextStyles.caption.fontWeight,
     },
     postFoot: {
         flexDirection: 'row',
         alignItems: 'center',
         gap: 14,
         paddingHorizontal: Spacing.md,
-        paddingVertical: 10,
+        paddingVertical: Spacing.md,
     },
     postAction: {
         flexDirection: 'row',
@@ -158,7 +155,7 @@ const styles = StyleSheet.create({
         gap: Spacing.xs,
     },
     postActionText: {
-        fontSize: Typography.sizes.sm,
+        ...TextStyles.secondary,
         color: Colors.text.muted,
     },
 });

@@ -8,7 +8,7 @@ import {
     View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Colors, Radius, Spacing, Typography } from '../../theme';
+import { Colors, ControlSizes, Radius, Spacing, TextStyles, Typography } from '../../theme';
 import { screenStandards } from '../../styles/screenStandards';
 import { PrimaryButton } from '../ui/PrimaryButton';
 import { ScreenHeader } from '../ui/ScreenHeader';
@@ -240,9 +240,7 @@ const styles = StyleSheet.create({
         gap: Spacing.sm,
     },
     sectionTitle: {
-        color: Colors.text.primary,
-        fontSize: Typography.sizes.md,
-        fontWeight: '700',
+        ...TextStyles.cardTitle,
     },
     wrap: {
         flexDirection: 'row',
@@ -250,6 +248,7 @@ const styles = StyleSheet.create({
         gap: Spacing.sm,
     },
     chip: {
+        minHeight: ControlSizes.chipMinHeight,
         paddingHorizontal: Spacing.md,
         paddingVertical: 10,
         borderRadius: Radius.pill,
@@ -262,9 +261,7 @@ const styles = StyleSheet.create({
         borderColor: Colors.primary,
     },
     chipText: {
-        color: Colors.text.secondary,
-        fontSize: Typography.sizes.sm,
-        fontWeight: '600',
+        ...TextStyles.chip,
     },
     chipTextSelected: {
         color: Colors.textOn.primary,
@@ -285,8 +282,8 @@ const styles = StyleSheet.create({
     },
     resetText: {
         color: Colors.primary,
-        fontSize: Typography.sizes.md,
-        fontWeight: '700',
+        fontSize: TextStyles.button.fontSize,
+        fontWeight: TextStyles.button.fontWeight,
     },
     applyButton: {
         flex: 1,

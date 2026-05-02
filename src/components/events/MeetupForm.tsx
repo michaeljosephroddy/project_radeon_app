@@ -3,7 +3,7 @@ import { Image } from 'react-native';
 import { Platform, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import * as api from '../../api/client';
-import { Colors, Radius, Spacing, Typography } from '../../theme';
+import { Colors, ControlSizes, Radius, Spacing, TextStyles, Typography } from '../../theme';
 import { InfoNoticeCard } from '../ui/InfoNoticeCard';
 import { PrimaryButton } from '../ui/PrimaryButton';
 import { TextField } from '../ui/TextField';
@@ -451,9 +451,7 @@ const styles = StyleSheet.create({
         fontWeight: '600',
     },
     helperText: {
-        color: Colors.text.secondary,
-        fontSize: Typography.sizes.sm,
-        lineHeight: 20,
+        ...TextStyles.secondary,
     },
     section: {
         gap: Spacing.sm,
@@ -464,9 +462,7 @@ const styles = StyleSheet.create({
         backgroundColor: Colors.bg.surface,
     },
     sectionTitle: {
-        color: Colors.text.primary,
-        fontSize: Typography.sizes.lg,
-        fontWeight: '700',
+        ...TextStyles.sectionTitle,
     },
     wrap: {
         flexDirection: 'row',
@@ -476,6 +472,7 @@ const styles = StyleSheet.create({
     chip: {
         paddingHorizontal: Spacing.md,
         paddingVertical: 10,
+        minHeight: ControlSizes.chipMinHeight,
         borderRadius: Radius.pill,
         borderWidth: 1,
         borderColor: Colors.border.default,
@@ -486,9 +483,7 @@ const styles = StyleSheet.create({
         borderColor: Colors.primary,
     },
     chipText: {
-        color: Colors.text.secondary,
-        fontSize: Typography.sizes.sm,
-        fontWeight: '600',
+        ...TextStyles.chip,
     },
     chipTextSelected: {
         color: Colors.primary,
@@ -505,9 +500,7 @@ const styles = StyleSheet.create({
         borderColor: Colors.secondary,
     },
     selectedHostChipText: {
-        color: Colors.text.primary,
-        fontSize: Typography.sizes.sm,
-        fontWeight: '700',
+        ...TextStyles.label,
     },
     selectedHostChipRemove: {
         color: Colors.text.secondary,
@@ -516,9 +509,7 @@ const styles = StyleSheet.create({
         opacity: 0.84,
     },
     emptyHostsText: {
-        color: Colors.text.secondary,
-        fontSize: Typography.sizes.sm,
-        lineHeight: 20,
+        ...TextStyles.secondary,
     },
     multilineField: {
         minHeight: 110,
@@ -533,21 +524,19 @@ const styles = StyleSheet.create({
         gap: Spacing.xs,
     },
     fieldLabel: {
-        color: Colors.text.primary,
-        fontSize: Typography.sizes.sm,
-        fontWeight: '700',
+        ...TextStyles.label,
     },
     pickerButton: {
         borderRadius: Radius.md,
         paddingHorizontal: Spacing.md,
         paddingVertical: 13,
+        minHeight: ControlSizes.inputMinHeight,
         borderWidth: 0.5,
         borderColor: Colors.border.default,
         backgroundColor: Colors.bg.surface,
     },
     pickerButtonText: {
-        color: Colors.text.primary,
-        fontSize: Typography.sizes.md,
+        ...TextStyles.input,
     },
     inlinePickerWrap: {
         borderRadius: Radius.lg,
@@ -566,22 +555,18 @@ const styles = StyleSheet.create({
         gap: 3,
     },
     switchTitle: {
-        color: Colors.text.primary,
-        fontSize: Typography.sizes.md,
-        fontWeight: '700',
+        ...TextStyles.bodyEmphasis,
     },
     switchSubtitle: {
-        color: Colors.text.secondary,
-        fontSize: Typography.sizes.sm,
-        lineHeight: 19,
+        ...TextStyles.secondary,
     },
     coverSection: {
         gap: Spacing.sm,
     },
     coverPreview: {
-        width: '100%',
-        height: 180,
-        borderRadius: Radius.lg,
+        alignSelf: 'stretch',
+        height: 220,
+        marginHorizontal: -(Spacing.md * 2),
         backgroundColor: Colors.bg.surface,
     },
     coverPlaceholder: {
@@ -596,9 +581,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: Spacing.lg,
     },
     coverPlaceholderText: {
-        color: Colors.text.secondary,
-        fontSize: Typography.sizes.sm,
-        lineHeight: 20,
+        ...TextStyles.secondary,
         textAlign: 'center',
     },
     coverActions: {
@@ -616,8 +599,8 @@ const styles = StyleSheet.create({
     },
     coverActionText: {
         color: Colors.primary,
-        fontSize: Typography.sizes.sm,
-        fontWeight: '700',
+        fontSize: TextStyles.chip.fontSize,
+        fontWeight: TextStyles.label.fontWeight,
     },
     coverSecondaryAction: {
         paddingHorizontal: Spacing.md,
@@ -628,9 +611,7 @@ const styles = StyleSheet.create({
         borderColor: Colors.border.default,
     },
     coverSecondaryActionText: {
-        color: Colors.text.secondary,
-        fontSize: Typography.sizes.sm,
-        fontWeight: '700',
+        ...TextStyles.chip,
     },
     footerActions: {
         gap: Spacing.sm,
@@ -639,7 +620,7 @@ const styles = StyleSheet.create({
     secondaryAction: {
         alignItems: 'center',
         justifyContent: 'center',
-        minHeight: 48,
+        minHeight: ControlSizes.fabMinHeight,
         borderRadius: Radius.md,
         borderWidth: 1,
         borderColor: Colors.primary,
@@ -648,8 +629,8 @@ const styles = StyleSheet.create({
     },
     secondaryActionText: {
         color: Colors.primary,
-        fontSize: Typography.sizes.md,
-        fontWeight: '700',
+        fontSize: TextStyles.button.fontSize,
+        fontWeight: TextStyles.button.fontWeight,
     },
     primaryAction: {
         width: '100%',
@@ -657,7 +638,7 @@ const styles = StyleSheet.create({
     destructiveAction: {
         alignItems: 'center',
         justifyContent: 'center',
-        minHeight: 48,
+        minHeight: ControlSizes.fabMinHeight,
         borderRadius: Radius.md,
         borderWidth: 1,
         borderColor: Colors.danger,
@@ -666,7 +647,7 @@ const styles = StyleSheet.create({
     },
     destructiveActionText: {
         color: Colors.danger,
-        fontSize: Typography.sizes.md,
-        fontWeight: '700',
+        fontSize: TextStyles.button.fontSize,
+        fontWeight: TextStyles.button.fontWeight,
     },
 });

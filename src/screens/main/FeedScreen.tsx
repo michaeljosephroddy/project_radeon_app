@@ -26,7 +26,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { resetInfiniteQueryToFirstPage } from '../../query/infiniteQueryPolicy';
 import { queryKeys } from '../../query/queryKeys';
 import { getListPerformanceProps } from '../../utils/listPerformance';
-import { Colors, Typography, Spacing, Radius, ContentInsets } from '../../theme';
+import { Colors, Typography, Spacing, Radius, ContentInsets, ControlSizes, TextStyles } from '../../theme';
 import { formatUsername } from '../../utils/identity';
 import { dedupeById } from '../../utils/list';
 import { formatReadableTimestamp } from '../../utils/date';
@@ -148,7 +148,7 @@ const ReshareCard = React.memo(function ReshareCard({
                 {resolvedImageSource ? (
                     <Image
                         source={{ uri: resolvedImageSource }}
-                        style={styles.postImage}
+                        style={styles.reshareImage}
                         resizeMode="cover"
                     />
                 ) : null}
@@ -966,23 +966,22 @@ const styles = StyleSheet.create({
     postHeadBody: { flex: 1, minWidth: 0 },
     postHead: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, padding: Spacing.md, paddingBottom: Spacing.sm },
     headActionButton: {
-        width: 30,
-        height: 30,
+        width: ControlSizes.iconButtonLarge,
+        height: ControlSizes.iconButtonLarge,
         alignItems: 'center',
         justifyContent: 'center',
     },
     postTitleRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, flexWrap: 'wrap' },
-    postName: { fontSize: Typography.sizes.md, fontWeight: '500', color: Colors.text.primary },
+    postName: { ...TextStyles.cardTitle },
     postContent: { paddingHorizontal: Spacing.md, paddingBottom: Spacing.sm },
-    postMeta: { fontSize: Typography.sizes.xs, color: Colors.text.muted },
+    postMeta: { ...TextStyles.meta },
     postSource: { fontSize: Typography.sizes.xs, fontWeight: '600', color: Colors.primary, marginTop: 2 },
     reshareLabel: { fontSize: Typography.sizes.xs, color: Colors.primary, fontWeight: '600' },
-    postBody: { fontSize: Typography.sizes.base, color: Colors.text.secondary, lineHeight: 19 },
-    postImage: {
-        width: '100%',
+    postBody: { ...TextStyles.postBody },
+    reshareImage: {
+        alignSelf: 'stretch',
         aspectRatio: 1.2,
-        borderRadius: Radius.md,
-        marginTop: Spacing.sm,
+        marginHorizontal: -Spacing.md,
         backgroundColor: Colors.bg.surface,
     },
     postTags: {

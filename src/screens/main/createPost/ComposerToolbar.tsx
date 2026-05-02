@@ -3,9 +3,10 @@ import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import {
   Colors,
+  ControlSizes,
   Radius,
   Spacing,
-  Typography,
+  TextStyles,
 } from "../../../theme";
 
 interface ComposerToolbarProps {
@@ -73,8 +74,8 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.bg.page,
   },
   iconButton: {
-    width: 40,
-    height: 40,
+    width: ControlSizes.iconButton,
+    height: ControlSizes.iconButton,
     borderRadius: Radius.pill,
     alignItems: "center",
     justifyContent: "center",
@@ -93,8 +94,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   badgeText: {
+    ...TextStyles.caption,
     color: Colors.textOn.primary,
-    fontSize: Typography.sizes.xs,
     fontWeight: "700",
   },
 });

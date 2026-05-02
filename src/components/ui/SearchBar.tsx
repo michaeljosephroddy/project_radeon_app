@@ -8,7 +8,7 @@ import {
     View,
     ViewStyle,
 } from 'react-native';
-import { Colors, Radius, Spacing, Typography } from '../../theme';
+import { Colors, ControlSizes, Radius, Spacing, TextStyles, Typography } from '../../theme';
 import { TextField } from './TextField';
 
 interface SearchFieldConfig extends Omit<TextInputProps, 'style'> {
@@ -85,17 +85,19 @@ const styles = StyleSheet.create({
         backgroundColor: Colors.bg.surface,
         borderRadius: Radius.md,
         gap: Spacing.sm,
+        minHeight: ControlSizes.inputMinHeight,
         paddingHorizontal: Spacing.md,
-        paddingVertical: 9,
+        paddingVertical: Spacing.xs,
     },
     pill: {
         backgroundColor: Colors.bg.page,
         borderRadius: Radius.pill,
         borderWidth: 1,
         borderColor: Colors.border.default,
+        minHeight: ControlSizes.inputMinHeight,
         paddingLeft: Spacing.md,
-        paddingRight: 6,
-        paddingVertical: 6,
+        paddingRight: Spacing.xs,
+        paddingVertical: 2,
     },
     leading: {
         alignItems: 'center',
@@ -109,11 +111,11 @@ const styles = StyleSheet.create({
     },
     inputCompact: {
         paddingVertical: 0,
-        fontSize: Typography.sizes.base,
+        fontSize: TextStyles.input.fontSize,
     },
     inputPill: {
-        paddingVertical: 6,
-        fontSize: Typography.sizes.sm,
+        paddingVertical: Spacing.xs,
+        fontSize: TextStyles.input.fontSize,
     },
     divider: {
         width: 1,
@@ -131,16 +133,16 @@ const styles = StyleSheet.create({
         color: Colors.primary,
     },
     actionPill: {
-        width: 38,
-        height: 38,
-        borderRadius: 19,
+        width: ControlSizes.chipMinHeight,
+        height: ControlSizes.chipMinHeight,
+        borderRadius: Radius.pill,
         alignItems: 'center',
         justifyContent: 'center',
         backgroundColor: Colors.text.primary,
         marginLeft: Spacing.sm,
     },
     actionPillText: {
-        fontSize: 18,
+        fontSize: Typography.sizes.lg,
         color: Colors.bg.page,
     },
 });

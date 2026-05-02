@@ -1,7 +1,7 @@
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { Avatar } from "../../../components/Avatar";
-import { Colors, Spacing, Typography } from "../../../theme";
+import { Spacing, TextStyles } from "../../../theme";
 import { formatUsername } from "../../../utils/identity";
 
 interface AuthorPillProps {
@@ -32,8 +32,6 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.sm,
   },
   handle: {
-    color: Colors.text.secondary,
-    fontSize: Typography.sizes.sm,
-    fontWeight: "600",
+    ...TextStyles.chip,
   },
 });

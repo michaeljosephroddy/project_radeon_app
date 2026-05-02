@@ -7,6 +7,25 @@ export const Header = {
     sideWidth: 40,
 };
 
+export const ControlHeights = {
+    compact: 36,
+    default: 44,
+    large: 48,
+    icon: 40,
+    iconLarge: 44,
+};
+
+export const ControlSizes = {
+    chipMinHeight: ControlHeights.compact,
+    segmentMinHeight: ControlHeights.compact + Spacing.xs,
+    buttonMinHeight: ControlHeights.default,
+    inputMinHeight: ControlHeights.default,
+    iconButton: ControlHeights.icon,
+    iconButtonLarge: ControlHeights.iconLarge,
+    fabMinHeight: ControlHeights.large,
+    listRowMinHeight: 52,
+};
+
 export const ContentInsets = {
     screenHorizontal: Spacing.md,
     authHorizontal: Spacing.xl,
@@ -15,12 +34,12 @@ export const ContentInsets = {
 };
 
 export const Composer = {
-    minHeight: 44,
+    minHeight: ControlHeights.default,
     maxHeight: 120,
     rowHorizontal: Spacing.sm,
     rowVertical: Spacing.sm,
     inputHorizontal: Spacing.md,
     inputVertical: Spacing.sm,
-    sendButtonSize: 42,
-    iconButtonSize: 34,
+    sendButtonSize: ControlHeights.icon,
+    iconButtonSize: ControlHeights.icon,
 };

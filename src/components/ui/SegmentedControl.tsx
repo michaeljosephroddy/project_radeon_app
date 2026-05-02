@@ -1,6 +1,6 @@
 import React from 'react';
 import { StyleProp, StyleSheet, Text, TouchableOpacity, View, ViewStyle } from 'react-native';
-import { Colors, Radius, Spacing, Typography } from '../../theme';
+import { Colors, ControlSizes, Radius, Spacing, TextStyles, Typography } from '../../theme';
 
 export interface SegmentedControlItem {
     key: string;
@@ -104,8 +104,10 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: Colors.border.default,
         borderRadius: Radius.pill,
-        paddingVertical: 10,
+        minHeight: ControlSizes.segmentMinHeight,
+        paddingVertical: Spacing.sm,
         alignItems: 'center',
+        justifyContent: 'center',
         backgroundColor: Colors.bg.surface,
     },
     content: {
@@ -114,8 +116,8 @@ const styles = StyleSheet.create({
         gap: Spacing.xs,
     },
     label: {
-        fontSize: Typography.sizes.sm,
-        fontWeight: '600',
+        fontSize: TextStyles.chip.fontSize,
+        fontWeight: TextStyles.label.fontWeight,
         color: Colors.text.secondary,
     },
     badge: {

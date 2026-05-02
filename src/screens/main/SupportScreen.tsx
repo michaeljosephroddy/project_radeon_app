@@ -28,7 +28,7 @@ import { useMySupportRequests, useSupportRequests } from '../../hooks/queries/us
 import { resetInfiniteQueryToFirstPage } from '../../query/infiniteQueryPolicy';
 import { queryKeys } from '../../query/queryKeys';
 import { screenStandards } from '../../styles/screenStandards';
-import { Colors, ContentInsets, Radius, Spacing, Typography } from '../../theme';
+import { Colors, ContentInsets, ControlSizes, Radius, Spacing, TextStyles, Typography } from '../../theme';
 import { formatUsername } from '../../utils/identity';
 import { dedupeById } from '../../utils/list';
 import { getListPerformanceProps } from '../../utils/listPerformance';
@@ -946,7 +946,7 @@ const styles = StyleSheet.create({
     cardHead: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
     cardHeadBody: { flex: 1 },
     cardTitleRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, flexWrap: 'wrap' },
-    cardName: { fontSize: Typography.sizes.md, fontWeight: '600', color: Colors.text.primary },
+    cardName: { ...TextStyles.cardTitle },
     badgeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs, marginTop: Spacing.xs },
     badge: {
         backgroundColor: Colors.bg.page,
@@ -956,7 +956,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: Spacing.sm,
         paddingVertical: 4,
     },
-    badgeText: { fontSize: Typography.sizes.xs, fontWeight: '700', color: Colors.text.secondary },
+    badgeText: { ...TextStyles.caption, color: Colors.text.secondary },
     badgeUrgent: { backgroundColor: Colors.dangerSubtle, borderColor: Colors.dangerSubtle },
     badgeUrgentText: { color: Colors.danger },
     priorityBadge: {
@@ -965,8 +965,8 @@ const styles = StyleSheet.create({
         paddingHorizontal: Spacing.sm,
         paddingVertical: 4,
     },
-    priorityBadgeText: { fontSize: Typography.sizes.xs, fontWeight: '700', color: Colors.primary },
-    cardMeta: { fontSize: Typography.sizes.sm, color: Colors.text.muted, marginTop: 2 },
+    priorityBadgeText: { fontSize: TextStyles.caption.fontSize, fontWeight: TextStyles.caption.fontWeight, color: Colors.primary },
+    cardMeta: { ...TextStyles.meta, marginTop: 2 },
     topicRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs, marginTop: Spacing.md },
     topicChip: {
         borderRadius: Radius.pill,
@@ -974,44 +974,42 @@ const styles = StyleSheet.create({
         paddingHorizontal: Spacing.sm,
         paddingVertical: 4,
     },
-    topicChipText: { fontSize: Typography.sizes.xs, color: Colors.text.secondary, fontWeight: '600' },
+    topicChipText: { ...TextStyles.caption, color: Colors.text.secondary },
     cardBody: {
-        fontSize: Typography.sizes.md,
+        ...TextStyles.body,
         color: Colors.text.primary,
-        lineHeight: 22,
         marginTop: Spacing.md,
     },
     cardFooterText: {
-        fontSize: Typography.sizes.sm,
-        color: Colors.text.muted,
+        ...TextStyles.meta,
         marginTop: Spacing.md,
     },
     actions: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm, marginTop: Spacing.md },
     actionPrimary: {
         backgroundColor: Colors.primary,
         borderRadius: Radius.pill,
+        minHeight: ControlSizes.chipMinHeight,
         paddingHorizontal: Spacing.md,
         paddingVertical: 10,
     },
-    actionPrimaryText: { color: Colors.textOn.primary, fontWeight: '700', fontSize: Typography.sizes.sm },
+    actionPrimaryText: { ...TextStyles.button, fontSize: TextStyles.chip.fontSize },
     actionSecondary: {
         borderRadius: Radius.pill,
         borderWidth: 1,
         borderColor: Colors.border.default,
+        minHeight: ControlSizes.chipMinHeight,
         paddingHorizontal: Spacing.md,
         paddingVertical: 10,
         backgroundColor: Colors.bg.surface,
     },
-    actionSecondaryText: { color: Colors.text.secondary, fontWeight: '700', fontSize: Typography.sizes.sm },
+    actionSecondaryText: { ...TextStyles.chip, fontWeight: TextStyles.label.fontWeight },
     actionDisabled: { opacity: 0.6 },
     section: { marginTop: Spacing.md },
     sectionTitle: {
-        fontSize: Typography.sizes.lg,
-        fontWeight: '700',
-        color: Colors.text.primary,
+        ...TextStyles.sectionTitle,
         marginBottom: Spacing.sm,
     },
-    mutedText: { color: Colors.text.muted, fontSize: Typography.sizes.sm },
+    mutedText: { ...TextStyles.secondary, color: Colors.text.muted },
     offerRow: {
         flexDirection: 'row',
         gap: Spacing.sm,
@@ -1020,24 +1018,26 @@ const styles = StyleSheet.create({
         borderBottomColor: Colors.border.subtle,
     },
     offerBody: { flex: 1 },
-    offerName: { fontSize: Typography.sizes.sm, fontWeight: '700', color: Colors.text.primary },
+    offerName: { ...TextStyles.label },
     offerActions: { gap: Spacing.xs, alignItems: 'flex-end' },
-    offerStatus: { color: Colors.text.muted, fontSize: Typography.sizes.xs, fontWeight: '700' },
+    offerStatus: { ...TextStyles.caption },
     compactPrimary: {
         backgroundColor: Colors.primary,
         borderRadius: Radius.pill,
+        minHeight: ControlSizes.chipMinHeight,
         paddingHorizontal: Spacing.sm,
         paddingVertical: 7,
     },
-    compactPrimaryText: { color: Colors.textOn.primary, fontWeight: '700', fontSize: Typography.sizes.xs },
+    compactPrimaryText: { ...TextStyles.button, fontSize: TextStyles.caption.fontSize },
     compactSecondary: {
         borderRadius: Radius.pill,
         borderWidth: 1,
         borderColor: Colors.border.default,
+        minHeight: ControlSizes.chipMinHeight,
         paddingHorizontal: Spacing.sm,
         paddingVertical: 7,
     },
-    compactSecondaryText: { color: Colors.text.secondary, fontWeight: '700', fontSize: Typography.sizes.xs },
+    compactSecondaryText: { ...TextStyles.caption, color: Colors.text.secondary },
     replyRow: {
         flexDirection: 'row',
         gap: Spacing.sm,
@@ -1046,13 +1046,12 @@ const styles = StyleSheet.create({
         borderBottomColor: Colors.border.subtle,
     },
     replyBody: { flex: 1 },
-    replyText: { color: Colors.text.primary, fontSize: Typography.sizes.sm, lineHeight: 20, marginTop: 4 },
+    replyText: { ...TextStyles.secondary, color: Colors.text.primary, marginTop: 4 },
     replyComposer: { marginTop: Spacing.lg, gap: Spacing.sm },
     replyInput: { minHeight: 88, textAlignVertical: 'top' },
     detailButton: { marginTop: Spacing.md },
     formLabel: {
-        fontSize: Typography.sizes.sm,
-        fontWeight: '700',
+        ...TextStyles.label,
         color: Colors.text.secondary,
         marginBottom: Spacing.sm,
         marginTop: Spacing.md,
@@ -1067,7 +1066,7 @@ const styles = StyleSheet.create({
         backgroundColor: Colors.bg.surface,
     },
     selectorChipActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
-    selectorChipText: { fontSize: Typography.sizes.sm, color: Colors.text.secondary },
+    selectorChipText: { ...TextStyles.chip },
     selectorChipTextActive: { color: Colors.textOn.primary, fontWeight: '700' },
     formInput: { marginTop: Spacing.md },
     inputMultiline: { minHeight: 110, textAlignVertical: 'top' },

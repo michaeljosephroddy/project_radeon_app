@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
@@ -14,16 +14,19 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as api from '../../api/client';
+import { CreatePostFab } from '../../components/posts/CreatePostFab';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { SearchBar } from '../../components/ui/SearchBar';
+import { ScrollToTopButton } from '../../components/ui/ScrollToTopButton';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
-import { TextField } from '../../components/ui/TextField';
-import { useCreateGroupMutation, useGroups, useJoinGroupMutation } from '../../hooks/queries/useGroups';
-import { Colors, ContentInsets, Radius, Spacing, Typography, getAvatarColors } from '../../theme';
+import { useGroups, useJoinGroupMutation } from '../../hooks/queries/useGroups';
+import { useScrollToTopButton } from '../../hooks/useScrollToTopButton';
+import { Colors, ContentInsets, ControlSizes, Radius, Spacing, TextStyles, getAvatarColors } from '../../theme';
 
 interface GroupsScreenProps {
     isActive: boolean;
     onOpenGroup: (groupId: string) => void;
+    onOpenCreateGroup: () => void;
 }
 
 type GroupScope = 'discover' | 'joined';
@@ -68,7 +71,6 @@ interface GroupSearchRowProps {
     activeFilterCount: number;
     onOpenFilters: () => void;
     onQueryChange: (query: string) => void;
-    onToggleCreating: () => void;
 }
 
 function useDebounce<T>(value: T, delay: number): T {
@@ -86,7 +88,6 @@ const GroupSearchRow = React.memo(function GroupSearchRow({
     activeFilterCount,
     onOpenFilters,
     onQueryChange,
-    onToggleCreating,
 }: GroupSearchRowProps): React.ReactElement {
     const [draftQuery, setDraftQuery] = useState('');
     const debouncedQuery = useDebounce(draftQuery.trim(), 250);
@@ -106,8 +107,6 @@ const GroupSearchRow = React.memo(function GroupSearchRow({
                     returnKeyType: 'search',
                 }}
                 leading={<Ionicons name="search-outline" size={18} color={Colors.text.muted} />}
-                actionLabel="+"
-                onActionPress={onToggleCreating}
             />
             <TouchableOpacity style={styles.filterButton} onPress={onOpenFilters} activeOpacity={0.86}>
                 <Ionicons name="options-outline" size={20} color={Colors.text.primary} />
@@ -121,7 +120,9 @@ const GroupSearchRow = React.memo(function GroupSearchRow({
     );
 });
 
-export function GroupsScreen({ isActive, onOpenGroup }: GroupsScreenProps): React.ReactElement {
+export function GroupsScreen({ isActive, onOpenGroup, onOpenCreateGroup }: GroupsScreenProps): React.ReactElement {
+    const listRef = useRef<FlatList<api.Group> | null>(null);
+    const scrollToTop = useScrollToTopButton({ threshold: 520 });
     const [query, setQuery] = useState('');
     const [scope, setScope] = useState<GroupScope>('discover');
     const [activeChip, setActiveChip] = useState<GroupFilterChip | null>(null);
@@ -129,12 +130,7 @@ export function GroupsScreen({ isActive, onOpenGroup }: GroupsScreenProps): Reac
     const [country, setCountry] = useState('');
     const [draftCountry, setDraftCountry] = useState('');
     const [filterOpen, setFilterOpen] = useState(false);
-    const [creating, setCreating] = useState(false);
-    const [newGroupName, setNewGroupName] = useState('');
-    const [newGroupDescription, setNewGroupDescription] = useState('');
-    const [newGroupVisibility, setNewGroupVisibility] = useState<api.GroupVisibility>('public');
     const joinMutation = useJoinGroupMutation();
-    const createGroupMutation = useCreateGroupMutation();
     const activeFilterCount = (activeChip ? 1 : 0) + (country ? 1 : 0);
 
     const openFilters = useCallback((): void => {
@@ -145,10 +141,6 @@ export function GroupsScreen({ isActive, onOpenGroup }: GroupsScreenProps): Reac
 
     const handleSearchChange = useCallback((nextQuery: string): void => {
         setQuery(nextQuery);
-    }, []);
-
-    const handleToggleCreating = useCallback((): void => {
-        setCreating(current => !current);
     }, []);
 
     const applyFilters = (): void => {
@@ -193,30 +185,6 @@ export function GroupsScreen({ isActive, onOpenGroup }: GroupsScreenProps): Reac
         }
     };
 
-    const handleCreateGroup = async (): Promise<void> => {
-        const name = newGroupName.trim();
-        if (name.length < 3) return;
-        try {
-            const group = await createGroupMutation.mutateAsync({
-                name,
-                description: newGroupDescription.trim() || null,
-                visibility: newGroupVisibility,
-                tags: activeChip?.tag ? [activeChip.tag] : [],
-                recovery_pathways: activeChip?.recoveryPathway ? [activeChip.recoveryPathway] : [],
-            });
-            setCreating(false);
-            setNewGroupName('');
-            setNewGroupDescription('');
-            setNewGroupVisibility('public');
-            onOpenGroup(group.id);
-        } catch (e: unknown) {
-            Alert.alert(
-                'Could not create group',
-                e instanceof Error ? e.message : 'Something went wrong.',
-            );
-        }
-    };
-
     const renderItem = ({ item }: { item: api.Group }): React.ReactElement => (
         <GroupCard
             group={item}
@@ -229,6 +197,7 @@ export function GroupsScreen({ isActive, onOpenGroup }: GroupsScreenProps): Reac
     return (
         <View style={styles.container}>
             <FlatList
+                ref={listRef}
                 data={groups}
                 keyExtractor={item => item.id}
                 renderItem={renderItem}
@@ -239,57 +208,7 @@ export function GroupsScreen({ isActive, onOpenGroup }: GroupsScreenProps): Reac
                             activeFilterCount={activeFilterCount}
                             onOpenFilters={openFilters}
                             onQueryChange={handleSearchChange}
-                            onToggleCreating={handleToggleCreating}
                         />
-                        {creating ? (
-                            <View style={styles.createPanel}>
-                                <Text style={styles.createTitle}>Create group</Text>
-                                <TextField
-                                    value={newGroupName}
-                                    onChangeText={setNewGroupName}
-                                    placeholder="Group name"
-                                />
-                                <TextField
-                                    value={newGroupDescription}
-                                    onChangeText={setNewGroupDescription}
-                                    placeholder="Description"
-                                    multiline
-                                    style={styles.createDescription}
-                                />
-                                <SegmentedControl
-                                    items={[
-                                        { key: 'public', label: 'Public' },
-                                        { key: 'approval_required', label: 'Approval' },
-                                        { key: 'invite_only', label: 'Invite' },
-                                    ]}
-                                    activeKey={newGroupVisibility}
-                                    onChange={(next) => setNewGroupVisibility(next as api.GroupVisibility)}
-                                    style={styles.createVisibility}
-                                />
-                                <View style={styles.createActions}>
-                                    <TouchableOpacity
-                                        style={styles.cancelButton}
-                                        onPress={() => setCreating(false)}
-                                    >
-                                        <Text style={styles.cancelButtonText}>Cancel</Text>
-                                    </TouchableOpacity>
-                                    <TouchableOpacity
-                                        style={[
-                                            styles.createButton,
-                                            (newGroupName.trim().length < 3 || createGroupMutation.isPending) && styles.createButtonDisabled,
-                                        ]}
-                                        onPress={handleCreateGroup}
-                                        disabled={newGroupName.trim().length < 3 || createGroupMutation.isPending}
-                                    >
-                                        {createGroupMutation.isPending ? (
-                                            <ActivityIndicator size="small" color={Colors.textOn.primary} />
-                                        ) : (
-                                            <Text style={styles.createButtonText}>Create</Text>
-                                        )}
-                                    </TouchableOpacity>
-                                </View>
-                            </View>
-                        ) : null}
                         <SegmentedControl
                             items={[
                                 { key: 'discover', label: 'Discover' },
@@ -326,6 +245,17 @@ export function GroupsScreen({ isActive, onOpenGroup }: GroupsScreenProps): Reac
                         groupsQuery.fetchNextPage();
                     }
                 }}
+                onScroll={scrollToTop.onScroll}
+                scrollEventThrottle={16}
+            />
+            {isActive && scrollToTop.isVisible ? (
+                <ScrollToTopButton onPress={() => listRef.current?.scrollToOffset({ offset: 0, animated: true })} />
+            ) : null}
+            <CreatePostFab
+                visible={isActive && scope === 'discover'}
+                bottom={20}
+                label="Group"
+                onPress={onOpenCreateGroup}
             />
             {groupsQuery.isLoading ? (
                 <View style={styles.loadingOverlay}>
@@ -546,8 +476,8 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     filterButton: {
-        width: 48,
-        height: 48,
+        width: ControlSizes.inputMinHeight,
+        height: ControlSizes.inputMinHeight,
         alignItems: 'center',
         justifyContent: 'center',
         borderRadius: Radius.md,
@@ -568,67 +498,8 @@ const styles = StyleSheet.create({
         paddingHorizontal: 4,
     },
     filterBadgeText: {
-        fontSize: 10,
-        lineHeight: 12,
+        ...TextStyles.badge,
         fontWeight: '800',
-        color: Colors.textOn.primary,
-    },
-    createPanel: {
-        borderWidth: 1,
-        borderColor: Colors.border.default,
-        borderRadius: Radius.md,
-        backgroundColor: Colors.bg.raised,
-        padding: Spacing.md,
-        gap: Spacing.sm,
-    },
-    createTitle: {
-        fontSize: Typography.sizes.base,
-        fontWeight: '800',
-        color: Colors.text.primary,
-    },
-    createDescription: {
-        minHeight: 74,
-        textAlignVertical: 'top',
-    },
-    createVisibility: {
-        marginBottom: 0,
-    },
-    createActions: {
-        flexDirection: 'row',
-        justifyContent: 'flex-end',
-        gap: Spacing.sm,
-    },
-    cancelButton: {
-        minHeight: 38,
-        alignItems: 'center',
-        justifyContent: 'center',
-        borderRadius: Radius.pill,
-        borderWidth: 1,
-        borderColor: Colors.border.default,
-        paddingHorizontal: Spacing.md,
-        backgroundColor: Colors.bg.surface,
-    },
-    cancelButtonText: {
-        fontSize: Typography.sizes.sm,
-        fontWeight: '700',
-        color: Colors.text.secondary,
-    },
-    createButton: {
-        minHeight: 38,
-        minWidth: 86,
-        alignItems: 'center',
-        justifyContent: 'center',
-        borderRadius: Radius.pill,
-        paddingHorizontal: Spacing.md,
-        backgroundColor: Colors.primary,
-    },
-    createButtonDisabled: {
-        opacity: 0.5,
-    },
-    createButtonText: {
-        fontSize: Typography.sizes.sm,
-        fontWeight: '800',
-        color: Colors.textOn.primary,
     },
     filterScreen: {
         flex: 1,
@@ -645,17 +516,16 @@ const styles = StyleSheet.create({
     },
     filterHeaderButton: {
         minWidth: 54,
-        minHeight: 40,
+        minHeight: ControlSizes.iconButton,
         alignItems: 'center',
         justifyContent: 'center',
     },
     filterTitle: {
-        fontSize: Typography.sizes.lg,
+        ...TextStyles.sectionTitle,
         fontWeight: '800',
-        color: Colors.text.primary,
     },
     resetText: {
-        fontSize: Typography.sizes.sm,
+        ...TextStyles.chip,
         fontWeight: '800',
         color: Colors.primary,
     },
@@ -671,9 +541,8 @@ const styles = StyleSheet.create({
         gap: Spacing.sm,
     },
     filterSectionLabel: {
-        fontSize: Typography.sizes.sm,
+        ...TextStyles.label,
         fontWeight: '800',
-        color: Colors.text.primary,
     },
     filterOptions: {
         flexDirection: 'row',
@@ -685,17 +554,16 @@ const styles = StyleSheet.create({
         borderColor: Colors.border.default,
         backgroundColor: Colors.bg.raised,
         borderRadius: Radius.pill,
+        minHeight: ControlSizes.iconButton,
         paddingHorizontal: Spacing.md,
-        paddingVertical: 10,
+        paddingVertical: Spacing.sm,
     },
     filterChipSelected: {
         borderColor: Colors.primary,
         backgroundColor: Colors.primary,
     },
     filterChipText: {
-        fontSize: Typography.sizes.sm,
-        fontWeight: '600',
-        color: Colors.text.secondary,
+        ...TextStyles.chip,
     },
     filterChipTextSelected: {
         color: Colors.textOn.primary,
@@ -706,16 +574,16 @@ const styles = StyleSheet.create({
         padding: Spacing.md,
     },
     applyButton: {
-        minHeight: 46,
+        minHeight: ControlSizes.buttonMinHeight,
         alignItems: 'center',
         justifyContent: 'center',
         borderRadius: Radius.pill,
         backgroundColor: Colors.primary,
     },
     applyButtonText: {
-        fontSize: Typography.sizes.sm,
+        ...TextStyles.button,
+        fontSize: TextStyles.chip.fontSize,
         fontWeight: '800',
-        color: Colors.textOn.primary,
     },
     card: {
         borderBottomWidth: 1,
@@ -735,7 +603,7 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
     },
     groupMarkText: {
-        fontSize: Typography.sizes.base,
+        ...TextStyles.bodyEmphasis,
         fontWeight: '800',
     },
     cardCopy: {
@@ -758,14 +626,10 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     groupName: {
-        fontSize: Typography.sizes.md,
-        fontWeight: '500',
-        color: Colors.text.primary,
+        ...TextStyles.cardTitle,
     },
     description: {
-        fontSize: Typography.sizes.sm,
-        lineHeight: 19,
-        color: Colors.text.secondary,
+        ...TextStyles.postBody,
     },
     metaRow: {
         flexDirection: 'row',
@@ -774,8 +638,7 @@ const styles = StyleSheet.create({
         gap: Spacing.xs,
     },
     metaText: {
-        fontSize: Typography.sizes.xs,
-        color: Colors.text.muted,
+        ...TextStyles.meta,
     },
     locationMeta: {
         flexShrink: 1,
@@ -783,12 +646,11 @@ const styles = StyleSheet.create({
         maxWidth: '100%',
     },
     metaDot: {
-        fontSize: Typography.sizes.xs,
-        color: Colors.text.muted,
+        ...TextStyles.meta,
     },
     joinButton: {
-        minHeight: 32,
-        minWidth: 70,
+        minHeight: ControlSizes.chipMinHeight,
+        minWidth: 78,
         alignItems: 'center',
         justifyContent: 'center',
         borderRadius: Radius.pill,
@@ -799,12 +661,11 @@ const styles = StyleSheet.create({
         opacity: 0.5,
     },
     joinButtonText: {
-        fontSize: Typography.sizes.xs,
-        fontWeight: '700',
-        color: Colors.textOn.primary,
+        ...TextStyles.button,
+        fontSize: TextStyles.chip.fontSize,
     },
     memberPill: {
-        minHeight: 32,
+        minHeight: ControlSizes.chipMinHeight,
         flexDirection: 'row',
         alignItems: 'center',
         gap: Spacing.xs,
@@ -813,12 +674,12 @@ const styles = StyleSheet.create({
         backgroundColor: Colors.successSubtle,
     },
     memberPillText: {
-        fontSize: Typography.sizes.xs,
-        fontWeight: '700',
+        ...TextStyles.chip,
         color: Colors.text.primary,
+        fontWeight: '700',
     },
     pendingPill: {
-        minHeight: 32,
+        minHeight: ControlSizes.chipMinHeight,
         alignItems: 'center',
         justifyContent: 'center',
         borderRadius: Radius.pill,
@@ -826,7 +687,7 @@ const styles = StyleSheet.create({
         backgroundColor: Colors.warningSubtle,
     },
     pendingPillText: {
-        fontSize: Typography.sizes.xs,
+        ...TextStyles.chip,
         fontWeight: '700',
         color: Colors.warning,
     },
@@ -837,7 +698,7 @@ const styles = StyleSheet.create({
         backgroundColor: Colors.primarySubtle,
     },
     visibilityPillText: {
-        fontSize: Typography.sizes.xs,
+        ...TextStyles.caption,
         fontWeight: '700',
         color: Colors.primary,
     },

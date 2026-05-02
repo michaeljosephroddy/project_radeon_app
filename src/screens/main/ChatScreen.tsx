@@ -10,7 +10,7 @@ import {
 import { Avatar } from '../../components/Avatar';
 import * as api from '../../api/client';
 import { useAuth } from '../../hooks/useAuth';
-import { Colors, Radius, Spacing, Typography } from '../../theme';
+import { Colors, Radius, Spacing, TextStyles, Typography } from '../../theme';
 import { formatUsername } from '../../utils/identity';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -342,20 +342,15 @@ const styles = StyleSheet.create({
         letterSpacing: 0.8,
     },
     supportContextTitle: {
-        fontSize: Typography.sizes.md,
-        fontWeight: '600',
-        color: Colors.text.primary,
+        ...TextStyles.cardTitle,
         marginTop: 4,
     },
     supportContextBody: {
-        fontSize: Typography.sizes.sm,
-        color: Colors.text.secondary,
-        lineHeight: 19,
+        ...TextStyles.secondary,
         marginTop: 6,
     },
     supportContextMeta: {
-        fontSize: Typography.sizes.sm,
-        color: Colors.text.muted,
+        ...TextStyles.meta,
         marginTop: 8,
     },
     supportPendingPanel: {
@@ -365,14 +360,10 @@ const styles = StyleSheet.create({
         paddingTop: Spacing.md,
     },
     supportPendingTitle: {
-        fontSize: Typography.sizes.sm,
-        fontWeight: '600',
-        color: Colors.text.primary,
+        ...TextStyles.label,
     },
     supportPendingBody: {
-        fontSize: Typography.sizes.sm,
-        color: Colors.text.secondary,
-        lineHeight: 19,
+        ...TextStyles.secondary,
         marginTop: 4,
     },
     messagesContainer: {
@@ -393,8 +384,7 @@ const styles = StyleSheet.create({
         paddingVertical: Spacing.md,
     },
     lockedToolbarText: {
-        fontSize: Typography.sizes.sm,
-        color: Colors.text.secondary,
+        ...TextStyles.secondary,
         textAlign: 'center',
     },
     center: {
@@ -404,14 +394,11 @@ const styles = StyleSheet.create({
         paddingHorizontal: Spacing.lg,
     },
     errorTitle: {
-        fontSize: Typography.sizes.lg,
-        fontWeight: '600',
-        color: Colors.text.primary,
+        ...TextStyles.sectionTitle,
     },
     errorBody: {
         marginTop: Spacing.xs,
-        fontSize: Typography.sizes.base,
-        color: Colors.text.secondary,
+        ...TextStyles.secondary,
         textAlign: 'center',
     },
     retryButton: {
@@ -422,9 +409,8 @@ const styles = StyleSheet.create({
         paddingVertical: Spacing.sm,
     },
     retryButtonText: {
-        fontSize: Typography.sizes.sm,
-        fontWeight: '600',
-        color: Colors.textOn.primary,
+        ...TextStyles.button,
+        fontSize: TextStyles.chip.fontSize,
     },
     flatMessageRow: {
         flexDirection: 'row',
@@ -439,14 +425,13 @@ const styles = StyleSheet.create({
         paddingVertical: 2,
     },
     flatBubbleText: {
+        ...TextStyles.sectionTitle,
         color: Colors.text.primary,
-        fontSize: Typography.sizes.lg,
         lineHeight: 22,
         textAlign: 'left',
     },
     timeLabel: {
-        color: Colors.text.muted,
-        fontSize: Typography.sizes.xs,
+        ...TextStyles.meta,
         marginTop: 3,
     },
     dayContainer: {
@@ -461,8 +446,8 @@ const styles = StyleSheet.create({
         paddingVertical: Spacing.xs,
     },
     dayText: {
+        ...TextStyles.chip,
         color: Colors.text.secondary,
-        fontSize: Typography.sizes.sm,
         fontWeight: Typography.weights.medium,
     },
     systemMessageWrap: {
@@ -481,8 +466,8 @@ const styles = StyleSheet.create({
     },
     systemMessageText: {
         color: Colors.textOn.warning,
-        fontSize: Typography.sizes.sm,
-        fontWeight: Typography.weights.semibold,
+        fontSize: TextStyles.chip.fontSize,
+        fontWeight: TextStyles.chip.fontWeight,
         lineHeight: 18,
         textAlign: 'center',
     },

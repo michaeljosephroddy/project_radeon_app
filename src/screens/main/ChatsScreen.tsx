@@ -22,7 +22,7 @@ import { resetInfiniteQueryToFirstPage } from '../../query/infiniteQueryPolicy';
 import { queryKeys } from '../../query/queryKeys';
 import { dedupeById } from '../../utils/list';
 import { getListPerformanceProps } from '../../utils/listPerformance';
-import { Colors, ContentInsets, Typography, Spacing, Radius } from '../../theme';
+import { Colors, ContentInsets, Typography, Spacing, Radius, TextStyles } from '../../theme';
 import { formatUsername } from '../../utils/identity';
 
 // Formats chat timestamps into short labels that fit the list layout.
@@ -382,7 +382,7 @@ const styles = StyleSheet.create({
         borderWidth: 1.5,
         borderColor: Colors.bg.page,
     },
-    groupBadgeText: { fontSize: 8, color: Colors.primary, fontWeight: '600' },
+    groupBadgeText: { ...TextStyles.avatarBadge },
     meta: { flex: 1, minWidth: 0 },
     metaTop: { flexDirection: 'row', alignItems: 'center', gap: 5 },
     name: { fontSize: Typography.sizes.md, fontWeight: '500', color: Colors.text.primary },
@@ -392,7 +392,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: 6,
         paddingVertical: 1,
     },
-    groupPillText: { fontSize: 9, color: Colors.primary, fontWeight: '500' },
+    groupPillText: { ...TextStyles.badge, color: Colors.primary, fontWeight: '500' },
     pendingPill: {
         backgroundColor: Colors.primary,
         borderRadius: Radius.pill,

@@ -16,7 +16,7 @@ import { MeetupEventTypeBadge } from '../../components/events/MeetupEventTypeBad
 import { EmptyState } from '../../components/ui/EmptyState';
 import { PrimaryButton } from '../../components/ui/PrimaryButton';
 import { ScreenHeader } from '../../components/ui/ScreenHeader';
-import { Colors, ContentInsets, Radius, Spacing, Typography } from '../../theme';
+import { Colors, ContentInsets, Radius, Spacing, TextStyles, Typography } from '../../theme';
 import { screenStandards } from '../../styles/screenStandards';
 
 interface MeetupDetailScreenProps {
@@ -314,9 +314,8 @@ const styles = StyleSheet.create({
         paddingHorizontal: Spacing.lg,
     },
     loadingText: {
+        ...TextStyles.bodyEmphasis,
         color: Colors.text.secondary,
-        fontSize: Typography.sizes.md,
-        fontWeight: '600',
     },
     heroCard: {
         backgroundColor: Colors.bg.page,
@@ -346,14 +345,12 @@ const styles = StyleSheet.create({
         gap: 6,
     },
     heroTitle: {
-        color: Colors.text.primary,
+        ...TextStyles.displayTitle,
         fontSize: Typography.sizes.xxl,
-        fontWeight: '800',
     },
     heroMeta: {
+        ...TextStyles.caption,
         color: Colors.text.secondary,
-        fontSize: Typography.sizes.sm,
-        fontWeight: '700',
     },
     heroBadgeRow: {
         flexDirection: 'row',
@@ -371,18 +368,14 @@ const styles = StyleSheet.create({
     },
     categoryPillText: {
         color: Colors.primary,
-        fontSize: Typography.sizes.xs,
-        fontWeight: '700',
+        fontSize: TextStyles.caption.fontSize,
+        fontWeight: TextStyles.caption.fontWeight,
     },
     heroSchedule: {
-        color: Colors.text.secondary,
-        fontSize: Typography.sizes.sm,
-        lineHeight: 20,
+        ...TextStyles.secondary,
     },
     heroLocation: {
-        color: Colors.text.primary,
-        fontSize: Typography.sizes.md,
-        fontWeight: '600',
+        ...TextStyles.bodyEmphasis,
     },
     statusPill: {
         alignSelf: 'flex-start',
@@ -394,8 +387,8 @@ const styles = StyleSheet.create({
     },
     statusPillText: {
         color: Colors.textOn.warning,
-        fontSize: Typography.sizes.xs,
-        fontWeight: '800',
+        fontSize: TextStyles.caption.fontSize,
+        fontWeight: TextStyles.label.fontWeight,
     },
     sectionCard: {
         marginTop: Spacing.md,
@@ -408,19 +401,14 @@ const styles = StyleSheet.create({
         gap: Spacing.sm,
     },
     sectionTitle: {
-        color: Colors.text.primary,
-        fontSize: Typography.sizes.lg,
-        fontWeight: '700',
+        ...TextStyles.sectionTitle,
     },
     bodyText: {
+        ...TextStyles.body,
         color: Colors.text.primary,
-        fontSize: Typography.sizes.md,
-        lineHeight: 22,
     },
     subtleText: {
-        color: Colors.text.secondary,
-        fontSize: Typography.sizes.sm,
-        lineHeight: 19,
+        ...TextStyles.secondary,
     },
     peopleColumn: {
         gap: Spacing.sm,
@@ -436,12 +424,9 @@ const styles = StyleSheet.create({
         gap: 2,
     },
     personName: {
-        color: Colors.text.primary,
-        fontSize: Typography.sizes.md,
-        fontWeight: '700',
+        ...TextStyles.bodyEmphasis,
     },
     personMeta: {
-        color: Colors.text.secondary,
-        fontSize: Typography.sizes.sm,
+        ...TextStyles.secondary,
     },
 });

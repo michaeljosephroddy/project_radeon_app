@@ -1,7 +1,7 @@
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors, Radius, Spacing, Typography } from '../../theme';
+import { Colors, ControlSizes, Radius, Spacing, TextStyles } from '../../theme';
 
 export interface CreatePostFabProps {
     visible: boolean;
@@ -37,7 +37,7 @@ const styles = StyleSheet.create({
     createFab: {
         position: 'absolute',
         alignSelf: 'center',
-        minHeight: 44,
+        minHeight: ControlSizes.fabMinHeight,
         borderRadius: Radius.pill,
         backgroundColor: Colors.primary,
         paddingHorizontal: Spacing.lg,
@@ -56,8 +56,6 @@ const styles = StyleSheet.create({
         opacity: 0.5,
     },
     createFabText: {
-        fontSize: Typography.sizes.md,
-        fontWeight: '700',
-        color: Colors.textOn.primary,
+        ...TextStyles.button,
     },
 });
