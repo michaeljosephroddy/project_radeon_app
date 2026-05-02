@@ -83,19 +83,6 @@ export function GroupDetailScreen({
                 </View>
             ) : group ? (
                 <>
-                    <View style={styles.headerBlock}>
-                        <Text style={styles.groupName}>{group.name}</Text>
-                        {group.description ? (
-                            <Text style={styles.description} numberOfLines={3}>{group.description}</Text>
-                        ) : null}
-                        <View style={styles.metaRow}>
-                            <Text style={styles.metaText}>{group.member_count} members</Text>
-                            <Text style={styles.metaDot}>•</Text>
-                            <Text style={styles.metaText}>{group.post_count} posts</Text>
-                            <Text style={styles.metaDot}>•</Text>
-                            <Text style={styles.metaText}>{visibilityLabel(group.visibility)}</Text>
-                        </View>
-                    </View>
                     <SegmentedControl
                         items={[
                             { key: 'posts', label: 'Posts' },
@@ -114,9 +101,9 @@ export function GroupDetailScreen({
                             onOpenCreatePost={onOpenCreatePost}
                         />
                     ) : activeTab === 'media' ? (
-                        <GroupMediaTab groupId={groupId} />
+                        <GroupMediaTab group={group} />
                     ) : activeTab === 'members' ? (
-                        <GroupMembersTab groupId={groupId} />
+                        <GroupMembersTab group={group} />
                     ) : (
                         <GroupAboutTab
                             group={group}
@@ -129,6 +116,24 @@ export function GroupDetailScreen({
                 <EmptyState title="Group not found" />
             )}
         </SafeAreaView>
+    );
+}
+
+function GroupSummaryHeader({ group }: { group: api.Group }): React.ReactElement {
+    return (
+        <View style={styles.headerBlock}>
+            <Text style={styles.groupName}>{group.name}</Text>
+            {group.description ? (
+                <Text style={styles.description} numberOfLines={3}>{group.description}</Text>
+            ) : null}
+            <View style={styles.metaRow}>
+                <Text style={styles.metaText}>{group.member_count} members</Text>
+                <Text style={styles.metaDot}>•</Text>
+                <Text style={styles.metaText}>{group.post_count} posts</Text>
+                <Text style={styles.metaDot}>•</Text>
+                <Text style={styles.metaText}>{visibilityLabel(group.visibility)}</Text>
+            </View>
+        </View>
     );
 }
 
@@ -206,6 +211,7 @@ function GroupPostsTab({
                 data={posts}
                 keyExtractor={item => item.id}
                 contentContainerStyle={[styles.postListContent, { paddingBottom: Spacing.xl + insets.bottom + 72 }]}
+                ListHeaderComponent={<GroupSummaryHeader group={group} />}
                 renderItem={({ item }) => (
                     <PostCard
                         post={groupPostToPostDisplayModel(item, user?.id ?? '')}
@@ -237,8 +243,8 @@ function GroupPostsTab({
     );
 }
 
-function GroupMediaTab({ groupId }: { groupId: string }): React.ReactElement {
-    const mediaQuery = useGroupMedia(groupId, 30, true);
+function GroupMediaTab({ group }: { group: api.Group }): React.ReactElement {
+    const mediaQuery = useGroupMedia(group.id, 30, true);
     const media = useMemo(
         () => (mediaQuery.data?.pages ?? []).flatMap(page => page.items ?? []),
         [mediaQuery.data?.pages],
@@ -250,6 +256,7 @@ function GroupMediaTab({ groupId }: { groupId: string }): React.ReactElement {
             keyExtractor={item => item.id}
             numColumns={3}
             contentContainerStyle={styles.mediaGrid}
+            ListHeaderComponent={<GroupSummaryHeader group={group} />}
             renderItem={({ item }) => (
                 <Image source={{ uri: item.thumb_url ?? item.image_url }} style={styles.mediaItem} />
             )}
@@ -260,8 +267,8 @@ function GroupMediaTab({ groupId }: { groupId: string }): React.ReactElement {
     );
 }
 
-function GroupMembersTab({ groupId }: { groupId: string }): React.ReactElement {
-    const membersQuery = useGroupMembers(groupId, 30, true);
+function GroupMembersTab({ group }: { group: api.Group }): React.ReactElement {
+    const membersQuery = useGroupMembers(group.id, 30, true);
     const members = useMemo(
         () => (membersQuery.data?.pages ?? []).flatMap(page => page.items ?? []),
         [membersQuery.data?.pages],
@@ -272,6 +279,7 @@ function GroupMembersTab({ groupId }: { groupId: string }): React.ReactElement {
             data={members}
             keyExtractor={item => item.user_id}
             contentContainerStyle={styles.listContent}
+            ListHeaderComponent={<GroupSummaryHeader group={group} />}
             renderItem={({ item }) => (
                 <View style={styles.memberRow}>
                     <Avatar username={item.username} avatarUrl={item.avatar_url ?? undefined} size={38} fontSize={13} />
@@ -325,92 +333,95 @@ function GroupAboutTab({
 
     return (
         <ScrollView contentContainerStyle={styles.aboutContent}>
-            <Text style={styles.aboutLabel}>Rules</Text>
-            <Text style={styles.aboutBody}>{group.rules || 'No rules have been added yet.'}</Text>
-            <Text style={styles.aboutLabel}>Tags</Text>
-            <Text style={styles.aboutBody}>{group.tags.length ? group.tags.join(', ') : 'No tags'}</Text>
-            <Text style={styles.aboutLabel}>Recovery pathways</Text>
-            <Text style={styles.aboutBody}>{group.recovery_pathways.length ? group.recovery_pathways.join(', ') : 'No pathway filters'}</Text>
+            <GroupSummaryHeader group={group} />
+            <View style={styles.aboutSections}>
+                <Text style={styles.aboutLabel}>Rules</Text>
+                <Text style={styles.aboutBody}>{group.rules || 'No rules have been added yet.'}</Text>
+                <Text style={styles.aboutLabel}>Tags</Text>
+                <Text style={styles.aboutBody}>{group.tags.length ? group.tags.join(', ') : 'No tags'}</Text>
+                <Text style={styles.aboutLabel}>Recovery pathways</Text>
+                <Text style={styles.aboutBody}>{group.recovery_pathways.length ? group.recovery_pathways.join(', ') : 'No pathway filters'}</Text>
 
-            {group.can_manage_members || group.can_moderate_content ? (
-                <View style={styles.aboutPanel}>
-                    <Text style={styles.panelTitle}>Admin tools</Text>
-                    <TouchableOpacity style={styles.panelButton} onPress={onOpenAdmin}>
-                        <Ionicons name="shield-checkmark-outline" size={16} color={Colors.textOn.primary} />
-                        <Text style={styles.panelButtonText}>Open admin center</Text>
-                    </TouchableOpacity>
-                </View>
-            ) : null}
+                {group.can_manage_members || group.can_moderate_content ? (
+                    <View style={styles.aboutPanel}>
+                        <Text style={styles.panelTitle}>Admin tools</Text>
+                        <TouchableOpacity style={styles.panelButton} onPress={onOpenAdmin}>
+                            <Ionicons name="shield-checkmark-outline" size={16} color={Colors.textOn.primary} />
+                            <Text style={styles.panelButtonText}>Open admin center</Text>
+                        </TouchableOpacity>
+                    </View>
+                ) : null}
 
-            {group.can_invite ? (
-                <View style={styles.aboutPanel}>
-                    <Text style={styles.panelTitle}>Invite</Text>
-                    <TouchableOpacity
-                        style={styles.panelButton}
-                        onPress={handleCreateInvite}
-                        disabled={inviteMutation.isPending}
-                    >
-                        <Text style={styles.panelButtonText}>Create invite link</Text>
-                    </TouchableOpacity>
-                    {inviteToken ? (
-                        <Text style={styles.tokenText} selectable>{inviteToken}</Text>
-                    ) : null}
-                </View>
-            ) : null}
+                {group.can_invite ? (
+                    <View style={styles.aboutPanel}>
+                        <Text style={styles.panelTitle}>Invite</Text>
+                        <TouchableOpacity
+                            style={styles.panelButton}
+                            onPress={handleCreateInvite}
+                            disabled={inviteMutation.isPending}
+                        >
+                            <Text style={styles.panelButtonText}>Create invite link</Text>
+                        </TouchableOpacity>
+                        {inviteToken ? (
+                            <Text style={styles.tokenText} selectable>{inviteToken}</Text>
+                        ) : null}
+                    </View>
+                ) : null}
 
-            {group.can_manage_members ? (
-                <View style={styles.aboutPanel}>
-                    <Text style={styles.panelTitle}>Join requests</Text>
-                    {(joinRequestsQuery.data?.items ?? []).length === 0 ? (
-                        <Text style={styles.aboutBody}>No pending requests.</Text>
-                    ) : null}
-                    {(joinRequestsQuery.data?.items ?? []).map(request => (
-                        <View key={request.id} style={styles.requestRow}>
-                            <Avatar username={request.username} avatarUrl={request.avatar_url ?? undefined} size={32} fontSize={11} />
-                            <View style={styles.requestCopy}>
-                                <Text style={styles.memberName}>{request.username}</Text>
-                                {request.message ? <Text style={styles.aboutBody}>{request.message}</Text> : null}
+                {group.can_manage_members ? (
+                    <View style={styles.aboutPanel}>
+                        <Text style={styles.panelTitle}>Join requests</Text>
+                        {(joinRequestsQuery.data?.items ?? []).length === 0 ? (
+                            <Text style={styles.aboutBody}>No pending requests.</Text>
+                        ) : null}
+                        {(joinRequestsQuery.data?.items ?? []).map(request => (
+                            <View key={request.id} style={styles.requestRow}>
+                                <Avatar username={request.username} avatarUrl={request.avatar_url ?? undefined} size={32} fontSize={11} />
+                                <View style={styles.requestCopy}>
+                                    <Text style={styles.memberName}>{request.username}</Text>
+                                    {request.message ? <Text style={styles.aboutBody}>{request.message}</Text> : null}
+                                </View>
+                                <TouchableOpacity
+                                    style={styles.iconAction}
+                                    onPress={() => reviewMutation.mutate({ requestId: request.id, approve: true })}
+                                >
+                                    <Ionicons name="checkmark" size={17} color={Colors.success} />
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    style={styles.iconAction}
+                                    onPress={() => reviewMutation.mutate({ requestId: request.id, approve: false })}
+                                >
+                                    <Ionicons name="close" size={17} color={Colors.danger} />
+                                </TouchableOpacity>
                             </View>
-                            <TouchableOpacity
-                                style={styles.iconAction}
-                                onPress={() => reviewMutation.mutate({ requestId: request.id, approve: true })}
-                            >
-                                <Ionicons name="checkmark" size={17} color={Colors.success} />
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                                style={styles.iconAction}
-                                onPress={() => reviewMutation.mutate({ requestId: request.id, approve: false })}
-                            >
-                                <Ionicons name="close" size={17} color={Colors.danger} />
-                            </TouchableOpacity>
-                        </View>
-                    ))}
+                        ))}
+                    </View>
+                ) : null}
+
+                <View style={styles.aboutPanel}>
+                    <Text style={styles.panelTitle}>Contact admins</Text>
+                    <TextField
+                        value={contactBody}
+                        onChangeText={setContactBody}
+                        placeholder="Message the group admins"
+                        multiline
+                        style={styles.panelInput}
+                    />
+                    <TouchableOpacity
+                        style={[styles.panelButton, !contactBody.trim() && styles.composerButtonDisabled]}
+                        onPress={handleContactAdmins}
+                        disabled={!contactBody.trim() || contactMutation.isPending}
+                    >
+                        <Text style={styles.panelButtonText}>Send</Text>
+                    </TouchableOpacity>
                 </View>
-            ) : null}
 
-            <View style={styles.aboutPanel}>
-                <Text style={styles.panelTitle}>Contact admins</Text>
-                <TextField
-                    value={contactBody}
-                    onChangeText={setContactBody}
-                    placeholder="Message the group admins"
-                    multiline
-                    style={styles.panelInput}
-                />
-                <TouchableOpacity
-                    style={[styles.panelButton, !contactBody.trim() && styles.composerButtonDisabled]}
-                    onPress={handleContactAdmins}
-                    disabled={!contactBody.trim() || contactMutation.isPending}
-                >
-                    <Text style={styles.panelButtonText}>Send</Text>
-                </TouchableOpacity>
-            </View>
-
-            <View style={styles.aboutPanel}>
-                <Text style={styles.panelTitle}>Report group</Text>
-                <TouchableOpacity style={styles.reportButton} onPress={onOpenReport}>
-                    <Text style={styles.reportButtonText}>Report</Text>
-                </TouchableOpacity>
+                <View style={styles.aboutPanel}>
+                    <Text style={styles.panelTitle}>Report group</Text>
+                    <TouchableOpacity style={styles.reportButton} onPress={onOpenReport}>
+                        <Text style={styles.reportButtonText}>Report</Text>
+                    </TouchableOpacity>
+                </View>
             </View>
         </ScrollView>
     );
@@ -464,22 +475,22 @@ const styles = StyleSheet.create({
     },
     tabs: {
         marginHorizontal: Spacing.md,
+        marginTop: Spacing.sm,
     },
     listContent: {
-        padding: Spacing.md,
-        gap: Spacing.md,
+        paddingBottom: Spacing.md,
     },
     postsSurface: {
         flex: 1,
     },
     postListContent: {
-        paddingTop: Spacing.md,
+        paddingTop: 0,
     },
     composerButtonDisabled: {
         opacity: 0.5,
     },
     mediaGrid: {
-        padding: Spacing.md,
+        paddingBottom: Spacing.md,
     },
     mediaItem: {
         flex: 1,
@@ -495,6 +506,7 @@ const styles = StyleSheet.create({
         gap: Spacing.sm,
         borderBottomWidth: 1,
         borderBottomColor: Colors.border.subtle,
+        paddingHorizontal: Spacing.md,
     },
     memberName: {
         flex: 1,
@@ -509,7 +521,10 @@ const styles = StyleSheet.create({
         textTransform: 'capitalize',
     },
     aboutContent: {
-        padding: Spacing.md,
+        paddingBottom: Spacing.md,
+    },
+    aboutSections: {
+        paddingHorizontal: Spacing.md,
         gap: Spacing.sm,
     },
     aboutLabel: {
