@@ -40,6 +40,7 @@ export const Typography = {
     md:   13,
     lg:   15,
     xl:   17,
+    composer: 20,
     xxl:  22,
     xxxl: 28,
   },

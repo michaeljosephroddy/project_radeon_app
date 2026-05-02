@@ -1,35 +1,33 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
-import {
-  Alert,
-  Image,
-  NativeSyntheticEvent,
-  StyleSheet,
-  Text,
-  TextInput,
-  TextInputContentSizeChangeEventData,
-  TouchableOpacity,
-  View,
-  useWindowDimensions,
-} from "react-native";
-import { Ionicons } from "@expo/vector-icons";
-import {
-  KeyboardAwareScrollView,
-  KeyboardProvider,
-} from "react-native-keyboard-controller";
-import type { KeyboardAwareScrollViewRef } from "react-native-keyboard-controller";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { Alert, StyleSheet, View } from "react-native";
+import { KeyboardAvoidingView } from "react-native-keyboard-controller";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as ImagePicker from "expo-image-picker";
-import { Avatar } from "../../components/Avatar";
+import * as Haptics from "expo-haptics";
 import * as api from "../../api/client";
-import {
-  Colors,
-  ContentInsets,
-  Radius,
-  Spacing,
-  Typography,
-} from "../../theme";
-import { formatUsername } from "../../utils/identity";
+import { Colors, Spacing } from "../../theme";
 import { useAuth } from "../../hooks/useAuth";
 import { useCreatePostMutation } from "../../hooks/queries/useCreatePostMutation";
+import {
+  DraftPayload,
+  useCreatePostDrafts,
+} from "../../hooks/useCreatePostDrafts";
+import { useRecentTags } from "../../hooks/useRecentTags";
+import { ComposerCanvas } from "./createPost/ComposerCanvas";
+import { ComposerToolbar } from "./createPost/ComposerToolbar";
+import { CreatePostHeader } from "./createPost/CreatePostHeader";
+import { DraftsSheet } from "./createPost/DraftsSheet";
+import { ImagePreviewSource } from "./createPost/ImagePreviewCard";
+import {
+  TagCategory,
+  TagPickerPanel,
+} from "./createPost/TagPickerPanel";
 
 interface CreatePostScreenProps {
   onBack: () => void;
@@ -49,77 +47,73 @@ interface ComposerImageState {
   uploadedImage?: api.PostImage;
 }
 
-interface CreatePostHeaderProps {
-  canSubmit: boolean;
-  isSubmitting: boolean;
-  onBack: () => void;
-  onSubmit: () => void;
-}
-
-interface AuthorRowProps {
-  user: api.User;
-}
-
-interface BodyInputProps {
-  height: number;
-  onChangeText: (value: string) => void;
-  onContentSizeChange: (
-    event: NativeSyntheticEvent<TextInputContentSizeChangeEventData>,
-  ) => void;
-}
-
-interface ImagePreviewProps {
-  image: ComposerImageState;
-  onRemove: () => void;
-}
-
-interface TagEditorProps {
-  customTag: string;
+interface TagValidationResult {
+  ok: boolean;
+  tag: string;
   error: string | null;
-  tags: string[];
-  onAddTag: (tag: string) => void;
-  onChangeCustomTag: (tag: string) => void;
-  onRemoveTag: (tag: string) => void;
 }
 
-interface ImageUploadButtonProps {
-  hasImage: boolean;
-  onPickImage: () => void;
-}
-
-const SUGGESTED_TAGS = [
-  "check-in",
-  "question",
-  "milestone",
-  "craving",
-  "gratitude",
-  "support",
+const TAG_CATEGORIES: TagCategory[] = [
+  { label: "Status", tags: ["check-in", "milestone", "day1"] },
+  { label: "Asking for", tags: ["support", "question", "craving"] },
+  { label: "Sharing", tags: ["gratitude", "win"] },
 ];
 const MAX_POST_TAGS = 5;
+const MAX_BODY_LENGTH = 500;
 const HEADER_HEIGHT = 56;
 const TAG_PATTERN = /^[a-z0-9_-]+$/;
-const MIN_BODY_INPUT_HEIGHT = 112;
-const MIN_IMAGE_PREVIEW_HEIGHT = 120;
-const MAX_IMAGE_PREVIEW_HEIGHT = 340;
 
 export function CreatePostScreen({
   onBack,
 }: CreatePostScreenProps): React.ReactElement | null {
   const { user } = useAuth();
   const createPostMutation = useCreatePostMutation();
-  const scrollRef = useRef<KeyboardAwareScrollViewRef>(null);
-  const bodyRef = useRef("");
-  const [hasBodyText, setHasBodyText] = useState(false);
+  const insets = useSafeAreaInsets();
+  const [body, setBody] = useState("");
   const [tags, setTags] = useState<string[]>([]);
   const [customTag, setCustomTag] = useState("");
   const [tagError, setTagError] = useState<string | null>(null);
-  const [bodyInputHeight, setBodyInputHeight] = useState(
-    MIN_BODY_INPUT_HEIGHT,
-  );
   const [selectedImage, setSelectedImage] = useState<ComposerImageState | null>(
     null,
   );
+  const [isTagPickerOpen, setIsTagPickerOpen] = useState(false);
+  const [isDraftsOpen, setIsDraftsOpen] = useState(false);
+  const [draftSessionId, setDraftSessionId] = useState(() => createDraftId());
   const uploadPromiseRef = useRef<Promise<api.PostImage> | null>(null);
+
+  const userId = user?.id ?? null;
+  const {
+    drafts,
+    isHydrated: draftsHydrated,
+    saveCurrent,
+    commitCurrent,
+    removeDraft,
+    loadDraft,
+    clearCurrent,
+  } = useCreatePostDrafts(userId);
+  const { recentTags, recordTag } = useRecentTags(userId);
+
+  const draftPayload = useMemo<DraftPayload>(
+    () => ({
+      body,
+      tags,
+      image: selectedImage ? selectedImage.localImage : null,
+    }),
+    [body, selectedImage, tags],
+  );
+
+  const hasContent =
+    body.trim().length > 0 || tags.length > 0 || selectedImage !== null;
+  const isSubmitting = createPostMutation.isPending;
+  const canSubmit =
+    (body.trim().length > 0 || selectedImage !== null) &&
+    body.length <= MAX_BODY_LENGTH &&
+    !isSubmitting;
+
+  useEffect(() => {
+    if (!draftsHydrated) return;
+    saveCurrent(draftSessionId, draftPayload);
+  }, [draftPayload, draftSessionId, draftsHydrated, saveCurrent]);
 
   const beginImageUpload = useCallback(
     (image: SelectedPostImage): Promise<api.PostImage> => {
@@ -186,60 +180,131 @@ export function CreatePostScreen({
     setSelectedImage(null);
   }, []);
 
-  const addTag = useCallback((rawTag: string): void => {
-    const validation = validateTag(rawTag);
-    if (!validation.ok) {
-      setTagError(validation.error);
-      return;
-    }
-
-    setTags((current) => {
-      if (current.includes(validation.tag)) return current;
-      if (current.length >= MAX_POST_TAGS) {
-        setTagError(`Add up to ${MAX_POST_TAGS} tags.`);
-        return current;
-      }
-      return [...current, validation.tag];
+  const handleRetryImageUpload = useCallback((): void => {
+    setSelectedImage((current) => {
+      if (!current) return current;
+      beginImageUpload(current.localImage).catch(() => {});
+      return { ...current, status: "uploading" };
     });
-    setCustomTag("");
-    setTagError(null);
-  }, []);
+  }, [beginImageUpload]);
+
+  const addTag = useCallback(
+    (rawTag: string): void => {
+      const validation = validateTag(rawTag);
+      if (!validation.ok) {
+        setTagError(validation.error);
+        return;
+      }
+
+      setTags((current) => {
+        if (current.includes(validation.tag)) return current;
+        if (current.length >= MAX_POST_TAGS) {
+          setTagError(`Add up to ${MAX_POST_TAGS} tags.`);
+          return current;
+        }
+        triggerHaptic(Haptics.ImpactFeedbackStyle.Light);
+        recordTag(validation.tag);
+        return [...current, validation.tag];
+      });
+      setCustomTag("");
+      setTagError(null);
+    },
+    [recordTag],
+  );
 
   const removeTag = useCallback((tag: string): void => {
+    triggerHaptic(Haptics.ImpactFeedbackStyle.Light);
     setTags((current) => current.filter((currentTag) => currentTag !== tag));
     setTagError(null);
   }, []);
 
-  const handleBodyChangeText = useCallback((nextBody: string): void => {
-    bodyRef.current = nextBody;
-    const nextHasBodyText = nextBody.trim().length > 0;
-    setHasBodyText((current) =>
-      current === nextHasBodyText ? current : nextHasBodyText,
-    );
-  }, []);
-
-  const handleBodyContentSizeChange = useCallback(
-    (
-      event: NativeSyntheticEvent<TextInputContentSizeChangeEventData>,
-    ): void => {
-      const nextHeight = Math.max(
-        Math.ceil(event.nativeEvent.contentSize.height),
-        MIN_BODY_INPUT_HEIGHT,
-      );
-      setBodyInputHeight((current) =>
-        current === nextHeight ? current : nextHeight,
-      );
-      setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 0);
+  const toggleTag = useCallback(
+    (tag: string): void => {
+      if (tags.includes(tag)) {
+        removeTag(tag);
+      } else {
+        addTag(tag);
+      }
     },
-    [],
+    [addTag, removeTag, tags],
   );
 
-  const isSubmitting = createPostMutation.isPending;
-  const canSubmit = (hasBodyText || selectedImage !== null) && !isSubmitting;
+  const handleBack = useCallback((): void => {
+    if (!hasContent) {
+      void clearCurrent(draftSessionId).finally(onBack);
+      return;
+    }
+
+    Alert.alert("Save draft?", "Keep this post in drafts or discard it?", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Discard",
+        style: "destructive",
+        onPress: () => {
+          void clearCurrent(draftSessionId).finally(onBack);
+        },
+      },
+      {
+        text: "Save",
+        onPress: () => {
+          triggerHaptic(Haptics.ImpactFeedbackStyle.Soft);
+          void commitCurrent(draftSessionId, draftPayload).finally(onBack);
+        },
+      },
+    ]);
+  }, [
+    clearCurrent,
+    commitCurrent,
+    draftPayload,
+    draftSessionId,
+    hasContent,
+    onBack,
+  ]);
+
+  const handleLoadDraft = useCallback(
+    (draftId: string): void => {
+      const draft = loadDraft(draftId);
+      if (!draft) return;
+
+      uploadPromiseRef.current = null;
+      setBody(draft.body);
+      setTags(draft.tags);
+      setCustomTag("");
+      setTagError(null);
+      setIsDraftsOpen(false);
+      setIsTagPickerOpen(false);
+      setDraftSessionId(createDraftId());
+
+      if (draft.image) {
+        const image = {
+          uri: draft.image.uri,
+          mimeType: draft.image.mimeType,
+          fileName: draft.image.fileName,
+          width: draft.image.width,
+          height: draft.image.height,
+        };
+        setSelectedImage({ localImage: image, status: "uploading" });
+        beginImageUpload(image).catch(() => {});
+      } else {
+        setSelectedImage(null);
+      }
+
+      void removeDraft(draftId);
+    },
+    [beginImageUpload, loadDraft, removeDraft],
+  );
+
+  const handleDeleteDraft = useCallback(
+    (draftId: string): void => {
+      void removeDraft(draftId);
+    },
+    [removeDraft],
+  );
 
   const handleSubmit = useCallback((): void => {
     if (!canSubmit) return;
-    const trimmedBody = bodyRef.current.trim();
+    triggerHaptic(Haptics.ImpactFeedbackStyle.Medium);
+    const trimmedBody = body.trim();
     const currentImage = selectedImage;
 
     void (async () => {
@@ -248,7 +313,10 @@ export function CreatePostScreen({
         if (currentImage) {
           if (currentImage.uploadedImage) {
             images = [currentImage.uploadedImage];
-          } else if (uploadPromiseRef.current) {
+          } else if (
+            currentImage.status === "uploading" &&
+            uploadPromiseRef.current
+          ) {
             images = [await uploadPromiseRef.current];
           } else {
             images = [await beginImageUpload(currentImage.localImage)];
@@ -260,6 +328,7 @@ export function CreatePostScreen({
           images,
           tags,
         });
+        await clearCurrent(draftSessionId);
         onBack();
       } catch (e: unknown) {
         Alert.alert(
@@ -270,8 +339,11 @@ export function CreatePostScreen({
     })();
   }, [
     beginImageUpload,
+    body,
     canSubmit,
+    clearCurrent,
     createPostMutation,
+    draftSessionId,
     onBack,
     selectedImage,
     tags,
@@ -279,238 +351,87 @@ export function CreatePostScreen({
 
   if (!user) return null;
 
+  const bottomSafeSpace = Math.max(insets.bottom, Spacing.sm);
+  const previewImage: ImagePreviewSource | null = selectedImage
+    ? {
+        uri: selectedImage.localImage.uri,
+        width: selectedImage.localImage.width,
+        height: selectedImage.localImage.height,
+      }
+    : null;
+
   return (
     <View style={styles.container}>
-      <KeyboardProvider statusBarTranslucent navigationBarTranslucent>
-        <CreatePostHeader
-          canSubmit={canSubmit}
-          isSubmitting={isSubmitting}
-          onBack={onBack}
-          onSubmit={handleSubmit}
-        />
-
-        <KeyboardAwareScrollView
-          ref={scrollRef}
-          style={styles.body}
-          contentContainerStyle={styles.composerScroll}
-          keyboardShouldPersistTaps="handled"
-          bottomOffset={Spacing.lg}
-          extraKeyboardSpace={Spacing.xl}
+      <View style={styles.bodyWrap}>
+        <KeyboardAvoidingView
+          behavior="translate-with-padding"
+          keyboardVerticalOffset={insets.top}
+          style={styles.fill}
         >
-          <View style={styles.composerPost}>
-            <AuthorRow user={user} />
-            <TagEditor
+          <ComposerCanvas
+            body={body}
+            image={previewImage}
+            imageStatus={selectedImage?.status ?? null}
+            tags={tags}
+            user={user}
+            maxBodyLength={MAX_BODY_LENGTH}
+            onBodyChange={setBody}
+            onRemoveImage={handleRemoveImage}
+            onRemoveTag={removeTag}
+            onRetryImage={handleRetryImageUpload}
+          />
+
+          {isTagPickerOpen ? (
+            <TagPickerPanel
+              categories={TAG_CATEGORIES}
               customTag={customTag}
               error={tagError}
-              tags={tags}
+              recentTags={recentTags}
+              selectedTags={tags}
+              tagCount={tags.length}
+              maxTags={MAX_POST_TAGS}
               onAddTag={addTag}
               onChangeCustomTag={setCustomTag}
+              onClose={() => setIsTagPickerOpen(false)}
               onRemoveTag={removeTag}
+              onToggleTag={toggleTag}
             />
-            <BodyInput
-              height={bodyInputHeight}
-              onChangeText={handleBodyChangeText}
-              onContentSizeChange={handleBodyContentSizeChange}
+          ) : (
+            <ComposerToolbar
+              hasImage={selectedImage !== null}
+              tagCount={tags.length}
+              maxTags={MAX_POST_TAGS}
+              onPickImage={handlePickImage}
+              onOpenTagPicker={() => setIsTagPickerOpen(true)}
             />
-            <View style={styles.composerToolbar}>
-              <ImageUploadButton
-                hasImage={selectedImage !== null}
-                onPickImage={handlePickImage}
-              />
-            </View>
-            {selectedImage ? (
-              <ImagePreview image={selectedImage} onRemove={handleRemoveImage} />
-            ) : null}
-          </View>
-        </KeyboardAwareScrollView>
-      </KeyboardProvider>
-    </View>
-  );
-}
-
-function CreatePostHeader({
-  canSubmit,
-  isSubmitting,
-  onBack,
-  onSubmit,
-}: CreatePostHeaderProps): React.ReactElement {
-  return (
-    <View style={styles.header}>
-      <TouchableOpacity
-        style={styles.headerButton}
-        onPress={onBack}
-        disabled={isSubmitting}
-      >
-        <Ionicons name="close" size={24} color={Colors.text.primary} />
-      </TouchableOpacity>
-      <Text style={styles.headerTitle}>Create post</Text>
-      <TouchableOpacity
-        style={[styles.postButton, !canSubmit && styles.postButtonDisabled]}
-        onPress={onSubmit}
-        disabled={!canSubmit}
-      >
-        <Text style={styles.postButtonText}>
-          {isSubmitting ? "Posting" : "Post"}
-        </Text>
-      </TouchableOpacity>
-    </View>
-  );
-}
-
-function AuthorRow({ user }: AuthorRowProps): React.ReactElement {
-  return (
-    <View style={styles.authorRow}>
-      <Avatar username={user.username} avatarUrl={user.avatar_url} size={42} />
-      <View style={styles.authorText}>
-        <Text style={styles.authorName}>{formatUsername(user.username)}</Text>
-        <Text style={styles.authorMeta}>Community post</Text>
+          )}
+        </KeyboardAvoidingView>
       </View>
-    </View>
-  );
-}
 
-function BodyInput({
-  height,
-  onChangeText,
-  onContentSizeChange,
-}: BodyInputProps): React.ReactElement {
-  return (
-    <TextInput
-      style={[styles.bodyInput, { height }]}
-      onChangeText={onChangeText}
-      onContentSizeChange={onContentSizeChange}
-      placeholder="What do you want to share?"
-      placeholderTextColor={Colors.text.muted}
-      multiline
-      scrollEnabled={false}
-      textAlignVertical="top"
-    />
-  );
-}
+      <View style={[styles.bottomSpacer, { height: bottomSafeSpace }]} />
 
-function ImagePreview({
-  image,
-  onRemove,
-}: ImagePreviewProps): React.ReactElement {
-  const { width: windowWidth } = useWindowDimensions();
-  const previewWidth = windowWidth - Spacing.md * 2;
-  const previewHeight = getImagePreviewHeight(image.localImage, previewWidth);
-
-  return (
-    <View style={[styles.imagePreviewWrap, { height: previewHeight }]}>
-      <Image
-        source={{ uri: image.localImage.uri }}
-        style={styles.imagePreview}
-        resizeMode="contain"
+      <CreatePostHeader
+        bodyLength={body.length}
+        canSubmit={canSubmit}
+        draftCount={drafts.length}
+        isSubmitting={isSubmitting}
+        maxLength={MAX_BODY_LENGTH}
+        postType={selectedImage ? "photo" : "text"}
+        onBack={handleBack}
+        onOpenDrafts={() => setIsDraftsOpen(true)}
+        onSubmit={handleSubmit}
       />
-      <TouchableOpacity style={styles.removeImageButton} onPress={onRemove}>
-        <Ionicons name="close" size={16} color={Colors.textOn.primary} />
-      </TouchableOpacity>
-      <View style={styles.imageStatusBadge}>
-        <Text style={styles.imageStatusText}>
-          {imageStatusLabel(image.status)}
-        </Text>
-      </View>
-    </View>
-  );
-}
 
-function TagEditor({
-  customTag,
-  error,
-  tags,
-  onAddTag,
-  onChangeCustomTag,
-  onRemoveTag,
-}: TagEditorProps): React.ReactElement {
-  return (
-    <View style={styles.tagsSection}>
-      <View style={styles.sectionTitleRow}>
-        <Text style={styles.sectionTitle}>Tags</Text>
-        <Text style={styles.tagLimitText}>
-          {tags.length}/{MAX_POST_TAGS}
-        </Text>
-      </View>
-      {tags.length > 0 ? (
-        <View style={styles.selectedTags}>
-          {tags.map((tag) => (
-            <TouchableOpacity
-              key={tag}
-              style={styles.selectedTag}
-              onPress={() => onRemoveTag(tag)}
-            >
-              <Text style={styles.selectedTagText}>#{tag}</Text>
-              <Ionicons name="close" size={14} color={Colors.primary} />
-            </TouchableOpacity>
-          ))}
-        </View>
-      ) : null}
-      <View style={styles.tagInputRow}>
-        <TextInput
-          style={styles.tagInput}
-          value={customTag}
-          onChangeText={onChangeCustomTag}
-          placeholder="Add a tag"
-          placeholderTextColor={Colors.text.muted}
-          autoCapitalize="none"
-          autoCorrect={false}
-          returnKeyType="done"
-          onSubmitEditing={() => onAddTag(customTag)}
+      {isDraftsOpen ? (
+        <DraftsSheet
+          drafts={drafts}
+          onClose={() => setIsDraftsOpen(false)}
+          onDeleteDraft={handleDeleteDraft}
+          onLoadDraft={handleLoadDraft}
         />
-        <TouchableOpacity
-          style={styles.addTagButton}
-          onPress={() => onAddTag(customTag)}
-        >
-          <Ionicons name="add" size={20} color={Colors.textOn.primary} />
-        </TouchableOpacity>
-      </View>
-      {error ? <Text style={styles.tagError}>{error}</Text> : null}
-      <View style={styles.suggestedTags}>
-        {SUGGESTED_TAGS.map((tag) => {
-          const selected = tags.includes(tag);
-          return (
-            <TouchableOpacity
-              key={tag}
-              style={[
-                styles.suggestedTag,
-                selected && styles.suggestedTagSelected,
-              ]}
-              onPress={() => (selected ? onRemoveTag(tag) : onAddTag(tag))}
-            >
-              <Text
-                style={[
-                  styles.suggestedTagText,
-                  selected && styles.suggestedTagTextSelected,
-                ]}
-              >
-                #{tag}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
-      </View>
+      ) : null}
     </View>
   );
-}
-
-function ImageUploadButton({
-  hasImage,
-  onPickImage,
-}: ImageUploadButtonProps): React.ReactElement {
-  return (
-    <TouchableOpacity style={styles.imageUploadButton} onPress={onPickImage}>
-      <Ionicons name="image-outline" size={20} color={Colors.primary} />
-      <Text style={styles.imageUploadButtonText}>
-        {hasImage ? "Replace" : "Photo"}
-      </Text>
-    </TouchableOpacity>
-  );
-}
-
-interface TagValidationResult {
-  ok: boolean;
-  tag: string;
-  error: string | null;
 }
 
 function validateTag(rawTag: string): TagValidationResult {
@@ -535,17 +456,6 @@ function normalizeTag(rawTag: string): string {
   return rawTag.trim().replace(/^#/, "").trim().toLowerCase();
 }
 
-function imageStatusLabel(status: ComposerImageState["status"]): string {
-  switch (status) {
-    case "uploading":
-      return "Uploading";
-    case "uploaded":
-      return "Ready";
-    case "failed":
-      return "Retry on post";
-  }
-}
-
 function inferMimeType(
   uri: string | undefined,
   fallback = "image/jpeg",
@@ -564,20 +474,16 @@ function inferFileName(uri: string | undefined, fallback: string): string {
   return segment && segment.includes(".") ? segment : fallback;
 }
 
-function getImagePreviewHeight(
-  image: SelectedPostImage,
-  previewWidth: number,
-): number {
-  const safeWidth = Math.max(previewWidth, 1);
-  if (!image.width || !image.height || image.width <= 0 || image.height <= 0) {
-    return MIN_IMAGE_PREVIEW_HEIGHT;
-  }
+function createDraftId(): string {
+  return `draft-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
 
-  const naturalHeight = safeWidth * (image.height / image.width);
-  return Math.min(
-    Math.max(naturalHeight, MIN_IMAGE_PREVIEW_HEIGHT),
-    MAX_IMAGE_PREVIEW_HEIGHT,
-  );
+function triggerHaptic(style: Haptics.ImpactFeedbackStyle): void {
+  try {
+    Haptics.impactAsync(style).catch(() => {});
+  } catch {
+    /* Haptics are optional and may be unavailable in stale Android dev builds. */
+  }
 }
 
 const styles = StyleSheet.create({
@@ -585,242 +491,14 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.bg.page,
   },
-  header: {
-    height: HEADER_HEIGHT,
-    paddingHorizontal: ContentInsets.screenHorizontal,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border.default,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.sm,
-  },
-  headerButton: {
-    width: 40,
-    height: 40,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  headerTitle: {
+  fill: {
     flex: 1,
-    fontSize: Typography.sizes.lg,
-    lineHeight: 20,
-    fontWeight: "700",
-    color: Colors.text.primary,
   },
-  postButton: {
-    minWidth: 76,
-    height: 36,
-    borderRadius: Radius.pill,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: Colors.primary,
-    paddingHorizontal: Spacing.md,
-  },
-  postButtonDisabled: {
-    opacity: 0.5,
-  },
-  postButtonText: {
-    color: Colors.textOn.primary,
-    fontSize: Typography.sizes.sm,
-    fontWeight: "700",
-  },
-  body: {
+  bodyWrap: {
     flex: 1,
-    minHeight: 0,
+    paddingTop: HEADER_HEIGHT,
   },
-  composerScroll: {
-    paddingBottom: Spacing.xl,
-  },
-  composerPost: {
-    backgroundColor: Colors.bg.page,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border.default,
-  },
-  authorRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.sm,
+  bottomSpacer: {
     flexShrink: 0,
-    padding: Spacing.md,
-    paddingBottom: Spacing.sm,
-  },
-  authorText: {
-    flex: 1,
-    minWidth: 0,
-  },
-  authorName: {
-    fontSize: Typography.sizes.md,
-    fontWeight: "700",
-    color: Colors.text.primary,
-  },
-  authorMeta: {
-    fontSize: Typography.sizes.xs,
-    color: Colors.text.muted,
-  },
-  bodyInput: {
-    color: Colors.text.primary,
-    fontSize: Typography.sizes.lg,
-    lineHeight: 24,
-    paddingHorizontal: Spacing.md,
-    paddingTop: 0,
-    paddingBottom: 0,
-  },
-  imagePreviewWrap: {
-    position: "relative",
-    alignSelf: "stretch",
-    marginHorizontal: Spacing.md,
-    marginTop: Spacing.sm,
-    marginBottom: Spacing.sm,
-    borderRadius: Radius.md,
-    overflow: "hidden",
-    backgroundColor: Colors.bg.surface,
-    flexShrink: 0,
-  },
-  imagePreview: {
-    width: "100%",
-    height: "100%",
-  },
-  removeImageButton: {
-    position: "absolute",
-    top: Spacing.sm,
-    right: Spacing.sm,
-    width: 30,
-    height: 30,
-    borderRadius: Radius.pill,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: Colors.primary,
-  },
-  imageStatusBadge: {
-    position: "absolute",
-    left: Spacing.sm,
-    bottom: Spacing.sm,
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: Spacing.xs,
-    borderRadius: Radius.pill,
-    backgroundColor: Colors.overlay,
-  },
-  imageStatusText: {
-    fontSize: Typography.sizes.xs,
-    color: Colors.textOn.primary,
-    fontWeight: "700",
-  },
-  tagsSection: {
-    gap: Spacing.sm,
-    flexShrink: 0,
-    paddingHorizontal: Spacing.md,
-    paddingBottom: Spacing.sm,
-  },
-  sectionTitleRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  sectionTitle: {
-    color: Colors.text.primary,
-    fontSize: Typography.sizes.md,
-    fontWeight: "700",
-  },
-  tagLimitText: {
-    color: Colors.text.muted,
-    fontSize: Typography.sizes.xs,
-  },
-  selectedTags: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: Spacing.xs,
-  },
-  selectedTag: {
-    minHeight: 30,
-    borderRadius: Radius.pill,
-    paddingHorizontal: Spacing.sm,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.xs,
-    backgroundColor: Colors.primarySubtle,
-  },
-  selectedTagText: {
-    color: Colors.primary,
-    fontSize: Typography.sizes.sm,
-    fontWeight: "700",
-  },
-  tagInputRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.sm,
-  },
-  tagInput: {
-    flex: 1,
-    minHeight: 42,
-    borderWidth: 1,
-    borderColor: Colors.border.default,
-    borderRadius: Radius.md,
-    paddingHorizontal: Spacing.md,
-    color: Colors.text.primary,
-    fontSize: Typography.sizes.base,
-    backgroundColor: Colors.bg.page,
-  },
-  addTagButton: {
-    width: 42,
-    height: 42,
-    borderRadius: Radius.md,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: Colors.primary,
-  },
-  tagError: {
-    color: Colors.danger,
-    fontSize: Typography.sizes.xs,
-  },
-  suggestedTags: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: Spacing.xs,
-  },
-  suggestedTag: {
-    minHeight: 30,
-    borderRadius: Radius.pill,
-    borderWidth: 1,
-    borderColor: Colors.border.default,
-    paddingHorizontal: Spacing.sm,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: Colors.bg.page,
-  },
-  suggestedTagSelected: {
-    borderColor: Colors.primary,
-    backgroundColor: Colors.primarySubtle,
-  },
-  suggestedTagText: {
-    color: Colors.text.secondary,
-    fontSize: Typography.sizes.sm,
-    fontWeight: "600",
-  },
-  suggestedTagTextSelected: {
-    color: Colors.primary,
-  },
-  composerToolbar: {
-    minHeight: 44,
-    paddingHorizontal: Spacing.md,
-    paddingTop: 0,
-    paddingBottom: 10,
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  imageUploadButton: {
-    flexShrink: 0,
-    alignSelf: "flex-start",
-    minHeight: 36,
-    borderRadius: Radius.pill,
-    paddingHorizontal: Spacing.md,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.xs,
-    backgroundColor: Colors.primarySubtle,
-  },
-  imageUploadButtonText: {
-    color: Colors.primary,
-    fontSize: Typography.sizes.sm,
-    fontWeight: "700",
   },
 });
