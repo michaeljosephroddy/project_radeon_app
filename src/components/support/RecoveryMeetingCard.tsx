@@ -1,7 +1,7 @@
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors, ContentInsets, Radius, Spacing, Typography } from '../../theme';
+import { Colors, ContentInsets, Radius, Spacing, TextStyles } from '../../theme';
 import {
     RecoveryMeeting,
     formatDayTime,
@@ -109,8 +109,8 @@ const styles = StyleSheet.create({
     },
     fellowshipPillText: {
         color: Colors.primary,
-        fontSize: Typography.sizes.xs,
-        fontWeight: '700',
+        fontSize: TextStyles.caption.fontSize,
+        fontWeight: TextStyles.caption.fontWeight,
     },
     formatBadge: {
         flexDirection: 'row',
@@ -126,23 +126,16 @@ const styles = StyleSheet.create({
         marginRight: 4,
     },
     formatBadgeText: {
-        color: Colors.text.secondary,
-        fontSize: Typography.sizes.xs,
-        fontWeight: '600',
+        ...TextStyles.caption,
     },
     title: {
-        fontSize: Typography.sizes.lg,
-        fontWeight: '700',
-        color: Colors.text.primary,
+        ...TextStyles.sectionTitle,
     },
     description: {
-        color: Colors.text.secondary,
-        fontSize: Typography.sizes.sm,
-        lineHeight: 20,
+        ...TextStyles.secondary,
     },
     detailLine: {
-        color: Colors.text.secondary,
-        fontSize: Typography.sizes.sm,
+        ...TextStyles.secondary,
     },
     tagRow: {
         flexDirection: 'row',
@@ -157,8 +150,6 @@ const styles = StyleSheet.create({
         backgroundColor: Colors.bg.raised,
     },
     tagText: {
-        color: Colors.text.secondary,
-        fontSize: Typography.sizes.xs,
-        fontWeight: '600',
+        ...TextStyles.caption,
     },
 });

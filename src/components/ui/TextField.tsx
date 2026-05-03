@@ -6,7 +6,7 @@ import {
     TextInputProps,
     TextStyle,
 } from 'react-native';
-import { Colors, Radius, Spacing, Typography } from '../../theme';
+import { Colors, ControlSizes, Radius, Spacing, TextStyles } from '../../theme';
 
 export interface TextFieldProps extends TextInputProps {
     style?: StyleProp<TextStyle>;
@@ -32,10 +32,10 @@ const styles = StyleSheet.create({
     input: {
         backgroundColor: Colors.bg.surface,
         borderRadius: Radius.md,
+        minHeight: ControlSizes.inputMinHeight,
         paddingHorizontal: Spacing.md,
-        paddingVertical: 13,
-        fontSize: Typography.sizes.md,
-        color: Colors.text.primary,
+        paddingVertical: 10,
+        ...TextStyles.input,
         borderWidth: 0.5,
         borderColor: Colors.border.default,
     },

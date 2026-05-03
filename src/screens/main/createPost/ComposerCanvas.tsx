@@ -9,7 +9,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as api from "../../../api/client";
-import { Colors, Radius, Spacing, Typography } from "../../../theme";
+import { Colors, ControlSizes, Radius, Spacing, TextStyles, Typography } from "../../../theme";
 import { AuthorPill } from "./AuthorPill";
 import {
   ImagePreviewCard,
@@ -130,7 +130,7 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.xs,
   },
   selectedTag: {
-    minHeight: 30,
+    minHeight: ControlSizes.chipMinHeight,
     borderRadius: Radius.pill,
     paddingHorizontal: Spacing.sm,
     flexDirection: "row",
@@ -139,8 +139,8 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.primarySubtle,
   },
   selectedTagText: {
+    ...TextStyles.chip,
     color: Colors.primary,
-    fontSize: Typography.sizes.sm,
     fontWeight: "700",
   },
 });

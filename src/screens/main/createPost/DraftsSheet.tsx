@@ -9,7 +9,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { PostDraft } from "../../../hooks/useCreatePostDrafts";
-import { Colors, Radius, Spacing, Typography } from "../../../theme";
+import { Colors, ControlSizes, Radius, Spacing, TextStyles } from "../../../theme";
 
 interface DraftsSheetProps {
   drafts: PostDraft[];
@@ -156,14 +156,11 @@ const styles = StyleSheet.create({
   },
   title: {
     flex: 1,
-    color: Colors.text.primary,
-    fontSize: Typography.sizes.xl,
-    fontWeight: "700",
+    ...TextStyles.sectionTitle,
   },
   doneLink: {
+    ...TextStyles.button,
     color: Colors.primary,
-    fontSize: Typography.sizes.md,
-    fontWeight: "700",
   },
   list: {
     flexGrow: 0,
@@ -184,18 +181,15 @@ const styles = StyleSheet.create({
     paddingRight: Spacing.sm,
   },
   preview: {
-    color: Colors.text.primary,
-    fontSize: Typography.sizes.md,
-    fontWeight: "600",
+    ...TextStyles.cardTitle,
     marginBottom: Spacing.xs,
   },
   meta: {
-    color: Colors.text.muted,
-    fontSize: Typography.sizes.sm,
+    ...TextStyles.meta,
   },
   deleteButton: {
-    width: 36,
-    height: 36,
+    width: ControlSizes.iconButton,
+    height: ControlSizes.iconButton,
     borderRadius: Radius.pill,
     alignItems: "center",
     justifyContent: "center",
@@ -207,7 +201,6 @@ const styles = StyleSheet.create({
     padding: Spacing.xl,
   },
   emptyText: {
-    color: Colors.text.muted,
-    fontSize: Typography.sizes.md,
+    ...TextStyles.secondary,
   },
 });

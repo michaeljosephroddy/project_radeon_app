@@ -25,7 +25,7 @@ import { useGuardedEndReached } from '../../hooks/useGuardedEndReached';
 import { useInterests } from '../../hooks/queries/useInterests';
 import { useUserPosts } from '../../hooks/queries/useUserPosts';
 import { useAuth } from '../../hooks/useAuth';
-import { Colors, Typography, Spacing, Radius } from '../../theme';
+import { Colors, Typography, Spacing, Radius, TextStyles } from '../../theme';
 import { formatUsername } from '../../utils/identity';
 import { formatBirthDateValue, GENDER_SEGMENTS, getGenderLabel } from '../../utils/profileIdentity';
 import { formatSobrietyDate } from '../../utils/date';
@@ -979,7 +979,7 @@ const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: Colors.bg.page },
     scroll: { flex: 1 },
     settingsBtn: { padding: 4 },
-    settingsIcon: { fontSize: 20, color: Colors.text.muted },
+    settingsIcon: { fontSize: Typography.sizes.xl, color: Colors.text.muted },
 
     listContent: { paddingVertical: Spacing.sm },
     listEmpty: {
@@ -1068,12 +1068,10 @@ const styles = StyleSheet.create({
         borderWidth: 2,
         borderColor: Colors.bg.page,
     },
-    avatarName: { fontSize: Typography.sizes.lg, fontWeight: '600', color: Colors.text.primary, marginBottom: 2 },
-    avatarSub: { fontSize: Typography.sizes.sm, color: Colors.text.muted, marginBottom: Spacing.sm },
+    avatarName: { ...TextStyles.sectionTitle, marginBottom: 2 },
+    avatarSub: { ...TextStyles.meta, marginBottom: Spacing.sm },
     profileBioText: {
-        fontSize: Typography.sizes.base,
-        color: Colors.text.secondary,
-        lineHeight: 20,
+        ...TextStyles.postBody,
         marginBottom: Spacing.sm,
     },
     profileSummaryInterests: {
@@ -1091,9 +1089,7 @@ const styles = StyleSheet.create({
         paddingVertical: Spacing.xs,
     },
     profileSummaryInterestChipText: {
-        fontSize: Typography.sizes.sm,
-        fontWeight: '600',
-        color: Colors.text.secondary,
+        ...TextStyles.chip,
     },
     profileSummarySobriety: {
         borderBottomWidth: 0,
@@ -1110,8 +1106,8 @@ const styles = StyleSheet.create({
         gap: Spacing.sm,
     },
     statItem: { flex: 1, alignItems: 'center', gap: 2 },
-    statCount: { fontSize: Typography.sizes.lg, fontWeight: '700', color: Colors.text.primary },
-    statLabel: { fontSize: Typography.sizes.xs, color: Colors.text.muted, letterSpacing: 0 },
+    statCount: { ...TextStyles.sectionTitle },
+    statLabel: { ...TextStyles.caption, letterSpacing: 0 },
     statDivider: { width: 0.5, height: 34, backgroundColor: Colors.border.default },
     profileContentTabsWrap: {
         marginHorizontal: -Spacing.md,

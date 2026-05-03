@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
@@ -19,6 +19,7 @@ import { PostCard } from '../../../components/posts/PostCard';
 import { groupPostToPostDisplayModel } from '../../../components/posts/postMappers';
 import { EmptyState } from '../../../components/ui/EmptyState';
 import { ScreenHeader } from '../../../components/ui/ScreenHeader';
+import { ScrollToTopButton } from '../../../components/ui/ScrollToTopButton';
 import { SegmentedControl } from '../../../components/ui/SegmentedControl';
 import { TextField } from '../../../components/ui/TextField';
 import {
@@ -35,7 +36,8 @@ import {
     useToggleGroupPostReactionMutation,
 } from '../../../hooks/queries/useGroups';
 import { useAuth } from '../../../hooks/useAuth';
-import { Colors, Radius, Spacing, Typography } from '../../../theme';
+import { useScrollToTopButton } from '../../../hooks/useScrollToTopButton';
+import { Colors, ControlSizes, Radius, Spacing, TextStyles, Typography } from '../../../theme';
 import { GroupAdminScreen } from './GroupAdminScreen';
 import { GroupReportScreen } from './GroupReportScreen';
 
@@ -147,6 +149,8 @@ function GroupPostsTab({
     onOpenCreatePost: (group: api.Group) => void;
 }): React.ReactElement {
     const groupId = group.id;
+    const listRef = useRef<FlatList<api.GroupPost> | null>(null);
+    const scrollToTop = useScrollToTopButton({ threshold: 520 });
     const insets = useSafeAreaInsets();
     const { user } = useAuth();
     const postsQuery = useGroupPosts(groupId, 20, true);
@@ -208,6 +212,7 @@ function GroupPostsTab({
     return (
         <View style={styles.postsSurface}>
             <FlatList
+                ref={listRef}
                 data={posts}
                 keyExtractor={item => item.id}
                 contentContainerStyle={[styles.postListContent, { paddingBottom: Spacing.xl + insets.bottom + 72 }]}
@@ -232,7 +237,13 @@ function GroupPostsTab({
                         postsQuery.fetchNextPage();
                     }
                 }}
+                onScroll={scrollToTop.onScroll}
+                scrollEventThrottle={16}
             />
+
+            {scrollToTop.isVisible ? (
+                <ScrollToTopButton onPress={() => listRef.current?.scrollToOffset({ offset: 0, animated: true })} />
+            ) : null}
 
             <CreatePostFab
                 visible={group.can_post}
@@ -244,6 +255,8 @@ function GroupPostsTab({
 }
 
 function GroupMediaTab({ group }: { group: api.Group }): React.ReactElement {
+    const listRef = useRef<FlatList<api.GroupMediaItem> | null>(null);
+    const scrollToTop = useScrollToTopButton({ threshold: 520 });
     const mediaQuery = useGroupMedia(group.id, 30, true);
     const media = useMemo(
         () => (mediaQuery.data?.pages ?? []).flatMap(page => page.items ?? []),
@@ -251,23 +264,42 @@ function GroupMediaTab({ group }: { group: api.Group }): React.ReactElement {
     );
 
     return (
-        <FlatList
-            data={media}
-            keyExtractor={item => item.id}
-            numColumns={3}
-            contentContainerStyle={styles.mediaGrid}
-            ListHeaderComponent={<GroupSummaryHeader group={group} />}
-            renderItem={({ item }) => (
-                <Image source={{ uri: item.thumb_url ?? item.image_url }} style={styles.mediaItem} />
-            )}
-            ListEmptyComponent={!mediaQuery.isLoading ? (
-                <EmptyState title="No shared photos yet" compact />
+        <View style={styles.listSurface}>
+            <FlatList
+                ref={listRef}
+                data={media}
+                keyExtractor={item => item.id}
+                contentContainerStyle={styles.mediaGrid}
+                ListHeaderComponent={<GroupSummaryHeader group={group} />}
+                renderItem={({ item }) => (
+                    <Image source={{ uri: item.image_url }} style={styles.mediaItem} resizeMode="cover" />
+                )}
+                ItemSeparatorComponent={() => <View style={styles.mediaSeparator} />}
+                ListEmptyComponent={!mediaQuery.isLoading ? (
+                    <EmptyState title="No shared photos yet" compact />
+                ) : null}
+                ListFooterComponent={mediaQuery.isFetchingNextPage ? (
+                    <ActivityIndicator color={Colors.primary} />
+                ) : null}
+                onEndReachedThreshold={0.4}
+                onEndReached={() => {
+                    if (mediaQuery.hasNextPage && !mediaQuery.isFetchingNextPage) {
+                        mediaQuery.fetchNextPage();
+                    }
+                }}
+                onScroll={scrollToTop.onScroll}
+                scrollEventThrottle={16}
+            />
+            {scrollToTop.isVisible ? (
+                <ScrollToTopButton onPress={() => listRef.current?.scrollToOffset({ offset: 0, animated: true })} />
             ) : null}
-        />
+        </View>
     );
 }
 
 function GroupMembersTab({ group }: { group: api.Group }): React.ReactElement {
+    const listRef = useRef<FlatList<api.GroupMember> | null>(null);
+    const scrollToTop = useScrollToTopButton({ threshold: 520 });
     const membersQuery = useGroupMembers(group.id, 30, true);
     const members = useMemo(
         () => (membersQuery.data?.pages ?? []).flatMap(page => page.items ?? []),
@@ -275,22 +307,39 @@ function GroupMembersTab({ group }: { group: api.Group }): React.ReactElement {
     );
 
     return (
-        <FlatList
-            data={members}
-            keyExtractor={item => item.user_id}
-            contentContainerStyle={styles.listContent}
-            ListHeaderComponent={<GroupSummaryHeader group={group} />}
-            renderItem={({ item }) => (
-                <View style={styles.memberRow}>
-                    <Avatar username={item.username} avatarUrl={item.avatar_url ?? undefined} size={38} fontSize={13} />
-                    <Text style={styles.memberName}>{item.username}</Text>
-                    <Text style={styles.roleLabel}>{item.role}</Text>
-                </View>
-            )}
-            ListEmptyComponent={!membersQuery.isLoading ? (
-                <EmptyState title="No members visible" compact />
+        <View style={styles.listSurface}>
+            <FlatList
+                ref={listRef}
+                data={members}
+                keyExtractor={item => item.user_id}
+                contentContainerStyle={styles.listContent}
+                ListHeaderComponent={<GroupSummaryHeader group={group} />}
+                renderItem={({ item }) => (
+                    <View style={styles.memberRow}>
+                        <Avatar username={item.username} avatarUrl={item.avatar_url ?? undefined} size={38} fontSize={13} />
+                        <Text style={styles.memberName}>{item.username}</Text>
+                        <Text style={styles.roleLabel}>{item.role}</Text>
+                    </View>
+                )}
+                ListEmptyComponent={!membersQuery.isLoading ? (
+                    <EmptyState title="No members visible" compact />
+                ) : null}
+                ListFooterComponent={membersQuery.isFetchingNextPage ? (
+                    <ActivityIndicator color={Colors.primary} />
+                ) : null}
+                onEndReachedThreshold={0.4}
+                onEndReached={() => {
+                    if (membersQuery.hasNextPage && !membersQuery.isFetchingNextPage) {
+                        membersQuery.fetchNextPage();
+                    }
+                }}
+                onScroll={scrollToTop.onScroll}
+                scrollEventThrottle={16}
+            />
+            {scrollToTop.isVisible ? (
+                <ScrollToTopButton onPress={() => listRef.current?.scrollToOffset({ offset: 0, animated: true })} />
             ) : null}
-        />
+        </View>
     );
 }
 
@@ -451,14 +500,11 @@ const styles = StyleSheet.create({
         gap: Spacing.xs,
     },
     groupName: {
+        ...TextStyles.sectionTitle,
         fontSize: Typography.sizes.xl,
-        fontWeight: '800',
-        color: Colors.text.primary,
     },
     description: {
-        fontSize: Typography.sizes.base,
-        lineHeight: 21,
-        color: Colors.text.secondary,
+        ...TextStyles.postBody,
     },
     metaRow: {
         flexDirection: 'row',
@@ -466,9 +512,7 @@ const styles = StyleSheet.create({
         gap: Spacing.xs,
     },
     metaText: {
-        fontSize: Typography.sizes.sm,
-        fontWeight: '600',
-        color: Colors.text.muted,
+        ...TextStyles.caption,
     },
     metaDot: {
         color: Colors.text.muted,
@@ -483,6 +527,9 @@ const styles = StyleSheet.create({
     postsSurface: {
         flex: 1,
     },
+    listSurface: {
+        flex: 1,
+    },
     postListContent: {
         paddingTop: 0,
     },
@@ -493,11 +540,13 @@ const styles = StyleSheet.create({
         paddingBottom: Spacing.md,
     },
     mediaItem: {
-        flex: 1,
-        aspectRatio: 1,
-        margin: 2,
-        borderRadius: Radius.sm,
+        width: '100%',
+        aspectRatio: 1.2,
         backgroundColor: Colors.bg.surface,
+    },
+    mediaSeparator: {
+        height: 1,
+        backgroundColor: Colors.border.subtle,
     },
     memberRow: {
         minHeight: 58,
@@ -510,9 +559,7 @@ const styles = StyleSheet.create({
     },
     memberName: {
         flex: 1,
-        fontSize: Typography.sizes.base,
-        fontWeight: '700',
-        color: Colors.text.primary,
+        ...TextStyles.bodyEmphasis,
     },
     roleLabel: {
         fontSize: Typography.sizes.xs,
@@ -534,9 +581,7 @@ const styles = StyleSheet.create({
         color: Colors.text.primary,
     },
     aboutBody: {
-        fontSize: Typography.sizes.base,
-        lineHeight: 22,
-        color: Colors.text.secondary,
+        ...TextStyles.postBody,
     },
     aboutPanel: {
         marginTop: Spacing.md,
@@ -553,11 +598,11 @@ const styles = StyleSheet.create({
         color: Colors.text.primary,
     },
     panelInput: {
-        minHeight: 44,
+        minHeight: ControlSizes.inputMinHeight,
     },
     panelButton: {
         alignSelf: 'flex-start',
-        minHeight: 36,
+        minHeight: ControlSizes.iconButton,
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
@@ -585,16 +630,16 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     iconAction: {
-        width: 32,
-        height: 32,
+        width: ControlSizes.iconButton,
+        height: ControlSizes.iconButton,
         alignItems: 'center',
         justifyContent: 'center',
-        borderRadius: 16,
+        borderRadius: Radius.pill,
         backgroundColor: Colors.bg.page,
     },
     reportButton: {
         alignSelf: 'flex-start',
-        minHeight: 36,
+        minHeight: ControlSizes.iconButton,
         alignItems: 'center',
         justifyContent: 'center',
         borderRadius: Radius.pill,

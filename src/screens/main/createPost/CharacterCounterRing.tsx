@@ -1,6 +1,6 @@
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
-import { Colors, Typography } from "../../../theme";
+import { Colors, TextStyles } from "../../../theme";
 
 interface CharacterCounterRingProps {
   count: number;
@@ -59,8 +59,8 @@ const styles = StyleSheet.create({
     borderColor: Colors.danger,
   },
   count: {
+    ...TextStyles.caption,
     color: Colors.text.secondary,
-    fontSize: Typography.sizes.xs,
     fontWeight: "700",
   },
   countWarn: {

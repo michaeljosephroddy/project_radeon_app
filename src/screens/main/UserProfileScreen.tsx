@@ -22,7 +22,7 @@ import { resetInfiniteQueryToFirstPage } from '../../query/infiniteQueryPolicy';
 import { queryKeys } from '../../query/queryKeys';
 import { dedupeById } from '../../utils/list';
 import { getListPerformanceProps } from '../../utils/listPerformance';
-import { Colors, Typography, Spacing, Radius, ContentInsets } from '../../theme';
+import { Colors, ControlSizes, Spacing, Radius, ContentInsets, TextStyles } from '../../theme';
 import { formatUsername } from '../../utils/identity';
 
 interface UserProfileScreenProps {
@@ -292,13 +292,12 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     statCount: {
-        fontSize: Typography.sizes.lg,
+        ...TextStyles.sectionTitle,
         fontWeight: '800',
-        color: Colors.text.primary,
     },
     statLabel: {
         marginTop: 2,
-        fontSize: Typography.sizes.xs,
+        ...TextStyles.caption,
         color: Colors.text.secondary,
     },
     bioBlock: {
@@ -311,9 +310,8 @@ const styles = StyleSheet.create({
         marginTop: Spacing.xs,
     },
     name: {
-        fontSize: Typography.sizes.base,
+        ...TextStyles.bodyEmphasis,
         fontWeight: '700',
-        color: Colors.text.primary,
     },
     metaRow: {
         flexDirection: 'row',
@@ -322,13 +320,10 @@ const styles = StyleSheet.create({
         marginTop: Spacing.xs,
     },
     meta: {
-        fontSize: Typography.sizes.sm,
-        color: Colors.text.muted,
+        ...TextStyles.meta,
     },
     bio: {
-        fontSize: Typography.sizes.base,
-        color: Colors.text.secondary,
-        lineHeight: 20,
+        ...TextStyles.postBody,
     },
     interestsWrap: {
         flexDirection: 'row',
@@ -345,9 +340,7 @@ const styles = StyleSheet.create({
         paddingVertical: Spacing.xs,
     },
     interestChipText: {
-        fontSize: Typography.sizes.sm,
-        fontWeight: '600',
-        color: Colors.text.secondary,
+        ...TextStyles.chip,
     },
     sobrietyCounter: {
         marginTop: Spacing.sm,
@@ -360,10 +353,11 @@ const styles = StyleSheet.create({
     },
     followBtn: {
         flex: 1,
+        minHeight: ControlSizes.buttonMinHeight,
         backgroundColor: Colors.primary,
         borderRadius: Radius.sm,
-        paddingVertical: 9,
         alignItems: 'center',
+        justifyContent: 'center',
     },
     followingBtn: {
         backgroundColor: Colors.bg.surface,
@@ -374,25 +368,25 @@ const styles = StyleSheet.create({
         opacity: 0.6,
     },
     followBtnText: {
-        fontSize: Typography.sizes.sm,
-        fontWeight: '700',
-        color: Colors.textOn.primary,
+        ...TextStyles.button,
+        fontSize: TextStyles.chip.fontSize,
     },
     followingBtnText: {
         color: Colors.text.primary,
     },
     dmBtn: {
         flex: 1,
+        minHeight: ControlSizes.buttonMinHeight,
         backgroundColor: Colors.bg.surface,
         borderRadius: Radius.sm,
-        paddingVertical: 9,
         alignItems: 'center',
+        justifyContent: 'center',
         borderWidth: 1,
         borderColor: Colors.border.default,
     },
     dmBtnText: {
-        fontSize: Typography.sizes.sm,
-        fontWeight: '700',
+        ...TextStyles.button,
+        fontSize: TextStyles.chip.fontSize,
         color: Colors.text.primary,
     },
 });

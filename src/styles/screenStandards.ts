@@ -1,5 +1,5 @@
 import { StyleSheet } from 'react-native';
-import { ContentInsets, Spacing, Typography } from '../theme';
+import { ContentInsets, Spacing, TextStyles } from '../theme';
 
 export const screenStandards = StyleSheet.create({
     tabControl: {
@@ -36,7 +36,8 @@ export const screenStandards = StyleSheet.create({
         paddingHorizontal: ContentInsets.authHorizontal,
     },
     sectionLabelText: {
-        ...Typography.sectionLabel,
+        ...TextStyles.caption,
+        textTransform: 'uppercase',
     },
     sectionLabelBlock: {
         marginTop: Spacing.md,

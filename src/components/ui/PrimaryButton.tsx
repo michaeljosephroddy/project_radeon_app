@@ -9,7 +9,7 @@ import {
     TouchableOpacity,
     ViewStyle,
 } from 'react-native';
-import { Colors, Radius, Typography } from '../../theme';
+import { Colors, ControlSizes, Radius, Spacing, TextStyles } from '../../theme';
 
 interface PrimaryButtonProps {
     label: string;
@@ -72,8 +72,11 @@ export function PrimaryButton({
 const styles = StyleSheet.create({
     base: {
         borderRadius: Radius.md,
-        paddingVertical: 14,
+        minHeight: ControlSizes.buttonMinHeight,
+        paddingHorizontal: Spacing.lg,
+        paddingVertical: 10,
         alignItems: 'center',
+        justifyContent: 'center',
     },
     primary: {
         backgroundColor: Colors.primary,
@@ -106,8 +109,6 @@ const styles = StyleSheet.create({
         gap: 8,
     },
     text: {
-        color: Colors.textOn.primary,
-        fontWeight: '600',
-        fontSize: Typography.sizes.md,
+        ...TextStyles.button,
     },
 });

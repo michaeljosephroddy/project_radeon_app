@@ -10,9 +10,10 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import {
   Colors,
+  ControlSizes,
   Radius,
   Spacing,
-  Typography,
+  TextStyles,
 } from "../../../theme";
 
 export interface TagCategory {
@@ -250,17 +251,13 @@ const styles = StyleSheet.create({
   },
   title: {
     flex: 1,
-    fontSize: Typography.sizes.md,
-    fontWeight: "700",
-    color: Colors.text.primary,
+    ...TextStyles.cardTitle,
   },
   counter: {
-    fontSize: Typography.sizes.xs,
-    color: Colors.text.muted,
-    fontWeight: "600",
+    ...TextStyles.caption,
   },
   doneLink: {
-    fontSize: Typography.sizes.sm,
+    ...TextStyles.chip,
     color: Colors.primary,
     fontWeight: "700",
   },
@@ -270,7 +267,7 @@ const styles = StyleSheet.create({
     marginHorizontal: Spacing.md,
     marginBottom: Spacing.xs,
     paddingHorizontal: Spacing.md,
-    minHeight: 40,
+    minHeight: ControlSizes.inputMinHeight,
     borderWidth: 1,
     borderColor: Colors.border.default,
     borderRadius: Radius.pill,
@@ -278,26 +275,25 @@ const styles = StyleSheet.create({
     gap: Spacing.xs,
   },
   hash: {
+    ...TextStyles.input,
     color: Colors.text.muted,
-    fontSize: Typography.sizes.base,
   },
   input: {
     flex: 1,
-    color: Colors.text.primary,
-    fontSize: Typography.sizes.base,
+    ...TextStyles.input,
     paddingVertical: 0,
   },
   addButton: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: ControlSizes.chipMinHeight,
+    height: ControlSizes.chipMinHeight,
+    borderRadius: Radius.pill,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: Colors.primary,
   },
   error: {
+    ...TextStyles.caption,
     color: Colors.danger,
-    fontSize: Typography.sizes.xs,
     paddingHorizontal: Spacing.md + Spacing.md,
     paddingBottom: Spacing.xs,
   },
@@ -318,8 +314,7 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.sm,
   },
   sectionLabel: {
-    fontSize: Typography.sizes.xs,
-    color: Colors.text.muted,
+    ...TextStyles.caption,
     fontWeight: "700",
     letterSpacing: 0.4,
     textTransform: "uppercase",
@@ -331,7 +326,7 @@ const styles = StyleSheet.create({
     gap: Spacing.xs,
   },
   chip: {
-    minHeight: 30,
+    minHeight: ControlSizes.chipMinHeight,
     borderRadius: Radius.pill,
     borderWidth: 1,
     borderColor: Colors.border.default,
@@ -346,16 +341,14 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.primarySubtle,
   },
   chipText: {
-    color: Colors.text.secondary,
-    fontSize: Typography.sizes.sm,
-    fontWeight: "600",
+    ...TextStyles.chip,
   },
   chipTextSelected: {
     color: Colors.primary,
   },
   empty: {
+    ...TextStyles.secondary,
     color: Colors.text.muted,
-    fontSize: Typography.sizes.sm,
     paddingVertical: Spacing.md,
     textAlign: "center",
   },

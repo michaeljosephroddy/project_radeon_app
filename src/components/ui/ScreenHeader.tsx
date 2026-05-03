@@ -8,7 +8,7 @@ import {
     View,
     ViewStyle,
 } from 'react-native';
-import { Colors, Header, Spacing, Typography } from '../../theme';
+import { Colors, ControlSizes, Header, Spacing, TextStyles } from '../../theme';
 
 export interface ScreenHeaderProps {
     onBack?: () => void;
@@ -71,6 +71,7 @@ const styles = StyleSheet.create({
     },
     side: {
         width: Header.sideWidth,
+        minHeight: ControlSizes.iconButton,
         justifyContent: 'center',
     },
     sideTrailing: {
@@ -82,14 +83,17 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
     },
     backButton: {
-        padding: 4,
+        width: ControlSizes.iconButton,
+        height: ControlSizes.iconButton,
+        alignItems: 'center',
+        justifyContent: 'center',
     },
     backIcon: {
         fontSize: Header.iconSize,
         color: Colors.primary,
     },
     title: {
-        ...Typography.screenTitle,
+        ...TextStyles.screenTitle,
         textAlign: 'center',
     },
 });

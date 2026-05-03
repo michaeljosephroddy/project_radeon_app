@@ -16,7 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Avatar } from '../Avatar';
 import type { CommentMention, User } from '../../api/client';
-import { Colors, Spacing, Typography } from '../../theme';
+import { Colors, ControlSizes, Spacing, TextStyles, Typography } from '../../theme';
 import { formatReadableTimestamp } from '../../utils/date';
 import { formatUsername } from '../../utils/identity';
 import { composerStandards } from '../../styles/composerStandards';
@@ -173,7 +173,7 @@ const CommentItem = React.memo(function CommentItem({
 }) {
     return (
         <View style={styles.commentRow}>
-            <Avatar username={comment.username} avatarUrl={comment.avatarUrl} size={28} fontSize={11} />
+            <Avatar username={comment.username} avatarUrl={comment.avatarUrl} size={34} fontSize={12} />
             <View style={styles.commentBodyWrap}>
                 <View style={styles.commentBubble}>
                     <View style={styles.commentHeader}>
@@ -425,7 +425,7 @@ export function CommentThread({
                                 style={styles.mentionRow}
                                 onPress={() => handleSelectMention(u)}
                             >
-                                <Avatar username={u.username} avatarUrl={u.avatar_url} size={26} fontSize={10} />
+                                <Avatar username={u.username} avatarUrl={u.avatar_url} size={32} fontSize={12} />
                                 <Text style={styles.mentionRowText}>{formatUsername(u.username)}</Text>
                             </TouchableOpacity>
                         ))
@@ -439,7 +439,7 @@ export function CommentThread({
                 <Avatar
                     username={currentUser.username}
                     avatarUrl={currentUser.avatar_url}
-                    size={30}
+                    size={34}
                     fontSize={12}
                 />
                 <TextInput
@@ -467,7 +467,7 @@ export function CommentThread({
                 >
                     {submitting
                         ? <ActivityIndicator size="small" color={Colors.textOn.primary} />
-                        : <Ionicons name="send" size={16} color={Colors.textOn.primary} />
+                        : <Ionicons name="send" size={18} color={Colors.textOn.primary} />
                     }
                 </TouchableOpacity>
             </ComposerPadding>
@@ -492,7 +492,7 @@ const styles = StyleSheet.create({
     separator: {
         height: 1,
         backgroundColor: Colors.border.default,
-        marginLeft: Spacing.md + 28 + Spacing.sm,
+        marginLeft: Spacing.md + 34 + Spacing.sm,
     },
     empty: {
         fontSize: Typography.sizes.sm,
@@ -519,12 +519,11 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         gap: Spacing.sm,
         paddingHorizontal: Spacing.md,
-        paddingVertical: 8,
+        paddingVertical: Spacing.sm,
+        minHeight: ControlSizes.iconButtonLarge,
     },
     mentionRowText: {
-        fontSize: Typography.sizes.sm,
-        color: Colors.text.primary,
-        fontWeight: '500',
+        ...TextStyles.bodyEmphasis,
     },
     mentionEmpty: {
         fontSize: Typography.sizes.sm,
@@ -546,7 +545,7 @@ const styles = StyleSheet.create({
         alignItems: 'flex-start',
         gap: Spacing.sm,
         paddingHorizontal: Spacing.md,
-        paddingVertical: Spacing.sm,
+        paddingVertical: Spacing.md,
     },
     commentBodyWrap: {
         flex: 1,
@@ -562,18 +561,13 @@ const styles = StyleSheet.create({
         marginBottom: 2,
     },
     commentAuthor: {
-        fontSize: Typography.sizes.sm,
-        fontWeight: '600',
-        color: Colors.text.primary,
+        ...TextStyles.commentAuthor,
     },
     commentMeta: {
-        fontSize: Typography.sizes.xs,
-        color: Colors.text.muted,
+        ...TextStyles.meta,
     },
     commentBody: {
-        fontSize: Typography.sizes.sm,
-        color: Colors.text.secondary,
-        lineHeight: 18,
+        ...TextStyles.commentBody,
     },
     commentMention: {
         color: Colors.primary,

@@ -1,5 +1,5 @@
 import { StyleSheet } from 'react-native';
-import { Colors, Composer, Radius, Spacing, Typography } from '../theme';
+import { Colors, Composer, Radius, Spacing, TextStyles } from '../theme';
 
 export const composerStandards = StyleSheet.create({
     row: {
@@ -21,9 +21,7 @@ export const composerStandards = StyleSheet.create({
         backgroundColor: Colors.bg.surface,
         borderWidth: 0.5,
         borderColor: Colors.border.default,
-        color: Colors.text.primary,
-        fontSize: Typography.body.fontSize,
-        lineHeight: 20,
+        ...TextStyles.input,
         paddingHorizontal: Composer.inputHorizontal,
         paddingTop: Composer.inputVertical,
         paddingBottom: Composer.inputVertical,
@@ -65,9 +63,7 @@ export const composerStandards = StyleSheet.create({
         backgroundColor: Colors.success,
     },
     actionButtonText: {
-        color: Colors.textOn.primary,
-        fontSize: Typography.sizes.sm,
-        fontWeight: '600',
+        ...TextStyles.button,
     },
     disabled: {
         opacity: 0.6,

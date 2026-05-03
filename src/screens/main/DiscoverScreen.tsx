@@ -43,7 +43,7 @@ import { useDiscoverResults as useDiscoverResultsQuery } from '../../hooks/queri
 import { getDeviceCoords } from '../../utils/location';
 import { getRecoveryMilestone } from '../../utils/date';
 import { formatUsername } from '../../utils/identity';
-import { Colors, Spacing, Typography, Radius, getAvatarColors } from '../../theme';
+import { Colors, ControlSizes, Spacing, TextStyles, Typography, Radius, getAvatarColors } from '../../theme';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -722,9 +722,9 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
     },
     cardInitialsText: {
-        fontSize: 32,
+        fontSize: Typography.sizes.xxxl,
         fontWeight: '700',
-        color: '#fff',
+        color: Colors.textOn.primary,
         letterSpacing: 2,
     },
     cardScrim: {
@@ -734,9 +734,9 @@ const styles = StyleSheet.create({
         position: 'absolute',
         top: Spacing.sm,
         right: Spacing.sm,
-        width: 30,
-        height: 30,
-        borderRadius: 15,
+        width: ControlSizes.iconButton,
+        height: ControlSizes.iconButton,
+        borderRadius: Radius.pill,
         alignItems: 'center',
         justifyContent: 'center',
         backgroundColor: 'rgba(13,110,253,0.92)',
@@ -767,8 +767,8 @@ const styles = StyleSheet.create({
         color: Colors.textOn.warning,
     },
     cardName: {
-        fontSize: Typography.sizes.md,
-        fontWeight: '700',
+        fontSize: TextStyles.cardTitle.fontSize,
+        fontWeight: TextStyles.label.fontWeight,
         color: '#fff',
     },
     resultRow: {
@@ -785,18 +785,15 @@ const styles = StyleSheet.create({
         gap: 2,
     },
     resultName: {
-        fontSize: Typography.sizes.base,
-        fontWeight: '600',
-        color: Colors.text.primary,
+        ...TextStyles.bodyEmphasis,
     },
     resultMeta: {
-        fontSize: Typography.sizes.sm,
-        color: Colors.text.secondary,
+        ...TextStyles.secondary,
     },
     resultFriendBtn: {
-        width: 36,
-        height: 36,
-        borderRadius: 18,
+        width: ControlSizes.iconButton,
+        height: ControlSizes.iconButton,
+        borderRadius: Radius.pill,
         alignItems: 'center',
         justifyContent: 'center',
         backgroundColor: Colors.primarySubtle,

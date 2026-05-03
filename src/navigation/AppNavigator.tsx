@@ -12,6 +12,7 @@ import { FeedScreen } from '../screens/main/FeedScreen';
 import { GroupsScreen } from '../screens/main/GroupsScreen';
 import { GroupDetailScreen } from '../screens/main/groups/GroupDetailScreen';
 import { GroupCommentsModal } from '../screens/main/groups/GroupCommentsModal';
+import { GroupCreateScreen } from '../screens/main/groups/GroupCreateScreen';
 import { GroupCreatePostScreen } from '../screens/main/groups/GroupCreatePostScreen';
 import { DiscoverScreen } from '../screens/main/DiscoverScreen';
 import { SupportScreen } from '../screens/main/SupportScreen';
@@ -28,7 +29,7 @@ import { Avatar } from '../components/Avatar';
 import { PlusUpsellScreen } from '../components/PlusUpsellScreen';
 import type { ProfileContentTabKey } from '../components/profile/ProfileContentTabs';
 import * as api from '../api/client';
-import { Colors, Radius, Typography, Spacing } from '../theme';
+import { Colors, ControlSizes, Radius, TextStyles, Typography, Spacing } from '../theme';
 import { useAuth } from '../hooks/useAuth';
 import { useNotificationSummary } from '../hooks/queries/useNotificationSummary';
 import { useNotificationIntent } from '../notifications/NotificationProvider';
@@ -76,6 +77,7 @@ const CommunityTab = React.memo(function CommunityTab({
     onOpenUserProfile,
     onOpenComments,
     onOpenCreatePost,
+    onOpenCreateGroup,
     onOpenGroup,
     focusRequest,
     onFocusRequestConsumed,
@@ -86,6 +88,7 @@ const CommunityTab = React.memo(function CommunityTab({
     onOpenUserProfile: (p: OpenUserProfile) => void;
     onOpenComments: (thread: CommentThreadTarget, focusComposer: boolean, onCommentCreated?: (comment: api.Comment) => void) => void;
     onOpenCreatePost: () => void;
+    onOpenCreateGroup: () => void;
     onOpenGroup: (groupId: string) => void;
     focusRequest: { postId: string; commentId?: string; nonce: number } | null;
     onFocusRequestConsumed: (nonce: number) => void;
@@ -112,7 +115,11 @@ const CommunityTab = React.memo(function CommunityTab({
                 />
             </View>
             <View style={mode === 'groups' ? styles.tabVisible : styles.tabHidden}>
-                <GroupsScreen isActive={isActive && mode === 'groups'} onOpenGroup={onOpenGroup} />
+                <GroupsScreen
+                    isActive={isActive && mode === 'groups'}
+                    onOpenGroup={onOpenGroup}
+                    onOpenCreateGroup={onOpenCreateGroup}
+                />
             </View>
         </View>
     );
@@ -159,6 +166,7 @@ export function AppNavigator() {
     const [openUserProfile, setOpenUserProfile] = useState<OpenUserProfile | null>(null);
     const [pendingDM, setPendingDM] = useState<{ recipientId: string; username: string; avatarUrl?: string } | null>(null);
     const [createPostOpen, setCreatePostOpen] = useState(false);
+    const [createGroupOpen, setCreateGroupOpen] = useState(false);
     const [groupCreatePostTarget, setGroupCreatePostTarget] = useState<api.Group | null>(null);
     const [createPostSessionKey, setCreatePostSessionKey] = useState(0);
     const [ownProfileOpen, setOwnProfileOpen] = useState(false);
@@ -182,6 +190,7 @@ export function AppNavigator() {
     const inOwnProfile = ownProfileOpen;
     const inComposeDM = pendingDM !== null;
     const inCreatePost = createPostOpen || groupCreatePostTarget !== null;
+    const inCreateGroup = createGroupOpen;
     const inMeetupDetail = openMeetup !== null;
     const inGroupDetail = openGroupId !== null;
     const inPlusUpsell = plusUpsellOpen;
@@ -219,6 +228,7 @@ export function AppNavigator() {
         setPendingDM(null);
         setOpenMeetup(null);
         setOpenGroupId(null);
+        setCreateGroupOpen(false);
         setPlusUpsellOpen(false);
     }, []);
 
@@ -235,6 +245,7 @@ export function AppNavigator() {
         setOwnProfileOpen(false);
         setPendingDM(null);
         setOpenMeetup(null);
+        setCreateGroupOpen(false);
         setPlusUpsellOpen(false);
         setOpenGroupComments(null);
     }, []);
@@ -275,6 +286,7 @@ export function AppNavigator() {
     }, []);
 
     const openCreatePost = useCallback(() => {
+        setCreateGroupOpen(false);
         setGroupCreatePostTarget(null);
         setCreatePostSessionKey((current) => current + 1);
         setCreatePostOpen(true);
@@ -289,6 +301,7 @@ export function AppNavigator() {
     }, []);
 
     const handleOpenGroupCreatePost = useCallback((group: api.Group) => {
+        setCreateGroupOpen(false);
         setCreatePostOpen(false);
         setGroupCreatePostTarget(group);
         setCreatePostSessionKey((current) => current + 1);
@@ -306,6 +319,32 @@ export function AppNavigator() {
         setCreatePostOpen(false);
         setGroupCreatePostTarget(null);
     }, []);
+
+    const openCreateGroup = useCallback(() => {
+        setCreateGroupOpen(true);
+        setCreatePostOpen(false);
+        setGroupCreatePostTarget(null);
+        setOpenGroupComments(null);
+        setOpenChat(null);
+        setOpenUserProfile(null);
+        setOwnProfileOpen(false);
+        setPendingDM(null);
+        setOpenMeetup(null);
+        setOpenGroupId(null);
+        setPlusUpsellOpen(false);
+        setNotificationsOpen(false);
+    }, []);
+
+    const closeCreateGroup = useCallback(() => {
+        setCreateGroupOpen(false);
+    }, []);
+
+    const handleGroupCreated = useCallback((group: api.Group): void => {
+        setCreateGroupOpen(false);
+        setActiveTab('community');
+        setCommunityMode('groups');
+        handleOpenGroup(group.id);
+    }, [handleOpenGroup]);
 
     const handleFeedFocusRequestConsumed = useCallback((nonce: number) => {
         setFeedFocusRequest((current) => (
@@ -332,6 +371,7 @@ export function AppNavigator() {
         setActiveTab(tab);
         setOpenChat(null);
         setCreatePostOpen(false);
+        setCreateGroupOpen(false);
         setNotificationsOpen(false);
     }, []);
 
@@ -469,7 +509,7 @@ export function AppNavigator() {
     }, [consumeIntent, intent]);
 
     const header = useMemo(() => {
-        if (inChat || inUserProfile || inOwnProfile || inComposeDM || inCreatePost || inMeetupDetail || inGroupDetail || inPlusUpsell || inNotifications) return null;
+        if (inChat || inUserProfile || inOwnProfile || inComposeDM || inCreatePost || inCreateGroup || inMeetupDetail || inGroupDetail || inPlusUpsell || inNotifications) return null;
 
         const titles: Record<Tab, React.ReactNode> = {
             community: (
@@ -487,13 +527,6 @@ export function AppNavigator() {
             <View style={styles.topBar}>
                 {titles[activeTab]}
                 <View style={styles.topBarActions}>
-                    <TouchableOpacity
-                        style={styles.headerIconButton}
-                        onPress={openCreatePost}
-                        disabled={!user}
-                    >
-                        <Ionicons name="add-circle-outline" size={23} color={Colors.text.primary} />
-                    </TouchableOpacity>
                     <TouchableOpacity
                         style={styles.headerIconButton}
                         onPress={openNotifications}
@@ -518,9 +551,9 @@ export function AppNavigator() {
             </View>
         );
     }, [
-        activeTab, inChat, inComposeDM, inCreatePost, inGroupDetail, inMeetupDetail, inNotifications,
+        activeTab, inChat, inComposeDM, inCreateGroup, inCreatePost, inGroupDetail, inMeetupDetail, inNotifications,
         inOwnProfile, inPlusUpsell, inUserProfile, notificationSummary?.unread_count,
-        openCreatePost, openNotifications, openOwnProfile, user,
+        openNotifications, openOwnProfile, user,
     ]);
 
     const overlays = useMemo(() => (
@@ -590,6 +623,14 @@ export function AppNavigator() {
                     )}
                 </View>
             )}
+            {inCreateGroup && (
+                <View style={StyleSheet.absoluteFill}>
+                    <GroupCreateScreen
+                        onBack={closeCreateGroup}
+                        onCreated={handleGroupCreated}
+                    />
+                </View>
+            )}
             {inUserProfile && (
                 <View style={StyleSheet.absoluteFill}>
                     <UserProfileScreen
@@ -625,15 +666,15 @@ export function AppNavigator() {
             )}
         </>
     ), [
-        inOwnProfile, inUserProfile, inChat, inComposeDM, inCreatePost, inMeetupDetail, inGroupDetail, inPlusUpsell, inNotifications,
+        inOwnProfile, inUserProfile, inChat, inComposeDM, inCreatePost, inCreateGroup, inMeetupDetail, inGroupDetail, inPlusUpsell, inNotifications,
         openUserProfile, openChat, pendingDM, openMeetup, openGroupId, ownProfileInitialContentTab, createPostSessionKey, groupCreatePostTarget,
         handleOpenUserProfile, handleOpenGroup, handleCloseChat, closeUserProfile, closeOwnProfile,
-        handleOpenComments, handleOpenGroupComments, handleOpenGroupCreatePost, closeCreatePost,
+        handleOpenComments, handleOpenGroupComments, handleOpenGroupCreatePost, closeCreatePost, closeCreateGroup, handleGroupCreated,
         handleComposeDM, handleComposeDMComplete, handleCloseMeetup, handleCloseGroup, closePlusUpsell,
         closeNotifications, handleOpenNotificationChat, handleOpenNotificationMention,
     ]);
 
-    const isOverlayOpen = inChat || inUserProfile || inOwnProfile || inComposeDM || inCreatePost || inMeetupDetail || inGroupDetail || inPlusUpsell || inNotifications;
+    const isOverlayOpen = inChat || inUserProfile || inOwnProfile || inComposeDM || inCreatePost || inCreateGroup || inMeetupDetail || inGroupDetail || inPlusUpsell || inNotifications;
 
     return (
         <>
@@ -648,6 +689,7 @@ export function AppNavigator() {
                         onOpenUserProfile={handleOpenUserProfile}
                         onOpenComments={handleOpenComments}
                         onOpenCreatePost={openCreatePost}
+                        onOpenCreateGroup={openCreateGroup}
                         onOpenGroup={handleOpenGroup}
                         focusRequest={feedFocusRequest}
                         onFocusRequestConsumed={handleFeedFocusRequestConsumed}
@@ -663,7 +705,7 @@ export function AppNavigator() {
                     {overlays}
                 </View>
 
-                {!inChat && !inUserProfile && !inOwnProfile && !inComposeDM && !inCreatePost && !inMeetupDetail && !inGroupDetail && !inNotifications && !keyboardVisible && (
+                {!inChat && !inUserProfile && !inOwnProfile && !inComposeDM && !inCreatePost && !inCreateGroup && !inMeetupDetail && !inGroupDetail && !inNotifications && !keyboardVisible && (
                     <View style={[styles.tabBar, { paddingBottom: insets.bottom + 6 }]}>
                         {TABS.map(tab => (
                             <TouchableOpacity
@@ -746,8 +788,8 @@ const styles = StyleSheet.create({
     },
     headerIconButton: {
         position: 'relative',
-        width: 34,
-        height: 34,
+        width: ControlSizes.iconButton,
+        height: ControlSizes.iconButton,
         alignItems: 'center',
         justifyContent: 'center',
     },
@@ -766,10 +808,8 @@ const styles = StyleSheet.create({
         borderColor: Colors.bg.page,
     },
     notificationBadgeText: {
-        fontSize: 10,
-        lineHeight: 12,
+        ...TextStyles.badge,
         color: Colors.textOn.danger,
-        fontWeight: '700',
     },
 
     tabBar: {

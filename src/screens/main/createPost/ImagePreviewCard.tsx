@@ -9,7 +9,7 @@ import {
   useWindowDimensions,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { Colors, Spacing, Typography } from "../../../theme";
+import { Colors, ControlSizes, Spacing, TextStyles } from "../../../theme";
 
 export interface ImagePreviewSource {
   uri: string;
@@ -39,7 +39,7 @@ export function ImagePreviewCard({
   const previewHeight = computeHeight(image, windowWidth);
 
   return (
-    <View style={[styles.wrap, { height: previewHeight }]}>
+    <View style={[styles.wrap, { width: windowWidth, height: previewHeight }]}>
       <Image
         source={{ uri: image.uri }}
         style={styles.image}
@@ -105,9 +105,9 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: Spacing.sm,
     right: Spacing.sm,
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: ControlSizes.chipMinHeight,
+    height: ControlSizes.chipMinHeight,
+    borderRadius: ControlSizes.chipMinHeight / 2,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "rgba(0,0,0,0.55)",
@@ -126,8 +126,8 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0,0,0,0.55)",
   },
   failText: {
+    ...TextStyles.button,
     color: Colors.textOn.primary,
-    fontSize: Typography.sizes.sm,
-    fontWeight: "700",
+    fontSize: TextStyles.chip.fontSize,
   },
 });

@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
@@ -14,6 +14,7 @@ import * as api from '../../../api/client';
 import { Avatar } from '../../../components/Avatar';
 import { EmptyState } from '../../../components/ui/EmptyState';
 import { ScreenHeader } from '../../../components/ui/ScreenHeader';
+import { ScrollToTopButton } from '../../../components/ui/ScrollToTopButton';
 import { SegmentedControl } from '../../../components/ui/SegmentedControl';
 import { TextField } from '../../../components/ui/TextField';
 import {
@@ -23,7 +24,8 @@ import {
     useResolveGroupAdminThreadMutation,
     useReviewGroupJoinRequestMutation,
 } from '../../../hooks/queries/useGroups';
-import { Colors, Radius, Spacing, Typography } from '../../../theme';
+import { useScrollToTopButton } from '../../../hooks/useScrollToTopButton';
+import { Colors, ControlSizes, Radius, Spacing, TextStyles } from '../../../theme';
 import { formatReadableTimestamp } from '../../../utils/date';
 
 interface GroupAdminScreenProps {
@@ -111,6 +113,8 @@ function JoinRequestsPanel({ group }: { group: api.Group }): React.ReactElement 
 }
 
 function AdminInboxPanel({ group }: { group: api.Group }): React.ReactElement {
+    const listRef = useRef<FlatList<api.GroupAdminThread> | null>(null);
+    const scrollToTop = useScrollToTopButton({ threshold: 520 });
     const inboxQuery = useGroupAdminInbox(group.id, 20, group.can_moderate_content);
     const replyMutation = useReplyGroupAdminThreadMutation(group.id);
     const resolveMutation = useResolveGroupAdminThreadMutation(group.id);
@@ -144,63 +148,71 @@ function AdminInboxPanel({ group }: { group: api.Group }): React.ReactElement {
     }
 
     return (
-        <FlatList
-            data={threads}
-            keyExtractor={(item) => item.id}
-            contentContainerStyle={threads.length ? styles.listContent : styles.emptyContent}
-            ListEmptyComponent={<EmptyState title="No admin messages" compact />}
-            renderItem={({ item }) => (
-                <View style={styles.card}>
-                    <View style={styles.row}>
-                        <Avatar username={item.username} avatarUrl={item.avatar_url ?? undefined} size={40} fontSize={13} />
-                        <View style={styles.rowCopy}>
-                            <Text style={styles.name}>{item.subject || item.username}</Text>
-                            <Text style={styles.meta}>{item.status} · {formatReadableTimestamp(item.updated_at)}</Text>
+        <View style={styles.listSurface}>
+            <FlatList
+                ref={listRef}
+                data={threads}
+                keyExtractor={(item) => item.id}
+                contentContainerStyle={threads.length ? styles.listContent : styles.emptyContent}
+                ListEmptyComponent={<EmptyState title="No admin messages" compact />}
+                renderItem={({ item }) => (
+                    <View style={styles.card}>
+                        <View style={styles.row}>
+                            <Avatar username={item.username} avatarUrl={item.avatar_url ?? undefined} size={40} fontSize={13} />
+                            <View style={styles.rowCopy}>
+                                <Text style={styles.name}>{item.subject || item.username}</Text>
+                                <Text style={styles.meta}>{item.status} · {formatReadableTimestamp(item.updated_at)}</Text>
+                            </View>
+                        </View>
+                        <ScrollView style={styles.messages} nestedScrollEnabled>
+                            {(item.messages ?? []).map((message) => (
+                                <View key={message.id} style={styles.messageRow}>
+                                    <Text style={styles.messageAuthor}>{message.username}</Text>
+                                    <Text style={styles.body}>{message.body}</Text>
+                                </View>
+                            ))}
+                        </ScrollView>
+                        <TextField
+                            value={drafts[item.id] ?? ''}
+                            onChangeText={(value) => setDrafts((current) => ({ ...current, [item.id]: value }))}
+                            placeholder="Reply as admin"
+                            multiline
+                            style={styles.replyInput}
+                        />
+                        <View style={styles.actionRow}>
+                            <TouchableOpacity
+                                style={[styles.acceptButton, !(drafts[item.id] ?? '').trim() && styles.disabled]}
+                                onPress={() => reply(item.id)}
+                                disabled={!(drafts[item.id] ?? '').trim() || replyMutation.isPending}
+                            >
+                                <Ionicons name="send" size={15} color={Colors.textOn.primary} />
+                                <Text style={styles.primaryButtonText}>Reply</Text>
+                            </TouchableOpacity>
+                            {item.status !== 'resolved' ? (
+                                <TouchableOpacity style={styles.resolveButton} onPress={() => resolve(item.id)}>
+                                    <Ionicons name="checkmark-done" size={16} color={Colors.primary} />
+                                    <Text style={styles.resolveText}>Resolve</Text>
+                                </TouchableOpacity>
+                            ) : null}
                         </View>
                     </View>
-                    <ScrollView style={styles.messages} nestedScrollEnabled>
-                        {(item.messages ?? []).map((message) => (
-                            <View key={message.id} style={styles.messageRow}>
-                                <Text style={styles.messageAuthor}>{message.username}</Text>
-                                <Text style={styles.body}>{message.body}</Text>
-                            </View>
-                        ))}
-                    </ScrollView>
-                    <TextField
-                        value={drafts[item.id] ?? ''}
-                        onChangeText={(value) => setDrafts((current) => ({ ...current, [item.id]: value }))}
-                        placeholder="Reply as admin"
-                        multiline
-                        style={styles.replyInput}
-                    />
-                    <View style={styles.actionRow}>
-                        <TouchableOpacity
-                            style={[styles.acceptButton, !(drafts[item.id] ?? '').trim() && styles.disabled]}
-                            onPress={() => reply(item.id)}
-                            disabled={!(drafts[item.id] ?? '').trim() || replyMutation.isPending}
-                        >
-                            <Ionicons name="send" size={15} color={Colors.textOn.primary} />
-                            <Text style={styles.primaryButtonText}>Reply</Text>
-                        </TouchableOpacity>
-                        {item.status !== 'resolved' ? (
-                            <TouchableOpacity style={styles.resolveButton} onPress={() => resolve(item.id)}>
-                                <Ionicons name="checkmark-done" size={16} color={Colors.primary} />
-                                <Text style={styles.resolveText}>Resolve</Text>
-                            </TouchableOpacity>
-                        ) : null}
-                    </View>
-                </View>
-            )}
-            onEndReachedThreshold={0.4}
-            onEndReached={() => {
-                if (inboxQuery.hasNextPage && !inboxQuery.isFetchingNextPage) {
-                    inboxQuery.fetchNextPage();
-                }
-            }}
-            ListFooterComponent={inboxQuery.isFetchingNextPage ? (
-                <ActivityIndicator color={Colors.primary} />
+                )}
+                onEndReachedThreshold={0.4}
+                onEndReached={() => {
+                    if (inboxQuery.hasNextPage && !inboxQuery.isFetchingNextPage) {
+                        inboxQuery.fetchNextPage();
+                    }
+                }}
+                onScroll={scrollToTop.onScroll}
+                scrollEventThrottle={16}
+                ListFooterComponent={inboxQuery.isFetchingNextPage ? (
+                    <ActivityIndicator color={Colors.primary} />
+                ) : null}
+            />
+            {scrollToTop.isVisible ? (
+                <ScrollToTopButton onPress={() => listRef.current?.scrollToOffset({ offset: 0, animated: true })} />
             ) : null}
-        />
+        </View>
     );
 }
 
@@ -214,14 +226,12 @@ const styles = StyleSheet.create({
         gap: Spacing.xs,
     },
     title: {
-        fontSize: Typography.sizes.xl,
+        ...TextStyles.sectionTitle,
         fontWeight: '800',
-        color: Colors.text.primary,
     },
     subtitle: {
-        fontSize: Typography.sizes.sm,
+        ...TextStyles.secondary,
         fontWeight: '600',
-        color: Colors.text.secondary,
     },
     tabs: {
         marginHorizontal: Spacing.md,
@@ -232,6 +242,9 @@ const styles = StyleSheet.create({
     listContent: {
         padding: Spacing.md,
         gap: Spacing.md,
+    },
+    listSurface: {
+        flex: 1,
     },
     emptyContent: {
         flexGrow: 1,
@@ -256,19 +269,14 @@ const styles = StyleSheet.create({
         gap: 2,
     },
     name: {
-        fontSize: Typography.sizes.base,
+        ...TextStyles.bodyEmphasis,
         fontWeight: '800',
-        color: Colors.text.primary,
     },
     meta: {
-        fontSize: Typography.sizes.xs,
-        fontWeight: '600',
-        color: Colors.text.muted,
+        ...TextStyles.caption,
     },
     body: {
-        fontSize: Typography.sizes.sm,
-        lineHeight: 19,
-        color: Colors.text.secondary,
+        ...TextStyles.postBody,
     },
     actionRow: {
         flexDirection: 'row',
@@ -276,7 +284,7 @@ const styles = StyleSheet.create({
         gap: Spacing.sm,
     },
     acceptButton: {
-        minHeight: 38,
+        minHeight: ControlSizes.iconButton,
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
@@ -286,12 +294,12 @@ const styles = StyleSheet.create({
         paddingHorizontal: Spacing.md,
     },
     primaryButtonText: {
-        fontSize: Typography.sizes.sm,
+        ...TextStyles.button,
+        fontSize: TextStyles.chip.fontSize,
         fontWeight: '800',
-        color: Colors.textOn.primary,
     },
     rejectButton: {
-        minHeight: 38,
+        minHeight: ControlSizes.iconButton,
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
@@ -301,12 +309,13 @@ const styles = StyleSheet.create({
         paddingHorizontal: Spacing.md,
     },
     rejectText: {
-        fontSize: Typography.sizes.sm,
+        ...TextStyles.button,
+        fontSize: TextStyles.chip.fontSize,
         fontWeight: '800',
         color: Colors.danger,
     },
     resolveButton: {
-        minHeight: 38,
+        minHeight: ControlSizes.iconButton,
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
@@ -316,7 +325,8 @@ const styles = StyleSheet.create({
         paddingHorizontal: Spacing.md,
     },
     resolveText: {
-        fontSize: Typography.sizes.sm,
+        ...TextStyles.button,
+        fontSize: TextStyles.chip.fontSize,
         fontWeight: '800',
         color: Colors.primary,
     },
@@ -330,7 +340,7 @@ const styles = StyleSheet.create({
         gap: 2,
     },
     messageAuthor: {
-        fontSize: Typography.sizes.xs,
+        ...TextStyles.caption,
         fontWeight: '800',
         color: Colors.text.primary,
     },

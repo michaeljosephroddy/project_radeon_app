@@ -12,7 +12,7 @@ import * as api from '../../../api/client';
 import { ScreenHeader } from '../../../components/ui/ScreenHeader';
 import { TextField } from '../../../components/ui/TextField';
 import { useReportGroupTargetMutation } from '../../../hooks/queries/useGroups';
-import { Colors, Radius, Spacing, Typography } from '../../../theme';
+import { Colors, ControlSizes, Radius, Spacing, TextStyles } from '../../../theme';
 
 interface GroupReportScreenProps {
     group: api.Group;
@@ -129,19 +129,15 @@ const styles = StyleSheet.create({
         gap: Spacing.xs,
     },
     title: {
-        fontSize: Typography.sizes.lg,
+        ...TextStyles.sectionTitle,
         fontWeight: '800',
-        color: Colors.text.primary,
     },
     body: {
-        fontSize: Typography.sizes.sm,
-        lineHeight: 19,
-        color: Colors.text.secondary,
+        ...TextStyles.secondary,
     },
     label: {
-        fontSize: Typography.sizes.sm,
+        ...TextStyles.label,
         fontWeight: '800',
-        color: Colors.text.primary,
     },
     reasonGrid: {
         flexDirection: 'row',
@@ -149,7 +145,7 @@ const styles = StyleSheet.create({
         gap: Spacing.sm,
     },
     reasonButton: {
-        minHeight: 36,
+        minHeight: ControlSizes.iconButton,
         justifyContent: 'center',
         borderWidth: 1,
         borderColor: Colors.border.default,
@@ -162,9 +158,8 @@ const styles = StyleSheet.create({
         backgroundColor: Colors.primarySubtle,
     },
     reasonText: {
-        fontSize: Typography.sizes.sm,
+        ...TextStyles.chip,
         fontWeight: '700',
-        color: Colors.text.secondary,
     },
     reasonTextSelected: {
         color: Colors.primary,
@@ -174,7 +169,7 @@ const styles = StyleSheet.create({
         textAlignVertical: 'top',
     },
     submitButton: {
-        minHeight: 44,
+        minHeight: ControlSizes.buttonMinHeight,
         alignItems: 'center',
         justifyContent: 'center',
         borderRadius: Radius.pill,
@@ -182,7 +177,8 @@ const styles = StyleSheet.create({
         paddingHorizontal: Spacing.md,
     },
     submitButtonText: {
-        fontSize: Typography.sizes.sm,
+        ...TextStyles.button,
+        fontSize: TextStyles.chip.fontSize,
         fontWeight: '800',
         color: Colors.textOn.danger,
     },

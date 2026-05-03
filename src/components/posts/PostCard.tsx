@@ -2,7 +2,7 @@ import React, { useCallback } from 'react';
 import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Avatar } from '../Avatar';
-import { Colors, Radius, Spacing, Typography } from '../../theme';
+import { Colors, ControlSizes, Radius, Spacing, TextStyles, Typography } from '../../theme';
 import { formatReadableTimestamp } from '../../utils/date';
 import { formatUsername } from '../../utils/identity';
 import { PostDisplayModel } from './postTypes';
@@ -64,17 +64,19 @@ export const PostCard = React.memo(function PostCard({
                     </TouchableOpacity>
                 ) : null}
             </View>
-            <View style={styles.postContent}>
-                {!!post.body && <Text style={styles.postBody}>{post.body}</Text>}
-                {post.imageUrl ? (
-                    <Image
-                        source={{ uri: post.imageUrl }}
-                        style={styles.postImage}
-                        resizeMode="cover"
-                    />
-                ) : null}
-                {renderPostTags(post.tags)}
-            </View>
+            {!!post.body ? (
+                <View style={styles.postContent}>
+                    <Text style={styles.postBody}>{post.body}</Text>
+                </View>
+            ) : null}
+            {post.imageUrl ? (
+                <Image
+                    source={{ uri: post.imageUrl }}
+                    style={styles.postImage}
+                    resizeMode="cover"
+                />
+            ) : null}
+            {renderPostTags(post.tags)}
             <View style={styles.postFoot}>
                 <TouchableOpacity style={styles.postAction} onPress={onReact}>
                     <Ionicons
@@ -156,13 +158,10 @@ const styles = StyleSheet.create({
         flexWrap: 'wrap',
     },
     postName: {
-        fontSize: Typography.sizes.md,
-        fontWeight: '500',
-        color: Colors.text.primary,
+        ...TextStyles.cardTitle,
     },
     postMeta: {
-        fontSize: Typography.sizes.xs,
-        color: Colors.text.muted,
+        ...TextStyles.meta,
     },
     postSource: {
         fontSize: Typography.sizes.xs,
@@ -186,13 +185,13 @@ const styles = StyleSheet.create({
         paddingVertical: 3,
     },
     badgeText: {
-        fontSize: Typography.sizes.xs,
-        fontWeight: '700',
+        fontSize: TextStyles.caption.fontSize,
+        fontWeight: TextStyles.caption.fontWeight,
         color: Colors.primary,
     },
     headActionButton: {
-        width: 30,
-        height: 30,
+        width: ControlSizes.iconButtonLarge,
+        height: ControlSizes.iconButtonLarge,
         alignItems: 'center',
         justifyContent: 'center',
     },
@@ -201,21 +200,19 @@ const styles = StyleSheet.create({
         paddingBottom: Spacing.sm,
     },
     postBody: {
-        fontSize: Typography.sizes.base,
-        color: Colors.text.secondary,
-        lineHeight: 19,
+        ...TextStyles.postBody,
     },
     postImage: {
         width: '100%',
         aspectRatio: 1.2,
-        borderRadius: Radius.md,
-        marginTop: Spacing.sm,
         backgroundColor: Colors.bg.surface,
     },
     postTags: {
         flexDirection: 'row',
         flexWrap: 'wrap',
         gap: Spacing.xs,
+        paddingHorizontal: Spacing.md,
+        paddingBottom: Spacing.sm,
         marginTop: Spacing.sm,
     },
     postTag: {
@@ -225,15 +222,15 @@ const styles = StyleSheet.create({
         paddingVertical: 4,
         backgroundColor: Colors.primarySubtle,
         color: Colors.primary,
-        fontSize: Typography.sizes.xs,
-        fontWeight: '700',
+        fontSize: TextStyles.caption.fontSize,
+        fontWeight: TextStyles.caption.fontWeight,
     },
     postFoot: {
         flexDirection: 'row',
         alignItems: 'center',
         gap: 14,
         paddingHorizontal: Spacing.md,
-        paddingVertical: 10,
+        paddingVertical: Spacing.md,
     },
     postAction: {
         flexDirection: 'row',
@@ -241,7 +238,7 @@ const styles = StyleSheet.create({
         gap: 4,
     },
     postActionText: {
-        fontSize: Typography.sizes.sm,
+        ...TextStyles.secondary,
         color: Colors.text.muted,
     },
     liked: {
