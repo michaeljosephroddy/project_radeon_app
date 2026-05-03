@@ -70,6 +70,7 @@ export function MeetingsView({ isActive }: MeetingsViewProps) {
     const [draftFilters, setDraftFilters] = useState<RecoveryMeetingFilters>(() => resetMeetingFilters());
     const [appliedFilters, setAppliedFilters] = useState<RecoveryMeetingFilters>(() => resetMeetingFilters());
     const [filterOpen, setFilterOpen] = useState(false);
+    const [showHeaderNotice, setShowHeaderNotice] = useState(true);
     const debouncedQuery = useDebounce(draftFilters.query, 300);
     const listProps = getListPerformanceProps('detailList');
     const scrollToTop = useScrollToTopButton({ threshold: 320 });
@@ -109,10 +110,13 @@ export function MeetingsView({ isActive }: MeetingsViewProps) {
 
     const renderHeader = (): React.ReactElement => (
         <View style={styles.header}>
-            <InfoNoticeCard
-                title="Find recovery meetings"
-                description="Browse peer support meetings by fellowship, country, city, day, time, and format."
-            />
+            {showHeaderNotice ? (
+                <InfoNoticeCard
+                    title="Find recovery meetings"
+                    description="Browse peer support meetings by fellowship, country, city, day, time, and format."
+                    onDismiss={() => setShowHeaderNotice(false)}
+                />
+            ) : null}
             <View style={styles.searchRow}>
                 <SearchBar
                     primaryField={{

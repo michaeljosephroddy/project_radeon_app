@@ -17,6 +17,7 @@ import { Avatar } from '../../components/Avatar';
 import { DiscoverActiveFiltersBar } from '../../components/discover/DiscoverActiveFiltersBar';
 import { DiscoverEmptyState } from '../../components/discover/DiscoverEmptyState';
 import { DiscoverFilterSheet } from '../../components/discover/DiscoverFilterSheet';
+import { InfoNoticeCard } from '../../components/ui/InfoNoticeCard';
 import { SearchBar } from '../../components/ui/SearchBar';
 import { ScrollToTopButton } from '../../components/ui/ScrollToTopButton';
 import * as api from '../../api/client';
@@ -235,6 +236,7 @@ export function DiscoverScreen({ isActive, onOpenUserProfile, onOpenPlus }: Disc
     const liveSearchText = searchText.trim();
     const debouncedQuery = useDebounce(liveSearchText, 400);
     const [filterSheetVisible, setFilterSheetVisible] = useState(false);
+    const [showFilterNotice, setShowFilterNotice] = useState(true);
     const [coords, setCoords] = useState<{ latitude: number; longitude: number } | null>(null);
     const [friendedIds, setFriendedIds] = useState<Set<string>>(new Set());
     const listRef = useRef<FlatList<api.User>>(null);
@@ -394,15 +396,15 @@ export function DiscoverScreen({ isActive, onOpenUserProfile, onOpenPlus }: Disc
     const keyExtractor = useCallback((item: api.User) => item.id, []);
     const resultsHeader = useMemo(() => (
         <View style={styles.resultsHeader}>
-            <View style={styles.filterSummaryWrap}>
-                <TouchableOpacity style={styles.filterSummaryCard} onPress={handleOpenFilters} activeOpacity={0.85}>
-                    <View style={styles.filterSummaryCopy}>
-                        <Text style={styles.filterSummaryLabel}>Find people</Text>
-                        <Text style={styles.filterSummaryText}>Search members and refine suggestions with filters.</Text>
-                    </View>
-                    <Ionicons name="chevron-forward" size={16} color={Colors.text.muted} />
-                </TouchableOpacity>
-            </View>
+            {showFilterNotice ? (
+                <View style={styles.filterSummaryWrap}>
+                    <InfoNoticeCard
+                        title="Find people"
+                        description="Search members and refine suggestions with filters."
+                        onDismiss={() => setShowFilterNotice(false)}
+                    />
+                </View>
+            ) : null}
 
             <View style={styles.sectionHeadingRow}>
                 <Text style={styles.sectionHeading}>{resultsHeading}</Text>
@@ -412,7 +414,7 @@ export function DiscoverScreen({ isActive, onOpenUserProfile, onOpenPlus }: Disc
                 </Text>
             </View>
         </View>
-    ), [discoverQuery.hasNextPage, displayedUsers.length, handleOpenFilters, resultsHeading, showSearchLoadingState]);
+    ), [discoverQuery.hasNextPage, displayedUsers.length, resultsHeading, showFilterNotice, showSearchLoadingState]);
     const renderSearchItem = useCallback(({ item }: { item: api.User }) => (
         <SearchResultRow
             user={item}
@@ -645,33 +647,6 @@ const styles = StyleSheet.create({
         fontSize: Typography.sizes.xs,
         fontWeight: '700',
         color: Colors.textOn.primary,
-    },
-    filterSummaryCard: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: Spacing.sm,
-        borderRadius: Radius.lg,
-        borderWidth: 1,
-        borderColor: 'rgba(13,110,253,0.38)',
-        backgroundColor: 'rgba(13,110,253,0.18)',
-        paddingHorizontal: Spacing.md,
-        paddingVertical: Spacing.md,
-    },
-    filterSummaryCopy: {
-        flex: 1,
-        gap: 4,
-    },
-    filterSummaryLabel: {
-        fontSize: Typography.sizes.sm,
-        fontWeight: '700',
-        color: Colors.primary,
-        textTransform: 'uppercase',
-        letterSpacing: 0.5,
-    },
-    filterSummaryText: {
-        fontSize: Typography.sizes.base,
-        color: Colors.text.secondary,
-        lineHeight: 20,
     },
     resultsHeader: {
         paddingTop: 0,

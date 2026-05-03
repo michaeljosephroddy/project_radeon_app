@@ -227,6 +227,7 @@ export function FeedScreen({
     const [shareCommentary, setShareCommentary] = useState('');
     const [isSubmittingShare, setIsSubmittingShare] = useState(false);
     const [hiddenUndo, setHiddenUndo] = useState<HiddenUndoState | null>(null);
+    const [showHeaderNotice, setShowHeaderNotice] = useState(true);
 
     const feedItemsRef = useRef<api.FeedItem[]>([]);
     const flatListRef = useRef<FlatList<api.FeedItem>>(null);
@@ -776,7 +777,7 @@ export function FeedScreen({
                         animated: true,
                     });
                 }}
-                ListHeaderComponent={
+                ListHeaderComponent={showHeaderNotice ? (
                     <View style={styles.listHeader}>
                         <InfoNoticeCard
                             title="Community feed"
@@ -784,9 +785,10 @@ export function FeedScreen({
                                 ? 'Post updates and see friend activity, community posts, and reshares.'
                                 : 'Post updates and see friend activity and relevant community posts.'}
                             style={styles.headerNotice}
+                            onDismiss={() => setShowHeaderNotice(false)}
                         />
                     </View>
-                }
+                ) : null}
                 ListEmptyComponent={
                     <EmptyState
                         title="No posts yet."
@@ -797,7 +799,10 @@ export function FeedScreen({
                 }
                 renderItem={renderItem}
                 ListFooterComponent={activeFeedQuery.isFetchingNextPage ? <ActivityIndicator style={styles.footerLoader} color={Colors.primary} /> : null}
-                contentContainerStyle={[styles.feedListContent, { paddingBottom: listPaddingBottom }]}
+                contentContainerStyle={[
+                    showHeaderNotice ? styles.feedListContent : null,
+                    { paddingBottom: listPaddingBottom },
+                ]}
             />
 
             {isActive && feedScrollToTop.isVisible ? (

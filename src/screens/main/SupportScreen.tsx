@@ -245,6 +245,9 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
     const [pendingIds, setPendingIds] = useState<Set<string>>(new Set());
     const [detail, setDetail] = useState<DetailState | null>(null);
     const [replyDraft, setReplyDraft] = useState('');
+    const [showCreateNotice, setShowCreateNotice] = useState(true);
+    const [showMyRequestsNotice, setShowMyRequestsNotice] = useState(true);
+    const [showFeedNotice, setShowFeedNotice] = useState(true);
     const [form, setForm] = useState<api.CreateSupportRequestInput>({
         support_type: 'chat',
         message: '',
@@ -690,11 +693,14 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
             <View style={styles.container}>
                 {primaryTabs}
                 <ScrollView contentContainerStyle={[screenStandards.detailContent, screenStandards.scrollContent]}>
-                    <InfoNoticeCard
-                        title="Create support request"
-                        description="Tell the community what support you need and how people can respond."
-                        style={styles.headerCard}
-                    />
+                    {showCreateNotice ? (
+                        <InfoNoticeCard
+                            title="Create support request"
+                            description="Tell the community what support you need and how people can respond."
+                            style={styles.headerCard}
+                            onDismiss={() => setShowCreateNotice(false)}
+                        />
+                    ) : null}
 
                     <Text style={styles.formLabel}>Support type</Text>
                     <View style={styles.selectorWrap}>
@@ -828,15 +834,18 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
                     contentContainerStyle={screenStandards.listContent}
                     ListHeaderComponent={
                         <>
-                            <InfoNoticeCard
-                                title="Your support requests"
-                                description="Track open requests, active support, and closed history."
-                                style={styles.headerCard}
-                            />
+                            {showMyRequestsNotice ? (
+                                <InfoNoticeCard
+                                    title="Your support requests"
+                                    description="Track open requests, active support, and closed history."
+                                    style={styles.headerCard}
+                                    onDismiss={() => setShowMyRequestsNotice(false)}
+                                />
+                            ) : null}
                             <SegmentedControl
                                 activeKey={myScope}
                                 onChange={(key) => setMyScope(key as MyRequestScope)}
-                                tone="secondary"
+                                tone="warning"
                                 style={styles.nestedTabs}
                                 items={[
                                     { key: 'open', label: 'Open' },
@@ -892,15 +901,18 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
                 contentContainerStyle={screenStandards.listContent}
                 ListHeaderComponent={
                     <>
-                        <InfoNoticeCard
-                            title="Support feed"
-                            description="Find requests ranked by urgency, freshness, and response need."
-                            style={styles.headerCard}
-                        />
+                        {showFeedNotice ? (
+                            <InfoNoticeCard
+                                title="Support feed"
+                                description="Find requests ranked by urgency, freshness, and response need."
+                                style={styles.headerCard}
+                                onDismiss={() => setShowFeedNotice(false)}
+                            />
+                        ) : null}
                         <SegmentedControl
                             activeKey={feedFilter}
                             onChange={(key) => setFeedFilter(key as api.SupportRequestFilter)}
-                            tone="secondary"
+                            tone="warning"
                             style={styles.nestedTabs}
                             items={[
                                 { key: 'all', label: 'All' },

@@ -115,6 +115,7 @@ export function MeetupForm({
 }: MeetupFormProps) {
     const [activePicker, setActivePicker] = React.useState<PickerField>(null);
     const [coHostQuery, setCoHostQuery] = React.useState('');
+    const [showNotice, setShowNotice] = React.useState(true);
     const noticeTitle = mode === 'published' ? 'Manage live meetup' : mode === 'draft' ? 'Edit draft' : 'Create meetup';
     const noticeDescription = mode === 'published'
         ? 'Update live details while keeping the meetup published.'
@@ -178,10 +179,13 @@ export function MeetupForm({
 
     return (
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-            <InfoNoticeCard
-                title={noticeTitle}
-                description={noticeDescription}
-            />
+            {showNotice ? (
+                <InfoNoticeCard
+                    title={noticeTitle}
+                    description={noticeDescription}
+                    onDismiss={() => setShowNotice(false)}
+                />
+            ) : null}
 
             {!!error && (
                 <View style={styles.errorCard}>

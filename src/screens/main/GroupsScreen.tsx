@@ -216,6 +216,7 @@ export function GroupsScreen({ isActive, onOpenGroup, onOpenCreateGroup }: Group
                             ]}
                             activeKey={scope}
                             onChange={(next) => setScope(next as GroupScope)}
+                            tone="warning"
                         />
                     </View>
                 )}

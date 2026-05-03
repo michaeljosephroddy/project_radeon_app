@@ -361,6 +361,9 @@ export function MeetupsScreen({ isActive, onOpenUserProfile, onOpenMeetup }: Mee
     const [localCoverPreviewUri, setLocalCoverPreviewUri] = useState<string | null>(null);
     const [formError, setFormError] = useState('');
     const [pendingMeetupIds, setPendingMeetupIds] = useState<Set<string>>(new Set());
+    const [showDiscoverNotice, setShowDiscoverNotice] = useState(true);
+    const [showHostingNotice, setShowHostingNotice] = useState(true);
+    const [showGoingNotice, setShowGoingNotice] = useState(true);
     const debouncedQuery = useDebounce(draftFilters.query, 350);
 
     const categoriesQuery = useMeetupCategories(hasActivated);
@@ -871,10 +874,13 @@ export function MeetupsScreen({ isActive, onOpenUserProfile, onOpenMeetup }: Mee
 
     const renderDiscoverHeader = () => (
         <View style={styles.discoverHeader}>
-            <InfoNoticeCard
-                title="Find meetups"
-                description="Browse upcoming sober events by category, location, date, format, and spots."
-            />
+            {showDiscoverNotice ? (
+                <InfoNoticeCard
+                    title="Find meetups"
+                    description="Browse upcoming sober events by category, location, date, format, and spots."
+                    onDismiss={() => setShowDiscoverNotice(false)}
+                />
+            ) : null}
             <View style={styles.searchRow}>
                 <SearchBar
                     primaryField={{
@@ -953,7 +959,19 @@ export function MeetupsScreen({ isActive, onOpenUserProfile, onOpenMeetup }: Mee
 
     const renderMyHeader = (title: string, body: string, showHostingScope = false) => (
         <View style={styles.sectionHeader}>
-            <InfoNoticeCard title={title} description={body} />
+            {(showHostingScope ? showHostingNotice : showGoingNotice) ? (
+                <InfoNoticeCard
+                    title={title}
+                    description={body}
+                    onDismiss={() => {
+                        if (showHostingScope) {
+                            setShowHostingNotice(false);
+                            return;
+                        }
+                        setShowGoingNotice(false);
+                    }}
+                />
+            ) : null}
             {showHostingScope ? (
                 <SegmentedControl
                     items={[
@@ -964,7 +982,7 @@ export function MeetupsScreen({ isActive, onOpenUserProfile, onOpenMeetup }: Mee
                     ]}
                     activeKey={hostingScope}
                     onChange={(key) => setHostingScope(key as HostingScope)}
-                    tone="secondary"
+                    tone="warning"
                     style={styles.scopeControl}
                 />
             ) : null}
