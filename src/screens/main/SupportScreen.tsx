@@ -15,11 +15,11 @@ import { Avatar } from '../../components/Avatar';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { InfoNoticeCard } from '../../components/ui/InfoNoticeCard';
 import { PrimaryButton } from '../../components/ui/PrimaryButton';
+import { CreatePostFab } from '../../components/posts/CreatePostFab';
 import { ScrollToTopButton } from '../../components/ui/ScrollToTopButton';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { TextField } from '../../components/ui/TextField';
 import * as api from '../../api/client';
-import { useAuth } from '../../hooks/useAuth';
 import { useGuardedEndReached } from '../../hooks/useGuardedEndReached';
 import { useLazyActivation } from '../../hooks/useLazyActivation';
 import { useRefetchOnActiveIfStale } from '../../hooks/useRefetchOnActiveIfStale';
@@ -34,13 +34,14 @@ import { dedupeById } from '../../utils/list';
 import { getListPerformanceProps } from '../../utils/listPerformance';
 import { MeetingsView } from './support/MeetingsView';
 
-type SupportSurface = 'feed' | 'my_requests' | 'meetings' | 'create';
+type SupportSurface = 'feed' | 'my_requests' | 'meetings';
 type MyRequestScope = 'open' | 'active' | 'closed';
 
 interface SupportScreenProps {
     isActive: boolean;
     onOpenChat: (chat: api.Chat) => void;
     onOpenUserProfile: (profile: { userId: string; username: string; avatarUrl?: string }) => void;
+    onOpenCreateSupportRequest: () => void;
 }
 
 interface DetailState {
@@ -89,21 +90,6 @@ const TOPIC_LABELS: Record<api.SupportTopic, string> = {
     celebration: 'Celebration',
     general: 'General',
 };
-
-const SUPPORT_TYPES: api.SupportType[] = ['chat', 'call', 'meetup', 'general'];
-const URGENCIES: api.SupportUrgency[] = ['low', 'medium', 'high'];
-const TOPICS: api.SupportTopic[] = [
-    'anxiety',
-    'relapse_risk',
-    'loneliness',
-    'cravings',
-    'depression',
-    'family',
-    'work',
-    'sleep',
-    'celebration',
-    'general',
-];
 
 const OFFERABLE_SUPPORT_TYPES: Array<Exclude<api.SupportType, 'general'>> = ['chat', 'call', 'meetup'];
 
@@ -234,8 +220,12 @@ function SupportRequestSeparator() {
     return <View style={styles.requestSeparator} />;
 }
 
-export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: SupportScreenProps) {
-    const { user } = useAuth();
+export function SupportScreen({
+    isActive,
+    onOpenChat,
+    onOpenUserProfile,
+    onOpenCreateSupportRequest,
+}: SupportScreenProps) {
     const queryClient = useQueryClient();
     const flatListRef = useRef<FlatList<api.SupportRequest> | null>(null);
     const hasActivated = useLazyActivation(isActive);
@@ -245,18 +235,8 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
     const [pendingIds, setPendingIds] = useState<Set<string>>(new Set());
     const [detail, setDetail] = useState<DetailState | null>(null);
     const [replyDraft, setReplyDraft] = useState('');
-    const [showCreateNotice, setShowCreateNotice] = useState(true);
     const [showMyRequestsNotice, setShowMyRequestsNotice] = useState(true);
     const [showFeedNotice, setShowFeedNotice] = useState(true);
-    const [form, setForm] = useState<api.CreateSupportRequestInput>({
-        support_type: 'chat',
-        message: '',
-        urgency: 'low',
-        topics: [],
-        preferred_gender: null,
-        location: null,
-        privacy_level: 'standard',
-    });
 
     const listProps = getListPerformanceProps('detailList');
     const feedQuery = useSupportRequests(feedFilter, 20, hasActivated);
@@ -476,55 +456,6 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
         }
     }, [onOpenChat, setPending]);
 
-    const handleCreate = useCallback(async () => {
-        setPending('create', true);
-        try {
-            const payload: api.CreateSupportRequestInput = {
-                ...form,
-                message: form.message?.trim() || null,
-                topics: form.topics.length > 0 ? form.topics : ['general'],
-                location: form.location?.visibility === 'city' ? form.location : null,
-            };
-            const created = await api.createSupportRequest(payload);
-            setForm({
-                support_type: 'chat',
-                message: '',
-                urgency: 'low',
-                topics: [],
-                preferred_gender: null,
-                location: null,
-                privacy_level: 'standard',
-            });
-            setSurface('my_requests');
-            setMyScope('open');
-            invalidateSupport();
-            void loadDetail(created);
-        } catch (e: unknown) {
-            Alert.alert('Could not create support request', e instanceof Error ? e.message : 'Something went wrong.');
-        } finally {
-            setPending('create', false);
-        }
-    }, [form, invalidateSupport, loadDetail, setPending]);
-
-    const toggleTopic = useCallback((topic: api.SupportTopic) => {
-        setForm((current) => ({
-            ...current,
-            topics: current.topics.includes(topic)
-                ? current.topics.filter((item) => item !== topic)
-                : [...current.topics, topic],
-        }));
-    }, []);
-
-    useEffect(() => {
-        if (form.location?.visibility === 'city') return;
-        const city = user?.current_city ?? user?.city ?? null;
-        if (!city) return;
-        setForm((current) => current.location ? current : {
-            ...current,
-            location: null,
-        });
-    }, [form.location?.visibility, user?.city, user?.current_city]);
-
     if (detail) {
         const request = detail.request;
         return (
@@ -654,9 +585,8 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
             style={[screenStandards.tabControl, styles.supportTabs]}
             items={[
                 { key: 'feed', label: 'Feed' },
-                { key: 'my_requests', label: 'My requests', flex: 1.2 },
+                { key: 'my_requests', label: 'My Requests', flex: 1.2 },
                 { key: 'meetings', label: 'Meetings' },
-                { key: 'create', label: 'Create' },
             ]}
         />
     );
@@ -682,129 +612,6 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
             <View style={styles.container}>
                 {primaryTabs}
                 <MeetingsView isActive={isActive} />
-            </View>
-        );
-    }
-
-    if (surface === 'create') {
-        const city = user?.current_city ?? user?.city ?? null;
-        const includeCity = form.location?.visibility === 'city';
-        return (
-            <View style={styles.container}>
-                {primaryTabs}
-                <ScrollView contentContainerStyle={[screenStandards.detailContent, screenStandards.scrollContent]}>
-                    {showCreateNotice ? (
-                        <InfoNoticeCard
-                            title="Create support request"
-                            description="Tell the community what support you need and how people can respond."
-                            style={styles.headerCard}
-                            onDismiss={() => setShowCreateNotice(false)}
-                        />
-                    ) : null}
-
-                    <Text style={styles.formLabel}>Support type</Text>
-                    <View style={styles.selectorWrap}>
-                        {SUPPORT_TYPES.map((type) => (
-                            <TouchableOpacity
-                                key={type}
-                                style={[styles.selectorChip, form.support_type === type && styles.selectorChipActive]}
-                                onPress={() => setForm((current) => ({ ...current, support_type: type }))}
-                            >
-                                <Text style={[styles.selectorChipText, form.support_type === type && styles.selectorChipTextActive]}>
-                                    {SUPPORT_TYPE_LABELS[type]}
-                                </Text>
-                            </TouchableOpacity>
-                        ))}
-                    </View>
-
-                    <Text style={styles.formLabel}>Urgency</Text>
-                    <View style={styles.selectorWrap}>
-                        {URGENCIES.map((urgency) => (
-                            <TouchableOpacity
-                                key={urgency}
-                                style={[styles.selectorChip, form.urgency === urgency && styles.selectorChipActive]}
-                                onPress={() => setForm((current) => ({ ...current, urgency }))}
-                            >
-                                <Text style={[styles.selectorChipText, form.urgency === urgency && styles.selectorChipTextActive]}>
-                                    {URGENCY_LABELS[urgency]}
-                                </Text>
-                            </TouchableOpacity>
-                        ))}
-                    </View>
-
-                    <Text style={styles.formLabel}>Topics</Text>
-                    <View style={styles.selectorWrap}>
-                        {TOPICS.map((topic) => {
-                            const active = form.topics.includes(topic);
-                            return (
-                                <TouchableOpacity
-                                    key={topic}
-                                    style={[styles.selectorChip, active && styles.selectorChipActive]}
-                                    onPress={() => toggleTopic(topic)}
-                                >
-                                    <Text style={[styles.selectorChipText, active && styles.selectorChipTextActive]}>
-                                        {TOPIC_LABELS[topic]}
-                                    </Text>
-                                </TouchableOpacity>
-                            );
-                        })}
-                    </View>
-
-                    <Text style={styles.formLabel}>Preferred gender</Text>
-                    <View style={styles.selectorWrap}>
-                        {(['no_preference', 'woman', 'man', 'non_binary'] as api.PreferredGender[]).map((gender) => {
-                            const active = (form.preferred_gender ?? 'no_preference') === gender;
-                            const label = gender === 'no_preference' ? 'No preference' : gender === 'non_binary' ? 'Non-binary' : gender[0].toUpperCase() + gender.slice(1);
-                            return (
-                                <TouchableOpacity
-                                    key={gender}
-                                    style={[styles.selectorChip, active && styles.selectorChipActive]}
-                                    onPress={() => setForm((current) => ({ ...current, preferred_gender: gender === 'no_preference' ? null : gender }))}
-                                >
-                                    <Text style={[styles.selectorChipText, active && styles.selectorChipTextActive]}>{label}</Text>
-                                </TouchableOpacity>
-                            );
-                        })}
-                    </View>
-
-                    {city ? (
-                        <>
-                            <Text style={styles.formLabel}>Location</Text>
-                            <View style={styles.selectorWrap}>
-                                <TouchableOpacity
-                                    style={[styles.selectorChip, !includeCity && styles.selectorChipActive]}
-                                    onPress={() => setForm((current) => ({ ...current, location: null }))}
-                                >
-                                    <Text style={[styles.selectorChipText, !includeCity && styles.selectorChipTextActive]}>Hidden</Text>
-                                </TouchableOpacity>
-                                <TouchableOpacity
-                                    style={[styles.selectorChip, includeCity && styles.selectorChipActive]}
-                                    onPress={() => setForm((current) => ({
-                                        ...current,
-                                        location: { city, visibility: 'city' },
-                                    }))}
-                                >
-                                    <Text style={[styles.selectorChipText, includeCity && styles.selectorChipTextActive]}>{city}</Text>
-                                </TouchableOpacity>
-                            </View>
-                        </>
-                    ) : null}
-
-                    <TextField
-                        value={form.message ?? ''}
-                        onChangeText={(message) => setForm((current) => ({ ...current, message }))}
-                        placeholder="Optional note"
-                        multiline
-                        style={[styles.formInput, styles.inputMultiline]}
-                    />
-
-                    <PrimaryButton
-                        label={pendingIds.has('create') ? 'Posting...' : 'Post request'}
-                        onPress={() => void handleCreate()}
-                        disabled={pendingIds.has('create')}
-                        style={styles.submitButton}
-                    />
-                </ScrollView>
             </View>
         );
     }
@@ -898,7 +705,7 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
                         tintColor={Colors.primary}
                     />
                 }
-                contentContainerStyle={screenStandards.listContent}
+                contentContainerStyle={[screenStandards.listContent, styles.feedListContent]}
                 ListHeaderComponent={
                     <>
                         {showFeedNotice ? (
@@ -935,6 +742,12 @@ export function SupportScreen({ isActive, onOpenChat, onOpenUserProfile }: Suppo
             {isActive && scrollToTop.isVisible ? (
                 <ScrollToTopButton onPress={() => flatListRef.current?.scrollToOffset({ offset: 0, animated: true })} />
             ) : null}
+            <CreatePostFab
+                visible={isActive}
+                bottom={20}
+                label="Request"
+                onPress={onOpenCreateSupportRequest}
+            />
         </View>
     );
 }
@@ -945,6 +758,7 @@ const styles = StyleSheet.create({
     headerCard: { marginBottom: Spacing.md },
     supportTabs: { marginBottom: Spacing.sm },
     nestedTabs: { marginBottom: Spacing.md },
+    feedListContent: { paddingBottom: ContentInsets.listBottom + ControlSizes.fabMinHeight },
     card: {
         backgroundColor: Colors.bg.page,
         padding: Spacing.md,
@@ -1062,26 +876,5 @@ const styles = StyleSheet.create({
     replyComposer: { marginTop: Spacing.lg, gap: Spacing.sm },
     replyInput: { minHeight: 88, textAlignVertical: 'top' },
     detailButton: { marginTop: Spacing.md },
-    formLabel: {
-        ...TextStyles.label,
-        color: Colors.text.secondary,
-        marginBottom: Spacing.sm,
-        marginTop: Spacing.md,
-    },
-    selectorWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
-    selectorChip: {
-        borderWidth: 1,
-        borderColor: Colors.border.default,
-        borderRadius: Radius.pill,
-        paddingHorizontal: Spacing.md,
-        paddingVertical: 8,
-        backgroundColor: Colors.bg.surface,
-    },
-    selectorChipActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
-    selectorChipText: { ...TextStyles.chip },
-    selectorChipTextActive: { color: Colors.textOn.primary, fontWeight: '700' },
-    formInput: { marginTop: Spacing.md },
-    inputMultiline: { minHeight: 110, textAlignVertical: 'top' },
-    submitButton: { marginTop: Spacing.lg },
     footerLoader: { paddingVertical: Spacing.lg },
 });

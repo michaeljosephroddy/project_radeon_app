@@ -23,6 +23,8 @@ import { ChatScreen } from '../screens/main/ChatScreen';
 import { NotificationsScreen } from '../screens/main/NotificationsScreen';
 import { ComposeDMScreen } from '../screens/main/ComposeDMScreen';
 import { CreatePostScreen } from '../screens/main/CreatePostScreen';
+import { CreateSupportRequestScreen } from '../screens/main/CreateSupportRequestScreen';
+import { CreateMeetupScreen } from '../screens/main/CreateMeetupScreen';
 import { UserProfileScreen } from '../screens/main/UserProfileScreen';
 import { MeetupDetailScreen } from '../screens/main/MeetupDetailScreen';
 import { Avatar } from '../components/Avatar';
@@ -125,18 +127,39 @@ const CommunityTab = React.memo(function CommunityTab({
     );
 });
 
-const SupportTab = React.memo(function SupportTab({ isActive, onOpenChat, onOpenUserProfile }: { isActive: boolean; onOpenChat: (c: Chat) => void; onOpenUserProfile: (p: OpenUserProfile) => void }) {
-    return <View style={isActive ? styles.tabVisible : styles.tabHidden}><SupportScreen isActive={isActive} onOpenChat={onOpenChat} onOpenUserProfile={onOpenUserProfile} /></View>;
+const SupportTab = React.memo(function SupportTab({
+    isActive,
+    onOpenChat,
+    onOpenUserProfile,
+    onOpenCreateSupportRequest,
+}: {
+    isActive: boolean;
+    onOpenChat: (c: Chat) => void;
+    onOpenUserProfile: (p: OpenUserProfile) => void;
+    onOpenCreateSupportRequest: () => void;
+}) {
+    return (
+        <View style={isActive ? styles.tabVisible : styles.tabHidden}>
+            <SupportScreen
+                isActive={isActive}
+                onOpenChat={onOpenChat}
+                onOpenUserProfile={onOpenUserProfile}
+                onOpenCreateSupportRequest={onOpenCreateSupportRequest}
+            />
+        </View>
+    );
 });
 
 const MeetupsTab = React.memo(function MeetupsTab({
     isActive,
     onOpenUserProfile,
     onOpenMeetup,
+    onOpenCreateMeetup,
 }: {
     isActive: boolean;
     onOpenUserProfile: (p: OpenUserProfile) => void;
     onOpenMeetup: (meetup: api.Meetup) => void;
+    onOpenCreateMeetup: () => void;
 }) {
     return (
         <View style={isActive ? styles.tabVisible : styles.tabHidden}>
@@ -144,6 +167,7 @@ const MeetupsTab = React.memo(function MeetupsTab({
                 isActive={isActive}
                 onOpenUserProfile={onOpenUserProfile}
                 onOpenMeetup={onOpenMeetup}
+                onOpenCreateMeetup={onOpenCreateMeetup}
             />
         </View>
     );
@@ -167,6 +191,8 @@ export function AppNavigator() {
     const [pendingDM, setPendingDM] = useState<{ recipientId: string; username: string; avatarUrl?: string } | null>(null);
     const [createPostOpen, setCreatePostOpen] = useState(false);
     const [createGroupOpen, setCreateGroupOpen] = useState(false);
+    const [createSupportRequestOpen, setCreateSupportRequestOpen] = useState(false);
+    const [createMeetupOpen, setCreateMeetupOpen] = useState(false);
     const [groupCreatePostTarget, setGroupCreatePostTarget] = useState<api.Group | null>(null);
     const [createPostSessionKey, setCreatePostSessionKey] = useState(0);
     const [ownProfileOpen, setOwnProfileOpen] = useState(false);
@@ -191,20 +217,24 @@ export function AppNavigator() {
     const inComposeDM = pendingDM !== null;
     const inCreatePost = createPostOpen || groupCreatePostTarget !== null;
     const inCreateGroup = createGroupOpen;
+    const inCreateSupportRequest = createSupportRequestOpen;
+    const inCreateMeetup = createMeetupOpen;
     const inMeetupDetail = openMeetup !== null;
     const inGroupDetail = openGroupId !== null;
     const inPlusUpsell = plusUpsellOpen;
     const inNotifications = notificationsOpen;
     const inComments = openComments !== null;
     const inGroupComments = openGroupComments !== null;
-
     const handleOpenUserProfile = useCallback((profile: OpenUserProfile) => {
+        setCreateSupportRequestOpen(false);
+        setCreateMeetupOpen(false);
         setOpenUserProfile(profile);
         setOwnProfileOpen(false);
         setOpenChat(null);
     }, []);
 
     const handleOpenMeetup = useCallback((meetup: api.Meetup) => {
+        setCreateMeetupOpen(false);
         setOpenMeetup(meetup);
     }, []);
 
@@ -213,6 +243,8 @@ export function AppNavigator() {
     }, []);
 
     const openPlusUpsell = useCallback(() => {
+        setCreateSupportRequestOpen(false);
+        setCreateMeetupOpen(false);
         setPlusUpsellOpen(true);
     }, []);
 
@@ -221,6 +253,8 @@ export function AppNavigator() {
     }, []);
 
     const openNotifications = useCallback(() => {
+        setCreateSupportRequestOpen(false);
+        setCreateMeetupOpen(false);
         setNotificationsOpen(true);
         setOpenChat(null);
         setOpenUserProfile(null);
@@ -237,6 +271,8 @@ export function AppNavigator() {
     }, []);
 
     const handleOpenGroup = useCallback((groupId: string) => {
+        setCreateSupportRequestOpen(false);
+        setCreateMeetupOpen(false);
         setCommunityMode('groups');
         setOpenGroupId(groupId);
         setNotificationsOpen(false);
@@ -264,6 +300,8 @@ export function AppNavigator() {
     }, []);
 
     const handleComposeDM = useCallback((info: { recipientId: string; username: string; avatarUrl?: string }) => {
+        setCreateSupportRequestOpen(false);
+        setCreateMeetupOpen(false);
         setPendingDM(info);
         setOpenUserProfile(null);
     }, []);
@@ -286,6 +324,8 @@ export function AppNavigator() {
     }, []);
 
     const openCreatePost = useCallback(() => {
+        setCreateSupportRequestOpen(false);
+        setCreateMeetupOpen(false);
         setCreateGroupOpen(false);
         setGroupCreatePostTarget(null);
         setCreatePostSessionKey((current) => current + 1);
@@ -301,6 +341,8 @@ export function AppNavigator() {
     }, []);
 
     const handleOpenGroupCreatePost = useCallback((group: api.Group) => {
+        setCreateSupportRequestOpen(false);
+        setCreateMeetupOpen(false);
         setCreateGroupOpen(false);
         setCreatePostOpen(false);
         setGroupCreatePostTarget(group);
@@ -316,11 +358,15 @@ export function AppNavigator() {
     }, []);
 
     const closeCreatePost = useCallback(() => {
+        Keyboard.dismiss();
+        setKeyboardVisible(false);
         setCreatePostOpen(false);
         setGroupCreatePostTarget(null);
     }, []);
 
     const openCreateGroup = useCallback(() => {
+        setCreateSupportRequestOpen(false);
+        setCreateMeetupOpen(false);
         setCreateGroupOpen(true);
         setCreatePostOpen(false);
         setGroupCreatePostTarget(null);
@@ -335,6 +381,46 @@ export function AppNavigator() {
         setNotificationsOpen(false);
     }, []);
 
+    const openCreateSupportRequest = useCallback(() => {
+        setCreateSupportRequestOpen(true);
+        setCreateMeetupOpen(false);
+        setCreatePostOpen(false);
+        setCreateGroupOpen(false);
+        setGroupCreatePostTarget(null);
+        setOpenChat(null);
+        setOpenUserProfile(null);
+        setOwnProfileOpen(false);
+        setPendingDM(null);
+        setOpenMeetup(null);
+        setOpenGroupId(null);
+        setPlusUpsellOpen(false);
+        setNotificationsOpen(false);
+    }, []);
+
+    const closeCreateSupportRequest = useCallback(() => {
+        setCreateSupportRequestOpen(false);
+    }, []);
+
+    const openCreateMeetup = useCallback(() => {
+        setCreateMeetupOpen(true);
+        setCreateSupportRequestOpen(false);
+        setCreatePostOpen(false);
+        setCreateGroupOpen(false);
+        setGroupCreatePostTarget(null);
+        setOpenChat(null);
+        setOpenUserProfile(null);
+        setOwnProfileOpen(false);
+        setPendingDM(null);
+        setOpenMeetup(null);
+        setOpenGroupId(null);
+        setPlusUpsellOpen(false);
+        setNotificationsOpen(false);
+    }, []);
+
+    const closeCreateMeetup = useCallback(() => {
+        setCreateMeetupOpen(false);
+    }, []);
+
     const closeCreateGroup = useCallback(() => {
         setCreateGroupOpen(false);
     }, []);
@@ -345,6 +431,16 @@ export function AppNavigator() {
         setCommunityMode('groups');
         handleOpenGroup(group.id);
     }, [handleOpenGroup]);
+
+    const handleSupportRequestCreated = useCallback((_request: api.SupportRequest): void => {
+        setCreateSupportRequestOpen(false);
+        setActiveTab('support');
+    }, []);
+
+    const handleMeetupCreated = useCallback((_meetup: api.Meetup): void => {
+        setCreateMeetupOpen(false);
+        setActiveTab('meetups');
+    }, []);
 
     const handleFeedFocusRequestConsumed = useCallback((nonce: number) => {
         setFeedFocusRequest((current) => (
@@ -368,6 +464,8 @@ export function AppNavigator() {
     }, []);
 
     const handleTabPress = useCallback((tab: Tab) => {
+        setCreateSupportRequestOpen(false);
+        setCreateMeetupOpen(false);
         setActiveTab(tab);
         setOpenChat(null);
         setCreatePostOpen(false);
@@ -509,7 +607,7 @@ export function AppNavigator() {
     }, [consumeIntent, intent]);
 
     const header = useMemo(() => {
-        if (inChat || inUserProfile || inOwnProfile || inComposeDM || inCreatePost || inCreateGroup || inMeetupDetail || inGroupDetail || inPlusUpsell || inNotifications) return null;
+        if (inChat || inUserProfile || inOwnProfile || inComposeDM || inCreatePost || inCreateGroup || inCreateSupportRequest || inCreateMeetup || inMeetupDetail || inGroupDetail || inPlusUpsell || inNotifications) return null;
 
         const titles: Record<Tab, React.ReactNode> = {
             community: (
@@ -551,7 +649,7 @@ export function AppNavigator() {
             </View>
         );
     }, [
-        activeTab, inChat, inComposeDM, inCreateGroup, inCreatePost, inGroupDetail, inMeetupDetail, inNotifications,
+        activeTab, inChat, inComposeDM, inCreateGroup, inCreateMeetup, inCreatePost, inCreateSupportRequest, inGroupDetail, inMeetupDetail, inNotifications,
         inOwnProfile, inPlusUpsell, inUserProfile, notificationSummary?.unread_count,
         openNotifications, openOwnProfile, user,
     ]);
@@ -631,6 +729,22 @@ export function AppNavigator() {
                     />
                 </View>
             )}
+            {inCreateSupportRequest && (
+                <View style={StyleSheet.absoluteFill}>
+                    <CreateSupportRequestScreen
+                        onBack={closeCreateSupportRequest}
+                        onCreated={handleSupportRequestCreated}
+                    />
+                </View>
+            )}
+            {inCreateMeetup && (
+                <View style={StyleSheet.absoluteFill}>
+                    <CreateMeetupScreen
+                        onBack={closeCreateMeetup}
+                        onCreated={handleMeetupCreated}
+                    />
+                </View>
+            )}
             {inUserProfile && (
                 <View style={StyleSheet.absoluteFill}>
                     <UserProfileScreen
@@ -666,15 +780,16 @@ export function AppNavigator() {
             )}
         </>
     ), [
-        inOwnProfile, inUserProfile, inChat, inComposeDM, inCreatePost, inCreateGroup, inMeetupDetail, inGroupDetail, inPlusUpsell, inNotifications,
+        inOwnProfile, inUserProfile, inChat, inComposeDM, inCreatePost, inCreateGroup, inCreateSupportRequest, inCreateMeetup, inMeetupDetail, inGroupDetail, inPlusUpsell, inNotifications,
         openUserProfile, openChat, pendingDM, openMeetup, openGroupId, ownProfileInitialContentTab, createPostSessionKey, groupCreatePostTarget,
         handleOpenUserProfile, handleOpenGroup, handleCloseChat, closeUserProfile, closeOwnProfile,
         handleOpenComments, handleOpenGroupComments, handleOpenGroupCreatePost, closeCreatePost, closeCreateGroup, handleGroupCreated,
+        closeCreateSupportRequest, closeCreateMeetup, handleSupportRequestCreated, handleMeetupCreated,
         handleComposeDM, handleComposeDMComplete, handleCloseMeetup, handleCloseGroup, closePlusUpsell,
         closeNotifications, handleOpenNotificationChat, handleOpenNotificationMention,
     ]);
 
-    const isOverlayOpen = inChat || inUserProfile || inOwnProfile || inComposeDM || inCreatePost || inCreateGroup || inMeetupDetail || inGroupDetail || inPlusUpsell || inNotifications;
+    const isOverlayOpen = inChat || inUserProfile || inOwnProfile || inComposeDM || inCreatePost || inCreateGroup || inCreateSupportRequest || inCreateMeetup || inMeetupDetail || inGroupDetail || inPlusUpsell || inNotifications;
 
     return (
         <>
@@ -695,17 +810,23 @@ export function AppNavigator() {
                         onFocusRequestConsumed={handleFeedFocusRequestConsumed}
                     />
                     <DiscoverTab isActive={activeTab === 'discover' && !isOverlayOpen} onOpenUserProfile={handleOpenUserProfile} onOpenPlus={openPlusUpsell} />
-                    <SupportTab isActive={activeTab === 'support' && !isOverlayOpen} onOpenChat={setOpenChat} onOpenUserProfile={handleOpenUserProfile} />
+                    <SupportTab
+                        isActive={activeTab === 'support' && !isOverlayOpen}
+                        onOpenChat={setOpenChat}
+                        onOpenUserProfile={handleOpenUserProfile}
+                        onOpenCreateSupportRequest={openCreateSupportRequest}
+                    />
                     <MeetupsTab
                         isActive={activeTab === 'meetups' && !isOverlayOpen}
                         onOpenUserProfile={handleOpenUserProfile}
                         onOpenMeetup={handleOpenMeetup}
+                        onOpenCreateMeetup={openCreateMeetup}
                     />
                     <ChatsTab isActive={activeTab === 'chats' && !isOverlayOpen} onOpenChat={setOpenChat} />
                     {overlays}
                 </View>
 
-                {!inChat && !inUserProfile && !inOwnProfile && !inComposeDM && !inCreatePost && !inCreateGroup && !inMeetupDetail && !inGroupDetail && !inNotifications && !keyboardVisible && (
+                {!inChat && !inUserProfile && !inOwnProfile && !inComposeDM && !inCreatePost && !inCreateGroup && !inCreateSupportRequest && !inCreateMeetup && !inMeetupDetail && !inGroupDetail && !inNotifications && !keyboardVisible && (
                     <View style={[styles.tabBar, { paddingBottom: insets.bottom + 6 }]}>
                         {TABS.map(tab => (
                             <TouchableOpacity

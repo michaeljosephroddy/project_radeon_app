@@ -10,7 +10,6 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import * as api from "../../../api/client";
 import { Colors, ControlSizes, Radius, Spacing, TextStyles, Typography } from "../../../theme";
-import { AuthorPill } from "./AuthorPill";
 import {
   ImagePreviewCard,
   ImagePreviewSource,
@@ -59,8 +58,6 @@ export function ComposerCanvas({
       automaticallyAdjustKeyboardInsets={false}
       contentInsetAdjustmentBehavior="never"
     >
-      <AuthorPill username={user.username} avatarUrl={user.avatar_url} />
-
       {tags.length > 0 ? (
         <View style={styles.selectedTags}>
           {tags.map((tag) => (

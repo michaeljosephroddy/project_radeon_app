@@ -6,15 +6,14 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import {
   Colors,
   ControlSizes,
-  ContentInsets,
   Radius,
   Spacing,
   TextStyles,
 } from "../../../theme";
+import { CreateSurfaceHeader } from "../../../components/ui/CreateSurfaceHeader";
 import { CharacterCounterRing } from "./CharacterCounterRing";
 
 interface CreatePostHeaderProps {
@@ -45,81 +44,50 @@ export function CreatePostHeader({
   const subtitle = title ?? (postType === "photo" ? "Photo post" : "Text post");
 
   return (
-    <View style={styles.header}>
-      <TouchableOpacity
-        style={styles.headerButton}
-        onPress={onBack}
-        disabled={isSubmitting}
-        accessibilityRole="button"
-        accessibilityLabel="Discard or save draft"
-        hitSlop={8}
-      >
-        <Ionicons name="close" size={24} color={Colors.text.primary} />
-      </TouchableOpacity>
-
-      <View style={styles.center}>
-        <Text style={styles.subtitle} numberOfLines={1}>
-          {subtitle}
-        </Text>
-        {draftCount > 0 ? (
+    <CreateSurfaceHeader
+      onBack={onBack}
+      backDisabled={isSubmitting}
+      centerContent={(
+        <>
+          <Text style={styles.subtitle} numberOfLines={1}>
+            {subtitle}
+          </Text>
+          {draftCount > 0 ? (
+            <TouchableOpacity
+              onPress={onOpenDrafts}
+              disabled={isSubmitting}
+              accessibilityRole="button"
+              accessibilityLabel={`Open ${draftCount} saved drafts`}
+              hitSlop={8}
+            >
+              <Text style={styles.draftsLink}>Drafts·{draftCount}</Text>
+            </TouchableOpacity>
+          ) : null}
+        </>
+      )}
+      trailing={(
+        <View style={styles.right}>
+          <CharacterCounterRing count={bodyLength} max={maxLength} />
           <TouchableOpacity
-            onPress={onOpenDrafts}
-            disabled={isSubmitting}
+            style={[styles.postButton, !canSubmit && styles.postButtonDisabled]}
+            onPress={onSubmit}
+            disabled={!canSubmit}
             accessibilityRole="button"
-            accessibilityLabel={`Open ${draftCount} saved drafts`}
-            hitSlop={8}
+            accessibilityLabel="Post"
           >
-            <Text style={styles.draftsLink}>Drafts·{draftCount}</Text>
+            {isSubmitting ? (
+              <ActivityIndicator size="small" color={Colors.textOn.primary} />
+            ) : (
+              <Text style={styles.postButtonText}>Post</Text>
+            )}
           </TouchableOpacity>
-        ) : null}
-      </View>
-
-      <View style={styles.right}>
-        <CharacterCounterRing count={bodyLength} max={maxLength} />
-        <TouchableOpacity
-          style={[styles.postButton, !canSubmit && styles.postButtonDisabled]}
-          onPress={onSubmit}
-          disabled={!canSubmit}
-          accessibilityRole="button"
-          accessibilityLabel="Post"
-        >
-          {isSubmitting ? (
-            <ActivityIndicator size="small" color={Colors.textOn.primary} />
-          ) : (
-            <Text style={styles.postButtonText}>Post</Text>
-          )}
-        </TouchableOpacity>
-      </View>
-    </View>
+        </View>
+      )}
+    />
   );
 }
 
 const styles = StyleSheet.create({
-  header: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 56,
-    paddingHorizontal: ContentInsets.screenHorizontal,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border.default,
-    backgroundColor: Colors.bg.page,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.sm,
-  },
-  headerButton: {
-    width: ControlSizes.iconButton,
-    height: ControlSizes.iconButton,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  center: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-  },
   subtitle: {
     ...TextStyles.caption,
     letterSpacing: 0.2,

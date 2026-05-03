@@ -1,6 +1,6 @@
 import React from 'react';
 import { Image } from 'react-native';
-import { Platform, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
+import { Platform, ScrollView, StyleProp, StyleSheet, Switch, Text, TouchableOpacity, View, ViewStyle } from 'react-native';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import * as api from '../../api/client';
 import { Colors, ControlSizes, Radius, Spacing, TextStyles, Typography } from '../../theme';
@@ -30,6 +30,7 @@ interface MeetupFormProps {
     onSecondaryAction?: () => void;
     onDestructiveAction?: () => void;
     onCancelEdit?: () => void;
+    contentStyle?: StyleProp<ViewStyle>;
 }
 
 type PickerField = 'starts_on' | 'starts_at' | 'ends_on' | 'ends_at' | null;
@@ -112,6 +113,7 @@ export function MeetupForm({
     onSecondaryAction,
     onDestructiveAction,
     onCancelEdit,
+    contentStyle,
 }: MeetupFormProps) {
     const [activePicker, setActivePicker] = React.useState<PickerField>(null);
     const [coHostQuery, setCoHostQuery] = React.useState('');
@@ -178,7 +180,7 @@ export function MeetupForm({
     };
 
     return (
-        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <ScrollView contentContainerStyle={[styles.content, contentStyle]} showsVerticalScrollIndicator={false}>
             {showNotice ? (
                 <InfoNoticeCard
                     title={noticeTitle}

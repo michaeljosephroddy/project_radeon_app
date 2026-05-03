@@ -19,6 +19,7 @@ import {
 } from "../../../hooks/useCreatePostDrafts";
 import { useGradualKeyboardInset } from "../../../hooks/useGradualKeyboardInset";
 import { useRecentTags } from "../../../hooks/useRecentTags";
+import { CREATE_SURFACE_HEADER_HEIGHT } from "../../../components/ui/CreateSurfaceHeader";
 import { ComposerCanvas } from "./ComposerCanvas";
 import { ComposerToolbar } from "./ComposerToolbar";
 import { CreatePostHeader } from "./CreatePostHeader";
@@ -70,7 +71,6 @@ const TAG_CATEGORIES: TagCategory[] = [
 ];
 const MAX_POST_TAGS = 5;
 const MAX_BODY_LENGTH = 500;
-const HEADER_HEIGHT = 56;
 const TAG_PATTERN = /^[a-z0-9_-]+$/;
 
 export function PostComposer({
@@ -512,7 +512,7 @@ const styles = StyleSheet.create({
   },
   bodyWrap: {
     flex: 1,
-    paddingTop: HEADER_HEIGHT,
+    paddingTop: CREATE_SURFACE_HEADER_HEIGHT,
   },
   keyboardSpacer: {
     flexShrink: 0,

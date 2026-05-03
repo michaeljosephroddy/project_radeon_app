@@ -13,7 +13,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as api from '../../../api/client';
-import { ScreenHeader } from '../../../components/ui/ScreenHeader';
+import { CREATE_SURFACE_HEADER_HEIGHT, CreateSurfaceHeader } from '../../../components/ui/CreateSurfaceHeader';
 import { SegmentedControl } from '../../../components/ui/SegmentedControl';
 import { TextField } from '../../../components/ui/TextField';
 import { useCreateGroupMutation } from '../../../hooks/queries/useGroups';
@@ -104,7 +104,7 @@ export function GroupCreateScreen({
                 style={styles.keyboardAvoiding}
                 behavior={Platform.OS === 'ios' ? 'padding' : undefined}
             >
-                <ScreenHeader
+                <CreateSurfaceHeader
                     title="Create group"
                     onBack={onBack}
                     trailing={(
@@ -258,7 +258,7 @@ const styles = StyleSheet.create({
     },
     content: {
         paddingHorizontal: ContentInsets.screenHorizontal,
-        paddingTop: Spacing.md,
+        paddingTop: CREATE_SURFACE_HEADER_HEIGHT + Spacing.md,
         paddingBottom: ContentInsets.detailBottom + ControlSizes.fabMinHeight + Spacing.xl,
         gap: Spacing.lg,
     },
