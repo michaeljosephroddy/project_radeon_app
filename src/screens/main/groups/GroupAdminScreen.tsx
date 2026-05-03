@@ -1,65 +1,100 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
     FlatList,
-    ScrollView,
     StyleSheet,
     Text,
     TouchableOpacity,
     View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import * as api from '../../../api/client';
 import { Avatar } from '../../../components/Avatar';
 import { EmptyState } from '../../../components/ui/EmptyState';
 import { ScreenHeader } from '../../../components/ui/ScreenHeader';
 import { ScrollToTopButton } from '../../../components/ui/ScrollToTopButton';
 import { SegmentedControl } from '../../../components/ui/SegmentedControl';
-import { TextField } from '../../../components/ui/TextField';
 import {
     useGroupAdminInbox,
     useGroupJoinRequests,
-    useReplyGroupAdminThreadMutation,
-    useResolveGroupAdminThreadMutation,
+    useGroupReports,
+    useReviewGroupReportMutation,
     useReviewGroupJoinRequestMutation,
 } from '../../../hooks/queries/useGroups';
 import { useScrollToTopButton } from '../../../hooks/useScrollToTopButton';
+import { screenStandards } from '../../../styles/screenStandards';
 import { Colors, ControlSizes, Radius, Spacing, TextStyles } from '../../../theme';
 import { formatReadableTimestamp } from '../../../utils/date';
+import { GroupAdminThreadScreen } from './GroupAdminThreadScreen';
 
 interface GroupAdminScreenProps {
     group: api.Group;
     onBack: () => void;
+    initialTab?: AdminTab;
+    initialThreadId?: string;
 }
 
-type AdminTab = 'requests' | 'inbox';
+type AdminTab = 'requests' | 'inbox' | 'reports';
 
-export function GroupAdminScreen({ group, onBack }: GroupAdminScreenProps): React.ReactElement {
-    const [activeTab, setActiveTab] = useState<AdminTab>('requests');
+export function GroupAdminScreen({
+    group,
+    onBack,
+    initialTab,
+    initialThreadId,
+}: GroupAdminScreenProps): React.ReactElement {
+    const [activeTab, setActiveTab] = useState<AdminTab>(initialTab ?? 'requests');
+    const [openThreadId, setOpenThreadId] = useState<string | null>(initialThreadId ?? null);
+
+    useEffect(() => {
+        if (!initialTab) return;
+        setActiveTab(initialTab);
+    }, [initialTab]);
+
+    useEffect(() => {
+        if (!initialThreadId) return;
+        setActiveTab('inbox');
+        setOpenThreadId(initialThreadId);
+    }, [initialThreadId]);
+
+    if (openThreadId) {
+        return (
+            <GroupAdminThreadScreen
+                group={group}
+                threadId={openThreadId}
+                onBack={() => setOpenThreadId(null)}
+            />
+        );
+    }
 
     return (
-        <View style={styles.container}>
+        <SafeAreaView style={styles.container} edges={['bottom']}>
             <ScreenHeader title="Group admin" onBack={onBack} />
             <View style={styles.header}>
                 <Text style={styles.title}>{group.name}</Text>
                 <Text style={styles.subtitle}>{group.pending_request_count} pending requests</Text>
             </View>
-            <SegmentedControl
-                items={[
-                    { key: 'requests', label: 'Requests' },
-                    { key: 'inbox', label: 'Inbox' },
-                ]}
-                activeKey={activeTab}
-                onChange={(key) => setActiveTab(key as AdminTab)}
-                style={styles.tabs}
-            />
+            <View style={screenStandards.fixedTabsWrap}>
+                <SegmentedControl
+                    items={[
+                        { key: 'requests', label: 'Requests' },
+                        { key: 'inbox', label: 'Inbox' },
+                        { key: 'reports', label: 'Reports' },
+                    ]}
+                    activeKey={activeTab}
+                    onChange={(key) => setActiveTab(key as AdminTab)}
+                    style={screenStandards.fixedTabsControl}
+                />
+            </View>
             {activeTab === 'requests' ? (
                 <JoinRequestsPanel group={group} />
+            ) : activeTab === 'inbox' ? (
+                <AdminInboxPanel group={group} onOpenThread={setOpenThreadId} />
             ) : (
-                <AdminInboxPanel group={group} />
+                <ReportsPanel group={group} />
             )}
-        </View>
+        </SafeAreaView>
     );
 }
 
@@ -112,36 +147,20 @@ function JoinRequestsPanel({ group }: { group: api.Group }): React.ReactElement 
     );
 }
 
-function AdminInboxPanel({ group }: { group: api.Group }): React.ReactElement {
+function AdminInboxPanel({
+    group,
+    onOpenThread,
+}: {
+    group: api.Group;
+    onOpenThread: (threadId: string) => void;
+}): React.ReactElement {
     const listRef = useRef<FlatList<api.GroupAdminThread> | null>(null);
     const scrollToTop = useScrollToTopButton({ threshold: 520 });
     const inboxQuery = useGroupAdminInbox(group.id, 20, group.can_moderate_content);
-    const replyMutation = useReplyGroupAdminThreadMutation(group.id);
-    const resolveMutation = useResolveGroupAdminThreadMutation(group.id);
-    const [drafts, setDrafts] = useState<Record<string, string>>({});
     const threads = useMemo(
         () => (inboxQuery.data?.pages ?? []).flatMap(page => page.items ?? []),
         [inboxQuery.data?.pages],
     );
-
-    const reply = (threadId: string): void => {
-        const body = drafts[threadId]?.trim();
-        if (!body) return;
-        replyMutation.mutate({ threadId, body }, {
-            onSuccess: () => setDrafts((current) => ({ ...current, [threadId]: '' })),
-            onError: (error: unknown) => {
-                Alert.alert('Could not reply', error instanceof Error ? error.message : 'Please try again.');
-            },
-        });
-    };
-
-    const resolve = (threadId: string): void => {
-        resolveMutation.mutate(threadId, {
-            onError: (error: unknown) => {
-                Alert.alert('Could not resolve thread', error instanceof Error ? error.message : 'Please try again.');
-            },
-        });
-    };
 
     if (inboxQuery.isLoading) {
         return <ActivityIndicator color={Colors.primary} style={styles.loader} />;
@@ -156,46 +175,14 @@ function AdminInboxPanel({ group }: { group: api.Group }): React.ReactElement {
                 contentContainerStyle={threads.length ? styles.listContent : styles.emptyContent}
                 ListEmptyComponent={<EmptyState title="No admin messages" compact />}
                 renderItem={({ item }) => (
-                    <View style={styles.card}>
-                        <View style={styles.row}>
-                            <Avatar username={item.username} avatarUrl={item.avatar_url ?? undefined} size={40} fontSize={13} />
-                            <View style={styles.rowCopy}>
-                                <Text style={styles.name}>{item.subject || item.username}</Text>
-                                <Text style={styles.meta}>{item.status} · {formatReadableTimestamp(item.updated_at)}</Text>
-                            </View>
+                    <TouchableOpacity style={styles.inboxRow} onPress={() => onOpenThread(item.id)}>
+                        <Avatar username={item.username} avatarUrl={item.avatar_url ?? undefined} size={40} fontSize={13} />
+                        <View style={styles.rowCopy}>
+                            <Text style={styles.name}>{item.subject || item.username}</Text>
+                            <Text style={styles.meta}>{formatAdminThreadStatus(item.status)} · {formatReadableTimestamp(item.updated_at)}</Text>
                         </View>
-                        <ScrollView style={styles.messages} nestedScrollEnabled>
-                            {(item.messages ?? []).map((message) => (
-                                <View key={message.id} style={styles.messageRow}>
-                                    <Text style={styles.messageAuthor}>{message.username}</Text>
-                                    <Text style={styles.body}>{message.body}</Text>
-                                </View>
-                            ))}
-                        </ScrollView>
-                        <TextField
-                            value={drafts[item.id] ?? ''}
-                            onChangeText={(value) => setDrafts((current) => ({ ...current, [item.id]: value }))}
-                            placeholder="Reply as admin"
-                            multiline
-                            style={styles.replyInput}
-                        />
-                        <View style={styles.actionRow}>
-                            <TouchableOpacity
-                                style={[styles.acceptButton, !(drafts[item.id] ?? '').trim() && styles.disabled]}
-                                onPress={() => reply(item.id)}
-                                disabled={!(drafts[item.id] ?? '').trim() || replyMutation.isPending}
-                            >
-                                <Ionicons name="send" size={15} color={Colors.textOn.primary} />
-                                <Text style={styles.primaryButtonText}>Reply</Text>
-                            </TouchableOpacity>
-                            {item.status !== 'resolved' ? (
-                                <TouchableOpacity style={styles.resolveButton} onPress={() => resolve(item.id)}>
-                                    <Ionicons name="checkmark-done" size={16} color={Colors.primary} />
-                                    <Text style={styles.resolveText}>Resolve</Text>
-                                </TouchableOpacity>
-                            ) : null}
-                        </View>
-                    </View>
+                        <Ionicons name="chevron-forward" size={18} color={Colors.text.muted} />
+                    </TouchableOpacity>
                 )}
                 onEndReachedThreshold={0.4}
                 onEndReached={() => {
@@ -216,6 +203,136 @@ function AdminInboxPanel({ group }: { group: api.Group }): React.ReactElement {
     );
 }
 
+function ReportsPanel({ group }: { group: api.Group }): React.ReactElement {
+    const listRef = useRef<FlatList<api.GroupReport> | null>(null);
+    const scrollToTop = useScrollToTopButton({ threshold: 520 });
+    const reportsQuery = useGroupReports(group.id, 20, group.can_moderate_content);
+    const reviewMutation = useReviewGroupReportMutation(group.id);
+    const [reportScope, setReportScope] = useState<'active' | 'history'>('active');
+    const allReports = useMemo(() => (
+        (reportsQuery.data?.pages ?? [])
+            .flatMap(page => page.items ?? [])
+    ),
+        [reportsQuery.data?.pages],
+    );
+    const reports = useMemo(() => {
+        if (reportScope === 'active') {
+            return allReports.filter((report) => report.status === 'open' || report.status === 'reviewing');
+        }
+        return allReports.filter((report) => report.status === 'resolved' || report.status === 'dismissed');
+    }, [allReports, reportScope]);
+
+    const review = (
+        reportId: string,
+        status: Extract<api.GroupReport['status'], 'reviewing' | 'resolved' | 'dismissed'>,
+    ): void => {
+        reviewMutation.mutate({ reportId, status }, {
+            onError: (error: unknown) => {
+                Alert.alert('Could not update report', error instanceof Error ? error.message : 'Please try again.');
+            },
+        });
+    };
+
+    if (reportsQuery.isLoading) {
+        return <ActivityIndicator color={Colors.primary} style={styles.loader} />;
+    }
+
+    return (
+        <View style={styles.listSurface}>
+            <View style={screenStandards.fixedTabsWrap}>
+                <SegmentedControl
+                    items={[
+                        { key: 'active', label: 'Active' },
+                        { key: 'history', label: 'History' },
+                    ]}
+                    activeKey={reportScope}
+                    onChange={(key) => setReportScope(key as 'active' | 'history')}
+                    style={screenStandards.fixedTabsControl}
+                />
+            </View>
+            <FlatList
+                ref={listRef}
+                data={reports}
+                keyExtractor={(item) => item.id}
+                contentContainerStyle={reports.length ? styles.listContent : styles.emptyContent}
+                ListEmptyComponent={<EmptyState title={reportScope === 'active' ? 'No active reports' : 'No report history'} compact />}
+                renderItem={({ item }) => (
+                    <View style={styles.card}>
+                        <View style={styles.row}>
+                            <Avatar username={item.reporter_username ?? 'member'} avatarUrl={item.reporter_avatar_url ?? undefined} size={40} fontSize={13} />
+                            <View style={styles.rowCopy}>
+                                <Text style={styles.name}>{item.reason}</Text>
+                                <Text style={styles.meta}>
+                                    {item.target_type} · {formatReportStatus(item.status)} · {formatReadableTimestamp(item.created_at)}
+                                </Text>
+                            </View>
+                            <View style={[
+                                styles.reportStatusBadge,
+                                item.status === 'open' ? styles.reportStatusOpen : item.status === 'reviewing' ? styles.reportStatusReviewing : item.status === 'resolved' ? styles.reportStatusResolved : styles.reportStatusDismissed,
+                            ]}>
+                                <Text style={[
+                                    styles.reportStatusText,
+                                    item.status === 'open' ? styles.reportStatusTextOpen : item.status === 'reviewing' ? styles.reportStatusTextReviewing : item.status === 'resolved' ? styles.reportStatusTextResolved : styles.reportStatusTextDismissed,
+                                ]}>
+                                    {formatReportStatus(item.status)}
+                                </Text>
+                            </View>
+                        </View>
+                        {item.details ? <Text style={styles.body}>{item.details}</Text> : null}
+                        <View style={styles.actionRow}>
+                            {item.status === 'open' ? (
+                                <TouchableOpacity style={styles.resolveButton} onPress={() => review(item.id, 'reviewing')}>
+                                    <Ionicons name="eye-outline" size={16} color={Colors.primary} />
+                                    <Text style={styles.resolveText}>Start Review</Text>
+                                </TouchableOpacity>
+                            ) : null}
+                            {item.status === 'reviewing' ? (
+                                <TouchableOpacity style={styles.acceptButton} onPress={() => review(item.id, 'resolved')}>
+                                    <Ionicons name="checkmark-done" size={16} color={Colors.textOn.primary} />
+                                    <Text style={styles.primaryButtonText}>Resolve</Text>
+                                </TouchableOpacity>
+                            ) : null}
+                            {item.status === 'open' || item.status === 'reviewing' ? (
+                                <TouchableOpacity style={styles.rejectButton} onPress={() => review(item.id, 'dismissed')}>
+                                    <Ionicons name="close" size={16} color={Colors.danger} />
+                                    <Text style={styles.rejectText}>Dismiss</Text>
+                                </TouchableOpacity>
+                            ) : null}
+                        </View>
+                    </View>
+                )}
+                onEndReachedThreshold={0.4}
+                onEndReached={() => {
+                    if (reportsQuery.hasNextPage && !reportsQuery.isFetchingNextPage) {
+                        reportsQuery.fetchNextPage();
+                    }
+                }}
+                onScroll={scrollToTop.onScroll}
+                scrollEventThrottle={16}
+                ListFooterComponent={reportsQuery.isFetchingNextPage ? (
+                    <ActivityIndicator color={Colors.primary} />
+                ) : null}
+            />
+            {scrollToTop.isVisible ? (
+                <ScrollToTopButton onPress={() => listRef.current?.scrollToOffset({ offset: 0, animated: true })} />
+            ) : null}
+        </View>
+    );
+}
+
+function formatAdminThreadStatus(status: api.GroupAdminThread['status']): string {
+    if (status === 'open') return 'Open';
+    if (status === 'replied') return 'Replied';
+    return 'Resolved';
+}
+
+function formatReportStatus(status: api.GroupReport['status']): string {
+    if (status === 'open') return 'Open';
+    if (status === 'reviewing') return 'Reviewing';
+    if (status === 'resolved') return 'Resolved';
+    return 'Dismissed';
+}
+
 const styles = StyleSheet.create({
     container: {
         flex: 1,
@@ -233,9 +350,6 @@ const styles = StyleSheet.create({
         ...TextStyles.secondary,
         fontWeight: '600',
     },
-    tabs: {
-        marginHorizontal: Spacing.md,
-    },
     loader: {
         marginTop: Spacing.xl,
     },
@@ -245,6 +359,16 @@ const styles = StyleSheet.create({
     },
     listSurface: {
         flex: 1,
+    },
+    inboxRow: {
+        minHeight: 62,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: Spacing.sm,
+        borderBottomWidth: 1,
+        borderBottomColor: Colors.border.subtle,
+        paddingHorizontal: Spacing.md,
+        backgroundColor: Colors.bg.page,
     },
     emptyContent: {
         flexGrow: 1,
@@ -330,25 +454,42 @@ const styles = StyleSheet.create({
         fontWeight: '800',
         color: Colors.primary,
     },
-    messages: {
-        maxHeight: 180,
+    reportStatusBadge: {
+        borderRadius: Radius.pill,
+        borderWidth: 1,
+        paddingHorizontal: Spacing.sm,
+        paddingVertical: 3,
     },
-    messageRow: {
-        borderTopWidth: 1,
-        borderTopColor: Colors.border.subtle,
-        paddingVertical: Spacing.sm,
-        gap: 2,
-    },
-    messageAuthor: {
-        ...TextStyles.caption,
+    reportStatusText: {
+        ...TextStyles.badge,
         fontWeight: '800',
-        color: Colors.text.primary,
     },
-    replyInput: {
-        minHeight: 72,
-        textAlignVertical: 'top',
+    reportStatusOpen: {
+        borderColor: Colors.warning,
+        backgroundColor: Colors.warningSubtle,
     },
-    disabled: {
-        opacity: 0.5,
+    reportStatusReviewing: {
+        borderColor: Colors.primary,
+        backgroundColor: Colors.primarySubtle,
+    },
+    reportStatusResolved: {
+        borderColor: Colors.success,
+        backgroundColor: Colors.successSubtle,
+    },
+    reportStatusDismissed: {
+        borderColor: Colors.border.default,
+        backgroundColor: Colors.bg.raised,
+    },
+    reportStatusTextOpen: {
+        color: Colors.warning,
+    },
+    reportStatusTextReviewing: {
+        color: Colors.primary,
+    },
+    reportStatusTextResolved: {
+        color: Colors.success,
+    },
+    reportStatusTextDismissed: {
+        color: Colors.text.secondary,
     },
 });

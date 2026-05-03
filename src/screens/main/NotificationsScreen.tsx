@@ -29,6 +29,9 @@ interface NotificationsScreenProps {
     onOpenChat: (chatId: string) => Promise<void> | void;
     onOpenMention: (target: { postId: string; commentId?: string }) => void;
     onOpenGroup: (groupId: string, postId?: string) => void;
+    onOpenGroupReports: (groupId: string, reportId?: string) => void;
+    onOpenGroupAdminInbox: (groupId: string, threadId?: string) => void;
+    onOpenSupportRequestContext: (groupId: string, supportRequestId: string, postId?: string) => void;
 }
 
 interface NotificationRowProps {
@@ -66,6 +69,7 @@ function getNotificationTitle(item: api.NotificationItem): string {
     if (item.type === 'group.admin_contact') return `Admin inbox: ${item.title}`;
     if (item.type === 'group.admin_reply') return `Admin reply from ${item.title}`;
     if (item.type === 'group.report') return `New report in ${item.title}`;
+    if (item.type === 'group.report_status') return `Report update in ${item.title}`;
     if (item.type === 'support.offer') return `Support offer in ${item.title}`;
     return item.title;
 }
@@ -108,6 +112,9 @@ export function NotificationsScreen({
     onOpenChat,
     onOpenMention,
     onOpenGroup,
+    onOpenGroupReports,
+    onOpenGroupAdminInbox,
+    onOpenSupportRequestContext,
 }: NotificationsScreenProps) {
     const queryClient = useQueryClient();
     const notificationsQuery = useNotifications(PAGE_SIZE, isActive);
@@ -182,7 +189,33 @@ export function NotificationsScreen({
                 return;
             }
 
-            if (item.type.startsWith('group.')) {
+            if (item.type === 'group.report' || item.type === 'group.report_status') {
+                const groupId = readPayloadString(item.payload, 'group_id');
+                if (!groupId) {
+                    Alert.alert('Notification unavailable', 'This group report notification can no longer be opened.');
+                    return;
+                }
+                onOpenGroupReports(groupId, readPayloadString(item.payload, 'report_id') ?? undefined);
+                return;
+            }
+
+            if (item.type === 'group.admin_contact' || item.type === 'group.admin_reply') {
+                const groupId = readPayloadString(item.payload, 'group_id');
+                if (!groupId) {
+                    Alert.alert('Notification unavailable', 'This admin inbox notification can no longer be opened.');
+                    return;
+                }
+                onOpenGroupAdminInbox(groupId, readPayloadString(item.payload, 'thread_id') ?? undefined);
+                return;
+            }
+
+            if (
+                item.type.startsWith('group.')
+                && !(item.type === 'group.post'
+                    && readPayloadString(item.payload, 'post_type') === 'need_support'
+                    && readPayloadString(item.payload, 'support_request_id'))
+                && !(item.type === 'group.comment' && readPayloadString(item.payload, 'support_request_id'))
+            ) {
                 const groupId = readPayloadString(item.payload, 'group_id');
                 if (!groupId) {
                     Alert.alert('Notification unavailable', 'This group notification can no longer be opened.');
@@ -194,11 +227,40 @@ export function NotificationsScreen({
 
             if (item.type === 'support.offer') {
                 const groupId = readPayloadString(item.payload, 'group_id');
+                const supportRequestId = readPayloadString(item.payload, 'support_request_id');
                 if (!groupId) {
                     Alert.alert('Notification unavailable', 'This support notification can no longer be opened.');
                     return;
                 }
-                onOpenGroup(groupId, readPayloadString(item.payload, 'post_id') ?? undefined);
+                if (!supportRequestId) {
+                    onOpenGroup(groupId, readPayloadString(item.payload, 'post_id') ?? undefined);
+                    return;
+                }
+                onOpenSupportRequestContext(groupId, supportRequestId, readPayloadString(item.payload, 'post_id') ?? undefined);
+                return;
+            }
+
+            if (item.type === 'group.post'
+                && readPayloadString(item.payload, 'post_type') === 'need_support'
+                && readPayloadString(item.payload, 'support_request_id')) {
+                const groupId = readPayloadString(item.payload, 'group_id');
+                const supportRequestId = readPayloadString(item.payload, 'support_request_id');
+                if (!groupId || !supportRequestId) {
+                    Alert.alert('Notification unavailable', 'This support notification can no longer be opened.');
+                    return;
+                }
+                onOpenSupportRequestContext(groupId, supportRequestId, readPayloadString(item.payload, 'post_id') ?? undefined);
+                return;
+            }
+
+            if (item.type === 'group.comment' && readPayloadString(item.payload, 'support_request_id')) {
+                const groupId = readPayloadString(item.payload, 'group_id');
+                const supportRequestId = readPayloadString(item.payload, 'support_request_id');
+                if (!groupId || !supportRequestId) {
+                    Alert.alert('Notification unavailable', 'This support notification can no longer be opened.');
+                    return;
+                }
+                onOpenSupportRequestContext(groupId, supportRequestId, readPayloadString(item.payload, 'post_id') ?? undefined);
                 return;
             }
         } catch (error: unknown) {
@@ -206,7 +268,7 @@ export function NotificationsScreen({
         } finally {
             setPendingId(null);
         }
-    }, [invalidateNotifications, onOpenChat, onOpenGroup, onOpenMention, pendingId]);
+    }, [invalidateNotifications, onOpenChat, onOpenGroup, onOpenGroupAdminInbox, onOpenGroupReports, onOpenMention, onOpenSupportRequestContext, pendingId]);
 
     const renderItem = useCallback(({ item }: { item: api.NotificationItem }) => (
         <NotificationRow item={item} pending={pendingId === item.id} onPress={handlePressNotification} />

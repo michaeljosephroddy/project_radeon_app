@@ -500,24 +500,26 @@ export function ProfileTabScreen({
         return (
             <SafeAreaView style={styles.container} edges={['bottom']}>
                 <ScreenHeader onBack={() => setSubView('profile')} title="Requests" />
-                <SegmentedControl
-                    activeKey={requestsSubView}
-                    onChange={(key) => setRequestsSubView(key as RequestsSubView)}
-                    tone="primary"
-                    style={[screenStandards.tabControl, styles.requestTabs]}
-                    items={[
-                        {
-                            key: 'incoming',
-                            label: 'Incoming',
-                            badgeLabel: incomingRequests.length > 0 ? String(incomingRequests.length) : undefined,
-                        },
-                        {
-                            key: 'outgoing',
-                            label: 'Sent',
-                            badgeLabel: outgoingRequests.length > 0 ? String(outgoingRequests.length) : undefined,
-                        },
-                    ]}
-                />
+                <View style={screenStandards.fixedTabsWrap}>
+                    <SegmentedControl
+                        activeKey={requestsSubView}
+                        onChange={(key) => setRequestsSubView(key as RequestsSubView)}
+                        tone="primary"
+                        style={screenStandards.fixedTabsControl}
+                        items={[
+                            {
+                                key: 'incoming',
+                                label: 'Incoming',
+                                badgeLabel: incomingRequests.length > 0 ? String(incomingRequests.length) : undefined,
+                            },
+                            {
+                                key: 'outgoing',
+                                label: 'Sent',
+                                badgeLabel: outgoingRequests.length > 0 ? String(outgoingRequests.length) : undefined,
+                            },
+                        ]}
+                    />
+                </View>
                 <FlatList
                     data={requestsSubView === 'incoming' ? incomingRequests : outgoingRequests}
                     key={requestsSubView}
@@ -996,10 +998,6 @@ const styles = StyleSheet.create({
         paddingBottom: Spacing.md,
     },
     footerLoader: { paddingVertical: Spacing.md },
-    requestTabs: {
-        marginBottom: 0,
-    },
-
     row: {
         flexDirection: 'row',
         alignItems: 'center',

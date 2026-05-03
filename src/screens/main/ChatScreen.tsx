@@ -1,6 +1,7 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import {
     ActivityIndicator,
+    Alert,
     LayoutChangeEvent,
     StyleSheet,
     Text,
@@ -10,7 +11,7 @@ import {
 import { Avatar } from '../../components/Avatar';
 import * as api from '../../api/client';
 import { useAuth } from '../../hooks/useAuth';
-import { Colors, Radius, Spacing, TextStyles, Typography } from '../../theme';
+import { Colors, ControlSizes, Radius, Spacing, TextStyles, Typography } from '../../theme';
 import { formatUsername } from '../../utils/identity';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -41,6 +42,9 @@ export function ChatScreen({ chat, onBack }: ChatScreenProps) {
     const { user } = useAuth();
     const insets = useSafeAreaInsets();
     const [headerHeight, setHeaderHeight] = useState(0);
+    const [acceptingInviteToken, setAcceptingInviteToken] = useState<string | null>(null);
+    const [dismissedInviteTokens, setDismissedInviteTokens] = useState<Set<string>>(new Set());
+    const [dismissedSupportContextIds, setDismissedSupportContextIds] = useState<Set<string>>(new Set());
     const liveChatQuery = useChat(chat.id, chat);
     const supportChat = liveChatQuery.data ?? chat;
     const displayName = supportChat.is_group
@@ -82,6 +86,10 @@ export function ChatScreen({ chat, onBack }: ChatScreenProps) {
     const supportStatus = supportContext?.status;
     const isSupportClosed = supportStatus === 'closed' || supportChat.status === 'closed';
     const isSupportAccepted = !supportContext || (supportStatus === 'accepted' && !isSupportClosed);
+    const supportContextDismissKey = supportContext?.support_request_id ?? null;
+    const showSupportContext = Boolean(
+        supportContext && supportContextDismissKey && !dismissedSupportContextIds.has(supportContextDismissKey),
+    );
     const keyboardVerticalOffset = insets.top + headerHeight;
     const bodyStyle = useMemo(
         () => [styles.body, { paddingBottom: insets.bottom }],
@@ -99,6 +107,26 @@ export function ChatScreen({ chat, onBack }: ChatScreenProps) {
         void sendMessage(body);
     }, [isSupportAccepted, sendMessage, sending]);
 
+    const handleAcceptInvite = useCallback(async (token: string): Promise<void> => {
+        setAcceptingInviteToken(token);
+        try {
+            const result = await api.acceptGroupInvite(token);
+            Alert.alert(
+                result.state === 'pending' ? 'Request sent' : 'Invite accepted',
+                result.state === 'pending' ? 'An admin will review your request.' : 'You joined the group.',
+            );
+        } catch (e: unknown) {
+            Alert.alert('Could not accept invite', e instanceof Error ? e.message : 'Please try again.');
+        } finally {
+            setAcceptingInviteToken(null);
+        }
+    }, []);
+
+    const handleDismissSupportContext = useCallback((): void => {
+        if (!supportContextDismissKey) return;
+        setDismissedSupportContextIds((current) => new Set(current).add(supportContextDismissKey));
+    }, [supportContextDismissKey]);
+
     return (
         <View style={styles.container}>
             <View onLayout={handleHeaderLayout}>
@@ -107,23 +135,35 @@ export function ChatScreen({ chat, onBack }: ChatScreenProps) {
                     displayName={displayName}
                     onBack={onBack}
                 />
-                {supportContext ? (
+                {supportContext && showSupportContext ? (
                     <View style={styles.supportContextCard}>
-                        <Text style={styles.supportContextEyebrow}>SUPPORT CONTEXT</Text>
-                        <Text style={styles.supportContextTitle}>
-                            {formatSupportType(supportContext.request_type)}
-                        </Text>
-                        {supportContext.request_message ? (
-                            <Text style={styles.supportContextBody}>
-                                {supportContext.request_message}
+                        <View style={styles.supportContextContent}>
+                            <Text style={styles.supportContextEyebrow}>SUPPORT CONTEXT</Text>
+                            <Text style={styles.supportContextTitle}>
+                                {formatSupportType(supportContext.request_type)}
                             </Text>
-                        ) : null}
-                        <Text style={styles.supportContextMeta}>
-                            {formatUsername(supportContext.requester_username)}
-                            {supportContext.latest_offer_type
-                                ? ` · ${formatSupportOfferType(supportContext.latest_offer_type)}`
-                                : ''}
-                        </Text>
+                            {supportContext.request_message ? (
+                                <Text style={styles.supportContextBody}>
+                                    {supportContext.request_message}
+                                </Text>
+                            ) : null}
+                            <Text style={styles.supportContextMeta}>
+                                {formatUsername(supportContext.requester_username)}
+                                {supportContext.latest_offer_type
+                                    ? ` · ${formatSupportOfferType(supportContext.latest_offer_type)}`
+                                    : ''}
+                            </Text>
+                        </View>
+                        <TouchableOpacity
+                            accessibilityRole="button"
+                            accessibilityLabel="Dismiss support context"
+                            hitSlop={Spacing.sm}
+                            style={styles.supportContextDismissButton}
+                            onPress={handleDismissSupportContext}
+                            activeOpacity={0.72}
+                        >
+                            <Ionicons name="close" size={18} color={Colors.success} />
+                        </TouchableOpacity>
                         {supportStatus === 'declined' || isSupportClosed ? (
                             <View style={styles.supportPendingPanel}>
                                 <Text style={styles.supportPendingTitle}>
@@ -182,6 +222,16 @@ export function ChatScreen({ chat, onBack }: ChatScreenProps) {
                         renderBubble={(props) => {
                             const messageUser = props.currentMessage.user;
                             const avatarUrl = typeof messageUser.avatar === 'string' ? messageUser.avatar : undefined;
+                            const parsedInviteToken = parseGroupInviteToken(props.currentMessage.text);
+                            const senderId = typeof messageUser._id === 'string'
+                                ? messageUser._id
+                                : typeof messageUser._id === 'number'
+                                    ? String(messageUser._id)
+                                    : '';
+                            const isOwnInviteMessage = senderId !== '' && senderId === user?.id;
+                            const inviteToken = parsedInviteToken && !dismissedInviteTokens.has(parsedInviteToken)
+                                ? parsedInviteToken
+                                : null;
 
                             return (
                                 <View style={styles.flatMessageRow}>
@@ -192,9 +242,40 @@ export function ChatScreen({ chat, onBack }: ChatScreenProps) {
                                         fontSize={13}
                                     />
                                     <View style={styles.flatBubble}>
-                                        <Text style={styles.flatBubbleText}>
-                                            {props.currentMessage.text}
-                                        </Text>
+                                        {inviteToken && !isOwnInviteMessage ? (
+                                            <View style={styles.inviteCard}>
+                                                <Text style={styles.inviteTitle}>Group invite</Text>
+                                                <Text style={styles.inviteBody}>{props.currentMessage.text}</Text>
+                                                <View style={styles.inviteActions}>
+                                                    <TouchableOpacity
+                                                        style={[styles.inviteAcceptButton, acceptingInviteToken === inviteToken && styles.inviteDisabled]}
+                                                        onPress={() => { void handleAcceptInvite(inviteToken); }}
+                                                        disabled={acceptingInviteToken === inviteToken}
+                                                    >
+                                                        <Text style={styles.inviteAcceptText}>
+                                                            {acceptingInviteToken === inviteToken ? 'Accepting...' : 'Accept'}
+                                                        </Text>
+                                                    </TouchableOpacity>
+                                                    <TouchableOpacity
+                                                        style={styles.inviteDismissButton}
+                                                        onPress={() => {
+                                                            setDismissedInviteTokens((current) => new Set(current).add(inviteToken));
+                                                        }}
+                                                    >
+                                                        <Text style={styles.inviteDismissText}>Not now</Text>
+                                                    </TouchableOpacity>
+                                                </View>
+                                            </View>
+                                        ) : inviteToken ? (
+                                            <View style={styles.inviteCard}>
+                                                <Text style={styles.inviteTitle}>Group invite</Text>
+                                                <Text style={styles.inviteBody}>{props.currentMessage.text}</Text>
+                                            </View>
+                                        ) : (
+                                            <Text style={styles.flatBubbleText}>
+                                                {props.currentMessage.text}
+                                            </Text>
+                                        )}
                                         <Text style={styles.timeLabel}>
                                             {formatMessageTime(props.currentMessage.createdAt)}
                                         </Text>
@@ -292,6 +373,16 @@ function formatMessageTime(value: Date | number): string {
     });
 }
 
+function parseGroupInviteToken(text: string | undefined): string | null {
+    if (!text) return null;
+    const deepLinkMatch = text.match(/soberspace:\/\/group-invites\/([A-Za-z0-9_-]+)/);
+    if (deepLinkMatch?.[1]) {
+        return decodeURIComponent(deepLinkMatch[1]);
+    }
+    const webLinkMatch = text.match(/https:\/\/soberspace\.app\/group-invites\/([A-Za-z0-9_-]+)/);
+    return webLinkMatch?.[1] ? decodeURIComponent(webLinkMatch[1]) : null;
+}
+
 function formatSupportType(value: api.SupportRequest['support_type']): string {
     switch (value) {
     case 'chat':
@@ -300,8 +391,6 @@ function formatSupportType(value: api.SupportRequest['support_type']): string {
         return 'Call support';
     case 'meetup':
         return 'Meetup support';
-    case 'general':
-        return 'General support';
     default:
         return 'Support request';
     }
@@ -334,6 +423,11 @@ const styles = StyleSheet.create({
         borderBottomColor: Colors.border.default,
         paddingHorizontal: Spacing.md,
         paddingVertical: Spacing.md,
+        marginBottom: Spacing.xs,
+        position: 'relative',
+    },
+    supportContextContent: {
+        paddingRight: ControlSizes.iconButton,
     },
     supportContextEyebrow: {
         fontSize: Typography.sizes.xs,
@@ -352,6 +446,16 @@ const styles = StyleSheet.create({
     supportContextMeta: {
         ...TextStyles.meta,
         marginTop: 8,
+    },
+    supportContextDismissButton: {
+        position: 'absolute',
+        top: Spacing.sm,
+        right: Spacing.sm,
+        width: ControlSizes.iconButton,
+        height: ControlSizes.iconButton,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderRadius: Radius.pill,
     },
     supportPendingPanel: {
         marginTop: Spacing.md,
@@ -429,6 +533,55 @@ const styles = StyleSheet.create({
         color: Colors.text.primary,
         lineHeight: 22,
         textAlign: 'left',
+    },
+    inviteCard: {
+        maxWidth: 280,
+        borderWidth: 1,
+        borderColor: Colors.primary,
+        borderRadius: Radius.md,
+        backgroundColor: Colors.primarySubtle,
+        padding: Spacing.md,
+        gap: Spacing.sm,
+    },
+    inviteTitle: {
+        ...TextStyles.bodyEmphasis,
+        fontWeight: '800',
+    },
+    inviteBody: {
+        ...TextStyles.secondary,
+        color: Colors.text.primary,
+    },
+    inviteActions: {
+        flexDirection: 'row',
+        gap: Spacing.sm,
+    },
+    inviteAcceptButton: {
+        minHeight: 34,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderRadius: Radius.pill,
+        backgroundColor: Colors.primary,
+        paddingHorizontal: Spacing.md,
+    },
+    inviteAcceptText: {
+        ...TextStyles.button,
+        fontSize: TextStyles.chip.fontSize,
+    },
+    inviteDismissButton: {
+        minHeight: 34,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderRadius: Radius.pill,
+        borderWidth: 1,
+        borderColor: Colors.border.emphasis,
+        paddingHorizontal: Spacing.md,
+    },
+    inviteDismissText: {
+        ...TextStyles.chip,
+        color: Colors.text.secondary,
+    },
+    inviteDisabled: {
+        opacity: 0.6,
     },
     timeLabel: {
         ...TextStyles.meta,

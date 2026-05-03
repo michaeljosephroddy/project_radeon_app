@@ -32,6 +32,7 @@ import { Colors, ContentInsets, ControlSizes, Radius, Spacing, TextStyles, Typog
 import { formatUsername } from '../../utils/identity';
 import { dedupeById } from '../../utils/list';
 import { getListPerformanceProps } from '../../utils/listPerformance';
+import { getSupportTopicLabel, getSupportTypeLabel, normalizeSupportType } from '../../components/support/supportRequestPresentation';
 import { MeetingsView } from './support/MeetingsView';
 
 type SupportSurface = 'feed' | 'my_requests' | 'meetings';
@@ -65,33 +66,11 @@ interface SupportRequestCardProps {
     onPressUser: (request: api.SupportRequest) => void;
 }
 
-const SUPPORT_TYPE_LABELS: Record<api.SupportType, string> = {
-    chat: 'Chat',
-    call: 'Call',
-    meetup: 'Meetup',
-    general: 'General',
-};
-
 const URGENCY_LABELS: Record<api.SupportUrgency, string> = {
     high: 'High',
     medium: 'Medium',
     low: 'Low',
 };
-
-const TOPIC_LABELS: Record<api.SupportTopic, string> = {
-    anxiety: 'Anxiety',
-    relapse_risk: 'Relapse risk',
-    loneliness: 'Loneliness',
-    cravings: 'Cravings',
-    depression: 'Depression',
-    family: 'Family',
-    work: 'Work',
-    sleep: 'Sleep',
-    celebration: 'Celebration',
-    general: 'General',
-};
-
-const OFFERABLE_SUPPORT_TYPES: Array<Exclude<api.SupportType, 'general'>> = ['chat', 'call', 'meetup'];
 
 function timeAgo(dateStr: string): string {
     const diff = Date.now() - new Date(dateStr).getTime();
@@ -103,15 +82,15 @@ function timeAgo(dateStr: string): string {
     return `${Math.floor(hrs / 24)}d`;
 }
 
-function getOfferType(request: api.SupportRequest): Exclude<api.SupportType, 'general'> {
-    return request.support_type === 'general' ? 'chat' : request.support_type;
+function getOfferType(request: api.SupportRequest): api.SupportType {
+    return normalizeSupportType(request.support_type);
 }
 
 function getPrimaryActionLabel(request: api.SupportRequest): string {
     if (request.is_own_request) return request.status === 'active' ? 'Open chat' : 'Manage';
+    if (request.already_chatting) return 'Already chatting';
     if (request.status !== 'open') return 'View';
-    if (request.support_type === 'general') return 'Reply';
-    return `Offer ${SUPPORT_TYPE_LABELS[getOfferType(request)].toLowerCase()}`;
+    return `Offer ${getSupportTypeLabel(getOfferType(request)).toLowerCase()}`;
 }
 
 function getRequestLocationLabel(request: api.SupportRequest): string | null {
@@ -135,6 +114,10 @@ function SupportRequestCard({
     const offerCount = request.offer_count;
     const canClose = request.is_own_request && request.status !== 'closed';
     const canOpenChat = request.is_own_request && request.status === 'active' && Boolean(request.chat_id);
+    const topicLabels = request.topics
+        .map(getSupportTopicLabel)
+        .filter((label): label is string => Boolean(label))
+        .slice(0, 4);
 
     return (
         <View style={styles.card}>
@@ -149,13 +132,13 @@ function SupportRequestCard({
                     <View style={styles.cardTitleRow}>
                         <Text style={styles.cardName}>{formatUsername(request.username)}</Text>
                         <View style={styles.badgeRow}>
-                            <View style={[styles.badge, request.urgency === 'high' && styles.badgeUrgent]}>
+                            <View style={[styles.badge, styles.badgeUrgency, request.urgency === 'high' && styles.badgeUrgent]}>
                                 <Text style={[styles.badgeText, request.urgency === 'high' && styles.badgeUrgentText]}>
                                     {URGENCY_LABELS[request.urgency]}
                                 </Text>
                             </View>
-                            <View style={styles.badge}>
-                                <Text style={styles.badgeText}>{SUPPORT_TYPE_LABELS[request.support_type]}</Text>
+                            <View style={[styles.badge, styles.badgeType]}>
+                                <Text style={[styles.badgeText, styles.badgeTypeText]}>{getSupportTypeLabel(request.support_type)}</Text>
                             </View>
                             {request.is_priority ? (
                                 <View style={styles.priorityBadge}>
@@ -171,11 +154,11 @@ function SupportRequestCard({
                 </View>
             </View>
 
-            {request.topics.length > 0 ? (
+            {topicLabels.length > 0 ? (
                 <View style={styles.topicRow}>
-                    {request.topics.slice(0, 4).map((topic) => (
-                        <View key={topic} style={styles.topicChip}>
-                            <Text style={styles.topicChipText}>{TOPIC_LABELS[topic]}</Text>
+                    {topicLabels.map((topicLabel) => (
+                        <View key={topicLabel} style={styles.topicChip}>
+                            <Text style={styles.topicChipText}>{topicLabel}</Text>
                         </View>
                     ))}
                 </View>
@@ -195,9 +178,11 @@ function SupportRequestCard({
                 <TouchableOpacity
                     style={[styles.actionPrimary, pending && styles.actionDisabled]}
                     onPress={() => canOpenChat ? onOpenChat(request) : onPrimaryAction(request)}
-                    disabled={pending}
+                    disabled={pending || (!request.is_own_request && (request.has_offered || request.already_chatting))}
                 >
-                    <Text style={styles.actionPrimaryText}>{pending ? 'Working...' : getPrimaryActionLabel(request)}</Text>
+                    <Text style={styles.actionPrimaryText}>
+                        {pending ? 'Working...' : !request.is_own_request && request.has_offered ? 'Offered' : getPrimaryActionLabel(request)}
+                    </Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.actionSecondary} onPress={() => onOpen(request)}>
                     <Text style={styles.actionSecondaryText}>View</Text>
@@ -358,12 +343,16 @@ export function SupportScreen({
     }, [invalidateSupport, setPending]);
 
     const handleOffer = useCallback(async (request: api.SupportRequest) => {
+        if (request.already_chatting) {
+            Alert.alert('Already chatting', `You already have an open chat with ${formatUsername(request.username)}.`);
+            return;
+        }
         const offerType = getOfferType(request);
         setPending(request.id, true);
         try {
             await api.createSupportOffer(request.id, {
                 offer_type: offerType,
-                message: `I can help with ${SUPPORT_TYPE_LABELS[offerType].toLowerCase()} support.`,
+                message: `I can help with ${getSupportTypeLabel(offerType).toLowerCase()} support.`,
             });
             Alert.alert('Offer sent', `${formatUsername(request.username)} can accept it if they want direct support.`);
             setDetail((current) => current && current.request.id === request.id
@@ -385,10 +374,11 @@ export function SupportScreen({
     }, [invalidateSupport, setPending]);
 
     const handlePrimaryAction = useCallback((request: api.SupportRequest) => {
-        if (request.is_own_request || request.support_type === 'general') {
+        if (request.is_own_request) {
             void loadDetail(request);
             return;
         }
+        if (request.already_chatting) return;
         void handleOffer(request);
     }, [handleOffer, loadDetail]);
 
@@ -503,7 +493,7 @@ export function SupportScreen({
                                             <View style={styles.offerBody}>
                                                 <Text style={styles.offerName}>{formatUsername(offer.username)}</Text>
                                                 <Text style={styles.cardMeta}>
-                                                    {SUPPORT_TYPE_LABELS[offer.offer_type]} · {timeAgo(offer.created_at)}
+                                                    {getSupportTypeLabel(offer.offer_type)} · {timeAgo(offer.created_at)}
                                                 </Text>
                                                 {offer.message ? <Text style={styles.replyText}>{offer.message}</Text> : null}
                                             </View>
@@ -529,9 +519,9 @@ export function SupportScreen({
                                         </View>
                                     ))}
                                 </View>
-                            ) : request.status === 'open' && request.support_type !== 'general' ? (
+            ) : request.status === 'open' ? (
                                 <PrimaryButton
-                                    label={pendingIds.has(request.id) ? 'Sending...' : `Offer ${SUPPORT_TYPE_LABELS[getOfferType(request)].toLowerCase()}`}
+                                    label={pendingIds.has(request.id) ? 'Sending...' : `Offer ${getSupportTypeLabel(getOfferType(request)).toLowerCase()}`}
                                     onPress={() => void handleOffer(request)}
                                     disabled={pendingIds.has(request.id) || request.has_offered}
                                     style={styles.detailButton}
@@ -578,17 +568,19 @@ export function SupportScreen({
     }
 
     const primaryTabs = (
-        <SegmentedControl
-            activeKey={surface}
-            onChange={(key) => setSurface(key as SupportSurface)}
-            tone="primary"
-            style={[screenStandards.tabControl, styles.supportTabs]}
-            items={[
-                { key: 'feed', label: 'Feed' },
-                { key: 'my_requests', label: 'My Requests', flex: 1.2 },
-                { key: 'meetings', label: 'Meetings' },
-            ]}
-        />
+        <View style={screenStandards.fixedTabsWrap}>
+            <SegmentedControl
+                activeKey={surface}
+                onChange={(key) => setSurface(key as SupportSurface)}
+                tone="primary"
+                style={screenStandards.fixedTabsControl}
+                items={[
+                    { key: 'feed', label: 'Feed' },
+                    { key: 'my_requests', label: 'My Requests', flex: 1.2 },
+                    { key: 'meetings', label: 'Meetings' },
+                ]}
+            />
+        </View>
     );
 
     const renderCard = ({ item }: { item: api.SupportRequest }) => (
@@ -756,7 +748,6 @@ const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: Colors.bg.page },
     center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.bg.page },
     headerCard: { marginBottom: Spacing.md },
-    supportTabs: { marginBottom: Spacing.sm },
     nestedTabs: { marginBottom: Spacing.md },
     feedListContent: { paddingBottom: ContentInsets.listBottom + ControlSizes.fabMinHeight },
     card: {
@@ -778,11 +769,14 @@ const styles = StyleSheet.create({
         backgroundColor: Colors.bg.page,
         borderRadius: Radius.pill,
         borderWidth: 1,
-        borderColor: Colors.border.default,
+        borderColor: Colors.border.emphasis,
         paddingHorizontal: Spacing.sm,
         paddingVertical: 4,
     },
     badgeText: { ...TextStyles.caption, color: Colors.text.secondary },
+    badgeUrgency: { backgroundColor: Colors.warningSubtle, borderColor: Colors.warning },
+    badgeType: { backgroundColor: Colors.infoSubtle, borderColor: Colors.info },
+    badgeTypeText: { color: Colors.info },
     badgeUrgent: { backgroundColor: Colors.dangerSubtle, borderColor: Colors.dangerSubtle },
     badgeUrgentText: { color: Colors.danger },
     priorityBadge: {

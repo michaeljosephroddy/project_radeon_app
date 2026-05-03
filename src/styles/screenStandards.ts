@@ -1,10 +1,20 @@
 import { StyleSheet } from 'react-native';
-import { ContentInsets, Spacing, TextStyles } from '../theme';
+import { Colors, ContentInsets, Spacing, TextStyles } from '../theme';
 
 export const screenStandards = StyleSheet.create({
     tabControl: {
         paddingHorizontal: ContentInsets.screenHorizontal,
         marginTop: Spacing.xs,
+    },
+    fixedTabsWrap: {
+        paddingHorizontal: ContentInsets.screenHorizontal,
+        paddingTop: Spacing.sm,
+        paddingBottom: Spacing.md,
+        backgroundColor: Colors.bg.page,
+        zIndex: 1,
+    },
+    fixedTabsControl: {
+        marginBottom: 0,
     },
     listContent: {
         padding: ContentInsets.screenHorizontal,

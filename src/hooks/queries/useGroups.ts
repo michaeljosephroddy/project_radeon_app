@@ -120,6 +120,26 @@ export function useGroupAdminInbox(groupId: string | null, limit = 20, enabled =
     });
 }
 
+export function useGroupReports(groupId: string | null, limit = 20, enabled = true) {
+    const queryKey = queryKeys.groupReports(groupId ?? '', { limit });
+    const policy = getInfiniteQueryPolicy(queryKey);
+
+    return useInfiniteQuery({
+        queryKey,
+        queryFn: ({ pageParam }) => api.listGroupReports(
+            groupId ?? '',
+            pageParam as string | undefined,
+            limit,
+        ),
+        initialPageParam: undefined as string | undefined,
+        getNextPageParam: (lastPage) => lastPage.next_cursor ?? undefined,
+        staleTime: GROUPS_STALE_TIME,
+        refetchOnMount: policy?.refetchOnMount,
+        enabled: enabled && Boolean(groupId),
+    });
+}
+
+
 export function useGroupComments(
     groupId: string | null,
     postId: string | null,
@@ -353,6 +373,23 @@ export function useResolveGroupAdminThreadMutation(groupId: string) {
         mutationFn: (threadId: string) => api.resolveGroupAdminThread(groupId, threadId),
         onSuccess: async () => {
             await queryClient.invalidateQueries({ queryKey: ['groups', 'admin-inbox', groupId] });
+        },
+    });
+}
+
+export function useReviewGroupReportMutation(groupId: string) {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: ({
+            reportId,
+            status,
+        }: {
+            reportId: string;
+            status: Extract<api.GroupReport['status'], 'reviewing' | 'resolved' | 'dismissed'>;
+        }) => api.reviewGroupReport(groupId, reportId, status),
+        onSuccess: async () => {
+            await queryClient.invalidateQueries({ queryKey: ['groups', 'reports', groupId] });
         },
     });
 }
