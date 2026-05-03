@@ -93,7 +93,6 @@ export function ComposeDMScreen({
                         value={body}
                         onChangeText={setBody}
                         multiline
-                        autoFocus
                         returnKeyType="default"
                         editable={!sending}
                     />

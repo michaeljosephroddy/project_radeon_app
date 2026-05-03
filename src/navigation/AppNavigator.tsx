@@ -169,7 +169,10 @@ export function AppNavigator() {
     const [ownProfileOpen, setOwnProfileOpen] = useState(false);
     const [openMeetup, setOpenMeetup] = useState<api.Meetup | null>(null);
     const [openGroupId, setOpenGroupId] = useState<string | null>(null);
+    const [groupAdminInitialTab, setGroupAdminInitialTab] = useState<'requests' | 'inbox' | 'reports' | null>(null);
+    const [groupAdminInitialThreadId, setGroupAdminInitialThreadId] = useState<string | null>(null);
     const [groupFocusRequest, setGroupFocusRequest] = useState<{ postId: string; nonce: number } | null>(null);
+    const [groupSupportFocusRequest, setGroupSupportFocusRequest] = useState<{ requestId: string; postId?: string; nonce: number } | null>(null);
     const [plusUpsellOpen, setPlusUpsellOpen] = useState(false);
     const [notificationsOpen, setNotificationsOpen] = useState(false);
     const [ownProfileInitialContentTab, setOwnProfileInitialContentTab] = useState<ProfileContentTabKey>('posts');
@@ -247,7 +250,29 @@ export function AppNavigator() {
         setCreateSupportRequestOpen(false);
         setCreateMeetupOpen(false);
         setOpenGroupId(groupId);
+        setGroupAdminInitialTab(null);
+        setGroupAdminInitialThreadId(null);
         setGroupFocusRequest(postId ? { postId, nonce: Date.now() } : null);
+        setGroupSupportFocusRequest(null);
+        setNotificationsOpen(false);
+        setOpenChat(null);
+        setOpenUserProfile(null);
+        setOwnProfileOpen(false);
+        setPendingDM(null);
+        setOpenMeetup(null);
+        setCreateGroupOpen(false);
+        setPlusUpsellOpen(false);
+        setOpenGroupComments(null);
+    }, []);
+
+    const handleOpenGroupReports = useCallback((groupId: string, _reportId?: string) => {
+        setCreateSupportRequestOpen(false);
+        setCreateMeetupOpen(false);
+        setOpenGroupId(groupId);
+        setGroupAdminInitialTab('reports');
+        setGroupAdminInitialThreadId(null);
+        setGroupFocusRequest(null);
+        setGroupSupportFocusRequest(null);
         setNotificationsOpen(false);
         setOpenChat(null);
         setOpenUserProfile(null);
@@ -261,7 +286,29 @@ export function AppNavigator() {
 
     const handleCloseGroup = useCallback(() => {
         setOpenGroupId(null);
+        setGroupAdminInitialTab(null);
+        setGroupAdminInitialThreadId(null);
         setGroupFocusRequest(null);
+        setGroupSupportFocusRequest(null);
+        setOpenGroupComments(null);
+    }, []);
+
+    const handleOpenGroupAdminInbox = useCallback((groupId: string, threadId?: string) => {
+        setCreateSupportRequestOpen(false);
+        setCreateMeetupOpen(false);
+        setOpenGroupId(groupId);
+        setGroupAdminInitialTab('inbox');
+        setGroupAdminInitialThreadId(threadId ?? null);
+        setGroupFocusRequest(null);
+        setGroupSupportFocusRequest(null);
+        setNotificationsOpen(false);
+        setOpenChat(null);
+        setOpenUserProfile(null);
+        setOwnProfileOpen(false);
+        setPendingDM(null);
+        setOpenMeetup(null);
+        setCreateGroupOpen(false);
+        setPlusUpsellOpen(false);
         setOpenGroupComments(null);
     }, []);
 
@@ -281,6 +328,7 @@ export function AppNavigator() {
     }, []);
 
     const handleComposeDMComplete = useCallback((chat: Chat) => {
+        Keyboard.dismiss();
         setPendingDM(null);
         setOpenChat(chat);
     }, []);
@@ -499,6 +547,26 @@ export function AppNavigator() {
         });
     }, []);
 
+    const handleOpenSupportRequestContext = useCallback((groupId: string, supportRequestId: string, postId?: string) => {
+        setCreateSupportRequestOpen(false);
+        setCreateMeetupOpen(false);
+        setOpenGroupId(groupId);
+        setGroupAdminInitialTab(null);
+        setGroupAdminInitialThreadId(null);
+        setGroupFocusRequest(null);
+        setGroupSupportFocusRequest({ requestId: supportRequestId, postId, nonce: Date.now() });
+        setNotificationsOpen(false);
+        setOpenChat(null);
+        setOpenUserProfile(null);
+        setOwnProfileOpen(false);
+        setPendingDM(null);
+        setOpenMeetup(null);
+        setCreateGroupOpen(false);
+        setPlusUpsellOpen(false);
+        setOpenGroupComments(null);
+        setActiveTab('groups');
+    }, []);
+
     const syncingLocation = useRef(false);
 
     useEffect(() => {
@@ -586,7 +654,68 @@ export function AppNavigator() {
             setOpenMeetup(null);
             setPlusUpsellOpen(false);
             setOpenGroupId(intent.groupId);
+            setGroupAdminInitialTab(null);
+            setGroupAdminInitialThreadId(null);
             setGroupFocusRequest(intent.postId ? { postId: intent.postId, nonce: Date.now() } : null);
+            setGroupSupportFocusRequest(null);
+            consumeIntent();
+            return;
+        }
+
+        if (intent.kind === 'group_admin_inbox') {
+            setActiveTab('groups');
+            setOpenChat(null);
+            setOpenUserProfile(null);
+            setOwnProfileOpen(false);
+            setNotificationsOpen(false);
+            setPendingDM(null);
+            setOpenMeetup(null);
+            setPlusUpsellOpen(false);
+            setOpenGroupId(intent.groupId);
+            setGroupAdminInitialTab('inbox');
+            setGroupAdminInitialThreadId(intent.threadId ?? null);
+            setGroupFocusRequest(null);
+            setGroupSupportFocusRequest(null);
+            consumeIntent();
+            return;
+        }
+
+        if (intent.kind === 'group_report') {
+            setActiveTab('groups');
+            setOpenChat(null);
+            setOpenUserProfile(null);
+            setOwnProfileOpen(false);
+            setNotificationsOpen(false);
+            setPendingDM(null);
+            setOpenMeetup(null);
+            setPlusUpsellOpen(false);
+            setOpenGroupId(intent.groupId);
+            setGroupAdminInitialTab('reports');
+            setGroupAdminInitialThreadId(null);
+            setGroupFocusRequest(null);
+            setGroupSupportFocusRequest(null);
+            consumeIntent();
+            return;
+        }
+
+        if (intent.kind === 'support_request') {
+            setActiveTab('groups');
+            setOpenChat(null);
+            setOpenUserProfile(null);
+            setOwnProfileOpen(false);
+            setNotificationsOpen(false);
+            setPendingDM(null);
+            setOpenMeetup(null);
+            setPlusUpsellOpen(false);
+            setOpenGroupId(intent.groupId);
+            setGroupAdminInitialTab(null);
+            setGroupAdminInitialThreadId(null);
+            setGroupFocusRequest(null);
+            setGroupSupportFocusRequest({
+                requestId: intent.supportRequestId,
+                postId: intent.postId,
+                nonce: Date.now(),
+            });
             consumeIntent();
             return;
         }
@@ -676,14 +805,6 @@ export function AppNavigator() {
                     />
                 </View>
             )}
-            {inChat && (
-                <View style={StyleSheet.absoluteFill}>
-                    <ChatScreen
-                        chat={openChat!}
-                        onBack={handleCloseChat}
-                    />
-                </View>
-            )}
             {inMeetupDetail && (
                 <View style={StyleSheet.absoluteFill}>
                     <MeetupDetailScreen
@@ -702,9 +823,15 @@ export function AppNavigator() {
                         onOpenCreatePost={handleOpenGroupCreatePost}
                         onOpenCreateSupportRequest={openCreateSupportRequest}
                         onOpenChat={setOpenChat}
+                        initialAdminTab={groupAdminInitialTab ?? undefined}
+                        initialAdminThreadId={groupAdminInitialThreadId ?? undefined}
                         focusPostRequest={groupFocusRequest}
                         onFocusPostConsumed={(nonce) => {
                             setGroupFocusRequest((current) => current?.nonce === nonce ? null : current);
+                        }}
+                        focusSupportRequest={groupSupportFocusRequest}
+                        onFocusSupportRequestConsumed={(nonce) => {
+                            setGroupSupportFocusRequest((current) => current?.nonce === nonce ? null : current);
                         }}
                     />
                 </View>
@@ -782,14 +909,25 @@ export function AppNavigator() {
                         onOpenChat={handleOpenNotificationChat}
                         onOpenMention={handleOpenNotificationMention}
                         onOpenGroup={handleOpenGroup}
+                        onOpenGroupReports={handleOpenGroupReports}
+                        onOpenGroupAdminInbox={handleOpenGroupAdminInbox}
+                        onOpenSupportRequestContext={handleOpenSupportRequestContext}
+                    />
+                </View>
+            )}
+            {inChat && (
+                <View style={StyleSheet.absoluteFill}>
+                    <ChatScreen
+                        chat={openChat!}
+                        onBack={handleCloseChat}
                     />
                 </View>
             )}
         </>
     ), [
         inOwnProfile, inUserProfile, inChat, inComposeDM, inCreatePost, inCreateGroup, inCreateSupportRequest, inCreateMeetup, inMeetupDetail, inGroupDetail, inPlusUpsell, inNotifications,
-        openUserProfile, openChat, pendingDM, openMeetup, openGroupId, groupFocusRequest, ownProfileInitialContentTab, createPostSessionKey, groupCreatePostTarget, editingMeetup,
-        handleOpenUserProfile, handleOpenGroup, handleCloseChat, closeUserProfile, closeOwnProfile,
+        openUserProfile, openChat, pendingDM, openMeetup, openGroupId, groupAdminInitialTab, groupAdminInitialThreadId, groupFocusRequest, groupSupportFocusRequest, ownProfileInitialContentTab, createPostSessionKey, groupCreatePostTarget, editingMeetup,
+        handleOpenUserProfile, handleOpenGroup, handleOpenGroupReports, handleOpenGroupAdminInbox, handleOpenSupportRequestContext, handleCloseChat, closeUserProfile, closeOwnProfile,
         handleOpenComments, handleOpenGroupComments, handleOpenGroupCreatePost, closeCreatePost, closeCreateGroup, handleGroupCreated,
         openCreateSupportRequest, closeCreateSupportRequest, closeCreateMeetup, handleSupportRequestCreated, handleMeetupCreated, handleMeetupUpdated,
         handleComposeDM, handleComposeDMComplete, handleCloseMeetup, handleCloseGroup, closePlusUpsell,

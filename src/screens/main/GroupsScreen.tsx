@@ -19,8 +19,10 @@ import { EmptyState } from '../../components/ui/EmptyState';
 import { SearchBar } from '../../components/ui/SearchBar';
 import { ScrollToTopButton } from '../../components/ui/ScrollToTopButton';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
+import { TextField } from '../../components/ui/TextField';
 import { useGroups, useJoinGroupMutation } from '../../hooks/queries/useGroups';
 import { useScrollToTopButton } from '../../hooks/useScrollToTopButton';
+import { screenStandards } from '../../styles/screenStandards';
 import { Colors, ContentInsets, ControlSizes, Radius, Spacing, TextStyles, getAvatarColors } from '../../theme';
 
 interface GroupsScreenProps {
@@ -30,6 +32,7 @@ interface GroupsScreenProps {
 }
 
 type GroupScope = 'discover' | 'joined';
+type GroupTypeFilter = 'all' | 'standard' | 'support';
 
 interface GroupFilterChip {
     label: string;
@@ -47,7 +50,6 @@ const FILTER_CHIPS: GroupFilterChip[] = [
     { label: 'Local', tag: 'local' },
 ];
 
-const COUNTRY_FILTERS = ['United States', 'United Kingdom', 'Ireland', 'Canada', 'Australia'];
 const COMMUNITY_SUPPORT_KEY = 'community_support';
 
 interface FilterChipProps {
@@ -130,15 +132,24 @@ export function GroupsScreen({ isActive, onOpenGroup, onOpenCreateGroup }: Group
     const [draftChip, setDraftChip] = useState<GroupFilterChip | null>(null);
     const [country, setCountry] = useState('');
     const [draftCountry, setDraftCountry] = useState('');
+    const [city, setCity] = useState('');
+    const [draftCity, setDraftCity] = useState('');
+    const [visibility, setVisibility] = useState<api.GroupVisibility | null>(null);
+    const [draftVisibility, setDraftVisibility] = useState<api.GroupVisibility | null>(null);
+    const [groupType, setGroupType] = useState<GroupTypeFilter>('all');
+    const [draftGroupType, setDraftGroupType] = useState<GroupTypeFilter>('all');
     const [filterOpen, setFilterOpen] = useState(false);
     const joinMutation = useJoinGroupMutation();
-    const activeFilterCount = (activeChip ? 1 : 0) + (country ? 1 : 0);
+    const activeFilterCount = (activeChip ? 1 : 0) + (country ? 1 : 0) + (city ? 1 : 0) + (visibility ? 1 : 0) + (groupType !== 'all' ? 1 : 0);
 
     const openFilters = useCallback((): void => {
         setDraftChip(activeChip);
         setDraftCountry(country);
+        setDraftCity(city);
+        setDraftVisibility(visibility);
+        setDraftGroupType(groupType);
         setFilterOpen(true);
-    }, [activeChip, country]);
+    }, [activeChip, city, country, groupType, visibility]);
 
     const handleSearchChange = useCallback((nextQuery: string): void => {
         setQuery(nextQuery);
@@ -146,7 +157,10 @@ export function GroupsScreen({ isActive, onOpenGroup, onOpenCreateGroup }: Group
 
     const applyFilters = (): void => {
         setActiveChip(draftChip);
-        setCountry(draftCountry);
+        setCountry(draftCountry.trim());
+        setCity(draftCity.trim());
+        setVisibility(draftVisibility);
+        setGroupType(draftGroupType);
         setFilterOpen(false);
     };
 
@@ -155,6 +169,12 @@ export function GroupsScreen({ isActive, onOpenGroup, onOpenCreateGroup }: Group
         setActiveChip(null);
         setDraftCountry('');
         setCountry('');
+        setDraftCity('');
+        setCity('');
+        setDraftVisibility(null);
+        setVisibility(null);
+        setDraftGroupType('all');
+        setGroupType('all');
         setFilterOpen(false);
     };
 
@@ -163,7 +183,10 @@ export function GroupsScreen({ isActive, onOpenGroup, onOpenCreateGroup }: Group
         member_scope: scope,
         tag: activeChip?.tag,
         recovery_pathway: activeChip?.recoveryPathway,
+        city: city || undefined,
         country: country || undefined,
+        visibility: visibility ?? undefined,
+        group_type: groupType === 'all' ? undefined : groupType,
         limit: 20,
     }, isActive);
 
@@ -204,6 +227,18 @@ export function GroupsScreen({ isActive, onOpenGroup, onOpenCreateGroup }: Group
 
     return (
         <View style={styles.container}>
+            <View style={screenStandards.fixedTabsWrap}>
+                <SegmentedControl
+                    items={[
+                        { key: 'discover', label: 'Discover' },
+                        { key: 'joined', label: 'Joined' },
+                    ]}
+                    activeKey={scope}
+                    onChange={(next) => setScope(next as GroupScope)}
+                    tone="primary"
+                    style={screenStandards.fixedTabsControl}
+                />
+            </View>
             <FlatList
                 ref={listRef}
                 data={groups}
@@ -216,15 +251,6 @@ export function GroupsScreen({ isActive, onOpenGroup, onOpenCreateGroup }: Group
                             activeFilterCount={activeFilterCount}
                             onOpenFilters={openFilters}
                             onQueryChange={handleSearchChange}
-                        />
-                        <SegmentedControl
-                            items={[
-                                { key: 'discover', label: 'Discover' },
-                                { key: 'joined', label: 'Joined' },
-                            ]}
-                            activeKey={scope}
-                            onChange={(next) => setScope(next as GroupScope)}
-                            tone="warning"
                         />
                     </View>
                 )}
@@ -310,22 +336,61 @@ export function GroupsScreen({ isActive, onOpenGroup, onOpenCreateGroup }: Group
                             </View>
                         </View>
                         <View style={styles.filterSection}>
-                            <Text style={styles.filterSectionLabel}>Country</Text>
+                            <Text style={styles.filterSectionLabel}>Group type</Text>
                             <View style={styles.filterOptions}>
                                 <FilterChip
-                                    label="All countries"
-                                    selected={!draftCountry}
-                                    onPress={() => setDraftCountry('')}
+                                    label="All groups"
+                                    selected={draftGroupType === 'all'}
+                                    onPress={() => setDraftGroupType('all')}
                                 />
-                                {COUNTRY_FILTERS.map((item) => (
+                                <FilterChip
+                                    label="Standard"
+                                    selected={draftGroupType === 'standard'}
+                                    onPress={() => setDraftGroupType(draftGroupType === 'standard' ? 'all' : 'standard')}
+                                />
+                                <FilterChip
+                                    label="Support"
+                                    selected={draftGroupType === 'support'}
+                                    onPress={() => setDraftGroupType(draftGroupType === 'support' ? 'all' : 'support')}
+                                />
+                            </View>
+                        </View>
+                        <View style={styles.filterSection}>
+                            <Text style={styles.filterSectionLabel}>Access</Text>
+                            <View style={styles.filterOptions}>
+                                <FilterChip
+                                    label="Any access"
+                                    selected={!draftVisibility}
+                                    onPress={() => setDraftVisibility(null)}
+                                />
+                                {([
+                                    { key: 'public', label: 'Public' },
+                                    { key: 'approval_required', label: 'Approval' },
+                                    { key: 'invite_only', label: 'Invite' },
+                                ] as Array<{ key: api.GroupVisibility; label: string }>).map((item) => (
                                     <FilterChip
-                                        key={item}
-                                        label={item}
-                                        selected={draftCountry === item}
-                                        onPress={() => setDraftCountry(draftCountry === item ? '' : item)}
+                                        key={item.key}
+                                        label={item.label}
+                                        selected={draftVisibility === item.key}
+                                        onPress={() => setDraftVisibility(draftVisibility === item.key ? null : item.key)}
                                     />
                                 ))}
                             </View>
+                        </View>
+                        <View style={styles.filterSection}>
+                            <Text style={styles.filterSectionLabel}>Location</Text>
+                            <TextField
+                                value={draftCountry}
+                                onChangeText={setDraftCountry}
+                                placeholder="Country"
+                                returnKeyType="search"
+                            />
+                            <TextField
+                                value={draftCity}
+                                onChangeText={setDraftCity}
+                                placeholder="City"
+                                returnKeyType="search"
+                            />
                         </View>
                     </ScrollView>
                     <View style={styles.filterFooter}>
@@ -501,9 +566,8 @@ const styles = StyleSheet.create({
     },
     headerContent: {
         paddingHorizontal: ContentInsets.screenHorizontal,
-        paddingTop: ContentInsets.screenHorizontal,
-        paddingBottom: Spacing.md,
-        gap: Spacing.md,
+        paddingTop: 0,
+        paddingBottom: Spacing.xs,
     },
     searchRow: {
         flexDirection: 'row',

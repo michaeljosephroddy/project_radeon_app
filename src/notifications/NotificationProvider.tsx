@@ -10,7 +10,10 @@ import { queryKeys } from '../query/queryKeys';
 type NotificationIntent =
     | { kind: 'chat'; chatId: string; notificationId?: string }
     | { kind: 'mention'; postId: string; commentId?: string; notificationId?: string }
-    | { kind: 'group'; groupId: string; postId?: string; notificationId?: string };
+    | { kind: 'group'; groupId: string; postId?: string; notificationId?: string }
+    | { kind: 'group_admin_inbox'; groupId: string; threadId?: string; notificationId?: string }
+    | { kind: 'group_report'; groupId: string; reportId?: string; notificationId?: string }
+    | { kind: 'support_request'; groupId: string; supportRequestId: string; postId?: string; notificationId?: string };
 
 interface NotificationContextValue {
     intent: NotificationIntent | null;
@@ -178,6 +181,9 @@ function isStaleLastResponse(response: Notifications.NotificationResponse | null
 function notificationIntentKey(intent: NotificationIntent): string {
     if (intent.notificationId) return intent.notificationId;
     if (intent.kind === 'chat') return `chat:${intent.chatId}`;
+    if (intent.kind === 'group_report') return `group-report:${intent.groupId}:${intent.reportId ?? ''}`;
+    if (intent.kind === 'group_admin_inbox') return `group-admin-inbox:${intent.groupId}:${intent.threadId ?? ''}`;
+    if (intent.kind === 'support_request') return `support-request:${intent.groupId}:${intent.supportRequestId}:${intent.postId ?? ''}`;
     if (intent.kind === 'group') return `group:${intent.groupId}:${intent.postId ?? ''}`;
     return `mention:${intent.postId}:${intent.commentId ?? ''}`;
 }
@@ -203,7 +209,51 @@ function toIntent(response: Notifications.NotificationResponse | null): Notifica
             notificationId: notificationId ?? undefined,
         };
     }
-    if (type?.startsWith('group.')) {
+    if (type === 'group.report') {
+        const groupId = readString(data, 'group_id');
+        if (!groupId) return null;
+        return {
+            kind: 'group_report',
+            groupId,
+            reportId: readString(data, 'report_id') ?? undefined,
+            notificationId: notificationId ?? undefined,
+        };
+    }
+    if (type === 'group.admin_contact') {
+        const groupId = readString(data, 'group_id');
+        if (!groupId) return null;
+        return {
+            kind: 'group_admin_inbox',
+            groupId,
+            threadId: readString(data, 'thread_id') ?? undefined,
+            notificationId: notificationId ?? undefined,
+        };
+    }
+    if (type === 'group.admin_reply') {
+        const groupId = readString(data, 'group_id');
+        if (!groupId) return null;
+        return {
+            kind: 'group_admin_inbox',
+            groupId,
+            threadId: readString(data, 'thread_id') ?? undefined,
+            notificationId: notificationId ?? undefined,
+        };
+    }
+    if (type === 'group.report_status') {
+        const groupId = readString(data, 'group_id');
+        if (!groupId) return null;
+        return {
+            kind: 'group_report',
+            groupId,
+            reportId: readString(data, 'report_id') ?? undefined,
+            notificationId: notificationId ?? undefined,
+        };
+    }
+    if (
+        type?.startsWith('group.')
+        && !(type === 'group.post' && readString(data, 'post_type') === 'need_support' && readString(data, 'support_request_id'))
+        && !(type === 'group.comment' && readString(data, 'support_request_id'))
+    ) {
         const groupId = readString(data, 'group_id');
         if (!groupId) return null;
         return {
@@ -215,10 +265,44 @@ function toIntent(response: Notifications.NotificationResponse | null): Notifica
     }
     if (type === 'support.offer') {
         const groupId = readString(data, 'group_id');
+        const supportRequestId = readString(data, 'support_request_id');
         if (!groupId) return null;
+        if (!supportRequestId) {
+            return {
+                kind: 'group',
+                groupId,
+                postId: readString(data, 'post_id') ?? undefined,
+                notificationId: notificationId ?? undefined,
+            };
+        }
         return {
-            kind: 'group',
+            kind: 'support_request',
             groupId,
+            supportRequestId,
+            postId: readString(data, 'post_id') ?? undefined,
+            notificationId: notificationId ?? undefined,
+        };
+    }
+    if (type === 'group.post' && readString(data, 'post_type') === 'need_support') {
+        const groupId = readString(data, 'group_id');
+        const supportRequestId = readString(data, 'support_request_id');
+        if (!groupId || !supportRequestId) return null;
+        return {
+            kind: 'support_request',
+            groupId,
+            supportRequestId,
+            postId: readString(data, 'post_id') ?? undefined,
+            notificationId: notificationId ?? undefined,
+        };
+    }
+    if (type === 'group.comment' && readString(data, 'support_request_id')) {
+        const groupId = readString(data, 'group_id');
+        const supportRequestId = readString(data, 'support_request_id');
+        if (!groupId || !supportRequestId) return null;
+        return {
+            kind: 'support_request',
+            groupId,
+            supportRequestId,
             postId: readString(data, 'post_id') ?? undefined,
             notificationId: notificationId ?? undefined,
         };

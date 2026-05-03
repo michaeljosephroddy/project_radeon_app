@@ -1,7 +1,8 @@
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
+    Image,
     KeyboardAvoidingView,
     Platform,
     ScrollView,
@@ -12,6 +13,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import * as ImagePicker from 'expo-image-picker';
 import * as api from '../../../api/client';
 import { CREATE_SURFACE_HEADER_HEIGHT, CreateSurfaceHeader } from '../../../components/ui/CreateSurfaceHeader';
 import { SegmentedControl } from '../../../components/ui/SegmentedControl';
@@ -28,6 +30,18 @@ interface GroupFocusOption {
     label: string;
     tag?: string;
     recoveryPathway?: string;
+}
+
+interface SelectedGroupImage {
+    uri: string;
+    mimeType: string;
+    fileName: string;
+}
+
+interface GroupImageState {
+    localImage: SelectedGroupImage;
+    status: 'uploading' | 'uploaded' | 'failed';
+    uploadedAvatarUrl?: string;
 }
 
 const FOCUS_OPTIONS: GroupFocusOption[] = [
@@ -53,9 +67,13 @@ export function GroupCreateScreen({
     const [visibility, setVisibility] = useState<api.GroupVisibility>('public');
     const [postingPermission, setPostingPermission] = useState<api.GroupPostingPermission>('members');
     const [selectedFocus, setSelectedFocus] = useState<GroupFocusOption[]>([]);
+    const [selectedImage, setSelectedImage] = useState<GroupImageState | null>(null);
+    const [submitting, setSubmitting] = useState(false);
+    const uploadPromiseRef = useRef<Promise<api.GroupImageUploadResult> | null>(null);
 
     const trimmedName = name.trim();
-    const canSubmit = trimmedName.length >= 3 && !createGroupMutation.isPending;
+    const isCreating = createGroupMutation.isPending || submitting;
+    const canSubmit = trimmedName.length >= 3 && !isCreating;
 
     const selectedTags = useMemo(
         () => selectedFocus.map(item => item.tag).filter((tag): tag is string => Boolean(tag)),
@@ -74,14 +92,99 @@ export function GroupCreateScreen({
         });
     };
 
+    const beginImageUpload = useCallback((image: SelectedGroupImage): Promise<api.GroupImageUploadResult> => {
+        const uploadPromise = api.uploadGroupImage({
+            uri: image.uri,
+            mimeType: image.mimeType,
+            fileName: image.fileName,
+        });
+        uploadPromiseRef.current = uploadPromise;
+
+        void uploadPromise
+            .then((uploaded) => {
+                setSelectedImage((current) => {
+                    if (!current || current.localImage.uri !== image.uri) return current;
+                    return {
+                        ...current,
+                        status: 'uploaded',
+                        uploadedAvatarUrl: uploaded.avatar_url,
+                    };
+                });
+            })
+            .catch(() => {
+                setSelectedImage((current) => {
+                    if (!current || current.localImage.uri !== image.uri) return current;
+                    return { ...current, status: 'failed' };
+                });
+            });
+
+        return uploadPromise;
+    }, []);
+
+    const handlePickImage = useCallback(async (): Promise<void> => {
+        const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (!permission.granted) {
+            Alert.alert('Permission required', 'Allow photo library access to add a group image.');
+            return;
+        }
+
+        const result = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ['images'],
+            quality: 0.75,
+        });
+        if (result.canceled) return;
+
+        const asset = result.assets[0];
+        const nextImage: SelectedGroupImage = {
+            uri: asset.uri,
+            mimeType: asset.mimeType ?? inferMimeType(asset.uri),
+            fileName: asset.fileName ?? inferFileName(asset.uri, 'group.jpg'),
+        };
+        setSelectedImage({ localImage: nextImage, status: 'uploading' });
+        beginImageUpload(nextImage).catch(() => {});
+    }, [beginImageUpload]);
+
+    const handleRetryImageUpload = useCallback((): void => {
+        setSelectedImage((current) => {
+            if (!current) return current;
+            beginImageUpload(current.localImage).catch(() => {});
+            return { ...current, status: 'uploading' };
+        });
+    }, [beginImageUpload]);
+
+    const handleRemoveImage = useCallback((): void => {
+        uploadPromiseRef.current = null;
+        setSelectedImage(null);
+    }, []);
+
     const handleCreate = async (): Promise<void> => {
         if (!canSubmit) return;
 
+        setSubmitting(true);
         try {
+            let avatarURL: string | null = null;
+            if (selectedImage) {
+                if (selectedImage.uploadedAvatarUrl) {
+                    avatarURL = selectedImage.uploadedAvatarUrl;
+                } else if (selectedImage.status === 'uploading' && uploadPromiseRef.current) {
+                    const uploaded = await waitForImageUpload(uploadPromiseRef.current, 8000);
+                    if (uploaded?.avatar_url) {
+                        avatarURL = uploaded.avatar_url;
+                    } else {
+                        const continueWithoutImage = await confirmContinueWithoutImage();
+                        if (!continueWithoutImage) return;
+                    }
+                } else {
+                    const continueWithoutImage = await confirmContinueWithoutImage();
+                    if (!continueWithoutImage) return;
+                }
+            }
+
             const group = await createGroupMutation.mutateAsync({
                 name: trimmedName,
                 description: description.trim() || null,
                 rules: rules.trim() || null,
+                avatar_url: avatarURL,
                 visibility,
                 posting_permission: postingPermission,
                 city: city.trim() || null,
@@ -95,6 +198,8 @@ export function GroupCreateScreen({
                 'Could not create group',
                 error instanceof Error ? error.message : 'Something went wrong.',
             );
+        } finally {
+            setSubmitting(false);
         }
     };
 
@@ -113,7 +218,7 @@ export function GroupCreateScreen({
                             onPress={handleCreate}
                             disabled={!canSubmit}
                         >
-                            {createGroupMutation.isPending ? (
+                            {isCreating ? (
                                 <ActivityIndicator size="small" color={Colors.primary} />
                             ) : (
                                 <Text style={styles.headerActionText}>Create</Text>
@@ -126,6 +231,40 @@ export function GroupCreateScreen({
                     contentContainerStyle={styles.content}
                     keyboardShouldPersistTaps="handled"
                 >
+                    <View style={styles.section}>
+                        <Text style={styles.sectionTitle}>Group photo</Text>
+                        <View style={styles.imageRow}>
+                            <TouchableOpacity style={styles.imagePicker} onPress={handlePickImage} activeOpacity={0.9}>
+                                {selectedImage ? (
+                                    <Image source={{ uri: selectedImage.localImage.uri }} style={styles.imagePreview} />
+                                ) : (
+                                    <Ionicons name="image-outline" size={24} color={Colors.text.muted} />
+                                )}
+                            </TouchableOpacity>
+                            <View style={styles.imageActions}>
+                                <TouchableOpacity style={styles.imageButton} onPress={handlePickImage}>
+                                    <Text style={styles.imageButtonText}>{selectedImage ? 'Replace image' : 'Add image'}</Text>
+                                </TouchableOpacity>
+                                {selectedImage?.status === 'uploading' ? (
+                                    <View style={styles.imageUploadStatus}>
+                                        <ActivityIndicator size="small" color={Colors.primary} />
+                                        <Text style={styles.imageUploadText}>Uploading…</Text>
+                                    </View>
+                                ) : null}
+                                {selectedImage?.status === 'failed' ? (
+                                    <View style={styles.imageFailureActions}>
+                                        <TouchableOpacity style={styles.imageSecondaryButton} onPress={handleRetryImageUpload}>
+                                            <Text style={styles.imageSecondaryButtonText}>Retry</Text>
+                                        </TouchableOpacity>
+                                        <TouchableOpacity style={styles.imageSecondaryButton} onPress={handleRemoveImage}>
+                                            <Text style={styles.imageSecondaryButtonText}>Remove</Text>
+                                        </TouchableOpacity>
+                                    </View>
+                                ) : null}
+                            </View>
+                        </View>
+                    </View>
+
                     <View style={styles.section}>
                         <Text style={styles.sectionTitle}>Basics</Text>
                         <TextField
@@ -220,7 +359,7 @@ export function GroupCreateScreen({
                         onPress={handleCreate}
                         disabled={!canSubmit}
                     >
-                        {createGroupMutation.isPending ? (
+                        {isCreating ? (
                             <ActivityIndicator color={Colors.textOn.primary} />
                         ) : (
                             <>
@@ -264,6 +403,70 @@ const styles = StyleSheet.create({
     },
     section: {
         gap: Spacing.sm,
+    },
+    imageRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: Spacing.md,
+    },
+    imagePicker: {
+        width: 76,
+        height: 76,
+        borderRadius: Radius.pill,
+        borderWidth: 1,
+        borderColor: Colors.border.default,
+        backgroundColor: Colors.bg.surface,
+        alignItems: 'center',
+        justifyContent: 'center',
+        overflow: 'hidden',
+    },
+    imagePreview: {
+        width: '100%',
+        height: '100%',
+    },
+    imageActions: {
+        flex: 1,
+        gap: Spacing.xs,
+    },
+    imageButton: {
+        alignSelf: 'flex-start',
+        minHeight: ControlSizes.iconButton,
+        borderRadius: Radius.pill,
+        backgroundColor: Colors.primarySubtle,
+        borderWidth: 1,
+        borderColor: Colors.primary,
+        justifyContent: 'center',
+        paddingHorizontal: Spacing.md,
+    },
+    imageButtonText: {
+        ...TextStyles.button,
+        color: Colors.primary,
+        fontSize: TextStyles.chip.fontSize,
+    },
+    imageUploadStatus: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: Spacing.xs,
+    },
+    imageUploadText: {
+        ...TextStyles.caption,
+    },
+    imageFailureActions: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: Spacing.xs,
+    },
+    imageSecondaryButton: {
+        minHeight: ControlSizes.chipMinHeight,
+        borderRadius: Radius.pill,
+        borderWidth: 1,
+        borderColor: Colors.border.default,
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingHorizontal: Spacing.sm,
+    },
+    imageSecondaryButtonText: {
+        ...TextStyles.badge,
     },
     sectionTitle: {
         ...TextStyles.label,
@@ -326,3 +529,58 @@ const styles = StyleSheet.create({
         opacity: 0.5,
     },
 });
+
+function inferMimeType(uri: string | undefined, fallback = 'image/jpeg'): string {
+    const normalized = uri?.toLowerCase() ?? '';
+    if (normalized.endsWith('.png')) return 'image/png';
+    if (normalized.endsWith('.jpg') || normalized.endsWith('.jpeg')) return 'image/jpeg';
+    return fallback;
+}
+
+function inferFileName(uri: string | undefined, fallback: string): string {
+    if (!uri) return fallback;
+    const segment = uri.split('/').pop()?.split('?')[0];
+    return segment && segment.includes('.') ? segment : fallback;
+}
+
+function confirmContinueWithoutImage(): Promise<boolean> {
+    return new Promise((resolve) => {
+        Alert.alert(
+            'Image not ready',
+            'The group photo upload is still processing or failed. Create the group now without a photo, or retry upload first.',
+            [
+                { text: 'Retry upload', style: 'cancel', onPress: () => resolve(false) },
+                { text: 'Create without photo', onPress: () => resolve(true) },
+            ],
+            { cancelable: false },
+        );
+    });
+}
+
+function waitForImageUpload(
+    uploadPromise: Promise<api.GroupImageUploadResult>,
+    timeoutMs: number,
+): Promise<api.GroupImageUploadResult | null> {
+    return new Promise((resolve) => {
+        let settled = false;
+        const timeoutId = setTimeout(() => {
+            if (settled) return;
+            settled = true;
+            resolve(null);
+        }, timeoutMs);
+
+        void uploadPromise
+            .then((result) => {
+                if (settled) return;
+                settled = true;
+                clearTimeout(timeoutId);
+                resolve(result);
+            })
+            .catch(() => {
+                if (settled) return;
+                settled = true;
+                clearTimeout(timeoutId);
+                resolve(null);
+            });
+    });
+}

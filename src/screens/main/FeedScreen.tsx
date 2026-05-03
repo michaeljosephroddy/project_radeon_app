@@ -292,7 +292,7 @@ export function FeedScreen({
         }
         createFabRevealTimerRef.current = setTimeout(() => {
             setIsCreateFabVisible(true);
-        }, 320);
+        }, 150);
     }, [feedScrollToTop.onScroll]);
 
     const handleLoadMore = useCallback(async () => {
@@ -324,7 +324,7 @@ export function FeedScreen({
         }
         createFabRevealTimerRef.current = setTimeout(() => {
             setIsCreateFabVisible(true);
-        }, 180);
+        }, 150);
     }, []);
 
     const getImpressionKey = useCallback((item: api.FeedItem, feedMode: api.FeedMode = HOME_FEED_MODE) => {

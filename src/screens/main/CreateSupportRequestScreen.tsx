@@ -1,12 +1,15 @@
 import React, { useCallback, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
+import Animated, { useAnimatedStyle } from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as api from '../../api/client';
 import { CreateSurfaceHeader, CREATE_SURFACE_HEADER_HEIGHT } from '../../components/ui/CreateSurfaceHeader';
 import { InfoNoticeCard } from '../../components/ui/InfoNoticeCard';
 import { PrimaryButton } from '../../components/ui/PrimaryButton';
 import { TextField } from '../../components/ui/TextField';
 import { useAuth } from '../../hooks/useAuth';
+import { useGradualKeyboardInset } from '../../hooks/useGradualKeyboardInset';
 import { screenStandards } from '../../styles/screenStandards';
 import { Colors, Radius, Spacing, TextStyles } from '../../theme';
 
@@ -19,7 +22,6 @@ const SUPPORT_TYPE_LABELS: Record<api.SupportType, string> = {
     chat: 'Chat',
     call: 'Call',
     meetup: 'Meetup',
-    general: 'General',
 };
 
 const URGENCY_LABELS: Record<api.SupportUrgency, string> = {
@@ -38,10 +40,9 @@ const TOPIC_LABELS: Record<api.SupportTopic, string> = {
     work: 'Work',
     sleep: 'Sleep',
     celebration: 'Celebration',
-    general: 'General',
 };
 
-const SUPPORT_TYPES: api.SupportType[] = ['chat', 'call', 'meetup', 'general'];
+const SUPPORT_TYPES: api.SupportType[] = ['chat', 'call', 'meetup'];
 const URGENCIES: api.SupportUrgency[] = ['low', 'medium', 'high'];
 const TOPICS: api.SupportTopic[] = [
     'anxiety',
@@ -53,7 +54,6 @@ const TOPICS: api.SupportTopic[] = [
     'work',
     'sleep',
     'celebration',
-    'general',
 ];
 
 function defaultSupportForm(): api.CreateSupportRequestInput {
@@ -73,12 +73,23 @@ export function CreateSupportRequestScreen({
     onCreated,
 }: CreateSupportRequestScreenProps): React.ReactElement {
     const { user } = useAuth();
+    const insets = useSafeAreaInsets();
     const queryClient = useQueryClient();
     const [form, setForm] = useState<api.CreateSupportRequestInput>(defaultSupportForm);
     const [showNotice, setShowNotice] = useState(true);
     const [submitting, setSubmitting] = useState(false);
     const city = user?.current_city ?? user?.city ?? null;
     const includeCity = form.location?.visibility === 'city';
+    const messageBody = form.message?.trim() ?? '';
+    const canSubmit = messageBody.length > 0 && !submitting;
+    const bottomSafeSpace = Math.max(insets.bottom, Spacing.sm);
+    const { height: keyboardInsetHeight } = useGradualKeyboardInset({
+        closedHeight: bottomSafeSpace,
+        openedOffset: Spacing.sm,
+    });
+    const keyboardSpacerStyle = useAnimatedStyle((): { height: number } => ({
+        height: keyboardInsetHeight.value,
+    }));
 
     const toggleTopic = useCallback((topic: api.SupportTopic) => {
         setForm((current) => ({
@@ -90,12 +101,18 @@ export function CreateSupportRequestScreen({
     }, []);
 
     const handleSubmit = useCallback(async () => {
+        const trimmedMessage = form.message?.trim() ?? '';
+        if (!trimmedMessage) {
+            Alert.alert('Add context', 'Please describe the support you need before posting.');
+            return;
+        }
+
         setSubmitting(true);
         try {
             const payload: api.CreateSupportRequestInput = {
                 ...form,
-                message: form.message?.trim() || null,
-                topics: form.topics.length > 0 ? form.topics : ['general'],
+                message: trimmedMessage,
+                topics: form.topics,
                 location: form.location?.visibility === 'city' ? form.location : null,
             };
             const created = await api.createSupportRequest(payload);
@@ -117,7 +134,13 @@ export function CreateSupportRequestScreen({
     return (
         <View style={styles.container}>
             <CreateSurfaceHeader onBack={onBack} title="Create support request" />
-            <ScrollView contentContainerStyle={[screenStandards.detailContent, screenStandards.scrollContent, styles.content]}>
+            <ScrollView
+                style={styles.scroll}
+                contentContainerStyle={[screenStandards.detailContent, screenStandards.scrollContent, styles.content]}
+                keyboardShouldPersistTaps="handled"
+                keyboardDismissMode="interactive"
+                automaticallyAdjustKeyboardInsets={false}
+            >
                 {showNotice ? (
                     <InfoNoticeCard
                         title="Create support request"
@@ -218,7 +241,7 @@ export function CreateSupportRequestScreen({
                 <TextField
                     value={form.message ?? ''}
                     onChangeText={(message) => setForm((current) => ({ ...current, message }))}
-                    placeholder="Optional note"
+                    placeholder="What support do you need right now?"
                     multiline
                     style={[styles.formInput, styles.inputMultiline]}
                 />
@@ -226,17 +249,23 @@ export function CreateSupportRequestScreen({
                 <PrimaryButton
                     label={submitting ? 'Posting...' : 'Post request'}
                     onPress={() => void handleSubmit()}
-                    disabled={submitting}
+                    disabled={!canSubmit}
                     style={styles.submitButton}
                 />
             </ScrollView>
+            <Animated.View style={[styles.keyboardSpacer, keyboardSpacerStyle]} />
         </View>
     );
 }
 
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: Colors.bg.page },
+    scroll: { flex: 1 },
     content: { paddingTop: CREATE_SURFACE_HEADER_HEIGHT + Spacing.sm },
+    keyboardSpacer: {
+        flexShrink: 0,
+        backgroundColor: Colors.bg.page,
+    },
     headerCard: { marginBottom: Spacing.md },
     formLabel: {
         ...TextStyles.label,

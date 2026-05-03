@@ -1107,17 +1107,19 @@ export function MeetupsScreen({
     return (
         <View style={styles.container}>
             {activeView !== 'create' ? (
-                <SegmentedControl
-                    items={[
-                        { key: 'discover', label: 'Discover' },
-                        { key: 'hosting', label: 'Hosting' },
-                        { key: 'going', label: 'Going' },
-                    ]}
-                    activeKey={activeView}
-                    onChange={handlePrimaryTabChange}
-                    tone="primary"
-                    style={[screenStandards.tabControl, styles.primaryControl]}
-                />
+                <View style={screenStandards.fixedTabsWrap}>
+                    <SegmentedControl
+                        items={[
+                            { key: 'discover', label: 'Discover' },
+                            { key: 'hosting', label: 'Hosting' },
+                            { key: 'going', label: 'Going' },
+                        ]}
+                        activeKey={activeView}
+                        onChange={handlePrimaryTabChange}
+                        tone="primary"
+                        style={screenStandards.fixedTabsControl}
+                    />
+                </View>
             ) : null}
 
             {activeView === 'create' ? (
@@ -1261,11 +1263,8 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: Colors.bg.page,
     },
-    primaryControl: {
-        marginBottom: 0,
-    },
     list: {
-        marginTop: Spacing.sm,
+        marginTop: 0,
     },
     discoverListWithFab: {
         paddingBottom: ContentInsets.listBottom + ControlSizes.fabMinHeight,

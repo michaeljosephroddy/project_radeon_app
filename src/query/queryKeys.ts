@@ -10,6 +10,8 @@ export const queryKeys = {
         country?: string;
         tag?: string;
         recovery_pathway?: string;
+        visibility?: string;
+        group_type?: string;
         member_scope?: string;
         limit?: number;
     }) => ['groups', params ?? {}] as const,
@@ -20,6 +22,7 @@ export const queryKeys = {
     groupComments: (groupId: string, postId: string, params?: { limit?: number }) => ['groups', 'comments', groupId, postId, params ?? {}] as const,
     groupJoinRequests: (groupId: string) => ['groups', 'join-requests', groupId] as const,
     groupAdminInbox: (groupId: string, params?: { limit?: number }) => ['groups', 'admin-inbox', groupId, params ?? {}] as const,
+    groupReports: (groupId: string, params?: { limit?: number }) => ['groups', 'reports', groupId, params ?? {}] as const,
     chats: (params?: { query?: string; limit?: number }) => ['chats', params ?? {}] as const,
     chat: (chatId: string) => ['chat', chatId] as const,
     chatMessages: (chatId: string) => ['chat-messages', chatId] as const,

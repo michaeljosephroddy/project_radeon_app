@@ -40,6 +40,7 @@ interface PostComposerProps {
   title?: string;
   isSubmitting: boolean;
   tagsEnabled?: boolean;
+  draftsEnabled?: boolean;
   onBack: () => void;
   onSubmit: (input: PostComposerSubmitInput) => Promise<void>;
 }
@@ -77,6 +78,7 @@ export function PostComposer({
   title,
   isSubmitting,
   tagsEnabled = true,
+  draftsEnabled = true,
   onBack,
   onSubmit,
 }: PostComposerProps): React.ReactElement | null {
@@ -134,9 +136,10 @@ export function PostComposer({
     !isSubmitting;
 
   useEffect(() => {
+    if (!draftsEnabled) return;
     if (!draftsHydrated) return;
     saveCurrent(draftSessionId, draftPayload);
-  }, [draftPayload, draftSessionId, draftsHydrated, saveCurrent]);
+  }, [draftPayload, draftSessionId, draftsEnabled, draftsHydrated, saveCurrent]);
 
   const beginImageUpload = useCallback(
     (image: SelectedPostImage): Promise<api.PostImage> => {
@@ -254,6 +257,11 @@ export function PostComposer({
   );
 
   const handleBack = useCallback((): void => {
+    if (!draftsEnabled) {
+      onBack();
+      return;
+    }
+
     if (!hasContent) {
       void clearCurrent(draftSessionId).finally(onBack);
       return;
@@ -281,6 +289,7 @@ export function PostComposer({
     commitCurrent,
     draftPayload,
     draftSessionId,
+    draftsEnabled,
     hasContent,
     onBack,
   ]);
@@ -352,7 +361,9 @@ export function PostComposer({
           images,
           tags: activeTags,
         });
-        await clearCurrent(draftSessionId);
+        if (draftsEnabled) {
+          await clearCurrent(draftSessionId);
+        }
         onBack();
       } catch (e: unknown) {
         Alert.alert(
@@ -368,6 +379,7 @@ export function PostComposer({
     canSubmit,
     clearCurrent,
     draftSessionId,
+    draftsEnabled,
     onBack,
     onSubmit,
     selectedImage,
@@ -431,17 +443,21 @@ export function PostComposer({
       <CreatePostHeader
         bodyLength={body.length}
         canSubmit={canSubmit}
-        draftCount={drafts.length}
+        draftCount={draftsEnabled ? drafts.length : 0}
         isSubmitting={isSubmitting}
         maxLength={MAX_BODY_LENGTH}
         postType={selectedImage ? "photo" : "text"}
         title={title}
         onBack={handleBack}
-        onOpenDrafts={() => setIsDraftsOpen(true)}
+        onOpenDrafts={() => {
+          if (draftsEnabled) {
+            setIsDraftsOpen(true);
+          }
+        }}
         onSubmit={handleSubmit}
       />
 
-      {isDraftsOpen ? (
+      {draftsEnabled && isDraftsOpen ? (
         <DraftsSheet
           drafts={drafts}
           onClose={() => setIsDraftsOpen(false)}

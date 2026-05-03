@@ -455,7 +455,7 @@ export interface MeetupUpsertInput {
 }
 
 export type SupportUrgency = 'low' | 'medium' | 'high';
-export type SupportType = 'chat' | 'call' | 'meetup' | 'general';
+export type SupportType = 'chat' | 'call' | 'meetup';
 export type SupportTopic =
     | 'anxiety'
     | 'relapse_risk'
@@ -465,8 +465,7 @@ export type SupportTopic =
     | 'family'
     | 'work'
     | 'sleep'
-    | 'celebration'
-    | 'general';
+    | 'celebration';
 export type PreferredGender = 'woman' | 'man' | 'non_binary' | 'no_preference';
 export type SupportRequestFilter = 'all' | 'urgent' | 'unanswered';
 
@@ -508,6 +507,8 @@ export interface SupportRequest {
     chat_id?: string | null;
     has_offered: boolean;
     has_replied: boolean;
+    already_chatting: boolean;
+    existing_chat_id?: string | null;
     is_own_request: boolean;
 }
 
@@ -518,7 +519,7 @@ export interface SupportOffer {
     username: string;
     avatar_url?: string | null;
     city?: string | null;
-    offer_type: Exclude<SupportType, 'general'>;
+    offer_type: SupportType;
     message?: string | null;
     status: 'pending' | 'accepted' | 'not_selected';
     scheduled_for?: string | null;
@@ -547,7 +548,7 @@ export interface CreateSupportRequestInput {
 }
 
 export interface CreateSupportOfferInput {
-    offer_type: Exclude<SupportType, 'general'>;
+    offer_type: SupportType;
     message?: string | null;
 }
 
@@ -723,8 +724,17 @@ export interface Group {
     can_manage_members: boolean;
     can_manage_settings: boolean;
     can_moderate_content: boolean;
+    owner?: GroupAdminPreview | null;
+    admins: GroupAdminPreview[];
     created_at: string;
     updated_at: string;
+}
+
+export interface GroupAdminPreview {
+    user_id: string;
+    username: string;
+    avatar_url?: string | null;
+    role: GroupRole;
 }
 
 export interface GroupMember {
@@ -813,6 +823,8 @@ export interface ListGroupsParams {
     country?: string;
     tag?: string;
     recovery_pathway?: string;
+    visibility?: GroupVisibility;
+    group_type?: 'support' | 'standard';
     member_scope?: 'joined' | 'discover';
     cursor?: string;
     limit?: number;
@@ -850,6 +862,21 @@ export interface GroupInvite {
     created_at: string;
 }
 
+export interface GroupInvitePreview {
+    token: string;
+    group_id: string;
+    group_name: string;
+    group_slug: string;
+    group_avatar_url?: string | null;
+    visibility: GroupVisibility;
+    requires_approval: boolean;
+    expires_at?: string | null;
+    max_uses?: number | null;
+    use_count: number;
+    viewer_status: 'none' | GroupMembershipStatus;
+    created_at: string;
+}
+
 export interface GroupJoinRequest {
     id: string;
     group_id: string;
@@ -880,7 +907,7 @@ export interface GroupAdminThread {
     user_id: string;
     username: string;
     avatar_url?: string | null;
-    status: 'open' | 'resolved';
+    status: 'open' | 'replied' | 'resolved';
     subject?: string | null;
     created_at: string;
     updated_at: string;
@@ -896,7 +923,17 @@ export interface GroupReport {
     reason: string;
     details?: string | null;
     status: 'open' | 'reviewing' | 'resolved' | 'dismissed';
+    reporter_username?: string;
+    reporter_avatar_url?: string | null;
+    reviewed_by?: string | null;
+    reviewed_at?: string | null;
     created_at: string;
+}
+
+export interface GroupImageUploadResult {
+    avatar_url: string;
+    width: number;
+    height: number;
 }
 
 export interface RegisterInput {
@@ -984,6 +1021,26 @@ export async function uploadMeetupCoverImage(input: {
     return parseDataResponse<{ cover_image_url: string }>(res);
 }
 
+export async function uploadGroupImage(input: {
+    uri: string;
+    mimeType?: string;
+    fileName?: string;
+}): Promise<GroupImageUploadResult> {
+    const token = await getToken();
+    const form = new FormData();
+    form.append('image', {
+        uri: input.uri,
+        name: input.fileName ?? 'group.jpg',
+        type: input.mimeType ?? 'image/jpeg',
+    } as unknown as Blob);
+    const res = await fetch(`${BASE_URL}/groups/images`, {
+        method: 'POST',
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        body: form,
+    });
+    return parseDataResponse<GroupImageUploadResult>(res);
+}
+
 // Silently records the caller's live GPS position and reverse-geocoded city.
 export async function updateMyCurrentLocation(data: { lat: number; lng: number; city: string }): Promise<void> {
     await request('/users/me/location', { method: 'PATCH', body: JSON.stringify(data) });
@@ -1004,6 +1061,8 @@ export async function listGroups(params: ListGroupsParams = {}): Promise<CursorR
     if (params.country) search.set('country', params.country);
     if (params.tag) search.set('tag', params.tag);
     if (params.recovery_pathway) search.set('recovery_pathway', params.recovery_pathway);
+    if (params.visibility) search.set('visibility', params.visibility);
+    if (params.group_type) search.set('group_type', params.group_type);
     if (params.member_scope) search.set('member_scope', params.member_scope);
     return request(`/groups?${search.toString()}`);
 }
@@ -1103,6 +1162,10 @@ export async function createGroupInvite(groupId: string, input: {
     return request(`/groups/${groupId}/invites`, { method: 'POST', body: JSON.stringify(input) });
 }
 
+export async function getGroupInvitePreview(token: string): Promise<GroupInvitePreview> {
+    return request(`/group-invites/${encodeURIComponent(token)}`);
+}
+
 export async function acceptGroupInvite(token: string): Promise<JoinGroupResult> {
     return request(`/group-invites/${encodeURIComponent(token)}/accept`, { method: 'POST' });
 }
@@ -1136,6 +1199,10 @@ export async function listGroupAdminThreads(
     return request(`/groups/${groupId}/admin-inbox?${search.toString()}`);
 }
 
+export async function getGroupAdminThread(groupId: string, threadId: string): Promise<GroupAdminThread> {
+    return request(`/groups/${groupId}/admin-inbox/${threadId}`);
+}
+
 export async function replyGroupAdminThread(groupId: string, threadId: string, body: string): Promise<GroupAdminMessage> {
     return request(`/groups/${groupId}/admin-inbox/${threadId}/messages`, {
         method: 'POST',
@@ -1154,6 +1221,27 @@ export async function reportGroupTarget(groupId: string, input: {
     details?: string | null;
 }): Promise<GroupReport> {
     return request(`/groups/${groupId}/report`, { method: 'POST', body: JSON.stringify(input) });
+}
+
+export async function listGroupReports(
+    groupId: string,
+    cursor?: string,
+    limit = 20,
+): Promise<CursorResponse<GroupReport>> {
+    const search = new URLSearchParams({ limit: String(limit) });
+    if (cursor) search.set('before', cursor);
+    return request(`/groups/${groupId}/reports?${search.toString()}`);
+}
+
+export async function reviewGroupReport(
+    groupId: string,
+    reportId: string,
+    status: Extract<GroupReport['status'], 'reviewing' | 'resolved' | 'dismissed'>,
+): Promise<GroupReport> {
+    return request(`/groups/${groupId}/reports/${reportId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status }),
+    });
 }
 
 // Loads the curated interest catalog used in profile editing.
@@ -1504,6 +1592,10 @@ export async function getSupportRequests(
     const search = new URLSearchParams({ filter, limit: String(limit) });
     if (cursor) search.set('cursor', cursor);
     return request(`/support/requests?${search.toString()}`);
+}
+
+export async function getSupportRequest(id: string): Promise<SupportRequest> {
+    return request(`/support/requests/${id}`);
 }
 
 // Loads support requests created by the current user.

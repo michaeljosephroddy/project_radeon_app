@@ -34,6 +34,7 @@ export function GroupCreatePostScreen({
             title={`Post to ${group.name}`}
             isSubmitting={createGroupPostMutation.isPending}
             tagsEnabled={false}
+            draftsEnabled={false}
             onBack={onBack}
             onSubmit={handleSubmit}
         />
