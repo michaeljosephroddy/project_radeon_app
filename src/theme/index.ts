@@ -1,8 +1,27 @@
-export { Colors }          from './colors';
-export { TextStyles, Typography } from './typography';
-export { Composer, ContentInsets, ControlHeights, ControlSizes, Header, Spacing, Radius } from './layout';
-
 import { Colors } from './colors';
+import { TextStyles, Typography } from './typography';
+import {
+  Composer,
+  ContentInsets,
+  ControlHeights,
+  ControlSizes,
+  Header,
+  Radius,
+  Spacing,
+} from './layout';
+
+export {
+  Colors,
+  Composer,
+  ContentInsets,
+  ControlHeights,
+  ControlSizes,
+  Header,
+  Radius,
+  Spacing,
+  TextStyles,
+  Typography,
+};
 
 // Picks a deterministic fallback avatar palette from a username.
 export function getAvatarColors(name: string) {
