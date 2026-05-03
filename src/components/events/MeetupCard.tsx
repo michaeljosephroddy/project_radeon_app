@@ -4,6 +4,7 @@ import * as api from '../../api/client';
 import { Avatar } from '../Avatar';
 import { MeetupEventTypeBadge } from './MeetupEventTypeBadge';
 import { Colors, ContentInsets, ControlSizes, Radius, Spacing, TextStyles, Typography } from '../../theme';
+import { CardActionMenu, type CardActionMenuAction } from '../ui/CardActionMenu';
 
 interface MeetupCardProps {
     meetup: api.Meetup;
@@ -11,6 +12,7 @@ interface MeetupCardProps {
     onPrimaryAction?: (meetup: api.Meetup) => void;
     primaryLabel?: string;
     actionDisabled?: boolean;
+    actions?: CardActionMenuAction[];
 }
 
 function formatEventDate(dateString: string): { day: string; month: string; time: string; weekday: string; fullDate: string } {
@@ -34,11 +36,12 @@ export const MeetupCard = React.memo(function MeetupCard({
     onPrimaryAction,
     primaryLabel,
     actionDisabled = false,
+    actions,
 }: MeetupCardProps) {
     const date = formatEventDate(meetup.starts_at);
     const actionText = primaryLabel
         ?? (meetup.can_manage
-            ? meetup.status === 'draft' ? 'Draft' : meetup.status === 'cancelled' ? 'Cancelled' : 'Manage'
+            ? meetup.status === 'cancelled' ? 'Cancelled' : 'Manage'
             : meetup.is_attending
                 ? 'Going'
                 : meetup.is_waitlisted
@@ -107,26 +110,29 @@ export const MeetupCard = React.memo(function MeetupCard({
                     ) : null}
                 </View>
 
-                {onPrimaryAction ? (
-                    <TouchableOpacity
-                        style={[
-                            styles.actionButton,
-                            meetup.is_attending && styles.actionButtonActive,
-                            meetup.is_waitlisted && styles.actionButtonWaitlist,
-                            meetup.can_manage && styles.actionButtonManage,
-                            actionDisabled && styles.actionButtonDisabled,
-                        ]}
-                        onPress={() => onPrimaryAction(meetup)}
-                        disabled={actionDisabled}
-                    >
-                        <Text style={[
-                            styles.actionText,
-                            (meetup.is_attending || meetup.is_waitlisted || meetup.can_manage) && styles.actionTextOnDark,
-                        ]}>
-                            {actionText}
-                        </Text>
-                    </TouchableOpacity>
-                ) : null}
+                <View style={styles.actionColumn}>
+                    {actions?.length ? <CardActionMenu actions={actions} disabled={actionDisabled} /> : null}
+                    {onPrimaryAction ? (
+                        <TouchableOpacity
+                            style={[
+                                styles.actionButton,
+                                meetup.is_attending && styles.actionButtonActive,
+                                meetup.is_waitlisted && styles.actionButtonWaitlist,
+                                meetup.can_manage && styles.actionButtonManage,
+                                actionDisabled && styles.actionButtonDisabled,
+                            ]}
+                            onPress={() => onPrimaryAction(meetup)}
+                            disabled={actionDisabled}
+                        >
+                            <Text style={[
+                                styles.actionText,
+                                (meetup.is_attending || meetup.is_waitlisted || meetup.can_manage) && styles.actionTextOnDark,
+                            ]}>
+                                {actionText}
+                            </Text>
+                        </TouchableOpacity>
+                    ) : null}
+                </View>
             </View>
         </TouchableOpacity>
     );
@@ -148,6 +154,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         gap: Spacing.md,
         padding: Spacing.md,
+        position: 'relative',
     },
     body: {
         flex: 1,
@@ -196,6 +203,10 @@ const styles = StyleSheet.create({
     },
     previewLabel: {
         ...TextStyles.caption,
+    },
+    actionColumn: {
+        alignItems: 'flex-end',
+        gap: Spacing.sm,
     },
     actionButton: {
         alignSelf: 'flex-start',

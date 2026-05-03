@@ -28,7 +28,7 @@ interface NotificationsScreenProps {
     onBack: () => void;
     onOpenChat: (chatId: string) => Promise<void> | void;
     onOpenMention: (target: { postId: string; commentId?: string }) => void;
-    onOpenGroup: (groupId: string) => void;
+    onOpenGroup: (groupId: string, postId?: string) => void;
 }
 
 interface NotificationRowProps {
@@ -47,6 +47,7 @@ function readPayloadString(payload: Record<string, unknown>, key: string): strin
 function getNotificationIcon(type: string): keyof typeof Ionicons.glyphMap {
     if (type === 'chat.message') return 'chatbubble-outline';
     if (type === 'comment.mention') return 'at-outline';
+    if (type === 'support.offer') return 'heart-outline';
     if (type.startsWith('group.')) return 'people-outline';
     return 'notifications-outline';
 }
@@ -65,6 +66,7 @@ function getNotificationTitle(item: api.NotificationItem): string {
     if (item.type === 'group.admin_contact') return `Admin inbox: ${item.title}`;
     if (item.type === 'group.admin_reply') return `Admin reply from ${item.title}`;
     if (item.type === 'group.report') return `New report in ${item.title}`;
+    if (item.type === 'support.offer') return `Support offer in ${item.title}`;
     return item.title;
 }
 
@@ -186,7 +188,17 @@ export function NotificationsScreen({
                     Alert.alert('Notification unavailable', 'This group notification can no longer be opened.');
                     return;
                 }
-                onOpenGroup(groupId);
+                onOpenGroup(groupId, readPayloadString(item.payload, 'post_id') ?? undefined);
+                return;
+            }
+
+            if (item.type === 'support.offer') {
+                const groupId = readPayloadString(item.payload, 'group_id');
+                if (!groupId) {
+                    Alert.alert('Notification unavailable', 'This support notification can no longer be opened.');
+                    return;
+                }
+                onOpenGroup(groupId, readPayloadString(item.payload, 'post_id') ?? undefined);
                 return;
             }
         } catch (error: unknown) {

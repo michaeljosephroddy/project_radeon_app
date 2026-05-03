@@ -340,12 +340,12 @@ export interface MeetupCategory {
 }
 
 export type MeetupEventType = 'in_person' | 'online' | 'hybrid';
-export type MeetupStatus = 'draft' | 'published' | 'cancelled' | 'completed';
+export type MeetupStatus = 'published' | 'cancelled' | 'completed';
 export type MeetupVisibility = 'public' | 'unlisted';
 export type MeetupSort = 'recommended' | 'soonest' | 'distance' | 'popular' | 'newest';
 export type MeetupDatePreset = 'today' | 'tomorrow' | 'this_week' | 'this_weekend' | 'custom';
 export type MeetupTimeOfDay = 'morning' | 'afternoon' | 'evening' | 'night';
-export type MyMeetupScope = 'upcoming' | 'going' | 'drafts' | 'cancelled' | 'past';
+export type MyMeetupScope = 'upcoming' | 'going' | 'cancelled' | 'past';
 
 export interface MeetupPersonPreview {
     id: string;
@@ -435,7 +435,7 @@ export interface MeetupUpsertInput {
     category_slug: string;
     co_host_ids?: string[];
     event_type: MeetupEventType;
-    status: Extract<MeetupStatus, 'draft' | 'published'>;
+    status: Extract<MeetupStatus, 'published'>;
     visibility: MeetupVisibility;
     city: string;
     country?: string | null;
@@ -481,6 +481,7 @@ export interface SupportLocation {
 
 export interface SupportRequest {
     id: string;
+    group_post_id?: string | null;
     requester_id: string;
     username: string;
     avatar_url?: string | null;
@@ -711,6 +712,9 @@ export interface Group {
     post_count: number;
     media_count: number;
     pending_request_count: number;
+    is_system: boolean;
+    system_key?: string | null;
+    locked_settings: boolean;
     viewer_role?: GroupRole | null;
     viewer_status?: GroupMembershipStatus | null;
     has_pending_request: boolean;
@@ -760,6 +764,8 @@ export interface GroupPost {
     comment_count: number;
     reaction_count: number;
     image_count: number;
+    support_request_id?: string | null;
+    support_request?: SupportRequest | null;
     viewer_has_reacted: boolean;
     images: GroupPostImage[];
     created_at: string;
@@ -1468,10 +1474,6 @@ export async function updateMeetup(id: string, data: MeetupUpsertInput): Promise
 
 export async function deleteMeetup(id: string): Promise<{ deleted: boolean }> {
     return request(`/meetups/${id}`, { method: 'DELETE' });
-}
-
-export async function publishMeetup(id: string): Promise<Meetup> {
-    return normalizeMeetup(await request<Meetup>(`/meetups/${id}/publish`, { method: 'POST' }));
 }
 
 export async function cancelMeetup(id: string): Promise<Meetup> {

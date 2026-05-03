@@ -48,6 +48,7 @@ const FILTER_CHIPS: GroupFilterChip[] = [
 ];
 
 const COUNTRY_FILTERS = ['United States', 'United Kingdom', 'Ireland', 'Canada', 'Australia'];
+const COMMUNITY_SUPPORT_KEY = 'community_support';
 
 interface FilterChipProps {
     label: string;
@@ -167,7 +168,14 @@ export function GroupsScreen({ isActive, onOpenGroup, onOpenCreateGroup }: Group
     }, isActive);
 
     const groups = useMemo(
-        () => (groupsQuery.data?.pages ?? []).flatMap(page => page.items ?? []),
+        () => (groupsQuery.data?.pages ?? [])
+            .flatMap(page => page.items ?? [])
+            .sort((a, b) => {
+                const aSupport = a.system_key === COMMUNITY_SUPPORT_KEY;
+                const bSupport = b.system_key === COMMUNITY_SUPPORT_KEY;
+                if (aSupport === bSupport) return 0;
+                return aSupport ? -1 : 1;
+            }),
         [groupsQuery.data?.pages],
     );
 
@@ -340,7 +348,8 @@ interface GroupCardProps {
 
 function GroupCard({ group, isJoining, onJoin, onOpen }: GroupCardProps): React.ReactElement {
     const colors = getAvatarColors(group.name);
-    const isMember = group.viewer_status === 'active';
+    const isCommunitySupport = group.system_key === COMMUNITY_SUPPORT_KEY;
+    const isMember = isCommunitySupport || group.viewer_status === 'active';
     const canRequest = !isMember && !group.has_pending_request;
     const location = [group.city, group.country].filter(Boolean).join(', ');
 
@@ -357,7 +366,14 @@ function GroupCard({ group, isJoining, onJoin, onOpen }: GroupCardProps): React.
                         <View style={styles.cardTitleBlock}>
                             <Text style={styles.groupName} numberOfLines={1}>{group.name}</Text>
                             <View style={styles.badgeRow}>
-                                <VisibilityPill visibility={group.visibility} />
+                                {isCommunitySupport ? (
+                                    <>
+                                        <PinnedGroupPill />
+                                        <SystemGroupPill />
+                                    </>
+                                ) : (
+                                    <VisibilityPill visibility={group.visibility} />
+                                )}
                             </View>
                         </View>
                         <GroupStatusAction
@@ -370,6 +386,9 @@ function GroupCard({ group, isJoining, onJoin, onOpen }: GroupCardProps): React.
                     </View>
                     {group.description ? (
                         <Text style={styles.description} numberOfLines={2}>{group.description}</Text>
+                    ) : null}
+                    {isCommunitySupport ? (
+                        <Text style={styles.systemGroupMeta}>Everyone is a member</Text>
                     ) : null}
                     <View style={styles.metaRow}>
                         <Text style={styles.metaText}>{group.member_count} members</Text>
@@ -450,6 +469,24 @@ function VisibilityPill({ visibility }: { visibility: api.GroupVisibility }): Re
     return (
         <View style={styles.visibilityPill}>
             <Text style={styles.visibilityPillText}>{label}</Text>
+        </View>
+    );
+}
+
+function SystemGroupPill(): React.ReactElement {
+    return (
+        <View style={styles.systemPill}>
+            <Ionicons name="heart-outline" size={12} color={Colors.info} />
+            <Text style={styles.systemPillText}>Support</Text>
+        </View>
+    );
+}
+
+function PinnedGroupPill(): React.ReactElement {
+    return (
+        <View style={styles.pinnedPill}>
+            <Ionicons name="pin" size={12} color={Colors.primary} />
+            <Text style={styles.pinnedPillText}>Pinned</Text>
         </View>
     );
 }
@@ -625,6 +662,7 @@ const styles = StyleSheet.create({
     badgeRow: {
         flexDirection: 'row',
         alignItems: 'center',
+        gap: Spacing.xs,
     },
     groupName: {
         ...TextStyles.cardTitle,
@@ -699,6 +737,41 @@ const styles = StyleSheet.create({
         backgroundColor: Colors.primarySubtle,
     },
     visibilityPillText: {
+        ...TextStyles.caption,
+        fontWeight: '700',
+        color: Colors.primary,
+    },
+    systemPill: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+        borderRadius: Radius.pill,
+        borderWidth: 1,
+        borderColor: Colors.info,
+        backgroundColor: Colors.infoSubtle,
+        paddingHorizontal: Spacing.sm,
+        paddingVertical: 3,
+    },
+    systemPillText: {
+        ...TextStyles.caption,
+        fontWeight: '700',
+        color: Colors.info,
+    },
+    systemGroupMeta: {
+        ...TextStyles.caption,
+        color: Colors.info,
+        fontWeight: '700',
+    },
+    pinnedPill: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+        borderRadius: Radius.pill,
+        backgroundColor: Colors.primarySubtle,
+        paddingHorizontal: Spacing.sm,
+        paddingVertical: 3,
+    },
+    pinnedPillText: {
         ...TextStyles.caption,
         fontWeight: '700',
         color: Colors.primary,

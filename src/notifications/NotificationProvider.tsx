@@ -213,6 +213,16 @@ function toIntent(response: Notifications.NotificationResponse | null): Notifica
             notificationId: notificationId ?? undefined,
         };
     }
+    if (type === 'support.offer') {
+        const groupId = readString(data, 'group_id');
+        if (!groupId) return null;
+        return {
+            kind: 'group',
+            groupId,
+            postId: readString(data, 'post_id') ?? undefined,
+            notificationId: notificationId ?? undefined,
+        };
+    }
     return null;
 }
 

@@ -7,7 +7,6 @@ import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { FeedCommentsModal, type CommentThreadTarget } from '../screens/main/feed/FeedCommentsModal';
-import { SegmentedControl } from '../components/ui/SegmentedControl';
 import { FeedScreen } from '../screens/main/FeedScreen';
 import { GroupsScreen } from '../screens/main/GroupsScreen';
 import { GroupDetailScreen } from '../screens/main/groups/GroupDetailScreen';
@@ -15,7 +14,6 @@ import { GroupCommentsModal } from '../screens/main/groups/GroupCommentsModal';
 import { GroupCreateScreen } from '../screens/main/groups/GroupCreateScreen';
 import { GroupCreatePostScreen } from '../screens/main/groups/GroupCreatePostScreen';
 import { DiscoverScreen } from '../screens/main/DiscoverScreen';
-import { SupportScreen } from '../screens/main/SupportScreen';
 import { MeetupsScreen } from '../screens/main/MeetupsScreen';
 import { ChatsScreen } from '../screens/main/ChatsScreen';
 import { ProfileTabScreen } from '../screens/main/ProfileTabScreen';
@@ -43,13 +41,12 @@ interface OpenUserProfile {
     avatarUrl?: string;
 }
 
-type Tab = 'community' | 'discover' | 'support' | 'meetups' | 'chats';
-type CommunityMode = 'for-you' | 'groups';
+type Tab = 'community' | 'discover' | 'groups' | 'meetups' | 'chats';
 
 const TABS: { key: Tab; label: string; icon: keyof typeof Ionicons.glyphMap; iconActive: keyof typeof Ionicons.glyphMap }[] = [
     { key: 'community', label: 'community', icon: 'newspaper-outline', iconActive: 'newspaper' },
     { key: 'discover',  label: 'discover',  icon: 'grid-outline', iconActive: 'grid' },
-    { key: 'support',   label: 'support',   icon: 'heart-outline', iconActive: 'heart' },
+    { key: 'groups',    label: 'groups',    icon: 'people-outline', iconActive: 'people' },
     { key: 'meetups',   label: 'meetups',   icon: 'calendar-outline', iconActive: 'calendar' },
     { key: 'chats',     label: 'chats',     icon: 'chatbubble-outline', iconActive: 'chatbubble' },
 ];
@@ -74,77 +71,48 @@ const DiscoverTab = React.memo(function DiscoverTab({
 
 const CommunityTab = React.memo(function CommunityTab({
     isActive,
-    mode,
-    onChangeMode,
     onOpenUserProfile,
     onOpenComments,
     onOpenCreatePost,
-    onOpenCreateGroup,
-    onOpenGroup,
     focusRequest,
     onFocusRequestConsumed,
 }: {
     isActive: boolean;
-    mode: CommunityMode;
-    onChangeMode: (mode: CommunityMode) => void;
     onOpenUserProfile: (p: OpenUserProfile) => void;
     onOpenComments: (thread: CommentThreadTarget, focusComposer: boolean, onCommentCreated?: (comment: api.Comment) => void) => void;
     onOpenCreatePost: () => void;
-    onOpenCreateGroup: () => void;
-    onOpenGroup: (groupId: string) => void;
     focusRequest: { postId: string; commentId?: string; nonce: number } | null;
     onFocusRequestConsumed: (nonce: number) => void;
 }) {
     return (
         <View style={isActive ? styles.tabVisible : styles.tabHidden}>
-            <SegmentedControl
-                items={[
-                    { key: 'for-you', label: 'For You' },
-                    { key: 'groups', label: 'Groups' },
-                ]}
-                activeKey={mode}
-                onChange={(key) => onChangeMode(key as CommunityMode)}
-                style={styles.communityTabs}
+            <FeedScreen
+                isActive={isActive}
+                onOpenUserProfile={onOpenUserProfile}
+                onOpenComments={onOpenComments}
+                onOpenCreatePost={onOpenCreatePost}
+                focusRequest={focusRequest}
+                onFocusRequestConsumed={onFocusRequestConsumed}
             />
-            <View style={mode === 'for-you' ? styles.tabVisible : styles.tabHidden}>
-                <FeedScreen
-                    isActive={isActive && mode === 'for-you'}
-                    onOpenUserProfile={onOpenUserProfile}
-                    onOpenComments={onOpenComments}
-                    onOpenCreatePost={onOpenCreatePost}
-                    focusRequest={focusRequest}
-                    onFocusRequestConsumed={onFocusRequestConsumed}
-                />
-            </View>
-            <View style={mode === 'groups' ? styles.tabVisible : styles.tabHidden}>
-                <GroupsScreen
-                    isActive={isActive && mode === 'groups'}
-                    onOpenGroup={onOpenGroup}
-                    onOpenCreateGroup={onOpenCreateGroup}
-                />
-            </View>
         </View>
     );
 });
 
-const SupportTab = React.memo(function SupportTab({
+const GroupsTab = React.memo(function GroupsTab({
     isActive,
-    onOpenChat,
-    onOpenUserProfile,
-    onOpenCreateSupportRequest,
+    onOpenGroup,
+    onOpenCreateGroup,
 }: {
     isActive: boolean;
-    onOpenChat: (c: Chat) => void;
-    onOpenUserProfile: (p: OpenUserProfile) => void;
-    onOpenCreateSupportRequest: () => void;
+    onOpenGroup: (groupId: string) => void;
+    onOpenCreateGroup: () => void;
 }) {
     return (
         <View style={isActive ? styles.tabVisible : styles.tabHidden}>
-            <SupportScreen
+            <GroupsScreen
                 isActive={isActive}
-                onOpenChat={onOpenChat}
-                onOpenUserProfile={onOpenUserProfile}
-                onOpenCreateSupportRequest={onOpenCreateSupportRequest}
+                onOpenGroup={onOpenGroup}
+                onOpenCreateGroup={onOpenCreateGroup}
             />
         </View>
     );
@@ -155,11 +123,13 @@ const MeetupsTab = React.memo(function MeetupsTab({
     onOpenUserProfile,
     onOpenMeetup,
     onOpenCreateMeetup,
+    onOpenManageMeetup,
 }: {
     isActive: boolean;
     onOpenUserProfile: (p: OpenUserProfile) => void;
     onOpenMeetup: (meetup: api.Meetup) => void;
     onOpenCreateMeetup: () => void;
+    onOpenManageMeetup: (meetup: api.Meetup) => void;
 }) {
     return (
         <View style={isActive ? styles.tabVisible : styles.tabHidden}>
@@ -168,6 +138,7 @@ const MeetupsTab = React.memo(function MeetupsTab({
                 onOpenUserProfile={onOpenUserProfile}
                 onOpenMeetup={onOpenMeetup}
                 onOpenCreateMeetup={onOpenCreateMeetup}
+                onOpenManageMeetup={onOpenManageMeetup}
             />
         </View>
     );
@@ -185,7 +156,6 @@ export function AppNavigator() {
         refetch: refetchNotificationSummary,
     } = useNotificationSummary(Boolean(user?.id));
     const [activeTab, setActiveTab] = useState<Tab>('community');
-    const [communityMode, setCommunityMode] = useState<CommunityMode>('for-you');
     const [openChat, setOpenChat] = useState<Chat | null>(null);
     const [openUserProfile, setOpenUserProfile] = useState<OpenUserProfile | null>(null);
     const [pendingDM, setPendingDM] = useState<{ recipientId: string; username: string; avatarUrl?: string } | null>(null);
@@ -193,11 +163,13 @@ export function AppNavigator() {
     const [createGroupOpen, setCreateGroupOpen] = useState(false);
     const [createSupportRequestOpen, setCreateSupportRequestOpen] = useState(false);
     const [createMeetupOpen, setCreateMeetupOpen] = useState(false);
+    const [editingMeetup, setEditingMeetup] = useState<api.Meetup | null>(null);
     const [groupCreatePostTarget, setGroupCreatePostTarget] = useState<api.Group | null>(null);
     const [createPostSessionKey, setCreatePostSessionKey] = useState(0);
     const [ownProfileOpen, setOwnProfileOpen] = useState(false);
     const [openMeetup, setOpenMeetup] = useState<api.Meetup | null>(null);
     const [openGroupId, setOpenGroupId] = useState<string | null>(null);
+    const [groupFocusRequest, setGroupFocusRequest] = useState<{ postId: string; nonce: number } | null>(null);
     const [plusUpsellOpen, setPlusUpsellOpen] = useState(false);
     const [notificationsOpen, setNotificationsOpen] = useState(false);
     const [ownProfileInitialContentTab, setOwnProfileInitialContentTab] = useState<ProfileContentTabKey>('posts');
@@ -218,7 +190,7 @@ export function AppNavigator() {
     const inCreatePost = createPostOpen || groupCreatePostTarget !== null;
     const inCreateGroup = createGroupOpen;
     const inCreateSupportRequest = createSupportRequestOpen;
-    const inCreateMeetup = createMeetupOpen;
+    const inCreateMeetup = createMeetupOpen || editingMeetup !== null;
     const inMeetupDetail = openMeetup !== null;
     const inGroupDetail = openGroupId !== null;
     const inPlusUpsell = plusUpsellOpen;
@@ -235,6 +207,7 @@ export function AppNavigator() {
 
     const handleOpenMeetup = useCallback((meetup: api.Meetup) => {
         setCreateMeetupOpen(false);
+        setEditingMeetup(null);
         setOpenMeetup(meetup);
     }, []);
 
@@ -270,11 +243,11 @@ export function AppNavigator() {
         setNotificationsOpen(false);
     }, []);
 
-    const handleOpenGroup = useCallback((groupId: string) => {
+    const handleOpenGroup = useCallback((groupId: string, postId?: string) => {
         setCreateSupportRequestOpen(false);
         setCreateMeetupOpen(false);
-        setCommunityMode('groups');
         setOpenGroupId(groupId);
+        setGroupFocusRequest(postId ? { postId, nonce: Date.now() } : null);
         setNotificationsOpen(false);
         setOpenChat(null);
         setOpenUserProfile(null);
@@ -288,6 +261,7 @@ export function AppNavigator() {
 
     const handleCloseGroup = useCallback(() => {
         setOpenGroupId(null);
+        setGroupFocusRequest(null);
         setOpenGroupComments(null);
     }, []);
 
@@ -392,7 +366,6 @@ export function AppNavigator() {
         setOwnProfileOpen(false);
         setPendingDM(null);
         setOpenMeetup(null);
-        setOpenGroupId(null);
         setPlusUpsellOpen(false);
         setNotificationsOpen(false);
     }, []);
@@ -403,6 +376,24 @@ export function AppNavigator() {
 
     const openCreateMeetup = useCallback(() => {
         setCreateMeetupOpen(true);
+        setEditingMeetup(null);
+        setCreateSupportRequestOpen(false);
+        setCreatePostOpen(false);
+        setCreateGroupOpen(false);
+        setGroupCreatePostTarget(null);
+        setOpenChat(null);
+        setOpenUserProfile(null);
+        setOwnProfileOpen(false);
+        setPendingDM(null);
+        setOpenMeetup(null);
+        setOpenGroupId(null);
+        setPlusUpsellOpen(false);
+        setNotificationsOpen(false);
+    }, []);
+
+    const openManageMeetup = useCallback((meetup: api.Meetup) => {
+        setEditingMeetup(meetup);
+        setCreateMeetupOpen(false);
         setCreateSupportRequestOpen(false);
         setCreatePostOpen(false);
         setCreateGroupOpen(false);
@@ -419,6 +410,7 @@ export function AppNavigator() {
 
     const closeCreateMeetup = useCallback(() => {
         setCreateMeetupOpen(false);
+        setEditingMeetup(null);
     }, []);
 
     const closeCreateGroup = useCallback(() => {
@@ -427,18 +419,24 @@ export function AppNavigator() {
 
     const handleGroupCreated = useCallback((group: api.Group): void => {
         setCreateGroupOpen(false);
-        setActiveTab('community');
-        setCommunityMode('groups');
+        setActiveTab('groups');
         handleOpenGroup(group.id);
     }, [handleOpenGroup]);
 
     const handleSupportRequestCreated = useCallback((_request: api.SupportRequest): void => {
         setCreateSupportRequestOpen(false);
-        setActiveTab('support');
+        setActiveTab('groups');
     }, []);
 
     const handleMeetupCreated = useCallback((_meetup: api.Meetup): void => {
         setCreateMeetupOpen(false);
+        setEditingMeetup(null);
+        setActiveTab('meetups');
+    }, []);
+
+    const handleMeetupUpdated = useCallback((_meetup: api.Meetup): void => {
+        setCreateMeetupOpen(false);
+        setEditingMeetup(null);
         setActiveTab('meetups');
     }, []);
 
@@ -579,8 +577,7 @@ export function AppNavigator() {
         }
 
         if (intent.kind === 'group') {
-            setActiveTab('community');
-            setCommunityMode('groups');
+            setActiveTab('groups');
             setOpenChat(null);
             setOpenUserProfile(null);
             setOwnProfileOpen(false);
@@ -589,6 +586,7 @@ export function AppNavigator() {
             setOpenMeetup(null);
             setPlusUpsellOpen(false);
             setOpenGroupId(intent.groupId);
+            setGroupFocusRequest(intent.postId ? { postId: intent.postId, nonce: Date.now() } : null);
             consumeIntent();
             return;
         }
@@ -616,7 +614,7 @@ export function AppNavigator() {
                 </Text>
             ),
             discover: <Text style={styles.pageTitle}>Discover</Text>,
-            support: <Text style={styles.pageTitle}>Support</Text>,
+            groups: <Text style={styles.pageTitle}>Groups</Text>,
             meetups: <Text style={styles.pageTitle}>Meetups</Text>,
             chats: <Text style={styles.pageTitle}>Chats</Text>,
         };
@@ -702,6 +700,12 @@ export function AppNavigator() {
                         onBack={handleCloseGroup}
                         onOpenComments={handleOpenGroupComments}
                         onOpenCreatePost={handleOpenGroupCreatePost}
+                        onOpenCreateSupportRequest={openCreateSupportRequest}
+                        onOpenChat={setOpenChat}
+                        focusPostRequest={groupFocusRequest}
+                        onFocusPostConsumed={(nonce) => {
+                            setGroupFocusRequest((current) => current?.nonce === nonce ? null : current);
+                        }}
                     />
                 </View>
             )}
@@ -740,8 +744,11 @@ export function AppNavigator() {
             {inCreateMeetup && (
                 <View style={StyleSheet.absoluteFill}>
                     <CreateMeetupScreen
+                        key={editingMeetup?.id ?? 'create-meetup'}
                         onBack={closeCreateMeetup}
                         onCreated={handleMeetupCreated}
+                        meetup={editingMeetup}
+                        onUpdated={handleMeetupUpdated}
                     />
                 </View>
             )}
@@ -781,10 +788,10 @@ export function AppNavigator() {
         </>
     ), [
         inOwnProfile, inUserProfile, inChat, inComposeDM, inCreatePost, inCreateGroup, inCreateSupportRequest, inCreateMeetup, inMeetupDetail, inGroupDetail, inPlusUpsell, inNotifications,
-        openUserProfile, openChat, pendingDM, openMeetup, openGroupId, ownProfileInitialContentTab, createPostSessionKey, groupCreatePostTarget,
+        openUserProfile, openChat, pendingDM, openMeetup, openGroupId, groupFocusRequest, ownProfileInitialContentTab, createPostSessionKey, groupCreatePostTarget, editingMeetup,
         handleOpenUserProfile, handleOpenGroup, handleCloseChat, closeUserProfile, closeOwnProfile,
         handleOpenComments, handleOpenGroupComments, handleOpenGroupCreatePost, closeCreatePost, closeCreateGroup, handleGroupCreated,
-        closeCreateSupportRequest, closeCreateMeetup, handleSupportRequestCreated, handleMeetupCreated,
+        openCreateSupportRequest, closeCreateSupportRequest, closeCreateMeetup, handleSupportRequestCreated, handleMeetupCreated, handleMeetupUpdated,
         handleComposeDM, handleComposeDMComplete, handleCloseMeetup, handleCloseGroup, closePlusUpsell,
         closeNotifications, handleOpenNotificationChat, handleOpenNotificationMention,
     ]);
@@ -799,28 +806,24 @@ export function AppNavigator() {
                 <View style={styles.content}>
                     <CommunityTab
                         isActive={activeTab === 'community' && !isOverlayOpen}
-                        mode={communityMode}
-                        onChangeMode={setCommunityMode}
                         onOpenUserProfile={handleOpenUserProfile}
                         onOpenComments={handleOpenComments}
                         onOpenCreatePost={openCreatePost}
-                        onOpenCreateGroup={openCreateGroup}
-                        onOpenGroup={handleOpenGroup}
                         focusRequest={feedFocusRequest}
                         onFocusRequestConsumed={handleFeedFocusRequestConsumed}
                     />
                     <DiscoverTab isActive={activeTab === 'discover' && !isOverlayOpen} onOpenUserProfile={handleOpenUserProfile} onOpenPlus={openPlusUpsell} />
-                    <SupportTab
-                        isActive={activeTab === 'support' && !isOverlayOpen}
-                        onOpenChat={setOpenChat}
-                        onOpenUserProfile={handleOpenUserProfile}
-                        onOpenCreateSupportRequest={openCreateSupportRequest}
+                    <GroupsTab
+                        isActive={activeTab === 'groups' && !isOverlayOpen}
+                        onOpenGroup={handleOpenGroup}
+                        onOpenCreateGroup={openCreateGroup}
                     />
                     <MeetupsTab
                         isActive={activeTab === 'meetups' && !isOverlayOpen}
                         onOpenUserProfile={handleOpenUserProfile}
                         onOpenMeetup={handleOpenMeetup}
                         onOpenCreateMeetup={openCreateMeetup}
+                        onOpenManageMeetup={openManageMeetup}
                     />
                     <ChatsTab isActive={activeTab === 'chats' && !isOverlayOpen} onOpenChat={setOpenChat} />
                     {overlays}
@@ -880,11 +883,6 @@ const styles = StyleSheet.create({
     content: { flex: 1 },
     tabVisible: { flex: 1, display: 'flex' },
     tabHidden: { flex: 1, display: 'none' },
-    communityTabs: {
-        marginHorizontal: Spacing.md,
-        marginBottom: Spacing.sm,
-    },
-
     topBar: {
         flexDirection: 'row',
         alignItems: 'center',

@@ -2,6 +2,7 @@ import React, { useRef, useState } from 'react';
 import { Alert, StyleSheet, View } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { useQueryClient } from '@tanstack/react-query';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as api from '../../api/client';
 import { MeetupForm } from '../../components/events/MeetupForm';
 import { MeetupFormValues } from '../../components/events/MeetupFormState';
@@ -15,9 +16,12 @@ import { MeetupReviewScreen } from './MeetupReviewScreen';
 interface CreateMeetupScreenProps {
     onBack: () => void;
     onCreated: (meetup: api.Meetup) => void;
+    meetup?: api.Meetup | null;
+    onUpdated?: (meetup: api.Meetup) => void;
 }
 
 type CreateStage = 'form' | 'review';
+type MeetupFormMode = 'create' | 'published';
 
 function formatDateInput(date: Date): string {
     const year = date.getFullYear();
@@ -64,6 +68,36 @@ function defaultFormValues(user: api.User | null): MeetupFormValues {
     };
 }
 
+function meetupToFormValues(meetup: api.Meetup): MeetupFormValues {
+    const start = new Date(meetup.starts_at);
+    const end = meetup.ends_at ? new Date(meetup.ends_at) : new Date(start.getTime() + 2 * 60 * 60 * 1000);
+    return {
+        title: meetup.title,
+        description: meetup.description ?? '',
+        category_slug: meetup.category_slug,
+        co_host_ids: meetup.hosts?.filter((host) => host.role !== 'organizer').map((host) => host.id) ?? [],
+        event_type: meetup.event_type,
+        visibility: meetup.visibility,
+        city: meetup.city,
+        country: meetup.country ?? '',
+        venue_name: meetup.venue_name ?? '',
+        address_line_1: meetup.address_line_1 ?? '',
+        address_line_2: meetup.address_line_2 ?? '',
+        how_to_find_us: meetup.how_to_find_us ?? '',
+        online_url: meetup.online_url ?? '',
+        cover_image_url: meetup.cover_image_url ?? '',
+        starts_on: formatDateInput(start),
+        starts_at: formatTimeInput(start),
+        ends_on: formatDateInput(end),
+        ends_at: formatTimeInput(end),
+        timezone: meetup.timezone,
+        lat: meetup.lat !== undefined && meetup.lat !== null ? String(meetup.lat) : '',
+        lng: meetup.lng !== undefined && meetup.lng !== null ? String(meetup.lng) : '',
+        capacity: meetup.capacity ? String(meetup.capacity) : '',
+        waitlist_enabled: meetup.waitlist_enabled,
+    };
+}
+
 function buildStartsAt(dateInput: string, timeInput: string): string | null {
     const date = dateInput.trim();
     const time = timeInput.trim();
@@ -95,7 +129,7 @@ function parseOptionalCoordinate(
     return { value: parsed };
 }
 
-function validateMeetupForm(form: MeetupFormValues, status: Extract<api.MeetupStatus, 'draft' | 'published'>): { error: string } | { values: api.MeetupUpsertInput } {
+function validateMeetupForm(form: MeetupFormValues, status: Extract<api.MeetupStatus, 'published'>): { error: string } | { values: api.MeetupUpsertInput } {
     const starts_at = buildStartsAt(form.starts_on, form.starts_at);
     const ends_at = buildStartsAt(form.ends_on, form.ends_at);
     if (!form.title.trim()) return { error: 'Title is required.' };
@@ -152,12 +186,15 @@ function validateMeetupForm(form: MeetupFormValues, status: Extract<api.MeetupSt
 export function CreateMeetupScreen({
     onBack,
     onCreated,
+    meetup,
+    onUpdated,
 }: CreateMeetupScreenProps): React.ReactElement | null {
     const { user } = useAuth();
+    const insets = useSafeAreaInsets();
     const queryClient = useQueryClient();
     const coverUploadRef = useRef<Promise<string> | null>(null);
     const coverUploadTokenRef = useRef(0);
-    const [formValues, setFormValues] = useState<MeetupFormValues>(() => defaultFormValues(user));
+    const [formValues, setFormValues] = useState<MeetupFormValues>(() => meetup ? meetupToFormValues(meetup) : defaultFormValues(user));
     const [createStage, setCreateStage] = useState<CreateStage>('form');
     const [submitting, setSubmitting] = useState(false);
     const [uploadingCover, setUploadingCover] = useState(false);
@@ -169,8 +206,17 @@ export function CreateMeetupScreen({
     const categories = categoriesQuery.data ?? [];
     const friends = friendsQuery.data ?? [];
     const activeCoverPreviewUri = localCoverPreviewUri ?? formValues.cover_image_url;
-    const formSecondaryActionLabel = 'Save draft';
-    const formPrimaryActionLabel = 'Publish event';
+    const formMode: MeetupFormMode = meetup ? 'published' : 'create';
+    const formReviewActionLabel = formMode === 'published' ? 'Review changes' : 'Review';
+    const formPrimaryActionLabel = formMode === 'published' ? 'Save changes' : 'Publish event';
+    const headerTitle = formMode === 'published' ? 'Manage meetup' : 'Create meetup';
+    const formTitle = formMode === 'published'
+        ? 'Refine your live event without taking it offline.'
+        : 'Build a polished meetup your community will actually want to join.';
+    const reviewTitle = formMode === 'published'
+        ? 'Your changes will apply directly to the live event.'
+        : 'Review everything before this event goes live.';
+    const bottomSafePadding = Math.max(insets.bottom, Spacing.md) + Spacing.xl;
 
     const handleChangeFormValue = (key: keyof MeetupFormValues, value: string | boolean | string[]) => {
         setFormValues((current) => ({ ...current, [key]: value } as MeetupFormValues));
@@ -247,13 +293,13 @@ export function CreateMeetupScreen({
         }
     };
 
-    const submitMeetup = async (status: Extract<api.MeetupStatus, 'draft' | 'published'>) => {
+    const submitMeetup = async () => {
         if (!user) {
             setFormError('Sign in before saving this event.');
             return;
         }
 
-        const validated = validateMeetupForm(formValues, status);
+        const validated = validateMeetupForm(formValues, 'published');
         if ('error' in validated) {
             setFormError(validated.error);
             return;
@@ -270,14 +316,22 @@ export function CreateMeetupScreen({
 
         try {
             const coverImageURL = await resolveCoverImageURLForSubmit(pendingCoverUpload, fallbackCoverImageURL);
-            const savedMeetup = await api.createMeetup({
+            const values = {
                 ...validated.values,
                 cover_image_url: coverImageURL,
-            });
+            };
+            const savedMeetup = meetup
+                ? await api.updateMeetup(meetup.id, values)
+                : await api.createMeetup(values);
             await Promise.all([
                 queryClient.invalidateQueries({ queryKey: ['meetups'] }),
                 queryClient.invalidateQueries({ queryKey: ['my-meetups'] }),
+                meetup ? queryClient.invalidateQueries({ queryKey: ['meetup', meetup.id] }) : Promise.resolve(),
             ]);
+            if (meetup) {
+                onUpdated?.(savedMeetup);
+                return;
+            }
             onCreated(savedMeetup);
         } catch (error: unknown) {
             Alert.alert('Error', error instanceof Error ? error.message : 'Unable to save this event right now.');
@@ -292,31 +346,29 @@ export function CreateMeetupScreen({
         <View style={styles.container}>
             {createStage === 'form' ? (
                 <>
-                    <CreateSurfaceHeader onBack={onBack} title="Create meetup" />
+                    <CreateSurfaceHeader onBack={onBack} title={headerTitle} />
                     <MeetupForm
-                        title="Build a polished meetup your community will actually want to join."
+                        title={formTitle}
                         values={formValues}
                         categories={categories}
                         friends={friends}
-                        mode="create"
+                        mode={formMode}
                         loading={submitting}
                         coverUploading={uploadingCover}
                         coverPreviewUri={activeCoverPreviewUri}
                         error={formError}
-                        primaryActionLabel="Review"
-                        primaryActionVariant="success"
-                        secondaryActionLabel={formSecondaryActionLabel}
+                        primaryActionLabel={formReviewActionLabel}
+                        primaryActionVariant={formMode === 'published' ? 'primary' : 'success'}
                         onChange={handleChangeFormValue}
                         onPickCover={handlePickCoverImage}
                         onRemoveCover={handleRemoveCoverImage}
                         onPrimaryAction={() => setCreateStage('review')}
-                        onSecondaryAction={() => void submitMeetup('draft')}
-                        contentStyle={styles.formContent}
+                        contentStyle={[styles.formContent, { paddingBottom: bottomSafePadding }]}
                     />
                 </>
             ) : (
                 <MeetupReviewScreen
-                    title="Review everything before this event goes live."
+                    title={reviewTitle}
                     values={formValues}
                     categories={categories}
                     friends={friends}
@@ -324,11 +376,9 @@ export function CreateMeetupScreen({
                     loading={submitting}
                     error={formError}
                     primaryActionLabel={formPrimaryActionLabel}
-                    primaryActionVariant="success"
-                    secondaryActionLabel={formSecondaryActionLabel}
+                    primaryActionVariant={formMode === 'published' ? 'primary' : 'success'}
                     onBack={() => setCreateStage('form')}
-                    onPrimaryAction={() => void submitMeetup('published')}
-                    onSecondaryAction={() => void submitMeetup('draft')}
+                    onPrimaryAction={() => void submitMeetup()}
                 />
             )}
         </View>

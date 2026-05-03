@@ -94,7 +94,6 @@ export function MeetupDetailScreen({
 
     const primaryLabel = useMemo(() => {
         if (detail.can_manage) {
-            if (detail.status === 'draft') return 'Publish draft';
             if (detail.status === 'published') return 'Cancel event';
             return 'Hosted event';
         }
@@ -120,10 +119,7 @@ export function MeetupDetailScreen({
         setUpdating(true);
         try {
             if (detail.can_manage) {
-                if (detail.status === 'draft') {
-                    const updated = await api.publishMeetup(detail.id);
-                    setDetail(updated);
-                } else if (detail.status === 'published') {
+                if (detail.status === 'published') {
                     const updated = await api.cancelMeetup(detail.id);
                     setDetail(updated);
                 }
@@ -200,8 +196,8 @@ export function MeetupDetailScreen({
                         label={primaryLabel}
                         onPress={handlePrimaryAction}
                         loading={updating}
-                        disabled={detail.can_manage && detail.status !== 'draft' && detail.status !== 'published'}
-                        variant={detail.can_manage && detail.status === 'published' ? 'warning' : detail.can_manage ? 'success' : 'primary'}
+                        disabled={detail.can_manage && detail.status !== 'published'}
+                        variant={detail.can_manage && detail.status === 'published' ? 'warning' : 'primary'}
                     />
 
                     {!!detail.description && (

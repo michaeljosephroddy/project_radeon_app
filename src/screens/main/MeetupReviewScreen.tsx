@@ -1,5 +1,6 @@
 import React from 'react';
 import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as api from '../../api/client';
 import { MeetupEventTypeBadge, formatMeetupEventTypeLabel } from '../../components/events/MeetupEventTypeBadge';
 import { PrimaryButton } from '../../components/ui/PrimaryButton';
@@ -91,6 +92,7 @@ export function MeetupReviewScreen({
     onSecondaryAction,
     onDestructiveAction,
 }: MeetupReviewScreenProps) {
+    const insets = useSafeAreaInsets();
     const categoryLabel = categories.find((category) => category.slug === values.category_slug)?.label ?? 'No category selected';
     const selectedCoHosts = friends.filter((friend) => values.co_host_ids.includes(friend.user_id));
     const locationSummary = values.event_type === 'online'
@@ -113,12 +115,13 @@ export function MeetupReviewScreen({
     const coordinateSummary = values.lat.trim() && values.lng.trim()
         ? `${values.lat.trim()}, ${values.lng.trim()}`
         : '';
+    const bottomSafePadding = Math.max(insets.bottom, Spacing.md) + Spacing.xl;
 
     return (
         <View style={styles.container}>
             <ScreenHeader onBack={onBack} title="Review event" />
 
-            <ScrollView contentContainerStyle={[screenStandards.detailContent, screenStandards.scrollContent]} showsVerticalScrollIndicator={false}>
+            <ScrollView contentContainerStyle={[screenStandards.detailContent, screenStandards.scrollContent, { paddingBottom: bottomSafePadding }]} showsVerticalScrollIndicator={false}>
                 {!!error && (
                     <View style={styles.errorCard}>
                         <Text style={styles.errorText}>{error}</Text>

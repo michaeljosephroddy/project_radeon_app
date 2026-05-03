@@ -2,17 +2,18 @@ import React, { useCallback } from 'react';
 import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Avatar } from '../Avatar';
-import { Colors, ControlSizes, Radius, Spacing, TextStyles, Typography } from '../../theme';
+import { Colors, Radius, Spacing, TextStyles, Typography } from '../../theme';
 import { formatReadableTimestamp } from '../../utils/date';
 import { formatUsername } from '../../utils/identity';
 import { PostDisplayModel } from './postTypes';
+import { CardActionMenu, type CardActionMenuAction } from '../ui/CardActionMenu';
 
 export interface PostCardProps {
     post: PostDisplayModel;
     onReact: () => void;
     onOpenComments: () => void;
     onPressUser?: () => void;
-    onOpenActions?: () => void;
+    actions?: CardActionMenuAction[];
     onShare?: () => void;
     showShareAction?: boolean;
 }
@@ -22,7 +23,7 @@ export const PostCard = React.memo(function PostCard({
     onReact,
     onOpenComments,
     onPressUser,
-    onOpenActions,
+    actions,
     onShare,
     showShareAction = false,
 }: PostCardProps): React.ReactElement {
@@ -58,11 +59,7 @@ export const PostCard = React.memo(function PostCard({
                         </View>
                     ) : null}
                 </View>
-                {onOpenActions ? (
-                    <TouchableOpacity style={styles.headActionButton} onPress={onOpenActions}>
-                        <Ionicons name="ellipsis-horizontal" size={18} color={Colors.text.muted} />
-                    </TouchableOpacity>
-                ) : null}
+                {actions?.length ? <CardActionMenu actions={actions} /> : null}
             </View>
             {!!post.body ? (
                 <View style={styles.postContent}>
@@ -129,7 +126,7 @@ function arePostCardPropsEqual(prev: PostCardProps, next: PostCardProps): boolea
         && prev.onReact === next.onReact
         && prev.onOpenComments === next.onOpenComments
         && prev.onPressUser === next.onPressUser
-        && prev.onOpenActions === next.onOpenActions
+        && prev.actions === next.actions
         && prev.onShare === next.onShare
         && prev.showShareAction === next.showShareAction;
 }
@@ -146,6 +143,7 @@ const styles = StyleSheet.create({
         gap: Spacing.sm,
         padding: Spacing.md,
         paddingBottom: Spacing.sm,
+        position: 'relative',
     },
     postHeadBody: {
         flex: 1,
@@ -188,12 +186,6 @@ const styles = StyleSheet.create({
         fontSize: TextStyles.caption.fontSize,
         fontWeight: TextStyles.caption.fontWeight,
         color: Colors.primary,
-    },
-    headActionButton: {
-        width: ControlSizes.iconButtonLarge,
-        height: ControlSizes.iconButtonLarge,
-        alignItems: 'center',
-        justifyContent: 'center',
     },
     postContent: {
         paddingHorizontal: Spacing.md,

@@ -103,6 +103,7 @@ export function CreateSupportRequestScreen({
                 queryClient.invalidateQueries({ queryKey: ['support-requests'] }),
                 queryClient.invalidateQueries({ queryKey: ['support-offers'] }),
                 queryClient.invalidateQueries({ queryKey: ['support-replies'] }),
+                queryClient.invalidateQueries({ queryKey: ['groups'] }),
                 queryClient.invalidateQueries({ queryKey: ['chats'] }),
             ]);
             onCreated(created);

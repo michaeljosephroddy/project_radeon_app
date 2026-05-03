@@ -14,7 +14,7 @@ interface MeetupFormProps {
     values: MeetupFormValues;
     categories: api.MeetupCategory[];
     friends: api.FriendUser[];
-    mode: 'create' | 'draft' | 'published';
+    mode: 'create' | 'published';
     loading: boolean;
     coverUploading: boolean;
     coverPreviewUri?: string | null;
@@ -118,12 +118,10 @@ export function MeetupForm({
     const [activePicker, setActivePicker] = React.useState<PickerField>(null);
     const [coHostQuery, setCoHostQuery] = React.useState('');
     const [showNotice, setShowNotice] = React.useState(true);
-    const noticeTitle = mode === 'published' ? 'Manage live meetup' : mode === 'draft' ? 'Edit draft' : 'Create meetup';
+    const noticeTitle = mode === 'published' ? 'Manage live meetup' : 'Create meetup';
     const noticeDescription = mode === 'published'
         ? 'Update live details while keeping the meetup published.'
-        : mode === 'draft'
-            ? 'Update the details and publish when ready.'
-            : 'Add the details, location, capacity, co-hosts, and cover image.';
+        : 'Add the details, location, capacity, co-hosts, and cover image.';
     const isOnline = values.event_type === 'online';
     const showLocationFields = values.event_type !== 'online';
     const selectedCoHosts = React.useMemo(

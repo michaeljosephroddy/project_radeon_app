@@ -4,7 +4,7 @@ import {
     StyleSheet, RefreshControl, ActivityIndicator, Alert, Modal,
     Platform, KeyboardAvoidingView,
 } from 'react-native';
-import type { AlertButton, NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
+import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -16,6 +16,7 @@ import { ScrollToTopButton } from '../../components/ui/ScrollToTopButton';
 import { CreatePostFab } from '../../components/posts/CreatePostFab';
 import { PostCard } from '../../components/posts/PostCard';
 import { feedItemToPostDisplayModel } from '../../components/posts/postMappers';
+import { CardActionMenu, type CardActionMenuAction } from '../../components/ui/CardActionMenu';
 import * as api from '../../api/client';
 import { useHomeFeed } from '../../hooks/queries/useFeed';
 import { useGuardedEndReached } from '../../hooks/useGuardedEndReached';
@@ -26,7 +27,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { resetInfiniteQueryToFirstPage } from '../../query/infiniteQueryPolicy';
 import { queryKeys } from '../../query/queryKeys';
 import { getListPerformanceProps } from '../../utils/listPerformance';
-import { Colors, Typography, Spacing, Radius, ContentInsets, ControlSizes, TextStyles } from '../../theme';
+import { Colors, Typography, Spacing, Radius, ContentInsets, TextStyles } from '../../theme';
 import { formatUsername } from '../../utils/identity';
 import { dedupeById } from '../../utils/list';
 import { formatReadableTimestamp } from '../../utils/date';
@@ -36,7 +37,7 @@ interface ReshareCardProps {
     resolvedImageSource: string | null;
     onOpenComments: (item: api.FeedItem, focusComposer?: boolean) => void;
     onPressUser: (profile: { userId: string; username: string; avatarUrl?: string }) => void;
-    onOpenItemActions: (item: api.FeedItem) => void;
+    actions: CardActionMenuAction[];
     onSharePost: (item: api.FeedItem) => void;
     onLocalReactionChange: (item: api.FeedItem, reacted: boolean) => void;
     showShareAction: boolean;
@@ -68,7 +69,7 @@ const ReshareCard = React.memo(function ReshareCard({
     resolvedImageSource,
     onOpenComments,
     onPressUser,
-    onOpenItemActions,
+    actions,
     onSharePost,
     onLocalReactionChange,
     showShareAction,
@@ -94,10 +95,6 @@ const ReshareCard = React.memo(function ReshareCard({
     const handleOpenComments = useCallback(
         () => onOpenComments(item),
         [item, onOpenComments],
-    );
-    const handleOpenActions = useCallback(
-        () => onOpenItemActions(item),
-        [item, onOpenItemActions],
     );
     const handleShare = useCallback(
         () => onSharePost(item),
@@ -125,9 +122,7 @@ const ReshareCard = React.memo(function ReshareCard({
                         <Text style={styles.postMeta}>{formatReadableTimestamp(item.created_at)}</Text>
                     </View>
                 </View>
-                <TouchableOpacity style={styles.headActionButton} onPress={handleOpenActions}>
-                    <Ionicons name="ellipsis-horizontal" size={18} color={Colors.text.muted} />
-                </TouchableOpacity>
+                <CardActionMenu actions={actions} />
             </View>
             {!!item.body && (
                 <View style={styles.postContent}>
@@ -600,24 +595,19 @@ export function FeedScreen({
         })();
     }, [logFeedEvent, queryClient]);
 
-    const handleOpenItemActions = useCallback((item: api.FeedItem) => {
+    const getItemActions = useCallback((item: api.FeedItem): CardActionMenuAction[] => {
         const isOwnAuthor = item.author.user_id === currentUserId;
-        const actions: AlertButton[] = [
-            { text: 'Cancel', style: 'cancel' as const },
-            { text: 'Hide', onPress: () => handleHideItem(item) },
+        const actions: CardActionMenuAction[] = [
+            { label: 'Hide', onPress: () => handleHideItem(item) },
         ];
         if (!isOwnAuthor) {
             actions.push({
-                text: `Mute ${formatUsername(item.author.username)}`,
-                style: 'destructive' as const,
+                label: `Mute ${formatUsername(item.author.username)}`,
+                destructive: true,
                 onPress: () => handleMuteAuthor(item),
             });
         }
-        Alert.alert(
-            'Post options',
-            item.kind === 'reshare' ? 'Choose what to do with this reshare.' : 'Choose what to do with this post.',
-            actions,
-        );
+        return actions;
     }, [currentUserId, handleHideItem, handleMuteAuthor]);
 
     const handleLocalReactionChange = useCallback((item: api.FeedItem, reacted: boolean) => {
@@ -719,7 +709,7 @@ export function FeedScreen({
                     resolvedImageSource={resolveEmbeddedImageSource(item)}
                     onOpenComments={handleOpenComments}
                     onPressUser={onOpenUserProfile}
-                    onOpenItemActions={handleOpenItemActions}
+                    actions={getItemActions(item)}
                     onSharePost={handleSharePost}
                     onLocalReactionChange={handleLocalReactionChange}
                     showShareAction={FEED_RESHARES_ENABLED}
@@ -735,11 +725,11 @@ export function FeedScreen({
                 onOpenComments={() => handleOpenComments(item)}
                 onPressUser={() => onOpenUserProfile({ userId: item.author.user_id, username: item.author.username, avatarUrl: item.author.avatar_url ?? undefined })}
                 onShare={() => handleSharePost(item)}
-                onOpenActions={() => handleOpenItemActions(item)}
+                actions={getItemActions(item)}
                 showShareAction={FEED_RESHARES_ENABLED}
             />
         );
-    }, [currentUserId, handleFeedPostReact, handleOpenComments, handleOpenItemActions, handleSharePost, onOpenUserProfile]);
+    }, [currentUserId, getItemActions, handleFeedPostReact, handleOpenComments, handleSharePost, onOpenUserProfile]);
 
     const isInitialLoading = feedItems.length === 0 && activeFeedQuery.isLoading;
     const isRefreshing = activeFeedQuery.isRefetching && !activeFeedQuery.isFetchingNextPage;
@@ -883,7 +873,7 @@ function areReshareCardPropsEqual(prev: ReshareCardProps, next: ReshareCardProps
         && prev.resolvedImageSource === next.resolvedImageSource
         && prev.onOpenComments === next.onOpenComments
         && prev.onPressUser === next.onPressUser
-        && prev.onOpenItemActions === next.onOpenItemActions
+        && prev.actions === next.actions
         && prev.onSharePost === next.onSharePost
         && prev.onLocalReactionChange === next.onLocalReactionChange
         && prev.showShareAction === next.showShareAction;
@@ -969,13 +959,7 @@ const styles = StyleSheet.create({
         borderBottomColor: Colors.border.default,
     },
     postHeadBody: { flex: 1, minWidth: 0 },
-    postHead: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, padding: Spacing.md, paddingBottom: Spacing.sm },
-    headActionButton: {
-        width: ControlSizes.iconButtonLarge,
-        height: ControlSizes.iconButtonLarge,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
+    postHead: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, padding: Spacing.md, paddingBottom: Spacing.sm, position: 'relative' },
     postTitleRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, flexWrap: 'wrap' },
     postName: { ...TextStyles.cardTitle },
     postContent: { paddingHorizontal: Spacing.md, paddingBottom: Spacing.sm },

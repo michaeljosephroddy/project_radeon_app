@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
@@ -10,6 +10,7 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
+import { useQueryClient } from '@tanstack/react-query';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as api from '../../../api/client';
@@ -17,6 +18,8 @@ import { Avatar } from '../../../components/Avatar';
 import { CreatePostFab } from '../../../components/posts/CreatePostFab';
 import { PostCard } from '../../../components/posts/PostCard';
 import { groupPostToPostDisplayModel } from '../../../components/posts/postMappers';
+import { SupportRequestCard } from '../../../components/support/SupportRequestCard';
+import { getSupportOfferType, SUPPORT_TYPE_LABELS } from '../../../components/support/supportRequestPresentation';
 import { EmptyState } from '../../../components/ui/EmptyState';
 import { ScreenHeader } from '../../../components/ui/ScreenHeader';
 import { ScrollToTopButton } from '../../../components/ui/ScrollToTopButton';
@@ -41,11 +44,17 @@ import { Colors, ControlSizes, Radius, Spacing, TextStyles, Typography } from '.
 import { GroupAdminScreen } from './GroupAdminScreen';
 import { GroupReportScreen } from './GroupReportScreen';
 
+const COMMUNITY_SUPPORT_KEY = 'community_support';
+
 interface GroupDetailScreenProps {
     groupId: string;
     onBack: () => void;
     onOpenComments: (post: api.GroupPost) => void;
     onOpenCreatePost: (group: api.Group) => void;
+    onOpenCreateSupportRequest: () => void;
+    onOpenChat: (chat: api.Chat) => void;
+    focusPostRequest: { postId: string; nonce: number } | null;
+    onFocusPostConsumed: (nonce: number) => void;
 }
 
 type GroupDetailTab = 'posts' | 'media' | 'members' | 'about';
@@ -56,9 +65,15 @@ export function GroupDetailScreen({
     onBack,
     onOpenComments,
     onOpenCreatePost,
+    onOpenCreateSupportRequest,
+    onOpenChat,
+    focusPostRequest,
+    onFocusPostConsumed,
 }: GroupDetailScreenProps): React.ReactElement {
     const [activeTab, setActiveTab] = useState<GroupDetailTab>('posts');
     const [surface, setSurface] = useState<GroupDetailSurface>('detail');
+    const [managedSupportPost, setManagedSupportPost] = useState<api.GroupPost | null>(null);
+    const queryClient = useQueryClient();
     const groupQuery = useGroup(groupId, true);
     const group = groupQuery.data;
 
@@ -72,6 +87,27 @@ export function GroupDetailScreen({
                 group={group}
                 onBack={() => setSurface('detail')}
                 onReported={() => setSurface('detail')}
+            />
+        );
+    }
+
+    if (group && managedSupportPost?.support_request) {
+        return (
+            <SupportRequestManagementScreen
+                post={managedSupportPost}
+                onBack={() => setManagedSupportPost(null)}
+                onOpenComments={onOpenComments}
+                onOpenChat={onOpenChat}
+                onChanged={() => {
+                    setManagedSupportPost(null);
+                    void Promise.all([
+                        queryClient.invalidateQueries({ queryKey: ['groups', 'posts', group.id] }),
+                        queryClient.invalidateQueries({ queryKey: ['groups', 'detail', group.id] }),
+                        queryClient.invalidateQueries({ queryKey: ['support-requests'] }),
+                        queryClient.invalidateQueries({ queryKey: ['support-offers'] }),
+                        queryClient.invalidateQueries({ queryKey: ['chats'] }),
+                    ]);
+                }}
             />
         );
     }
@@ -101,6 +137,11 @@ export function GroupDetailScreen({
                             group={group}
                             onOpenComments={onOpenComments}
                             onOpenCreatePost={onOpenCreatePost}
+                            onOpenCreateSupportRequest={onOpenCreateSupportRequest}
+                            onOpenChat={onOpenChat}
+                            onManageSupportPost={(post) => setManagedSupportPost(post)}
+                            focusPostRequest={focusPostRequest}
+                            onFocusPostConsumed={onFocusPostConsumed}
                         />
                     ) : activeTab === 'media' ? (
                         <GroupMediaTab group={group} />
@@ -117,6 +158,159 @@ export function GroupDetailScreen({
             ) : (
                 <EmptyState title="Group not found" />
             )}
+        </SafeAreaView>
+    );
+}
+
+function SupportRequestManagementScreen({
+    post,
+    onBack,
+    onOpenComments,
+    onOpenChat,
+    onChanged,
+}: {
+    post: api.GroupPost;
+    onBack: () => void;
+    onOpenComments: (post: api.GroupPost) => void;
+    onOpenChat: (chat: api.Chat) => void;
+    onChanged: () => void;
+}): React.ReactElement {
+    const request = post.support_request;
+    const [offers, setOffers] = useState<api.SupportOffer[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [pendingId, setPendingId] = useState<string | null>(null);
+
+    useEffect(() => {
+        if (!request) return undefined;
+        let cancelled = false;
+        setLoading(true);
+        void api.getSupportOffers(request.id, 1, 30)
+            .then((page) => {
+                if (!cancelled) setOffers(page.items ?? []);
+            })
+            .catch((e: unknown) => {
+                if (!cancelled) {
+                    Alert.alert('Could not load offers', e instanceof Error ? e.message : 'Something went wrong.');
+                }
+            })
+            .finally(() => {
+                if (!cancelled) setLoading(false);
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, [request]);
+
+    const handleAcceptOffer = useCallback(async (offer: api.SupportOffer): Promise<void> => {
+        if (!request) return;
+        setPendingId(offer.id);
+        try {
+            const accepted = await api.acceptSupportOffer(request.id, offer.id);
+            onChanged();
+            if (accepted.chat_id) {
+                const chat = await api.getChat(accepted.chat_id);
+                onOpenChat(chat);
+            }
+        } catch (e: unknown) {
+            Alert.alert('Could not accept offer', e instanceof Error ? e.message : 'Something went wrong.');
+        } finally {
+            setPendingId(null);
+        }
+    }, [onChanged, onOpenChat, request]);
+
+    const handleDeclineOffer = useCallback(async (offer: api.SupportOffer): Promise<void> => {
+        if (!request) return;
+        setPendingId(offer.id);
+        try {
+            await api.declineSupportOffer(request.id, offer.id);
+            setOffers((current) => current.map((item) => item.id === offer.id ? { ...item, status: 'not_selected' } : item));
+        } catch (e: unknown) {
+            Alert.alert('Could not decline offer', e instanceof Error ? e.message : 'Something went wrong.');
+        } finally {
+            setPendingId(null);
+        }
+    }, [request]);
+
+    const handleCloseRequest = useCallback((): void => {
+        if (!request) return;
+        Alert.alert(
+            'Close request?',
+            'This marks the support request as closed.',
+            [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                    text: 'Close',
+                    style: 'destructive',
+                    onPress: () => {
+                        setPendingId(request.id);
+                        void api.updateSupportRequest(request.id, { status: 'closed' })
+                            .then(onChanged)
+                            .catch((e: unknown) => {
+                                Alert.alert('Could not close request', e instanceof Error ? e.message : 'Something went wrong.');
+                            })
+                            .finally(() => setPendingId(null));
+                    },
+                },
+            ],
+        );
+    }, [onChanged, request]);
+
+    if (!request) {
+        return (
+            <SafeAreaView style={styles.container} edges={['bottom']}>
+                <ScreenHeader title="Support request" onBack={onBack} />
+                <EmptyState title="Request not found" />
+            </SafeAreaView>
+        );
+    }
+
+    return (
+        <SafeAreaView style={styles.container} edges={['bottom']}>
+            <ScreenHeader title="Support request" onBack={onBack} />
+            <ScrollView contentContainerStyle={styles.manageContent}>
+                <SupportRequestCard
+                    request={request}
+                    pending={pendingId === request.id}
+                    onOpenComments={() => onOpenComments(post)}
+                    onClose={handleCloseRequest}
+                />
+
+                <View style={styles.manageSection}>
+                    <Text style={styles.manageTitle}>Offers</Text>
+                    {loading ? (
+                        <ActivityIndicator color={Colors.primary} />
+                    ) : offers.length === 0 ? (
+                        <Text style={styles.aboutBody}>No private offers yet.</Text>
+                    ) : offers.map((offer) => (
+                        <View key={offer.id} style={styles.offerRow}>
+                            <Avatar username={offer.username} avatarUrl={offer.avatar_url ?? undefined} size={34} />
+                            <View style={styles.offerBody}>
+                                <Text style={styles.offerName}>{offer.username}</Text>
+                                <Text style={styles.metaText}>{SUPPORT_TYPE_LABELS[offer.offer_type]} · {offer.status.replace('_', ' ')}</Text>
+                                {offer.message ? <Text style={styles.aboutBody}>{offer.message}</Text> : null}
+                            </View>
+                            {offer.status === 'pending' && request.status === 'open' ? (
+                                <View style={styles.offerActions}>
+                                    <TouchableOpacity
+                                        style={[styles.offerPrimaryButton, pendingId === offer.id && styles.composerButtonDisabled]}
+                                        onPress={() => { void handleAcceptOffer(offer); }}
+                                        disabled={pendingId === offer.id}
+                                    >
+                                        <Text style={styles.offerPrimaryButtonText}>Accept</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity
+                                        style={[styles.offerSecondaryButton, pendingId === offer.id && styles.composerButtonDisabled]}
+                                        onPress={() => { void handleDeclineOffer(offer); }}
+                                        disabled={pendingId === offer.id}
+                                    >
+                                        <Text style={styles.offerSecondaryButtonText}>Decline</Text>
+                                    </TouchableOpacity>
+                                </View>
+                            ) : null}
+                        </View>
+                    ))}
+                </View>
+            </ScrollView>
         </SafeAreaView>
     );
 }
@@ -143,16 +337,29 @@ function GroupPostsTab({
     group,
     onOpenComments,
     onOpenCreatePost,
+    onOpenCreateSupportRequest,
+    onOpenChat,
+    onManageSupportPost,
+    focusPostRequest,
+    onFocusPostConsumed,
 }: {
     group: api.Group;
     onOpenComments: (post: api.GroupPost) => void;
     onOpenCreatePost: (group: api.Group) => void;
+    onOpenCreateSupportRequest: () => void;
+    onOpenChat: (chat: api.Chat) => void;
+    onManageSupportPost: (post: api.GroupPost) => void;
+    focusPostRequest: { postId: string; nonce: number } | null;
+    onFocusPostConsumed: (nonce: number) => void;
 }): React.ReactElement {
     const groupId = group.id;
     const listRef = useRef<FlatList<api.GroupPost> | null>(null);
     const scrollToTop = useScrollToTopButton({ threshold: 520 });
     const insets = useSafeAreaInsets();
     const { user } = useAuth();
+    const queryClient = useQueryClient();
+    const isCommunitySupport = group.system_key === COMMUNITY_SUPPORT_KEY;
+    const [pendingSupportIds, setPendingSupportIds] = useState<Set<string>>(new Set());
     const postsQuery = useGroupPosts(groupId, 20, true);
     const reactionMutation = useToggleGroupPostReactionMutation(groupId);
     const pinPostMutation = usePinGroupPostMutation(groupId);
@@ -162,7 +369,35 @@ function GroupPostsTab({
         [postsQuery.data?.pages],
     );
 
-    const handlePinPost = async (post: api.GroupPost): Promise<void> => {
+    useEffect(() => {
+        if (!focusPostRequest || postsQuery.isLoading) return;
+        const focusedPost = posts.find((post) => post.id === focusPostRequest.postId);
+        if (focusedPost) {
+            onOpenComments(focusedPost);
+        }
+        onFocusPostConsumed(focusPostRequest.nonce);
+    }, [focusPostRequest, onFocusPostConsumed, onOpenComments, posts, postsQuery.isLoading]);
+
+    const setSupportPending = useCallback((id: string, value: boolean): void => {
+        setPendingSupportIds((current) => {
+            const next = new Set(current);
+            if (value) next.add(id);
+            else next.delete(id);
+            return next;
+        });
+    }, []);
+
+    const invalidateSupportGroup = useCallback((): void => {
+        void Promise.all([
+            queryClient.invalidateQueries({ queryKey: ['groups', 'posts', groupId] }),
+            queryClient.invalidateQueries({ queryKey: ['groups', 'detail', groupId] }),
+            queryClient.invalidateQueries({ queryKey: ['support-requests'] }),
+            queryClient.invalidateQueries({ queryKey: ['support-offers'] }),
+            queryClient.invalidateQueries({ queryKey: ['chats'] }),
+        ]);
+    }, [groupId, queryClient]);
+
+    const handlePinPost = useCallback(async (post: api.GroupPost): Promise<void> => {
         try {
             await pinPostMutation.mutateAsync({ postId: post.id, pinned: !post.pinned_at });
         } catch (e: unknown) {
@@ -171,9 +406,9 @@ function GroupPostsTab({
                 e instanceof Error ? e.message : 'Something went wrong.',
             );
         }
-    };
+    }, [pinPostMutation]);
 
-    const handleDeletePost = (post: api.GroupPost): void => {
+    const handleDeletePost = useCallback((post: api.GroupPost): void => {
         Alert.alert(
             'Remove post?',
             'This removes the post from the group for all members.',
@@ -195,19 +430,124 @@ function GroupPostsTab({
                 },
             ],
         );
-    };
+    }, [deletePostMutation]);
 
-    const handleOpenPostActions = useCallback((post: api.GroupPost): void => {
+    const findSupportPost = useCallback((request: api.SupportRequest): api.GroupPost | undefined => (
+        posts.find((post) => post.support_request?.id === request.id || post.support_request_id === request.id)
+    ), [posts]);
+
+    const handleOpenSupportComments = useCallback((request: api.SupportRequest): void => {
+        const post = findSupportPost(request);
+        if (post) onOpenComments(post);
+    }, [findSupportPost, onOpenComments]);
+
+    const handleSupportPrimaryAction = useCallback(async (request: api.SupportRequest): Promise<void> => {
+        if (request.is_own_request) {
+            if (request.status === 'active' && request.chat_id) {
+                setSupportPending(request.id, true);
+                try {
+                    const chat = await api.getChat(request.chat_id);
+                    onOpenChat(chat);
+                } catch (e: unknown) {
+                    Alert.alert('Could not open chat', e instanceof Error ? e.message : 'Something went wrong.');
+                } finally {
+                    setSupportPending(request.id, false);
+                }
+                return;
+            }
+            const post = findSupportPost(request);
+            if (post) onManageSupportPost(post);
+            return;
+        }
+
+        if (request.status !== 'open' || request.support_type === 'general') {
+            handleOpenSupportComments(request);
+            return;
+        }
+
+        const offerType = getSupportOfferType(request);
+        setSupportPending(request.id, true);
+        try {
+            await api.createSupportOffer(request.id, {
+                offer_type: offerType,
+                message: `I can help with ${SUPPORT_TYPE_LABELS[offerType].toLowerCase()} support.`,
+            });
+            Alert.alert('Offer sent', 'The requester can accept it if they want direct support.');
+            invalidateSupportGroup();
+        } catch (e: unknown) {
+            Alert.alert('Could not send offer', e instanceof Error ? e.message : 'Something went wrong.');
+        } finally {
+            setSupportPending(request.id, false);
+        }
+    }, [findSupportPost, handleOpenSupportComments, invalidateSupportGroup, onManageSupportPost, onOpenChat, setSupportPending]);
+
+    const handleCloseSupportRequest = useCallback((request: api.SupportRequest): void => {
         Alert.alert(
-            'Post options',
-            'Choose a moderation action for this group post.',
+            'Close request?',
+            'This marks the support request as closed.',
             [
                 { text: 'Cancel', style: 'cancel' },
-                { text: post.pinned_at ? 'Unpin' : 'Pin', onPress: () => { void handlePinPost(post); } },
-                { text: 'Remove', style: 'destructive', onPress: () => handleDeletePost(post) },
+                {
+                    text: 'Close',
+                    style: 'destructive',
+                    onPress: () => {
+                        setSupportPending(request.id, true);
+                        void api.updateSupportRequest(request.id, { status: 'closed' })
+                            .then(() => invalidateSupportGroup())
+                            .catch((e: unknown) => {
+                                Alert.alert('Could not close request', e instanceof Error ? e.message : 'Something went wrong.');
+                            })
+                            .finally(() => setSupportPending(request.id, false));
+                    },
+                },
             ],
         );
-    }, [handleDeletePost, handlePinPost]);
+    }, [invalidateSupportGroup, setSupportPending]);
+
+    const shouldShowSupportPrimaryAction = useCallback((request: api.SupportRequest): boolean => {
+        if (request.is_own_request) return true;
+        return request.status === 'open' && request.support_type !== 'general';
+    }, []);
+
+    const renderPost = useCallback(({ item }: { item: api.GroupPost }): React.ReactElement => {
+        if (isCommunitySupport && item.post_type === 'need_support' && item.support_request) {
+            return (
+                <SupportRequestCard
+                    request={item.support_request}
+                    pending={pendingSupportIds.has(item.support_request.id)}
+                    onOpenComments={() => onOpenComments(item)}
+                    onPrimaryAction={shouldShowSupportPrimaryAction(item.support_request)
+                        ? (request) => { void handleSupportPrimaryAction(request); }
+                        : undefined}
+                    onClose={handleCloseSupportRequest}
+                />
+            );
+        }
+
+        return (
+            <PostCard
+                post={groupPostToPostDisplayModel(item, user?.id ?? '')}
+                onReact={() => reactionMutation.mutate(item.id)}
+                onOpenComments={() => onOpenComments(item)}
+                actions={group.can_moderate_content ? [
+                    { label: item.pinned_at ? 'Unpin' : 'Pin', onPress: () => { void handlePinPost(item); } },
+                    { label: 'Remove', destructive: true, onPress: () => handleDeletePost(item) },
+                ] : undefined}
+            />
+        );
+    }, [
+        group.can_moderate_content,
+        handleCloseSupportRequest,
+        handleDeletePost,
+        handlePinPost,
+        handleSupportPrimaryAction,
+        isCommunitySupport,
+        onOpenComments,
+        pendingSupportIds,
+        reactionMutation,
+        shouldShowSupportPrimaryAction,
+        user?.id,
+    ]);
 
     return (
         <View style={styles.postsSurface}>
@@ -217,14 +557,7 @@ function GroupPostsTab({
                 keyExtractor={item => item.id}
                 contentContainerStyle={[styles.postListContent, { paddingBottom: Spacing.xl + insets.bottom + 72 }]}
                 ListHeaderComponent={<GroupSummaryHeader group={group} />}
-                renderItem={({ item }) => (
-                    <PostCard
-                        post={groupPostToPostDisplayModel(item, user?.id ?? '')}
-                        onReact={() => reactionMutation.mutate(item.id)}
-                        onOpenComments={() => onOpenComments(item)}
-                        onOpenActions={group.can_moderate_content ? () => handleOpenPostActions(item) : undefined}
-                    />
-                )}
+                renderItem={renderPost}
                 ListEmptyComponent={!postsQuery.isLoading ? (
                     <EmptyState title="No posts yet" compact />
                 ) : null}
@@ -248,7 +581,8 @@ function GroupPostsTab({
             <CreatePostFab
                 visible={group.can_post}
                 bottom={20}
-                onPress={() => onOpenCreatePost(group)}
+                label={isCommunitySupport ? 'Support' : undefined}
+                onPress={() => isCommunitySupport ? onOpenCreateSupportRequest() : onOpenCreatePost(group)}
             />
         </View>
     );
@@ -569,6 +903,63 @@ const styles = StyleSheet.create({
     },
     aboutContent: {
         paddingBottom: Spacing.md,
+    },
+    manageContent: {
+        paddingBottom: Spacing.xl,
+    },
+    manageSection: {
+        padding: Spacing.md,
+        gap: Spacing.sm,
+    },
+    manageTitle: {
+        ...TextStyles.sectionTitle,
+        fontWeight: '800',
+    },
+    offerRow: {
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        gap: Spacing.sm,
+        borderWidth: 1,
+        borderColor: Colors.border.default,
+        borderRadius: Radius.md,
+        backgroundColor: Colors.bg.surface,
+        padding: Spacing.md,
+    },
+    offerBody: {
+        flex: 1,
+        minWidth: 0,
+        gap: Spacing.xs,
+    },
+    offerName: {
+        ...TextStyles.bodyEmphasis,
+    },
+    offerActions: {
+        gap: Spacing.xs,
+    },
+    offerPrimaryButton: {
+        minHeight: ControlSizes.chipMinHeight,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderRadius: Radius.pill,
+        backgroundColor: Colors.primary,
+        paddingHorizontal: Spacing.sm,
+    },
+    offerPrimaryButtonText: {
+        ...TextStyles.badge,
+        color: Colors.textOn.primary,
+    },
+    offerSecondaryButton: {
+        minHeight: ControlSizes.chipMinHeight,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderRadius: Radius.pill,
+        borderWidth: 1,
+        borderColor: Colors.border.default,
+        paddingHorizontal: Spacing.sm,
+    },
+    offerSecondaryButtonText: {
+        ...TextStyles.badge,
+        color: Colors.text.secondary,
     },
     aboutSections: {
         paddingHorizontal: Spacing.md,
