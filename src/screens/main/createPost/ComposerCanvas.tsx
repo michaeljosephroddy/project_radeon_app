@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React from "react";
 import {
   ScrollView,
   StyleSheet,
@@ -41,13 +41,6 @@ export function ComposerCanvas({
   onRemoveTag,
   onRetryImage,
 }: ComposerCanvasProps): React.ReactElement {
-  const inputRef = useRef<TextInput | null>(null);
-
-  useEffect(() => {
-    const timer = setTimeout(() => inputRef.current?.focus(), 120);
-    return () => clearTimeout(timer);
-  }, []);
-
   return (
     <ScrollView
       style={styles.fill}
@@ -85,7 +78,6 @@ export function ComposerCanvas({
       ) : null}
 
       <TextInput
-        ref={inputRef}
         style={styles.bodyInput}
         value={body}
         onChangeText={onBodyChange}
