@@ -911,6 +911,9 @@ export interface GroupAdminThread {
     subject?: string | null;
     created_at: string;
     updated_at: string;
+    last_message?: string | null;
+    last_message_at?: string | null;
+    unread_count?: number;
     messages?: GroupAdminMessage[];
 }
 
@@ -1208,10 +1211,6 @@ export async function replyGroupAdminThread(groupId: string, threadId: string, b
         method: 'POST',
         body: JSON.stringify({ body }),
     });
-}
-
-export async function resolveGroupAdminThread(groupId: string, threadId: string): Promise<GroupAdminThread> {
-    return request(`/groups/${groupId}/admin-inbox/${threadId}/resolve`, { method: 'POST' });
 }
 
 export async function reportGroupTarget(groupId: string, input: {
