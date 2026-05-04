@@ -646,12 +646,15 @@ export function ProfileTabScreen({
                                     ))}
                                 </View>
                             ) : null}
-                            <View style={styles.profileSummaryIntents}>
-                                {normalizeConnectionIntents(user.connection_intents).map((intent) => (
-                                    <View key={intent} style={styles.profileSummaryIntentChip}>
-                                        <Text style={styles.profileSummaryIntentChipText}>{getConnectionIntentLabel(intent)}</Text>
-                                    </View>
-                                ))}
+                            <View style={styles.profileSummaryIntentBlock}>
+                                <Text style={styles.profileSummaryIntentTitle}>Connection intent</Text>
+                                <View style={styles.profileSummaryIntents}>
+                                    {normalizeConnectionIntents(user.connection_intents).map((intent) => (
+                                        <View key={intent} style={styles.profileSummaryIntentChip}>
+                                            <Text style={styles.profileSummaryIntentChipText}>{getConnectionIntentLabel(intent)}</Text>
+                                        </View>
+                                    ))}
+                                </View>
                             </View>
                             <SobrietyCounter soberSince={user.sober_since} compact style={styles.profileSummarySobriety} />
 
@@ -1174,11 +1177,18 @@ const styles = StyleSheet.create({
     profileSummaryInterestChipText: {
         ...TextStyles.chip,
     },
+    profileSummaryIntentBlock: {
+        gap: Spacing.xs,
+        marginBottom: Spacing.sm,
+    },
+    profileSummaryIntentTitle: {
+        ...TextStyles.label,
+        color: Colors.text.primary,
+    },
     profileSummaryIntents: {
         flexDirection: 'row',
         flexWrap: 'wrap',
         gap: Spacing.sm,
-        marginBottom: Spacing.sm,
     },
     profileSummaryIntentChip: {
         borderRadius: Radius.pill,

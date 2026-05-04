@@ -270,12 +270,15 @@ export function UserProfileScreen({
                             </View>
                         ) : null}
                         {profileIntents.length ? (
-                            <View style={styles.intentWrap}>
-                                {profileIntents.map((intent) => (
-                                    <View key={intent} style={styles.intentChip}>
-                                        <Text style={styles.intentChipText}>{getConnectionIntentLabel(intent)}</Text>
-                                    </View>
-                                ))}
+                            <View style={styles.intentBlock}>
+                                <Text style={styles.intentTitle}>Connection intent</Text>
+                                <View style={styles.intentWrap}>
+                                    {profileIntents.map((intent) => (
+                                        <View key={intent} style={styles.intentChip}>
+                                            <Text style={styles.intentChipText}>{getConnectionIntentLabel(intent)}</Text>
+                                        </View>
+                                    ))}
+                                </View>
                             </View>
                         ) : null}
                         <SobrietyCounter soberSince={profile?.sober_since} compact style={styles.sobrietyCounter} />
@@ -452,11 +455,18 @@ const styles = StyleSheet.create({
     interestChipText: {
         ...TextStyles.chip,
     },
+    intentBlock: {
+        gap: Spacing.xs,
+        marginTop: Spacing.md,
+    },
+    intentTitle: {
+        ...TextStyles.label,
+        color: Colors.text.primary,
+    },
     intentWrap: {
         flexDirection: 'row',
         flexWrap: 'wrap',
         gap: Spacing.sm,
-        marginTop: Spacing.sm,
     },
     intentChip: {
         borderRadius: Radius.pill,
