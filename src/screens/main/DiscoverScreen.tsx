@@ -1,3 +1,4 @@
+import { appAlert } from '@/components/ui/appAlert';
 import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
     ActivityIndicator,
@@ -322,7 +323,7 @@ export function DiscoverScreen({ isActive, onOpenUserProfile, onOpenPlus }: Disc
                 next.delete(id);
                 return next;
             });
-            Alert.alert('Could not send request', error instanceof Error ? error.message : 'Please try again.');
+            appAlert.alert('Could not send request', error instanceof Error ? error.message : 'Please try again.');
         }
     }, []);
 
@@ -355,7 +356,7 @@ export function DiscoverScreen({ isActive, onOpenUserProfile, onOpenPlus }: Disc
 
     const handleApplyFilters = useCallback(() => {
         if (validatedDraft.error) {
-            Alert.alert('Invalid filters', validatedDraft.error);
+            appAlert.alert('Invalid filters', validatedDraft.error);
             return;
         }
 

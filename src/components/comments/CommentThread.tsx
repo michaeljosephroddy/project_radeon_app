@@ -1,3 +1,4 @@
+import { appAlert } from '@/components/ui/appAlert';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
     ActivityIndicator,
@@ -241,7 +242,7 @@ export function CommentThread({
                 setHasMore(result.has_more);
             })
             .catch(() => {
-                if (!cancelled) Alert.alert('Error', 'Could not load comments.');
+                if (!cancelled) appAlert.alert('Error', 'Could not load comments.');
             })
             .finally(() => {
                 if (!cancelled) setIsLoadingInitial(false);
@@ -370,7 +371,7 @@ export function CommentThread({
             setComments(prev => prev.filter(c => c.id !== optimisticComment.id));
             setCommentCount(prev => Math.max(0, prev - 1));
             setDraft(body);
-            Alert.alert('Error', e instanceof Error ? e.message : 'Something went wrong.');
+            appAlert.alert('Error', e instanceof Error ? e.message : 'Something went wrong.');
         } finally {
             setSubmitting(false);
         }

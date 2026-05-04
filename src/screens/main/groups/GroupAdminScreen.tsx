@@ -1,3 +1,4 @@
+import { appAlert } from '@/components/ui/appAlert';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
     ActivityIndicator,
@@ -107,7 +108,7 @@ function JoinRequestsPanel({ group }: { group: api.Group }): React.ReactElement 
     const review = (requestId: string, approve: boolean): void => {
         reviewMutation.mutate({ requestId, approve }, {
             onError: (error: unknown) => {
-                Alert.alert('Could not review request', error instanceof Error ? error.message : 'Please try again.');
+                appAlert.alert('Could not review request', error instanceof Error ? error.message : 'Please try again.');
             },
         });
     };
@@ -247,7 +248,7 @@ function ReportsPanel({ group }: { group: api.Group }): React.ReactElement {
     ): void => {
         reviewMutation.mutate({ reportId, status }, {
             onError: (error: unknown) => {
-                Alert.alert('Could not update report', error instanceof Error ? error.message : 'Please try again.');
+                appAlert.alert('Could not update report', error instanceof Error ? error.message : 'Please try again.');
             },
         });
     };

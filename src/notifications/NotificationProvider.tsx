@@ -1,3 +1,4 @@
+import { appAlert } from '@/components/ui/appAlert';
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Platform } from 'react-native';
 import Constants from 'expo-constants';
@@ -62,7 +63,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
                     finalStatus = permission.status;
                 }
                 if (finalStatus !== 'granted') {
-                    Alert.alert(
+                    appAlert.alert(
                         'Notifications disabled',
                         Platform.OS === 'android'
                             ? 'If you are on Android 12 or below, the system may not show a permission prompt because notifications are granted by default. On Android 13+, enable notifications for this app in system settings if you previously denied them.'
@@ -74,7 +75,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
 
                 const projectId = resolveExpoProjectId();
                 if (!projectId) {
-                    Alert.alert(
+                    appAlert.alert(
                         'Notifications unavailable',
                         'Set EXPO_PUBLIC_EAS_PROJECT_ID in .env or add extra.eas.projectId to the Expo config so the app can request an Expo push token.',
                     );

@@ -1,3 +1,4 @@
+import { appAlert } from '@/components/ui/appAlert';
 import React, { useCallback, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
@@ -103,7 +104,7 @@ export function CreateSupportRequestScreen({
     const handleSubmit = useCallback(async () => {
         const trimmedMessage = form.message?.trim() ?? '';
         if (!trimmedMessage) {
-            Alert.alert('Add context', 'Please describe the support you need before posting.');
+            appAlert.alert('Add context', 'Please describe the support you need before posting.');
             return;
         }
 
@@ -125,7 +126,7 @@ export function CreateSupportRequestScreen({
             ]);
             onCreated(created);
         } catch (error: unknown) {
-            Alert.alert('Could not create support request', error instanceof Error ? error.message : 'Something went wrong.');
+            appAlert.alert('Could not create support request', error instanceof Error ? error.message : 'Something went wrong.');
         } finally {
             setSubmitting(false);
         }

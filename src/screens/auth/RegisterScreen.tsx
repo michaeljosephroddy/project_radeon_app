@@ -1,3 +1,4 @@
+import { appAlert } from '@/components/ui/appAlert';
 import React, { useState } from 'react';
 import {
     View, Text, TouchableOpacity,
@@ -35,7 +36,7 @@ export function RegisterScreen({ onGoToLogin }: RegisterScreenProps) {
     // Validates and submits the registration form.
     const handleRegister = async () => {
         if (!form.username || !form.email || !form.password) {
-            Alert.alert('Missing fields', 'Please fill in your username, email and password.');
+            appAlert.alert('Missing fields', 'Please fill in your username, email and password.');
             return;
         }
         setLoading(true);
@@ -45,7 +46,7 @@ export function RegisterScreen({ onGoToLogin }: RegisterScreenProps) {
                 email: form.email.trim().toLowerCase(),
             });
         } catch (e: unknown) {
-            Alert.alert('Registration failed', e instanceof Error ? e.message : 'Something went wrong.');
+            appAlert.alert('Registration failed', e instanceof Error ? e.message : 'Something went wrong.');
         } finally {
             setLoading(false);
         }

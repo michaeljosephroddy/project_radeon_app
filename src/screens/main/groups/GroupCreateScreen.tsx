@@ -1,3 +1,4 @@
+import { appAlert } from '@/components/ui/appAlert';
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import {
     ActivityIndicator,
@@ -131,7 +132,7 @@ export function GroupCreateScreen({
     const handlePickImage = useCallback(async (): Promise<void> => {
         const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (!permission.granted) {
-            Alert.alert('Permission required', 'Allow photo library access to add a group image.');
+            appAlert.alert('Permission required', 'Allow photo library access to add a group image.');
             return;
         }
 
@@ -201,7 +202,7 @@ export function GroupCreateScreen({
             });
             onCreated(group);
         } catch (error: unknown) {
-            Alert.alert(
+            appAlert.alert(
                 'Could not create group',
                 error instanceof Error ? error.message : 'Something went wrong.',
             );
@@ -551,7 +552,7 @@ function inferFileName(uri: string | undefined, fallback: string): string {
 
 function confirmContinueWithoutImage(): Promise<boolean> {
     return new Promise((resolve) => {
-        Alert.alert(
+        appAlert.alert(
             'Image not ready',
             'The group photo upload is still processing or failed. Create the group now without a photo, or retry upload first.',
             [

@@ -1,3 +1,4 @@
+import { appAlert } from '@/components/ui/appAlert';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
     ActivityIndicator,
@@ -291,7 +292,7 @@ export function SupportScreen({
             });
         } catch (e: unknown) {
             setDetail(null);
-            Alert.alert('Could not load request', e instanceof Error ? e.message : 'Something went wrong.');
+            appAlert.alert('Could not load request', e instanceof Error ? e.message : 'Something went wrong.');
         }
     }, []);
 
@@ -336,7 +337,7 @@ export function SupportScreen({
             setReplyDraft('');
             invalidateSupport();
         } catch (e: unknown) {
-            Alert.alert('Could not reply', e instanceof Error ? e.message : 'Something went wrong.');
+            appAlert.alert('Could not reply', e instanceof Error ? e.message : 'Something went wrong.');
         } finally {
             setPending(request.id, false);
         }
@@ -344,7 +345,7 @@ export function SupportScreen({
 
     const handleOffer = useCallback(async (request: api.SupportRequest) => {
         if (request.already_chatting) {
-            Alert.alert('Already chatting', `You already have an open chat with ${formatUsername(request.username)}.`);
+            appAlert.alert('Already chatting', `You already have an open chat with ${formatUsername(request.username)}.`);
             return;
         }
         const offerType = getOfferType(request);
@@ -354,7 +355,7 @@ export function SupportScreen({
                 offer_type: offerType,
                 message: `I can help with ${getSupportTypeLabel(offerType).toLowerCase()} support.`,
             });
-            Alert.alert('Offer sent', `${formatUsername(request.username)} can accept it if they want direct support.`);
+            appAlert.alert('Offer sent', `${formatUsername(request.username)} can accept it if they want direct support.`);
             setDetail((current) => current && current.request.id === request.id
                 ? {
                     ...current,
@@ -367,7 +368,7 @@ export function SupportScreen({
                 : current);
             invalidateSupport();
         } catch (e: unknown) {
-            Alert.alert('Could not send offer', e instanceof Error ? e.message : 'Something went wrong.');
+            appAlert.alert('Could not send offer', e instanceof Error ? e.message : 'Something went wrong.');
         } finally {
             setPending(request.id, false);
         }
@@ -394,7 +395,7 @@ export function SupportScreen({
                 onOpenChat(chat);
             }
         } catch (e: unknown) {
-            Alert.alert('Could not accept offer', e instanceof Error ? e.message : 'Something went wrong.');
+            appAlert.alert('Could not accept offer', e instanceof Error ? e.message : 'Something went wrong.');
         } finally {
             setPending(offer.id, false);
         }
@@ -411,7 +412,7 @@ export function SupportScreen({
             } : current);
             invalidateSupport();
         } catch (e: unknown) {
-            Alert.alert('Could not decline offer', e instanceof Error ? e.message : 'Something went wrong.');
+            appAlert.alert('Could not decline offer', e instanceof Error ? e.message : 'Something went wrong.');
         } finally {
             setPending(offer.id, false);
         }
@@ -424,7 +425,7 @@ export function SupportScreen({
             setDetail((current) => current && current.request.id === request.id ? { ...current, request: closed } : current);
             invalidateSupport();
         } catch (e: unknown) {
-            Alert.alert('Could not close request', e instanceof Error ? e.message : 'Something went wrong.');
+            appAlert.alert('Could not close request', e instanceof Error ? e.message : 'Something went wrong.');
         } finally {
             setPending(request.id, false);
         }
@@ -432,7 +433,7 @@ export function SupportScreen({
 
     const handleOpenChat = useCallback(async (request: api.SupportRequest) => {
         if (!request.chat_id) {
-            Alert.alert('No chat yet', 'Accept an offer before opening a direct chat.');
+            appAlert.alert('No chat yet', 'Accept an offer before opening a direct chat.');
             return;
         }
         setPending(request.id, true);
@@ -440,7 +441,7 @@ export function SupportScreen({
             const chat = await api.getChat(request.chat_id);
             onOpenChat(chat);
         } catch (e: unknown) {
-            Alert.alert('Could not open chat', e instanceof Error ? e.message : 'Something went wrong.');
+            appAlert.alert('Could not open chat', e instanceof Error ? e.message : 'Something went wrong.');
         } finally {
             setPending(request.id, false);
         }

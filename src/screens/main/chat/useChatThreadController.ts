@@ -1,3 +1,4 @@
+import { appAlert } from '@/components/ui/appAlert';
 import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert } from 'react-native';
@@ -191,7 +192,7 @@ export function useChatThreadController({
         } catch (error: unknown) {
             removeMessageFromCache(queryClient, chatId, optimisticId);
             markMutation('remove');
-            Alert.alert(
+            appAlert.alert(
                 'Message failed',
                 error instanceof Error ? error.message : 'Your message could not be sent.',
             );

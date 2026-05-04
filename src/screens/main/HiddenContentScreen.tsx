@@ -1,3 +1,4 @@
+import { appAlert } from '@/components/ui/appAlert';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
     View, Text, TouchableOpacity, FlatList, StyleSheet, ActivityIndicator, Alert,
@@ -37,7 +38,7 @@ export function HiddenContentScreen({ onBack, onOpenUserProfile }: HiddenContent
         void loadHiddenItems(undefined, true)
             .catch(() => {
                 if (!cancelled) {
-                    Alert.alert('Error', 'Could not load hidden content.');
+                    appAlert.alert('Error', 'Could not load hidden content.');
                 }
             })
             .finally(() => {
@@ -52,7 +53,7 @@ export function HiddenContentScreen({ onBack, onOpenUserProfile }: HiddenContent
         try {
             await loadHiddenItems(cursorRef.current, false);
         } catch {
-            Alert.alert('Error', 'Could not load more hidden content.');
+            appAlert.alert('Error', 'Could not load more hidden content.');
         } finally {
             setIsLoadingMore(false);
         }
@@ -66,7 +67,7 @@ export function HiddenContentScreen({ onBack, onOpenUserProfile }: HiddenContent
                 await api.unhideFeedItem({ itemId: hiddenItem.item_id, itemKind: hiddenItem.item_kind });
                 setItems((current) => current.filter((item) => item.item_id !== hiddenItem.item_id));
             } catch (error) {
-                Alert.alert('Could not restore item', error instanceof Error ? error.message : 'Please try again.');
+                appAlert.alert('Could not restore item', error instanceof Error ? error.message : 'Please try again.');
             } finally {
                 setPendingRestoreIds((current) => {
                     const next = new Set(current);

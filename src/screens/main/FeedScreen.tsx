@@ -1,3 +1,4 @@
+import { appAlert } from '@/components/ui/appAlert';
 import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import {
     View, Text, FlatList, TouchableOpacity, TextInput, Image,
@@ -528,7 +529,7 @@ export function FeedScreen({
                 setShareCommentary('');
                 void queryClient.invalidateQueries({ queryKey: queryKeys.homeFeed() });
             } catch (error) {
-                Alert.alert('Could not share post', error instanceof Error ? error.message : 'Please try again.');
+                appAlert.alert('Could not share post', error instanceof Error ? error.message : 'Please try again.');
             } finally {
                 setIsSubmittingShare(false);
             }
@@ -553,7 +554,7 @@ export function FeedScreen({
                 setFeedItems((current) => current.filter((currentItem) => !(currentItem.id === item.id && currentItem.kind === item.kind)));
                 void queryClient.invalidateQueries({ queryKey: queryKeys.homeFeed() });
             } catch (error) {
-                Alert.alert('Could not hide item', error instanceof Error ? error.message : 'Please try again.');
+                appAlert.alert('Could not hide item', error instanceof Error ? error.message : 'Please try again.');
             }
         })();
     }, [logFeedEvent, queryClient]);
@@ -577,7 +578,7 @@ export function FeedScreen({
                 });
                 void queryClient.invalidateQueries({ queryKey: queryKeys.homeFeed() });
             } catch (error) {
-                Alert.alert('Could not restore item', error instanceof Error ? error.message : 'Please try again.');
+                appAlert.alert('Could not restore item', error instanceof Error ? error.message : 'Please try again.');
             }
         })();
     }, [hiddenUndo, queryClient]);
@@ -590,7 +591,7 @@ export function FeedScreen({
                 setFeedItems((current) => current.filter((currentItem) => currentItem.author.user_id !== item.author.user_id));
                 void queryClient.invalidateQueries({ queryKey: queryKeys.homeFeed() });
             } catch (error) {
-                Alert.alert('Could not mute author', error instanceof Error ? error.message : 'Please try again.');
+                appAlert.alert('Could not mute author', error instanceof Error ? error.message : 'Please try again.');
             }
         })();
     }, [logFeedEvent, queryClient]);

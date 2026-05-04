@@ -1,3 +1,4 @@
+import { appAlert } from '@/components/ui/appAlert';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, LayoutChangeEvent, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -103,7 +104,7 @@ export function GroupAdminThreadScreen({
         void replyMutation.mutateAsync({ threadId: thread.id, body })
             .then(loadThread)
             .catch((error: unknown) => {
-                Alert.alert('Could not reply', error instanceof Error ? error.message : 'Please try again.');
+                appAlert.alert('Could not reply', error instanceof Error ? error.message : 'Please try again.');
             });
     }, [loadThread, replyMutation, thread]);
 

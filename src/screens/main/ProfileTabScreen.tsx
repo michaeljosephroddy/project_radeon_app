@@ -1,3 +1,4 @@
+import { appAlert } from '@/components/ui/appAlert';
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
     View, Text, TouchableOpacity,
@@ -189,7 +190,7 @@ export function ProfileTabScreen({
     const handlePickAvatar = async () => {
         const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (!perm.granted) {
-            Alert.alert('Permission required', 'Allow access to your photo library to upload an avatar.');
+            appAlert.alert('Permission required', 'Allow access to your photo library to upload an avatar.');
             return;
         }
         const result = await ImagePicker.launchImageLibraryAsync({
@@ -207,7 +208,7 @@ export function ProfileTabScreen({
             setLocalAvatarUrl(`${avatar_url}?t=${Date.now()}`);
             refreshUser().catch(() => {});
         } catch (e: unknown) {
-            Alert.alert('Upload failed', e instanceof Error ? e.message : 'Something went wrong.');
+            appAlert.alert('Upload failed', e instanceof Error ? e.message : 'Something went wrong.');
         } finally {
             setUploadingAvatar(false);
         }
@@ -219,7 +220,7 @@ export function ProfileTabScreen({
             await api.updateMe(payload);
             await refreshUser();
         } catch (e: unknown) {
-            Alert.alert('Error', e instanceof Error ? e.message : 'Something went wrong.');
+            appAlert.alert('Error', e instanceof Error ? e.message : 'Something went wrong.');
         } finally {
             setSavingSection(null);
         }
@@ -228,7 +229,7 @@ export function ProfileTabScreen({
     const handleToggleInterest = (interest: string) => {
         const isSelected = selectedInterests.includes(interest);
         if (!isSelected && selectedInterests.length >= MAX_INTERESTS) {
-            Alert.alert('Interest limit', `Pick up to ${MAX_INTERESTS} interests.`);
+            appAlert.alert('Interest limit', `Pick up to ${MAX_INTERESTS} interests.`);
             return;
         }
 
@@ -328,7 +329,7 @@ export function ProfileTabScreen({
 
     const handleSaveBio = async () => {
         if (bio.length > MAX_BIO_LENGTH) {
-            Alert.alert('Bio too long', `Keep your bio under ${MAX_BIO_LENGTH} characters.`);
+            appAlert.alert('Bio too long', `Keep your bio under ${MAX_BIO_LENGTH} characters.`);
             return;
         }
         await saveSection('bio', { bio: bio.trim() || null });
@@ -377,7 +378,7 @@ export function ProfileTabScreen({
             await Promise.all([loadFriends(undefined, true), refreshUser()]);
         } catch (e: unknown) {
             setFriends(prev => [u, ...prev]);
-            Alert.alert('Error', e instanceof Error ? e.message : 'Something went wrong.');
+            appAlert.alert('Error', e instanceof Error ? e.message : 'Something went wrong.');
         } finally {
             setPendingActionIds(prev => { const s = new Set(prev); s.delete(u.user_id); return s; });
         }
@@ -393,7 +394,7 @@ export function ProfileTabScreen({
         } catch (e: unknown) {
             setIncomingRequests(prev => [u, ...prev]);
             setFriends(prev => prev.filter(friend => friend.user_id !== u.user_id));
-            Alert.alert('Error', e instanceof Error ? e.message : 'Something went wrong.');
+            appAlert.alert('Error', e instanceof Error ? e.message : 'Something went wrong.');
         } finally {
             setPendingActionIds(prev => { const s = new Set(prev); s.delete(u.user_id); return s; });
         }
@@ -407,7 +408,7 @@ export function ProfileTabScreen({
             await Promise.all([loadIncomingRequests(undefined, true), loadOutgoingRequests(undefined, true), refreshUser()]);
         } catch (e: unknown) {
             setIncomingRequests(prev => [u, ...prev]);
-            Alert.alert('Error', e instanceof Error ? e.message : 'Something went wrong.');
+            appAlert.alert('Error', e instanceof Error ? e.message : 'Something went wrong.');
         } finally {
             setPendingActionIds(prev => { const s = new Set(prev); s.delete(u.user_id); return s; });
         }
@@ -421,7 +422,7 @@ export function ProfileTabScreen({
             await Promise.all([loadIncomingRequests(undefined, true), loadOutgoingRequests(undefined, true), refreshUser()]);
         } catch (e: unknown) {
             setOutgoingRequests(prev => [u, ...prev]);
-            Alert.alert('Error', e instanceof Error ? e.message : 'Something went wrong.');
+            appAlert.alert('Error', e instanceof Error ? e.message : 'Something went wrong.');
         } finally {
             setPendingActionIds(prev => { const s = new Set(prev); s.delete(u.user_id); return s; });
         }

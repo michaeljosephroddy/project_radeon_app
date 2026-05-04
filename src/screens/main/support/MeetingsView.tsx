@@ -1,3 +1,4 @@
+import { appAlert } from '@/components/ui/appAlert';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
     Alert,
@@ -59,7 +60,7 @@ function resetMeetingFilters(): RecoveryMeetingFilters {
 }
 
 function showMeetingPlaceholder(meeting: RecoveryMeeting): void {
-    Alert.alert(
+    appAlert.alert(
         'Coming soon',
         `${meeting.name} details will be available here soon.`,
     );

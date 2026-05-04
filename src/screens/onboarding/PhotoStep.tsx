@@ -1,3 +1,4 @@
+import { appAlert } from '@/components/ui/appAlert';
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Alert, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -21,7 +22,7 @@ export function PhotoStep({ onNext, dotIndex, dotTotal }: PhotoStepProps) {
     const handlePickPhoto = async () => {
         const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (!perm.granted) {
-            Alert.alert('Permission required', 'Allow access to your photo library to upload a photo.');
+            appAlert.alert('Permission required', 'Allow access to your photo library to upload a photo.');
             return;
         }
         const result = await ImagePicker.launchImageLibraryAsync({
@@ -41,7 +42,7 @@ export function PhotoStep({ onNext, dotIndex, dotTotal }: PhotoStepProps) {
             refreshUser().catch(() => {});
         } catch (e: unknown) {
             setLocalAvatarUrl(previousUrl);
-            Alert.alert('Upload failed', e instanceof Error ? e.message : 'Something went wrong.');
+            appAlert.alert('Upload failed', e instanceof Error ? e.message : 'Something went wrong.');
         } finally {
             setUploading(false);
         }

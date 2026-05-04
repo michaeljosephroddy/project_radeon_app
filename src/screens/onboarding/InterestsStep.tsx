@@ -1,3 +1,4 @@
+import { appAlert } from '@/components/ui/appAlert';
 import React, { useState } from 'react';
 import {
     View, Text, TouchableOpacity, StyleSheet,
@@ -26,7 +27,7 @@ export function InterestsStep({ onNext, dotIndex, dotTotal }: InterestsStepProps
     const toggleInterest = (interest: string) => {
         const isSelected = selected.includes(interest);
         if (!isSelected && selected.length >= MAX_INTERESTS) {
-            Alert.alert('Limit reached', `You can pick up to ${MAX_INTERESTS} interests.`);
+            appAlert.alert('Limit reached', `You can pick up to ${MAX_INTERESTS} interests.`);
             return;
         }
         setSelected(current =>
@@ -43,7 +44,7 @@ export function InterestsStep({ onNext, dotIndex, dotTotal }: InterestsStepProps
             await refreshUser();
             onNext();
         } catch (e: unknown) {
-            Alert.alert('Error', e instanceof Error ? e.message : 'Something went wrong.');
+            appAlert.alert('Error', e instanceof Error ? e.message : 'Something went wrong.');
         } finally {
             setSaving(false);
         }

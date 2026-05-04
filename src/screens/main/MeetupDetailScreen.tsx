@@ -1,3 +1,4 @@
+import { appAlert } from '@/components/ui/appAlert';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
     Alert,
@@ -138,7 +139,7 @@ export function MeetupDetailScreen({
             void queryClient.invalidateQueries({ queryKey: ['meetup', detail.id] });
             await load(true);
         } catch (nextError: unknown) {
-            Alert.alert('Error', nextError instanceof Error ? nextError.message : 'Something went wrong.');
+            appAlert.alert('Error', nextError instanceof Error ? nextError.message : 'Something went wrong.');
         } finally {
             setUpdating(false);
         }

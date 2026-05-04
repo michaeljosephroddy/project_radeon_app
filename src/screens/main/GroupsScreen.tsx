@@ -1,3 +1,4 @@
+import { appAlert } from '@/components/ui/appAlert';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
     ActivityIndicator,
@@ -206,10 +207,10 @@ export function GroupsScreen({ isActive, onOpenGroup, onOpenCreateGroup }: Group
         try {
             const result = await joinMutation.mutateAsync({ groupId: group.id });
             if (result.state === 'pending') {
-                Alert.alert('Request sent', 'An admin will review your request.');
+                appAlert.alert('Request sent', 'An admin will review your request.');
             }
         } catch (e: unknown) {
-            Alert.alert(
+            appAlert.alert(
                 'Could not join group',
                 e instanceof Error ? e.message : 'Something went wrong.',
             );

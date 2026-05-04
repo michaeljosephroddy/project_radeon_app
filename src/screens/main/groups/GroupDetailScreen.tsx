@@ -1,3 +1,4 @@
+import { appAlert } from '@/components/ui/appAlert';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
     ActivityIndicator,
@@ -244,7 +245,7 @@ function SupportRequestManagementScreen({
             })
             .catch((e: unknown) => {
                 if (!cancelled) {
-                    Alert.alert('Could not load request details', e instanceof Error ? e.message : 'Something went wrong.');
+                    appAlert.alert('Could not load request details', e instanceof Error ? e.message : 'Something went wrong.');
                 }
             })
             .finally(() => {
@@ -266,7 +267,7 @@ function SupportRequestManagementScreen({
                 onOpenChat(chat);
             }
         } catch (e: unknown) {
-            Alert.alert('Could not accept offer', e instanceof Error ? e.message : 'Something went wrong.');
+            appAlert.alert('Could not accept offer', e instanceof Error ? e.message : 'Something went wrong.');
         } finally {
             setPendingId(null);
         }
@@ -279,7 +280,7 @@ function SupportRequestManagementScreen({
             await api.declineSupportOffer(request.id, offer.id);
             setOffers((current) => current.map((item) => item.id === offer.id ? { ...item, status: 'not_selected' } : item));
         } catch (e: unknown) {
-            Alert.alert('Could not decline offer', e instanceof Error ? e.message : 'Something went wrong.');
+            appAlert.alert('Could not decline offer', e instanceof Error ? e.message : 'Something went wrong.');
         } finally {
             setPendingId(null);
         }
@@ -287,7 +288,7 @@ function SupportRequestManagementScreen({
 
     const handleCloseRequest = useCallback((): void => {
         if (!request) return;
-        Alert.alert(
+        appAlert.alert(
             'Close request?',
             'This marks the support request as closed.',
             [
@@ -300,7 +301,7 @@ function SupportRequestManagementScreen({
                         void api.updateSupportRequest(request.id, { status: 'closed' })
                             .then(onChanged)
                             .catch((e: unknown) => {
-                                Alert.alert('Could not close request', e instanceof Error ? e.message : 'Something went wrong.');
+                                appAlert.alert('Could not close request', e instanceof Error ? e.message : 'Something went wrong.');
                             })
                             .finally(() => setPendingId(null));
                     },
@@ -320,7 +321,7 @@ function SupportRequestManagementScreen({
                         if (post) {
                             onOpenComments(post);
                         } else {
-                            Alert.alert('Replies unavailable', 'Open this request from the group feed to view public replies.');
+                            appAlert.alert('Replies unavailable', 'Open this request from the group feed to view public replies.');
                         }
                     }}
                     onClose={handleCloseRequest}
@@ -531,7 +532,7 @@ function GroupPostsTab({
         try {
             await pinPostMutation.mutateAsync({ postId: post.id, pinned: !post.pinned_at });
         } catch (e: unknown) {
-            Alert.alert(
+            appAlert.alert(
                 'Could not update post',
                 e instanceof Error ? e.message : 'Something went wrong.',
             );
@@ -539,7 +540,7 @@ function GroupPostsTab({
     }, [pinPostMutation]);
 
     const handleDeletePost = useCallback((post: api.GroupPost): void => {
-        Alert.alert(
+        appAlert.alert(
             'Remove post?',
             'This removes the post from the group for all members.',
             [
@@ -550,7 +551,7 @@ function GroupPostsTab({
                     onPress: () => {
                         deletePostMutation.mutate(post.id, {
                             onError: (e: unknown) => {
-                                Alert.alert(
+                                appAlert.alert(
                                     'Could not remove post',
                                     e instanceof Error ? e.message : 'Something went wrong.',
                                 );
@@ -579,7 +580,7 @@ function GroupPostsTab({
                     const chat = await api.getChat(request.chat_id);
                     onOpenChat(chat);
                 } catch (e: unknown) {
-                    Alert.alert('Could not open chat', e instanceof Error ? e.message : 'Something went wrong.');
+                    appAlert.alert('Could not open chat', e instanceof Error ? e.message : 'Something went wrong.');
                 } finally {
                     setSupportPending(request.id, false);
                 }
@@ -595,7 +596,7 @@ function GroupPostsTab({
             return;
         }
         if (request.already_chatting) {
-            Alert.alert('Already chatting', `You already have an open chat with ${formatUsername(request.username)}.`);
+            appAlert.alert('Already chatting', `You already have an open chat with ${formatUsername(request.username)}.`);
             return;
         }
 
@@ -606,17 +607,17 @@ function GroupPostsTab({
                 offer_type: offerType,
                 message: `I can help with ${getSupportTypeLabel(offerType).toLowerCase()} support.`,
             });
-            Alert.alert('Offer sent', 'The requester can accept it if they want direct support.');
+            appAlert.alert('Offer sent', 'The requester can accept it if they want direct support.');
             invalidateSupportGroup();
         } catch (e: unknown) {
-            Alert.alert('Could not send offer', e instanceof Error ? e.message : 'Something went wrong.');
+            appAlert.alert('Could not send offer', e instanceof Error ? e.message : 'Something went wrong.');
         } finally {
             setSupportPending(request.id, false);
         }
     }, [findSupportPost, handleOpenSupportComments, invalidateSupportGroup, onManageSupportRequest, onOpenChat, setSupportPending]);
 
     const handleCloseSupportRequest = useCallback((request: api.SupportRequest): void => {
-        Alert.alert(
+        appAlert.alert(
             'Close request?',
             'This marks the support request as closed.',
             [
@@ -632,7 +633,7 @@ function GroupPostsTab({
                                 invalidateSupportGroup();
                             })
                             .catch((e: unknown) => {
-                                Alert.alert('Could not close request', e instanceof Error ? e.message : 'Something went wrong.');
+                                appAlert.alert('Could not close request', e instanceof Error ? e.message : 'Something went wrong.');
                             })
                             .finally(() => setSupportPending(request.id, false));
                     },
@@ -938,9 +939,9 @@ function GroupAboutTab({
         try {
             await contactMutation.mutateAsync({ body });
             setContactBody('');
-            Alert.alert('Sent', 'Your message was sent to the group admins.');
+            appAlert.alert('Sent', 'Your message was sent to the group admins.');
         } catch (e: unknown) {
-            Alert.alert('Could not send message', e instanceof Error ? e.message : 'Something went wrong.');
+            appAlert.alert('Could not send message', e instanceof Error ? e.message : 'Something went wrong.');
         }
     };
 
@@ -949,7 +950,7 @@ function GroupAboutTab({
             const invite = await inviteMutation.mutateAsync({ requires_approval: group.visibility === 'approval_required' });
             setInvite(invite);
         } catch (e: unknown) {
-            Alert.alert('Could not create invite', e instanceof Error ? e.message : 'Something went wrong.');
+            appAlert.alert('Could not create invite', e instanceof Error ? e.message : 'Something went wrong.');
         }
     };
 
@@ -960,7 +961,7 @@ function GroupAboutTab({
                 message: formatGroupInviteMessage(group, invite),
             });
         } catch (e: unknown) {
-            Alert.alert('Could not share invite', e instanceof Error ? e.message : 'Something went wrong.');
+            appAlert.alert('Could not share invite', e instanceof Error ? e.message : 'Something went wrong.');
         }
     };
 
@@ -970,7 +971,7 @@ function GroupAboutTab({
             const page = await api.getChats({ limit: 25 });
             setShareChats(page.items ?? []);
         } catch (e: unknown) {
-            Alert.alert('Could not load chats', e instanceof Error ? e.message : 'Something went wrong.');
+            appAlert.alert('Could not load chats', e instanceof Error ? e.message : 'Something went wrong.');
         } finally {
             setChatShareLoading(false);
         }
@@ -978,7 +979,7 @@ function GroupAboutTab({
 
     const handleOpenChatShare = useCallback((): void => {
         if (!invite?.token) {
-            Alert.alert('Create invite first', 'Create an invite link before sending it to chat.');
+            appAlert.alert('Create invite first', 'Create an invite link before sending it to chat.');
             return;
         }
         setChatShareOpen((current) => !current);
@@ -988,7 +989,7 @@ function GroupAboutTab({
     const handleSendInviteToChat = useCallback(async (chat: api.Chat): Promise<void> => {
         if (!invite?.token) return;
         if (!isChatOpenForMessaging(chat)) {
-            Alert.alert('Chat unavailable', 'This chat is not open for messaging yet.');
+            appAlert.alert('Chat unavailable', 'This chat is not open for messaging yet.');
             setShareChats((current) => current.filter((item) => item.id !== chat.id));
             return;
         }
@@ -996,13 +997,13 @@ function GroupAboutTab({
         try {
             await api.sendMessage(chat.id, formatGroupInviteMessage(group, invite));
             const name = chat.is_group ? (chat.name ?? 'Group') : formatUsername(chat.username);
-            Alert.alert('Invite sent', `Sent to ${name}.`);
+            appAlert.alert('Invite sent', `Sent to ${name}.`);
             setChatShareOpen(false);
         } catch (e: unknown) {
             if (e instanceof Error && e.message.toLowerCase().includes('chat is not open for messaging')) {
                 setShareChats((current) => current.filter((item) => item.id !== chat.id));
             }
-            Alert.alert('Could not send invite', e instanceof Error ? e.message : 'Something went wrong.');
+            appAlert.alert('Could not send invite', e instanceof Error ? e.message : 'Something went wrong.');
         } finally {
             setChatShareSendingId(null);
         }

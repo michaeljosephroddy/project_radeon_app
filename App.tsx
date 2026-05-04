@@ -10,6 +10,7 @@ import { AppNavigator } from './src/navigation/AppNavigator';
 import { OnboardingNavigator } from './src/navigation/OnboardingNavigator';
 import { ChatRealtimeProvider } from './src/hooks/chat/ChatRealtimeProvider';
 import { NotificationProvider } from './src/notifications/NotificationProvider';
+import { AppPopupProvider } from './src/components/ui/AppPopupProvider';
 import { asyncStoragePersister } from './src/query/asyncStoragePersister';
 import { queryClient } from './src/query/queryClient';
 import { Colors } from './src/theme';
@@ -57,7 +58,9 @@ export default function App() {
                         }}
                     >
                         <AuthProvider>
-                            <RootNavigator />
+                            <AppPopupProvider>
+                                <RootNavigator />
+                            </AppPopupProvider>
                         </AuthProvider>
                     </PersistQueryClientProvider>
                 </KeyboardProvider>

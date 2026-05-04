@@ -1,3 +1,4 @@
+import { appAlert } from '@/components/ui/appAlert';
 import React, { useMemo, useRef, useState } from 'react';
 import {
     View, Text, TouchableOpacity, StyleSheet, FlatList, ActivityIndicator, RefreshControl, Alert,
@@ -120,7 +121,7 @@ export function UserProfileScreen({
             }
             await profileQuery.refetch();
         } catch (error: unknown) {
-            Alert.alert('Profile action failed', error instanceof Error ? error.message : 'Something went wrong.');
+            appAlert.alert('Profile action failed', error instanceof Error ? error.message : 'Something went wrong.');
         } finally {
             setFriendActionLoading(false);
         }
@@ -140,7 +141,7 @@ export function UserProfileScreen({
     };
 
     const handleBlockUser = (): void => {
-        Alert.alert(
+        appAlert.alert(
             'Block user?',
             `${profileName} will no longer be able to message you, and you will stop seeing them in discovery.`,
             [
@@ -154,11 +155,11 @@ export function UserProfileScreen({
                             try {
                                 await api.blockUser(userId);
                                 await invalidateDiscoveryQueries();
-                                Alert.alert('User blocked', `${profileName} has been blocked.`, [
+                                appAlert.alert('User blocked', `${profileName} has been blocked.`, [
                                     { text: 'OK', onPress: onBack },
                                 ]);
                             } catch (error: unknown) {
-                                Alert.alert('Block failed', error instanceof Error ? error.message : 'Something went wrong.');
+                                appAlert.alert('Block failed', error instanceof Error ? error.message : 'Something went wrong.');
                             } finally {
                                 setSafetyActionLoading(null);
                             }
@@ -173,16 +174,16 @@ export function UserProfileScreen({
         setSafetyActionLoading('report');
         try {
             await api.reportUser(userId, { reason });
-            Alert.alert('Report sent', 'Thanks for helping keep the community safe.');
+            appAlert.alert('Report sent', 'Thanks for helping keep the community safe.');
         } catch (error: unknown) {
-            Alert.alert('Report failed', error instanceof Error ? error.message : 'Something went wrong.');
+            appAlert.alert('Report failed', error instanceof Error ? error.message : 'Something went wrong.');
         } finally {
             setSafetyActionLoading(null);
         }
     };
 
     const handleReportUser = (): void => {
-        Alert.alert(
+        appAlert.alert(
             'Report user',
             'Choose the closest reason.',
             [

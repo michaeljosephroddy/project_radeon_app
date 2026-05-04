@@ -1,3 +1,4 @@
+import { appAlert } from '@/components/ui/appAlert';
 import React, { useRef, useState } from 'react';
 import { Alert, StyleSheet, View } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
@@ -226,7 +227,7 @@ export function CreateMeetupScreen({
     const handlePickCoverImage = async () => {
         const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (!permission.granted) {
-            Alert.alert('Permission required', 'Allow access to your photo library to upload a cover image.');
+            appAlert.alert('Permission required', 'Allow access to your photo library to upload a cover image.');
             return;
         }
         const result = await ImagePicker.launchImageLibraryAsync({
@@ -260,7 +261,7 @@ export function CreateMeetupScreen({
             if (coverUploadTokenRef.current !== uploadToken) return;
             setLocalCoverPreviewUri(previousPreview);
             setFormValues((current) => ({ ...current, cover_image_url: previousCoverURL }));
-            Alert.alert('Upload failed', error instanceof Error ? error.message : 'Something went wrong.');
+            appAlert.alert('Upload failed', error instanceof Error ? error.message : 'Something went wrong.');
         } finally {
             if (coverUploadTokenRef.current === uploadToken) {
                 coverUploadRef.current = null;
@@ -334,7 +335,7 @@ export function CreateMeetupScreen({
             }
             onCreated(savedMeetup);
         } catch (error: unknown) {
-            Alert.alert('Error', error instanceof Error ? error.message : 'Unable to save this event right now.');
+            appAlert.alert('Error', error instanceof Error ? error.message : 'Unable to save this event right now.');
         } finally {
             setSubmitting(false);
         }

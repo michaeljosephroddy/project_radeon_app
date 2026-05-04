@@ -1,3 +1,4 @@
+import { appAlert } from '@/components/ui/appAlert';
 import React, { useCallback, useMemo, useState } from 'react';
 import {
     ActivityIndicator,
@@ -151,7 +152,7 @@ export function NotificationsScreen({
             await api.markAllNotificationsRead();
             invalidateNotifications();
         } catch (error: unknown) {
-            Alert.alert('Could not update notifications', error instanceof Error ? error.message : 'Please try again.');
+            appAlert.alert('Could not update notifications', error instanceof Error ? error.message : 'Please try again.');
         } finally {
             setMarkingAllRead(false);
         }
@@ -169,7 +170,7 @@ export function NotificationsScreen({
             if (item.type === 'chat.message') {
                 const chatId = readPayloadString(item.payload, 'chat_id');
                 if (!chatId) {
-                    Alert.alert('Notification unavailable', 'This chat notification can no longer be opened.');
+                    appAlert.alert('Notification unavailable', 'This chat notification can no longer be opened.');
                     return;
                 }
                 await onOpenChat(chatId);
@@ -179,7 +180,7 @@ export function NotificationsScreen({
             if (item.type === 'comment.mention') {
                 const postId = readPayloadString(item.payload, 'post_id');
                 if (!postId) {
-                    Alert.alert('Notification unavailable', 'This mention notification can no longer be opened.');
+                    appAlert.alert('Notification unavailable', 'This mention notification can no longer be opened.');
                     return;
                 }
                 onOpenMention({
@@ -192,7 +193,7 @@ export function NotificationsScreen({
             if (item.type === 'group.report' || item.type === 'group.report_status') {
                 const groupId = readPayloadString(item.payload, 'group_id');
                 if (!groupId) {
-                    Alert.alert('Notification unavailable', 'This group report notification can no longer be opened.');
+                    appAlert.alert('Notification unavailable', 'This group report notification can no longer be opened.');
                     return;
                 }
                 onOpenGroupReports(groupId, readPayloadString(item.payload, 'report_id') ?? undefined);
@@ -202,7 +203,7 @@ export function NotificationsScreen({
             if (item.type === 'group.admin_contact' || item.type === 'group.admin_reply') {
                 const groupId = readPayloadString(item.payload, 'group_id');
                 if (!groupId) {
-                    Alert.alert('Notification unavailable', 'This admin inbox notification can no longer be opened.');
+                    appAlert.alert('Notification unavailable', 'This admin inbox notification can no longer be opened.');
                     return;
                 }
                 onOpenGroupAdminInbox(groupId, readPayloadString(item.payload, 'thread_id') ?? undefined);
@@ -218,7 +219,7 @@ export function NotificationsScreen({
             ) {
                 const groupId = readPayloadString(item.payload, 'group_id');
                 if (!groupId) {
-                    Alert.alert('Notification unavailable', 'This group notification can no longer be opened.');
+                    appAlert.alert('Notification unavailable', 'This group notification can no longer be opened.');
                     return;
                 }
                 onOpenGroup(groupId, readPayloadString(item.payload, 'post_id') ?? undefined);
@@ -229,7 +230,7 @@ export function NotificationsScreen({
                 const groupId = readPayloadString(item.payload, 'group_id');
                 const supportRequestId = readPayloadString(item.payload, 'support_request_id');
                 if (!groupId) {
-                    Alert.alert('Notification unavailable', 'This support notification can no longer be opened.');
+                    appAlert.alert('Notification unavailable', 'This support notification can no longer be opened.');
                     return;
                 }
                 if (!supportRequestId) {
@@ -246,7 +247,7 @@ export function NotificationsScreen({
                 const groupId = readPayloadString(item.payload, 'group_id');
                 const supportRequestId = readPayloadString(item.payload, 'support_request_id');
                 if (!groupId || !supportRequestId) {
-                    Alert.alert('Notification unavailable', 'This support notification can no longer be opened.');
+                    appAlert.alert('Notification unavailable', 'This support notification can no longer be opened.');
                     return;
                 }
                 onOpenSupportRequestContext(groupId, supportRequestId, readPayloadString(item.payload, 'post_id') ?? undefined);
@@ -257,14 +258,14 @@ export function NotificationsScreen({
                 const groupId = readPayloadString(item.payload, 'group_id');
                 const supportRequestId = readPayloadString(item.payload, 'support_request_id');
                 if (!groupId || !supportRequestId) {
-                    Alert.alert('Notification unavailable', 'This support notification can no longer be opened.');
+                    appAlert.alert('Notification unavailable', 'This support notification can no longer be opened.');
                     return;
                 }
                 onOpenSupportRequestContext(groupId, supportRequestId, readPayloadString(item.payload, 'post_id') ?? undefined);
                 return;
             }
         } catch (error: unknown) {
-            Alert.alert('Could not open notification', error instanceof Error ? error.message : 'Please try again.');
+            appAlert.alert('Could not open notification', error instanceof Error ? error.message : 'Please try again.');
         } finally {
             setPendingId(null);
         }

@@ -1,3 +1,4 @@
+import { appAlert } from '@/components/ui/appAlert';
 import React, { useState } from 'react';
 import {
     Alert,
@@ -62,10 +63,10 @@ export function GroupReportScreen({
                 reason,
                 details: details.trim() || null,
             });
-            Alert.alert('Report sent', 'Thanks. The report is now in the moderation queue.');
+            appAlert.alert('Report sent', 'Thanks. The report is now in the moderation queue.');
             onReported();
         } catch (error: unknown) {
-            Alert.alert('Could not report', error instanceof Error ? error.message : 'Please try again.');
+            appAlert.alert('Could not report', error instanceof Error ? error.message : 'Please try again.');
         }
     };
 

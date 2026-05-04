@@ -1,3 +1,4 @@
+import { appAlert } from '@/components/ui/appAlert';
 import React, { useState } from 'react';
 import {
     View, Text, TouchableOpacity,
@@ -44,7 +45,7 @@ export function SobrietyStep({ onNext, dotIndex, dotTotal }: SobrietyStepProps) 
 
     const handleContinue = async () => {
         if (bio.length > MAX_BIO) {
-            Alert.alert('Bio too long', `Keep your bio under ${MAX_BIO} characters.`);
+            appAlert.alert('Bio too long', `Keep your bio under ${MAX_BIO} characters.`);
             return;
         }
         Keyboard.dismiss();
@@ -57,7 +58,7 @@ export function SobrietyStep({ onNext, dotIndex, dotTotal }: SobrietyStepProps) 
             await refreshUser();
             onNext();
         } catch (e: unknown) {
-            Alert.alert('Error', e instanceof Error ? e.message : 'Something went wrong.');
+            appAlert.alert('Error', e instanceof Error ? e.message : 'Something went wrong.');
         } finally {
             setSaving(false);
         }

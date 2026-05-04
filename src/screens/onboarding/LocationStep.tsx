@@ -1,3 +1,4 @@
+import { appAlert } from '@/components/ui/appAlert';
 import React, { useState, useEffect } from 'react';
 import {
     View, Text,
@@ -61,7 +62,7 @@ export function LocationStep({ onNext, dotIndex, dotTotal }: LocationStepProps) 
             await refreshUser();
             onNext();
         } catch (e: unknown) {
-            Alert.alert('Error', e instanceof Error ? e.message : 'Something went wrong.');
+            appAlert.alert('Error', e instanceof Error ? e.message : 'Something went wrong.');
         } finally {
             setSaving(false);
         }

@@ -1,3 +1,4 @@
+import { appAlert } from '@/components/ui/appAlert';
 import React, { useState } from 'react';
 import {
     View, Text, TouchableOpacity,
@@ -26,7 +27,7 @@ export function LoginScreen({ onGoToRegister }: LoginScreenProps) {
     // Validates and submits the login form.
     const handleLogin = async () => {
         if (!email || !password) {
-            Alert.alert('Missing fields', 'Please enter your email and password.');
+            appAlert.alert('Missing fields', 'Please enter your email and password.');
             return;
         }
         setLoading(true);
@@ -34,7 +35,7 @@ export function LoginScreen({ onGoToRegister }: LoginScreenProps) {
             // Normalize the email client-side so sign-in is resilient to user casing/spacing.
             await login(email.trim().toLowerCase(), password);
         } catch (e: unknown) {
-            Alert.alert('Login failed', e instanceof Error ? e.message : 'Invalid credentials.');
+            appAlert.alert('Login failed', e instanceof Error ? e.message : 'Invalid credentials.');
         } finally {
             setLoading(false);
         }

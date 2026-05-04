@@ -1,3 +1,4 @@
+import { appAlert } from '@/components/ui/appAlert';
 import React, { useCallback, useMemo, useState } from 'react';
 import {
     ActivityIndicator,
@@ -111,12 +112,12 @@ export function ChatScreen({ chat, onBack }: ChatScreenProps) {
         setAcceptingInviteToken(token);
         try {
             const result = await api.acceptGroupInvite(token);
-            Alert.alert(
+            appAlert.alert(
                 result.state === 'pending' ? 'Request sent' : 'Invite accepted',
                 result.state === 'pending' ? 'An admin will review your request.' : 'You joined the group.',
             );
         } catch (e: unknown) {
-            Alert.alert('Could not accept invite', e instanceof Error ? e.message : 'Please try again.');
+            appAlert.alert('Could not accept invite', e instanceof Error ? e.message : 'Please try again.');
         } finally {
             setAcceptingInviteToken(null);
         }

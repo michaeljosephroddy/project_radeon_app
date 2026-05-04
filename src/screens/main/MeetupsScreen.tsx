@@ -1,3 +1,4 @@
+import { appAlert } from '@/components/ui/appAlert';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import * as ImagePicker from 'expo-image-picker';
 import {
@@ -579,10 +580,10 @@ export function MeetupsScreen({
             }
             invalidateMeetupQueries(meetup.id);
             if (result.waitlisted) {
-                Alert.alert('Added to waitlist', 'You will stay visible on the waitlist until a space opens or you leave.');
+                appAlert.alert('Added to waitlist', 'You will stay visible on the waitlist until a space opens or you leave.');
             }
         } catch (error: unknown) {
-            Alert.alert('Error', error instanceof Error ? error.message : 'Something went wrong.');
+            appAlert.alert('Error', error instanceof Error ? error.message : 'Something went wrong.');
         } finally {
             setPendingMeetupIds((current) => {
                 const next = new Set(current);
@@ -615,7 +616,7 @@ export function MeetupsScreen({
     const handlePickCoverImage = async () => {
         const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (!permission.granted) {
-            Alert.alert('Permission required', 'Allow access to your photo library to upload a cover image.');
+            appAlert.alert('Permission required', 'Allow access to your photo library to upload a cover image.');
             return;
         }
         const result = await ImagePicker.launchImageLibraryAsync({
@@ -649,7 +650,7 @@ export function MeetupsScreen({
             if (coverUploadTokenRef.current !== uploadToken) return;
             setLocalCoverPreviewUri(previousPreview);
             setFormValues((current) => ({ ...current, cover_image_url: previousCoverURL }));
-            Alert.alert('Upload failed', error instanceof Error ? error.message : 'Something went wrong.');
+            appAlert.alert('Upload failed', error instanceof Error ? error.message : 'Something went wrong.');
         } finally {
             if (coverUploadTokenRef.current === uploadToken) {
                 coverUploadRef.current = null;
@@ -745,7 +746,7 @@ export function MeetupsScreen({
             } else {
                 removeMeetupFromCaches(optimisticMeetupId);
             }
-            Alert.alert('Error', error instanceof Error ? error.message : 'Unable to save this event right now.');
+            appAlert.alert('Error', error instanceof Error ? error.message : 'Unable to save this event right now.');
         } finally {
             setSubmitting(false);
         }
@@ -784,7 +785,7 @@ export function MeetupsScreen({
                 ? 'This event will be permanently deleted.'
                 : 'This event will be cancelled and moved to Cancelled.';
 
-        Alert.alert(`${destructiveLabel}?`, message, [
+        appAlert.alert(`${destructiveLabel}?`, message, [
             { text: 'Keep it', style: 'cancel' },
             {
                 text: destructiveLabel,
@@ -801,7 +802,7 @@ export function MeetupsScreen({
                         }
                         invalidateMeetupQueries();
                     } catch (error: unknown) {
-                        Alert.alert('Error', error instanceof Error ? error.message : 'Something went wrong.');
+                        appAlert.alert('Error', error instanceof Error ? error.message : 'Something went wrong.');
                     } finally {
                         setPendingMeetupIds((current) => {
                             const next = new Set(current);
@@ -816,7 +817,7 @@ export function MeetupsScreen({
 
     const handleCancelPublishedEdit = () => {
         if (!editingMeetup) return;
-        Alert.alert('Cancel this event?', 'This will move the event out of Upcoming and into Cancelled.', [
+        appAlert.alert('Cancel this event?', 'This will move the event out of Upcoming and into Cancelled.', [
             { text: 'Keep event', style: 'cancel' },
             {
                 text: 'Cancel event',

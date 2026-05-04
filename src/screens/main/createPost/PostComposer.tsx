@@ -1,3 +1,4 @@
+import { appAlert } from '@/components/ui/appAlert';
 import React, {
   useCallback,
   useEffect,
@@ -176,7 +177,7 @@ export function PostComposer({
   const handlePickImage = useCallback(async (): Promise<void> => {
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!perm.granted) {
-      Alert.alert(
+      appAlert.alert(
         "Permission required",
         "Allow access to your photo library to attach a post image.",
       );
@@ -267,7 +268,7 @@ export function PostComposer({
       return;
     }
 
-    Alert.alert("Save draft?", "Keep this post in drafts or discard it?", [
+    appAlert.alert("Save draft?", "Keep this post in drafts or discard it?", [
       { text: "Cancel", style: "cancel" },
       {
         text: "Discard",
@@ -366,7 +367,7 @@ export function PostComposer({
         }
         onBack();
       } catch (e: unknown) {
-        Alert.alert(
+        appAlert.alert(
           "Error",
           e instanceof Error ? e.message : "Something went wrong.",
         );

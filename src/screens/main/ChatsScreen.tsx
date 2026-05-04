@@ -1,3 +1,4 @@
+import { appAlert } from '@/components/ui/appAlert';
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import {
     View, Text, FlatList, TouchableOpacity,
@@ -187,7 +188,7 @@ export function ChatsScreen({ isActive, onOpenChat }: ChatsScreenProps) {
             ? 'You will be removed from this group conversation.'
             : 'This conversation will be deleted.';
 
-        Alert.alert(title, message, [
+        appAlert.alert(title, message, [
             { text: 'Cancel', style: 'cancel' },
             {
                 text: chat.is_group ? 'Leave' : 'Delete',
@@ -214,7 +215,7 @@ export function ChatsScreen({ isActive, onOpenChat }: ChatsScreenProps) {
                         await api.deleteChat(chat.id);
                     } catch (e: unknown) {
                         queryClient.setQueryData(chatQueryKey, previousChats);
-                        Alert.alert(chat.is_group ? 'Could not leave group' : 'Could not delete chat', e instanceof Error ? e.message : 'Something went wrong.');
+                        appAlert.alert(chat.is_group ? 'Could not leave group' : 'Could not delete chat', e instanceof Error ? e.message : 'Something went wrong.');
                     } finally {
                         setPendingDeleteIds(prev => {
                             const next = new Set(prev);

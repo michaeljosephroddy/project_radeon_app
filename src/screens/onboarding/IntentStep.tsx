@@ -1,3 +1,4 @@
+import { appAlert } from '@/components/ui/appAlert';
 import React, { useState } from 'react';
 import {
     Alert,
@@ -41,7 +42,7 @@ export function IntentStep({ onNext, dotIndex, dotTotal }: IntentStepProps) {
             await refreshUser();
             onNext();
         } catch (error: unknown) {
-            Alert.alert('Error', error instanceof Error ? error.message : 'Something went wrong.');
+            appAlert.alert('Error', error instanceof Error ? error.message : 'Something went wrong.');
         } finally {
             setSaving(false);
         }

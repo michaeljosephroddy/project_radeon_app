@@ -1,3 +1,4 @@
+import { appAlert } from '@/components/ui/appAlert';
 import React, { useState, useRef } from 'react';
 import {
     View, Text, TextInput, TouchableOpacity,
@@ -55,7 +56,7 @@ export function ComposeDMScreen({
                 last_message_at: new Date().toISOString(),
             });
         } catch (e: unknown) {
-            Alert.alert('Failed to send', e instanceof Error ? e.message : 'Something went wrong.');
+            appAlert.alert('Failed to send', e instanceof Error ? e.message : 'Something went wrong.');
         } finally {
             setSending(false);
         }
