@@ -366,17 +366,6 @@ export function useReplyGroupAdminThreadMutation(groupId: string) {
     });
 }
 
-export function useResolveGroupAdminThreadMutation(groupId: string) {
-    const queryClient = useQueryClient();
-
-    return useMutation({
-        mutationFn: (threadId: string) => api.resolveGroupAdminThread(groupId, threadId),
-        onSuccess: async () => {
-            await queryClient.invalidateQueries({ queryKey: ['groups', 'admin-inbox', groupId] });
-        },
-    });
-}
-
 export function useReviewGroupReportMutation(groupId: string) {
     const queryClient = useQueryClient();
 

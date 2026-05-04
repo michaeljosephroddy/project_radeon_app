@@ -25,8 +25,9 @@ import {
 } from '../../../hooks/queries/useGroups';
 import { useScrollToTopButton } from '../../../hooks/useScrollToTopButton';
 import { screenStandards } from '../../../styles/screenStandards';
-import { Colors, ControlSizes, Radius, Spacing, TextStyles } from '../../../theme';
+import { Colors, ContentInsets, ControlSizes, Radius, Spacing, TextStyles, Typography } from '../../../theme';
 import { formatReadableTimestamp } from '../../../utils/date';
+import { formatUsername } from '../../../utils/identity';
 import { GroupAdminThreadScreen } from './GroupAdminThreadScreen';
 
 interface GroupAdminScreenProps {
@@ -172,18 +173,36 @@ function AdminInboxPanel({
                 ref={listRef}
                 data={threads}
                 keyExtractor={(item) => item.id}
-                contentContainerStyle={threads.length ? styles.listContent : styles.emptyContent}
+                contentContainerStyle={threads.length ? styles.inboxListContent : styles.emptyContent}
                 ListEmptyComponent={<EmptyState title="No admin messages" compact />}
                 renderItem={({ item }) => (
-                    <TouchableOpacity style={styles.inboxRow} onPress={() => onOpenThread(item.id)}>
-                        <Avatar username={item.username} avatarUrl={item.avatar_url ?? undefined} size={40} fontSize={13} />
-                        <View style={styles.rowCopy}>
-                            <Text style={styles.name}>{item.subject || item.username}</Text>
-                            <Text style={styles.meta}>{formatAdminThreadStatus(item.status)} · {formatReadableTimestamp(item.updated_at)}</Text>
+                    <TouchableOpacity style={styles.inboxItem} onPress={() => onOpenThread(item.id)}>
+                        <Avatar username={item.username} avatarUrl={item.avatar_url ?? undefined} size={44} fontSize={14} />
+                        <View style={styles.inboxMeta}>
+                            <Text style={styles.inboxName} numberOfLines={1}>{formatUsername(item.username)}</Text>
+                            {item.last_message || item.subject ? (
+                                <Text
+                                    style={[
+                                        styles.inboxPreview,
+                                        (item.unread_count ?? 0) > 0 && styles.inboxPreviewUnread,
+                                    ]}
+                                    numberOfLines={1}
+                                >
+                                    {item.last_message ?? item.subject}
+                                </Text>
+                            ) : null}
                         </View>
-                        <Ionicons name="chevron-forward" size={18} color={Colors.text.muted} />
+                        <View style={styles.inboxTrailing}>
+                            <Text style={styles.inboxTime}>{timeLabel(item.last_message_at ?? item.updated_at)}</Text>
+                            {(item.unread_count ?? 0) > 0 ? (
+                                <View style={styles.unreadBadge}>
+                                    <Text style={styles.unreadBadgeText}>{unreadCountLabel(item.unread_count ?? 0)}</Text>
+                                </View>
+                            ) : null}
+                        </View>
                     </TouchableOpacity>
                 )}
+                ItemSeparatorComponent={() => <View style={styles.inboxSeparator} />}
                 onEndReachedThreshold={0.4}
                 onEndReached={() => {
                     if (inboxQuery.hasNextPage && !inboxQuery.isFetchingNextPage) {
@@ -320,10 +339,22 @@ function ReportsPanel({ group }: { group: api.Group }): React.ReactElement {
     );
 }
 
-function formatAdminThreadStatus(status: api.GroupAdminThread['status']): string {
-    if (status === 'open') return 'Open';
-    if (status === 'replied') return 'Replied';
-    return 'Resolved';
+function timeLabel(dateStr?: string | null): string {
+    if (!dateStr) return '';
+    const date = new Date(dateStr);
+    if (Number.isNaN(date.getTime())) return '';
+    const diff = Date.now() - date.getTime();
+    const mins = Math.max(0, Math.floor(diff / 60000));
+    if (mins < 60) return `${mins}m`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return `${hrs}h`;
+    const days = Math.floor(hrs / 24);
+    if (days === 1) return 'yesterday';
+    return date.toLocaleDateString('default', { weekday: 'short' });
+}
+
+function unreadCountLabel(unreadCount: number): string {
+    return unreadCount > 99 ? '99+' : String(unreadCount);
 }
 
 function formatReportStatus(status: api.GroupReport['status']): string {
@@ -357,18 +388,68 @@ const styles = StyleSheet.create({
         padding: Spacing.md,
         gap: Spacing.md,
     },
+    inboxListContent: {
+        paddingTop: ContentInsets.screenHorizontal,
+        paddingBottom: ContentInsets.listBottom,
+    },
     listSurface: {
         flex: 1,
     },
-    inboxRow: {
-        minHeight: 62,
+    inboxItem: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: Spacing.sm,
-        borderBottomWidth: 1,
-        borderBottomColor: Colors.border.subtle,
-        paddingHorizontal: Spacing.md,
+        gap: 10,
+        paddingHorizontal: ContentInsets.screenHorizontal,
+        paddingVertical: 11,
         backgroundColor: Colors.bg.page,
+    },
+    inboxSeparator: {
+        height: 1,
+        backgroundColor: Colors.border.default,
+        marginLeft: ContentInsets.screenHorizontal + 44 + 10,
+    },
+    inboxMeta: {
+        flex: 1,
+        minWidth: 0,
+    },
+    inboxName: {
+        fontSize: Typography.sizes.md,
+        fontWeight: '500',
+        color: Colors.text.primary,
+    },
+    inboxPreview: {
+        marginTop: 1,
+        fontSize: Typography.sizes.sm,
+        color: Colors.text.muted,
+    },
+    inboxPreviewUnread: {
+        color: Colors.text.primary,
+        fontWeight: '600',
+    },
+    inboxTrailing: {
+        minWidth: 34,
+        alignSelf: 'stretch',
+        alignItems: 'flex-end',
+        justifyContent: 'space-between',
+        paddingVertical: 1,
+    },
+    inboxTime: {
+        fontSize: Typography.sizes.xs,
+        color: Colors.text.muted,
+    },
+    unreadBadge: {
+        minWidth: 22,
+        height: 22,
+        paddingHorizontal: Spacing.xs,
+        borderRadius: Radius.pill,
+        backgroundColor: Colors.danger,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    unreadBadgeText: {
+        fontSize: Typography.sizes.xs,
+        color: Colors.textOn.danger,
+        fontWeight: '700',
     },
     emptyContent: {
         flexGrow: 1,

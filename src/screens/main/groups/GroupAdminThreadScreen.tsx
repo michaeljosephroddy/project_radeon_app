@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, LayoutChangeEvent, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 import * as api from '../../../api/client';
 import { Avatar } from '../../../components/Avatar';
@@ -36,6 +37,7 @@ export function GroupAdminThreadScreen({
 }: GroupAdminThreadScreenProps): React.ReactElement {
     const { user } = useAuth();
     const insets = useSafeAreaInsets();
+    const queryClient = useQueryClient();
     const replyMutation = useReplyGroupAdminThreadMutation(group.id);
     const [thread, setThread] = useState<api.GroupAdminThread | null>(null);
     const [loading, setLoading] = useState(true);
@@ -52,12 +54,13 @@ export function GroupAdminThreadScreen({
         try {
             const detail = await api.getGroupAdminThread(group.id, threadId);
             setThread(detail);
+            void queryClient.invalidateQueries({ queryKey: ['groups', 'admin-inbox', group.id] });
         } catch (error: unknown) {
             setLoadError(error instanceof Error ? error.message : 'Could not load this chat.');
         } finally {
             setLoading(false);
         }
-    }, [group.id, threadId]);
+    }, [group.id, queryClient, threadId]);
 
     useEffect(() => {
         void loadThread();
@@ -80,7 +83,6 @@ export function GroupAdminThreadScreen({
             }))
     ), [thread?.messages]);
 
-    const canReply = thread ? thread.status !== 'resolved' : false;
     const displayName = thread?.username ? formatUsername(thread.username) : 'Admin inbox';
     const keyboardVerticalOffset = insets.top + headerHeight;
     const headerChat = useMemo<api.Chat>(() => ({
@@ -175,55 +177,47 @@ export function GroupAdminThreadScreen({
                             />
                         )}
                         renderInputToolbar={(props) => (
-                            canReply ? (
-                                <InputToolbar
-                                    {...props}
-                                    containerStyle={[composerStandards.row, styles.toolbarContainer]}
-                                    primaryStyle={styles.toolbarPrimary}
-                                    renderComposer={(composerProps) => (
-                                        <Composer
-                                            {...composerProps}
-                                            textInputProps={{
-                                                ...composerProps.textInputProps,
-                                                placeholder: 'Message',
-                                                placeholderTextColor: Colors.text.muted,
-                                                style: [
-                                                    composerStandards.input,
-                                                    styles.composerInput,
-                                                    composerProps.textInputProps?.style,
-                                                ],
-                                            }}
+                            <InputToolbar
+                                {...props}
+                                containerStyle={[composerStandards.row, styles.toolbarContainer]}
+                                primaryStyle={styles.toolbarPrimary}
+                                renderComposer={(composerProps) => (
+                                    <Composer
+                                        {...composerProps}
+                                        textInputProps={{
+                                            ...composerProps.textInputProps,
+                                            placeholder: 'Message',
+                                            placeholderTextColor: Colors.text.muted,
+                                            style: [
+                                                composerStandards.input,
+                                                styles.composerInput,
+                                                composerProps.textInputProps?.style,
+                                            ],
+                                        }}
+                                    />
+                                )}
+                                renderSend={(sendProps) => (
+                                    <Send
+                                        {...sendProps}
+                                        containerStyle={styles.sendContainer}
+                                        sendButtonProps={{
+                                            ...sendProps.sendButtonProps,
+                                            enabled: replyMutation.isPending ? false : sendProps.sendButtonProps?.enabled,
+                                            style: [
+                                                composerStandards.sendButton,
+                                                !sendProps.text?.trim() && composerStandards.sendButtonDisabled,
+                                                sendProps.sendButtonProps?.style,
+                                            ],
+                                        }}
+                                    >
+                                        <Ionicons
+                                            name="send"
+                                            size={18}
+                                            color={Colors.textOn.primary}
                                         />
-                                    )}
-                                    renderSend={(sendProps) => (
-                                        <Send
-                                            {...sendProps}
-                                            containerStyle={styles.sendContainer}
-                                            sendButtonProps={{
-                                                ...sendProps.sendButtonProps,
-                                                enabled: replyMutation.isPending ? false : sendProps.sendButtonProps?.enabled,
-                                                style: [
-                                                    composerStandards.sendButton,
-                                                    !sendProps.text?.trim() && composerStandards.sendButtonDisabled,
-                                                    sendProps.sendButtonProps?.style,
-                                                ],
-                                            }}
-                                        >
-                                            <Ionicons
-                                                name="send"
-                                                size={18}
-                                                color={Colors.textOn.primary}
-                                            />
-                                        </Send>
-                                    )}
-                                />
-                            ) : (
-                                <View style={styles.lockedToolbar}>
-                                    <Text style={styles.lockedToolbarText}>
-                                        This chat is closed to new messages.
-                                    </Text>
-                                </View>
-                            )
+                                    </Send>
+                                )}
+                            />
                         )}
                     />
                 )}
@@ -313,17 +307,6 @@ const styles = StyleSheet.create({
         justifyContent: 'flex-end',
         marginLeft: Spacing.sm,
         marginBottom: 2,
-    },
-    lockedToolbar: {
-        borderTopWidth: 1,
-        borderTopColor: Colors.border.default,
-        backgroundColor: Colors.bg.surface,
-        paddingHorizontal: Spacing.md,
-        paddingVertical: Spacing.md,
-    },
-    lockedToolbarText: {
-        ...TextStyles.secondary,
-        textAlign: 'center',
     },
     center: {
         flex: 1,
