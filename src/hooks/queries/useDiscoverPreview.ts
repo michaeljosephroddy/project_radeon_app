@@ -17,6 +17,7 @@ export function useDiscoverPreview(params: UseDiscoverPreviewParams, enabled = t
             query: params.query,
             city: params.city,
             gender: params.gender,
+            intent: params.intent,
             ageMin: params.ageMin,
             ageMax: params.ageMax,
             distanceKm: params.distanceKm,

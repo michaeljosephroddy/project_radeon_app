@@ -23,6 +23,7 @@ export function useDiscoverResults(params: UseDiscoverResultsParams, enabled = t
             query: params.query,
             city: params.city,
             gender: params.gender,
+            intent: params.intent,
             ageMin: params.ageMin,
             ageMax: params.ageMax,
             distanceKm: params.distanceKm,
@@ -36,6 +37,7 @@ export function useDiscoverResults(params: UseDiscoverResultsParams, enabled = t
             ? queryKeys.discoverFiltered({
                 city: params.city,
                 gender: params.gender,
+                intent: params.intent,
                 ageMin: params.ageMin,
                 ageMax: params.ageMax,
                 distanceKm: params.distanceKm,
@@ -58,6 +60,7 @@ export function useDiscoverResults(params: UseDiscoverResultsParams, enabled = t
             query: params.query,
             city: params.city,
             gender: params.gender,
+            intent: params.intent,
             ageMin: params.ageMin,
             ageMax: params.ageMax,
             distanceKm: params.distanceKm,

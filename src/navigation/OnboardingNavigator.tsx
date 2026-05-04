@@ -6,6 +6,7 @@ import { IdentityStep } from '../screens/onboarding/IdentityStep';
 import { SobrietyStep } from '../screens/onboarding/SobrietyStep';
 import { LocationStep } from '../screens/onboarding/LocationStep';
 import { InterestsStep } from '../screens/onboarding/InterestsStep';
+import { IntentStep } from '../screens/onboarding/IntentStep';
 import { PlusStep } from '../screens/onboarding/PlusStep';
 import { ReadyStep } from '../screens/onboarding/ReadyStep';
 
@@ -16,7 +17,7 @@ export interface OnboardingStepProps {
     dotTotal: number;
 }
 
-const DOT_TOTAL = 6;
+const DOT_TOTAL = 7;
 
 export function OnboardingNavigator() {
     const { completeOnboarding } = useAuth();
@@ -36,8 +37,9 @@ export function OnboardingNavigator() {
         case 3: return <SobrietyStep onNext={next} onSkip={next} {...dotProps(3)} />;
         case 4: return <LocationStep onNext={next} onSkip={next} {...dotProps(4)} />;
         case 5: return <InterestsStep onNext={next} onSkip={next} {...dotProps(5)} />;
-        case 6: return <PlusStep onNext={next} onSkip={next} {...dotProps(6)} />;
-        case 7: return <ReadyStep onComplete={completeOnboarding} />;
+        case 6: return <IntentStep onNext={next} onSkip={next} {...dotProps(6)} />;
+        case 7: return <PlusStep onNext={next} onSkip={next} {...dotProps(7)} />;
+        case 8: return <ReadyStep onComplete={completeOnboarding} />;
         default: completeOnboarding(); return null;
     }
 }

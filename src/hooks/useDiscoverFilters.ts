@@ -19,9 +19,11 @@ export const DISCOVER_SOBRIETY_OPTIONS = [
 ] as const;
 
 export type DiscoverGenderValue = typeof DISCOVER_GENDER_OPTIONS[number]['value'];
+export type DiscoverIntentValue = 'any' | api.ConnectionIntent;
 export type DiscoverSobrietyValue = typeof DISCOVER_SOBRIETY_OPTIONS[number]['value'];
 export type DiscoverChipKey =
     | 'gender'
+    | 'intent'
     | 'age'
     | 'distance'
     | 'sobriety'
@@ -29,6 +31,7 @@ export type DiscoverChipKey =
 
 export interface DiscoverDraftFilters {
     gender: DiscoverGenderValue;
+    intent: DiscoverIntentValue;
     ageMin: string;
     ageMax: string;
     distanceKm: number;
@@ -39,6 +42,7 @@ export interface DiscoverDraftFilters {
 
 export interface DiscoverAppliedFilters {
     gender: DiscoverGenderValue;
+    intent: DiscoverIntentValue;
     ageMin: number | null;
     ageMax: number | null;
     distanceKm: number;
@@ -64,6 +68,7 @@ export interface DiscoverActiveChip {
 export function createDefaultDiscoverDraftFilters(): DiscoverDraftFilters {
     return {
         gender: 'any',
+        intent: 'any',
         ageMin: '',
         ageMax: '',
         distanceKm: DISCOVER_DEFAULT_DISTANCE_KM,
@@ -76,6 +81,7 @@ export function createDefaultDiscoverDraftFilters(): DiscoverDraftFilters {
 export function createDefaultDiscoverAppliedFilters(): DiscoverAppliedFilters {
     return {
         gender: 'any',
+        intent: 'any',
         ageMin: null,
         ageMax: null,
         distanceKm: DISCOVER_DEFAULT_DISTANCE_KM,
@@ -97,6 +103,7 @@ export function createDefaultDiscoverAppliedState(): DiscoverAppliedState {
 
 export function hasNonDefaultDiscoverFilters(filters: DiscoverAppliedFilters): boolean {
     return filters.gender !== 'any'
+        || filters.intent !== 'any'
         || filters.ageMin !== null
         || filters.ageMax !== null
         || filters.distanceKm !== DISCOVER_DEFAULT_DISTANCE_KM
@@ -117,9 +124,16 @@ export function getDiscoverSobrietyLabel(sobriety: DiscoverSobrietyValue): strin
     return DISCOVER_SOBRIETY_OPTIONS.find((option) => option.value === sobriety)?.label ?? null;
 }
 
+export function getDiscoverIntentLabel(intent: DiscoverIntentValue): string | null {
+    if (intent === 'friends') return 'Friends';
+    if (intent === 'dating') return 'Open to dating';
+    return null;
+}
+
 export function getDiscoverFiltersSummary(filters: DiscoverAppliedFilters): string {
     const parts = [
         filters.gender !== 'any' ? getDiscoverGenderLabel(filters.gender) : null,
+        filters.intent !== 'any' ? getDiscoverIntentLabel(filters.intent) : null,
         filters.ageMin !== null || filters.ageMax !== null
             ? `Age ${filters.ageMin ?? 18}-${filters.ageMax ?? 99}`
             : null,
@@ -138,6 +152,13 @@ export function getDiscoverActiveChips(filters: DiscoverAppliedFilters): Discove
         chips.push({
             key: 'gender',
             label: getDiscoverGenderLabel(filters.gender) ?? 'Gender',
+        });
+    }
+
+    if (filters.intent !== 'any') {
+        chips.push({
+            key: 'intent',
+            label: getDiscoverIntentLabel(filters.intent) ?? 'Intent',
         });
     }
 
@@ -175,6 +196,7 @@ export function getDiscoverActiveChips(filters: DiscoverAppliedFilters): Discove
 export function createDiscoverDraftFromApplied(filters: DiscoverAppliedFilters): DiscoverDraftFilters {
     return {
         gender: filters.gender,
+        intent: filters.intent,
         ageMin: filters.ageMin === null ? '' : String(filters.ageMin),
         ageMax: filters.ageMax === null ? '' : String(filters.ageMax),
         distanceKm: filters.distanceKm,
@@ -199,6 +221,7 @@ export function validateDiscoverDraft(filters: DiscoverDraftFilters): { normaliz
     return {
         normalized: {
             gender: filters.gender,
+            intent: filters.intent,
             ageMin,
             ageMax,
             distanceKm: filters.distanceKm,
@@ -212,6 +235,7 @@ export function validateDiscoverDraft(filters: DiscoverDraftFilters): { normaliz
 export function toDiscoverApiFilters(filters: DiscoverAppliedFilters): api.DiscoverFiltersPayload {
     return {
         gender: filters.gender === 'any' ? undefined : filters.gender,
+        intent: filters.intent === 'any' ? undefined : filters.intent,
         ageMin: filters.ageMin ?? undefined,
         ageMax: filters.ageMax ?? undefined,
         distanceKm: filters.distanceKm,
@@ -244,6 +268,7 @@ export function applyDiscoverPreviewEffectiveFilters(
     const effective: DiscoverAppliedFilters = {
         ...requested,
         gender: (preview.effective_filters.gender ?? requested.gender) as DiscoverGenderValue,
+        intent: (preview.effective_filters.intent ?? requested.intent) as DiscoverIntentValue,
         ageMin: preview.effective_filters.age_min ?? requested.ageMin,
         ageMax: preview.effective_filters.age_max ?? requested.ageMax,
         distanceKm: preview.effective_filters.distance_km ?? requested.distanceKm,
@@ -264,6 +289,9 @@ export function applyDiscoverPreviewEffectiveFilters(
 export function clearDiscoverChip(filters: DiscoverAppliedFilters, chipKey: DiscoverChipKey): DiscoverAppliedFilters {
     if (chipKey === 'gender') {
         return { ...filters, gender: 'any' };
+    }
+    if (chipKey === 'intent') {
+        return { ...filters, intent: 'any' };
     }
     if (chipKey === 'age') {
         return { ...filters, ageMin: null, ageMax: null };
@@ -295,6 +323,8 @@ export function getDiscoverRelaxedCopy(relaxedFields: api.DiscoverRelaxedField[]
             return 'age range';
         case 'interests':
             return 'shared interests';
+        case 'intent':
+            return 'connection intent';
         case 'sobriety':
             return 'sobriety';
         }

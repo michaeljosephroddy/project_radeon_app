@@ -24,6 +24,7 @@ import { dedupeById } from '../../utils/list';
 import { getListPerformanceProps } from '../../utils/listPerformance';
 import { Colors, ControlSizes, Spacing, Radius, ContentInsets, TextStyles } from '../../theme';
 import { formatUsername } from '../../utils/identity';
+import { getConnectionIntentLabel, normalizeConnectionIntents } from '../../utils/connectionIntents';
 
 interface UserProfileScreenProps {
     userId: string;
@@ -47,6 +48,16 @@ function tabData(tab: ProfileContentTabKey, posts: api.Post[]): api.Post[] {
     return [];
 }
 
+interface ReportOption {
+    label: string;
+    reason: api.UserReportReason;
+}
+
+const REPORT_OPTIONS: ReportOption[] = [
+    { label: 'Unwanted advances', reason: 'unwanted_advances' },
+    { label: 'Other concern', reason: 'other' },
+];
+
 // Renders another user's public profile with an Instagram-style header and content tabs.
 export function UserProfileScreen({
     userId, username, avatarUrl,
@@ -60,6 +71,7 @@ export function UserProfileScreen({
     const userPostsListProps = getListPerformanceProps('detailList');
     const userPostsScrollToTop = useScrollToTopButton({ threshold: 320 });
     const [friendActionLoading, setFriendActionLoading] = useState(false);
+    const [safetyActionLoading, setSafetyActionLoading] = useState<'block' | 'report' | null>(null);
     const [activeTab, setActiveTab] = useState<ProfileContentTabKey>('posts');
 
     const profile = profileQuery.data ?? null;
@@ -74,6 +86,10 @@ export function UserProfileScreen({
     const loadingMorePosts = activeTab === 'posts' && userPostsQuery.isFetchingNextPage;
     const postsHasMore = activeTab === 'posts' && (userPostsQuery.hasNextPage ?? false);
     const friendshipStatus = profile?.friendship_status === 'self' ? 'friends' : (profile?.friendship_status ?? 'none');
+    const profileIntents = useMemo(
+        () => profile ? normalizeConnectionIntents(profile.connection_intents) : [],
+        [profile],
+    );
 
     const onRefresh = async (): Promise<void> => {
         if (activeTab === 'posts') {
@@ -112,6 +128,73 @@ export function UserProfileScreen({
 
     const handleDM = (): void => {
         onComposeDM({ recipientId: userId, username: profile?.username ?? username, avatarUrl: profileAvatarUrl });
+    };
+
+    const invalidateDiscoveryQueries = async (): Promise<void> => {
+        await Promise.all([
+            queryClient.invalidateQueries({ queryKey: queryKeys.user(userId) }),
+            queryClient.invalidateQueries({ queryKey: ['discover-suggested'] }),
+            queryClient.invalidateQueries({ queryKey: ['discover-filtered'] }),
+            queryClient.invalidateQueries({ queryKey: ['discover-search'] }),
+        ]);
+    };
+
+    const handleBlockUser = (): void => {
+        Alert.alert(
+            'Block user?',
+            `${profileName} will no longer be able to message you, and you will stop seeing them in discovery.`,
+            [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                    text: 'Block',
+                    style: 'destructive',
+                    onPress: () => {
+                        void (async () => {
+                            setSafetyActionLoading('block');
+                            try {
+                                await api.blockUser(userId);
+                                await invalidateDiscoveryQueries();
+                                Alert.alert('User blocked', `${profileName} has been blocked.`, [
+                                    { text: 'OK', onPress: onBack },
+                                ]);
+                            } catch (error: unknown) {
+                                Alert.alert('Block failed', error instanceof Error ? error.message : 'Something went wrong.');
+                            } finally {
+                                setSafetyActionLoading(null);
+                            }
+                        })();
+                    },
+                },
+            ],
+        );
+    };
+
+    const submitReport = async (reason: api.UserReportReason): Promise<void> => {
+        setSafetyActionLoading('report');
+        try {
+            await api.reportUser(userId, { reason });
+            Alert.alert('Report sent', 'Thanks for helping keep the community safe.');
+        } catch (error: unknown) {
+            Alert.alert('Report failed', error instanceof Error ? error.message : 'Something went wrong.');
+        } finally {
+            setSafetyActionLoading(null);
+        }
+    };
+
+    const handleReportUser = (): void => {
+        Alert.alert(
+            'Report user',
+            'Choose the closest reason.',
+            [
+                { text: 'Cancel', style: 'cancel' },
+                ...REPORT_OPTIONS.map((option) => ({
+                    text: option.label,
+                    onPress: () => {
+                        void submitReport(option.reason);
+                    },
+                })),
+            ],
+        );
     };
 
     const handleOpenPostComments = (post: api.Post): void => {
@@ -186,6 +269,18 @@ export function UserProfileScreen({
                                 ))}
                             </View>
                         ) : null}
+                        {profileIntents.length ? (
+                            <View style={styles.intentBlock}>
+                                <Text style={styles.intentTitle}>Connection intent</Text>
+                                <View style={styles.intentWrap}>
+                                    {profileIntents.map((intent) => (
+                                        <View key={intent} style={styles.intentChip}>
+                                            <Text style={styles.intentChipText}>{getConnectionIntentLabel(intent)}</Text>
+                                        </View>
+                                    ))}
+                                </View>
+                            </View>
+                        ) : null}
                         <SobrietyCounter soberSince={profile?.sober_since} compact style={styles.sobrietyCounter} />
                     </>
                 )}
@@ -211,6 +306,24 @@ export function UserProfileScreen({
                     disabled={loadingProfile}
                 >
                     <Text style={styles.dmBtnText}>Message</Text>
+                </TouchableOpacity>
+            </View>
+            <View style={styles.safetyActionRow}>
+                <TouchableOpacity
+                    style={[styles.safetyActionButton, safetyActionLoading === 'report' && styles.disabledButton]}
+                    onPress={handleReportUser}
+                    disabled={loadingProfile || safetyActionLoading !== null}
+                >
+                    <Ionicons name="flag-outline" size={15} color={Colors.text.secondary} />
+                    <Text style={styles.safetyActionText}>Report</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                    style={[styles.safetyActionButton, safetyActionLoading === 'block' && styles.disabledButton]}
+                    onPress={handleBlockUser}
+                    disabled={loadingProfile || safetyActionLoading !== null}
+                >
+                    <Ionicons name="ban-outline" size={16} color={Colors.danger} />
+                    <Text style={styles.safetyActionDangerText}>Block</Text>
                 </TouchableOpacity>
             </View>
 
@@ -342,6 +455,29 @@ const styles = StyleSheet.create({
     interestChipText: {
         ...TextStyles.chip,
     },
+    intentBlock: {
+        gap: Spacing.xs,
+        marginTop: Spacing.md,
+    },
+    intentTitle: {
+        ...TextStyles.label,
+        color: Colors.text.primary,
+    },
+    intentWrap: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: Spacing.sm,
+    },
+    intentChip: {
+        borderRadius: Radius.pill,
+        backgroundColor: Colors.primarySubtle,
+        paddingHorizontal: Spacing.md,
+        paddingVertical: Spacing.xs,
+    },
+    intentChipText: {
+        ...TextStyles.chip,
+        color: Colors.primary,
+    },
     sobrietyCounter: {
         marginTop: Spacing.sm,
     },
@@ -388,5 +524,31 @@ const styles = StyleSheet.create({
         ...TextStyles.button,
         fontSize: TextStyles.chip.fontSize,
         color: Colors.text.primary,
+    },
+    safetyActionRow: {
+        flexDirection: 'row',
+        gap: Spacing.sm,
+        paddingHorizontal: Spacing.lg,
+        paddingBottom: Spacing.md,
+    },
+    safetyActionButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: Spacing.xs,
+        minHeight: 34,
+        paddingHorizontal: Spacing.md,
+        borderRadius: Radius.sm,
+        borderWidth: 1,
+        borderColor: Colors.border.default,
+        backgroundColor: Colors.bg.surface,
+    },
+    safetyActionText: {
+        ...TextStyles.caption,
+        color: Colors.text.secondary,
+    },
+    safetyActionDangerText: {
+        ...TextStyles.caption,
+        color: Colors.danger,
     },
 });
