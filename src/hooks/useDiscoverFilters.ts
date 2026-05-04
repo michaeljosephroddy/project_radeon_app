@@ -125,7 +125,6 @@ export function getDiscoverSobrietyLabel(sobriety: DiscoverSobrietyValue): strin
 }
 
 export function getDiscoverIntentLabel(intent: DiscoverIntentValue): string | null {
-    if (intent === 'support') return 'Support & accountability';
     if (intent === 'friends') return 'Friends';
     if (intent === 'dating') return 'Open to dating';
     return null;

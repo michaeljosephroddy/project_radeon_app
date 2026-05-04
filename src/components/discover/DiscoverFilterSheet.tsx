@@ -89,7 +89,7 @@ function getPreviewCopy(
     validationError?: string,
 ): string {
     if (!canUseAdvancedFilters) {
-        return 'Plus lets members refine discovery by intent, age, distance, sobriety, and shared interests.';
+        return 'Plus lets members refine discovery by dating openness, age, distance, sobriety, and shared interests.';
     }
     if (validationError) {
         return validationError;
@@ -153,7 +153,7 @@ export function DiscoverFilterSheet({
                     <View style={styles.section}>
                         <Text style={styles.sectionTitle}>Connection intent</Text>
                         <View style={styles.optionWrap}>
-                            {(['any', 'support', 'friends', 'dating'] as const).map((intent) => (
+                            {(['any', 'dating'] as const).map((intent) => (
                                 <FilterOptionChip
                                     key={intent}
                                     label={intent === 'any' ? 'Any' : getDiscoverIntentLabel(intent) ?? intent}

@@ -241,15 +241,13 @@ export function ProfileTabScreen({
     };
 
     const handleToggleIntent = (intent: api.ConnectionIntent) => {
+        if (intent === 'friends') return;
+
         setSelectedIntents((current) => {
             const isSelected = current.includes(intent);
-            if (isSelected && current.length === 1) {
-                Alert.alert('Connection intent required', 'Pick at least one intent.');
-                return current;
-            }
             return isSelected
-                ? current.filter((item) => item !== intent)
-                : [...current, intent].sort((a, b) => a.localeCompare(b));
+                ? ['friends']
+                : ['friends', intent];
         });
     };
 
@@ -861,7 +859,7 @@ export function ProfileTabScreen({
                         <View style={styles.sectionCardHeader}>
                             <Text style={styles.sectionCardTitle}>What are you open to?</Text>
                             {editingSection === 'intent' ? (
-                                <Text style={styles.interestsCount}>{selectedIntents.length}/3</Text>
+                                <Text style={styles.interestsCount}>{selectedIntents.length}/2</Text>
                             ) : (
                                 <TouchableOpacity onPress={() => handleStartEditSection('intent')}>
                                     <Text style={styles.sectionActionText}>Edit</Text>
@@ -876,8 +874,13 @@ export function ProfileTabScreen({
                                         return (
                                             <TouchableOpacity
                                                 key={option.value}
-                                                style={[styles.interestChip, isSelected && styles.interestChipActive]}
+                                                style={[
+                                                    styles.interestChip,
+                                                    isSelected && styles.interestChipActive,
+                                                    option.value === 'friends' && styles.intentChipLocked,
+                                                ]}
                                                 onPress={() => handleToggleIntent(option.value)}
+                                                disabled={option.value === 'friends'}
                                             >
                                                 <Text style={[styles.interestChipText, isSelected && styles.interestChipTextActive]}>
                                                     {option.label}
@@ -1366,6 +1369,9 @@ const styles = StyleSheet.create({
     interestChipActive: {
         backgroundColor: Colors.primary,
         borderColor: Colors.primary,
+    },
+    intentChipLocked: {
+        opacity: 0.82,
     },
     interestChipText: {
         fontSize: Typography.sizes.sm,

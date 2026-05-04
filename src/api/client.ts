@@ -647,7 +647,7 @@ export interface ChatRealtimeServerEvent {
 }
 
 export type UserGender = 'woman' | 'man' | 'non_binary';
-export type ConnectionIntent = 'support' | 'friends' | 'dating';
+export type ConnectionIntent = 'friends' | 'dating';
 export type UserReportReason = 'unwanted_advances' | 'harassment' | 'spam' | 'safety_concern' | 'other';
 export type DiscoverSobrietyFilter = 'days_30' | 'days_90' | 'years_1' | 'years_5';
 export type DiscoverRelaxedField = 'distance' | 'age' | 'interests' | 'intent' | 'sobriety';

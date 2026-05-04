@@ -24,15 +24,13 @@ export function IntentStep({ onNext, dotIndex, dotTotal }: IntentStepProps) {
     const [saving, setSaving] = useState(false);
 
     const toggleIntent = (intent: api.ConnectionIntent): void => {
+        if (intent === 'friends') return;
+
         setSelected((current) => {
             const isSelected = current.includes(intent);
-            if (isSelected && current.length === 1) {
-                Alert.alert('Pick at least one', 'Choose at least one connection intent.');
-                return current;
-            }
             return isSelected
-                ? current.filter((item) => item !== intent)
-                : [...current, intent].sort((a, b) => a.localeCompare(b));
+                ? ['friends']
+                : ['friends', intent];
         });
     };
 
@@ -63,7 +61,7 @@ export function IntentStep({ onNext, dotIndex, dotTotal }: IntentStepProps) {
             <View style={styles.header}>
                 <Text style={styles.title}>What kind of connection helps you?</Text>
                 <Text style={styles.subtitle}>
-                    Choose what you are open to. You can change this any time.
+                    Everyone is here for recovery and friendship. Choose whether you are also open to dating.
                 </Text>
             </View>
 
@@ -73,8 +71,13 @@ export function IntentStep({ onNext, dotIndex, dotTotal }: IntentStepProps) {
                     return (
                         <TouchableOpacity
                             key={option.value}
-                            style={[styles.option, isSelected && styles.optionActive]}
+                            style={[
+                                styles.option,
+                                isSelected && styles.optionActive,
+                                option.value === 'friends' && styles.optionLocked,
+                            ]}
                             onPress={() => toggleIntent(option.value)}
+                            disabled={option.value === 'friends'}
                             activeOpacity={0.86}
                         >
                             <Text style={[styles.optionTitle, isSelected && styles.optionTitleActive]}>{option.label}</Text>
@@ -136,6 +139,9 @@ const styles = StyleSheet.create({
     optionActive: {
         borderColor: Colors.primary,
         backgroundColor: Colors.primarySubtle,
+    },
+    optionLocked: {
+        opacity: 0.82,
     },
     optionTitle: {
         fontSize: Typography.sizes.md,
