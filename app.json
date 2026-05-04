@@ -7,7 +7,7 @@
     "userInterfaceStyle": "automatic",
     "icon": "./soberspace_icon.png",
     "splash": {
-      "backgroundColor": "#212529"
+      "backgroundColor": "#07090c"
     },
     "ios": {
       "supportsTablet": false,
@@ -17,7 +17,7 @@
       "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "foregroundImage": "./soberspace_icon.png",
-        "backgroundColor": "#212529"
+        "backgroundColor": "#07090c"
       },
       "package": "com.projectradeon.app",
       "permissions": [

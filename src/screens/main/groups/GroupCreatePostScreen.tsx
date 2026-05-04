@@ -1,4 +1,5 @@
 import React, { useCallback } from 'react';
+import { KeyboardAvoidingView, Platform, StyleSheet, View } from 'react-native';
 import * as api from '../../../api/client';
 import { useCreateGroupPostMutation } from '../../../hooks/queries/useGroups';
 import { PostComposer, PostComposerSubmitInput } from '../createPost/PostComposer';
@@ -12,6 +13,7 @@ export function GroupCreatePostScreen({
     group,
     onBack,
 }: GroupCreatePostScreenProps): React.ReactElement {
+    const ScreenContainer = Platform.OS === 'ios' ? KeyboardAvoidingView : View;
     const createGroupPostMutation = useCreateGroupPostMutation(group.id);
 
     const handleSubmit = useCallback(
@@ -30,13 +32,24 @@ export function GroupCreatePostScreen({
     );
 
     return (
-        <PostComposer
-            title={`Post to ${group.name}`}
-            isSubmitting={createGroupPostMutation.isPending}
-            tagsEnabled={false}
-            draftsEnabled={false}
-            onBack={onBack}
-            onSubmit={handleSubmit}
-        />
+        <ScreenContainer
+            style={styles.container}
+            {...(Platform.OS === 'ios' ? { behavior: 'padding' as const, keyboardVerticalOffset: 0 } : {})}
+        >
+            <PostComposer
+                title={`Post to ${group.name}`}
+                isSubmitting={createGroupPostMutation.isPending}
+                tagsEnabled={false}
+                draftsEnabled={false}
+                onBack={onBack}
+                onSubmit={handleSubmit}
+            />
+        </ScreenContainer>
     );
 }
+
+const styles = StyleSheet.create({
+    container: {
+        flex: 1,
+    },
+});
