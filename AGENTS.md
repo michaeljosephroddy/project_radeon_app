@@ -7,12 +7,13 @@ This file provides guidance to Codex when working with code in this repository.
 ```bash
 npm install          # Install dependencies
 npx expo start       # Start Expo dev server
-npx run:ios          # Run in iOS simulator
-npx run:android      # Run in Android emulator
-npx run:web          # Run in web browser
+npm run ios          # Run in iOS simulator
+npm run android      # Run in Android emulator
+npm run web          # Run in web browser
+npm run typecheck    # Run TypeScript validation
 ```
 
-No dedicated test or lint commands are configured.
+No dedicated test or lint commands are configured. Use `npm run typecheck` for static validation.
 
 ### API URL configuration
 
@@ -45,13 +46,13 @@ Screens → useAuth hook / API client → Go backend
 
 **`src/navigation/`** — Two navigators:
 - `AuthNavigator`: Shows Login or Register based on auth state.
-- `AppNavigator`: Tab-based main app (feed, people, meetups, chats). Tabs use a custom indicator rather than React Navigation's default tab bar. Chat drill-down and the ProfileSheet modal are managed here, not via stack navigation.
+- `AppNavigator`: Tab-based main app (community, discover, groups, meetups, chats). Tabs use a custom indicator rather than React Navigation's default tab bar. Chat drill-down, profile overlays, create flows, and detail overlays are managed here, not via stack navigation.
 
 **`src/screens/`** — Each screen is self-contained: owns its local state, fetches its own data, and calls API client functions directly. Navigation uses callbacks passed as props rather than React Navigation's `navigation.push`.
 
-**`src/components/`** — Shared UI: `Avatar` (initials + deterministic color from name hash), `ProfileSheet`, `ConnectionSheet`.
+**`src/components/`** — Shared UI: `Avatar` (initials + deterministic color from name hash), cards, filters, comments, post components, support components, and reusable `ui/` primitives.
 
-**`src/utils/theme.ts`** — Screen-facing theme entry point and compatibility shim over `src/theme/*`, which holds the authoritative design tokens (current primary `#0d6efd`), typography, spacing, border radii, avatar palette, and helpers (`getInitials`, `getAvatarColors`, `timeAgo`).
+**`src/theme/`** — Authoritative design tokens (current primary `#0d6efd`), typography, spacing, border radii, avatar palette, and helpers (`getInitials`, `getAvatarColors`, `timeAgo`).
 
 ### Key patterns
 
@@ -78,7 +79,7 @@ Screens → useAuth hook / API client → Go backend
 - Keep components focused. If a component exceeds ~150 lines, consider extracting sub-components or moving logic into a custom hook.
 - Extract repeated JSX patterns (3+ uses) into a shared component in `src/components/`. Don't duplicate layout or styling inline.
 - All shared UI goes in `src/components/`. Screen-specific sub-components can live in the same screen file if they are small and not reused elsewhere.
-- Avoid inline styles (`style={{ marginTop: 8 }}`). All styles live in the `StyleSheet.create` block at the bottom of the file, using design tokens from `src/utils/theme.ts`.
+- Avoid inline styles (`style={{ marginTop: 8 }}`). All styles live in the `StyleSheet.create` block at the bottom of the file where practical, using design tokens from `src/theme`.
 
 ### Hooks and state
 
@@ -95,7 +96,7 @@ Screens → useAuth hook / API client → Go backend
 
 ### Styling
 
-- All colours, font sizes, spacing values, and border radii come from `src/utils/theme.ts`. Never hardcode `#hex`, `px`, or magic numbers in a component file, except for truly one-off values that have no semantic meaning.
+- All colours, font sizes, spacing values, and border radii come from `src/theme`. Never hardcode `#hex`, `px`, or magic numbers in a component file, except for truly one-off values that have no semantic meaning.
 - Use `StyleSheet.create` for every style block — never pass plain objects as style props.
 - Safe area handling: use `SafeAreaView` with explicit `edges` rather than hardcoded padding. Top edge is handled by `AppNavigator`; screens that replace the tab bar (chat, profile) must handle the bottom edge themselves.
 
@@ -112,10 +113,13 @@ src/
   components/   # reusable UI components
   hooks/        # custom hooks (useAuth, and future data hooks)
   navigation/   # AppNavigator, AuthNavigator
+  query/        # React Query client, persistence, and cache helpers
   screens/
     auth/       # Login, Register
-    main/       # Feed, People, Meetups, Chats, Chat, Profile
-  utils/        # theme.ts and any pure utility functions
+    main/       # Community feed, discover, groups, meetups, chats, profile, and create/detail flows
+  styles/       # shared StyleSheet standards
+  theme/        # colours, typography, spacing, radii, and theme helpers
+  utils/        # pure utility functions
 ```
 
 - Don't create new top-level folders without a clear reason. Fit new code into the existing structure first.

@@ -3,8 +3,6 @@ import {
     ActivityIndicator,
     Alert,
     Image,
-    KeyboardAvoidingView,
-    Platform,
     ScrollView,
     StyleSheet,
     Text,
@@ -13,12 +11,14 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 import * as ImagePicker from 'expo-image-picker';
 import * as api from '../../../api/client';
 import { CREATE_SURFACE_HEADER_HEIGHT, CreateSurfaceHeader } from '../../../components/ui/CreateSurfaceHeader';
 import { SegmentedControl } from '../../../components/ui/SegmentedControl';
 import { TextField } from '../../../components/ui/TextField';
 import { useCreateGroupMutation } from '../../../hooks/queries/useGroups';
+import { useGradualKeyboardInset } from '../../../hooks/useGradualKeyboardInset';
 import { Colors, ContentInsets, ControlSizes, Radius, Spacing, TextStyles } from '../../../theme';
 
 interface GroupCreateScreenProps {
@@ -70,6 +70,13 @@ export function GroupCreateScreen({
     const [selectedImage, setSelectedImage] = useState<GroupImageState | null>(null);
     const [submitting, setSubmitting] = useState(false);
     const uploadPromiseRef = useRef<Promise<api.GroupImageUploadResult> | null>(null);
+    const { height: keyboardInsetHeight } = useGradualKeyboardInset({
+        closedHeight: 0,
+        openedOffset: Spacing.sm,
+    });
+    const keyboardSpacerStyle = useAnimatedStyle((): { height: number } => ({
+        height: keyboardInsetHeight.value,
+    }));
 
     const trimmedName = name.trim();
     const isCreating = createGroupMutation.isPending || submitting;
@@ -205,83 +212,81 @@ export function GroupCreateScreen({
 
     return (
         <SafeAreaView style={styles.container} edges={['bottom']}>
-            <KeyboardAvoidingView
-                style={styles.keyboardAvoiding}
-                behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            <CreateSurfaceHeader
+                title="Create group"
+                onBack={onBack}
+                trailing={(
+                    <TouchableOpacity
+                        style={[styles.headerAction, !canSubmit && styles.disabled]}
+                        onPress={handleCreate}
+                        disabled={!canSubmit}
+                    >
+                        {isCreating ? (
+                            <ActivityIndicator size="small" color={Colors.primary} />
+                        ) : (
+                            <Text style={styles.headerActionText}>Create</Text>
+                        )}
+                    </TouchableOpacity>
+                )}
+            />
+            <ScrollView
+                style={styles.scroll}
+                contentContainerStyle={styles.content}
+                keyboardShouldPersistTaps="handled"
+                keyboardDismissMode="interactive"
+                automaticallyAdjustKeyboardInsets={false}
             >
-                <CreateSurfaceHeader
-                    title="Create group"
-                    onBack={onBack}
-                    trailing={(
-                        <TouchableOpacity
-                            style={[styles.headerAction, !canSubmit && styles.disabled]}
-                            onPress={handleCreate}
-                            disabled={!canSubmit}
-                        >
-                            {isCreating ? (
-                                <ActivityIndicator size="small" color={Colors.primary} />
+                <View style={styles.section}>
+                    <Text style={styles.sectionTitle}>Group photo</Text>
+                    <View style={styles.imageRow}>
+                        <TouchableOpacity style={styles.imagePicker} onPress={handlePickImage} activeOpacity={0.9}>
+                            {selectedImage ? (
+                                <Image source={{ uri: selectedImage.localImage.uri }} style={styles.imagePreview} />
                             ) : (
-                                <Text style={styles.headerActionText}>Create</Text>
+                                <Ionicons name="image-outline" size={24} color={Colors.text.muted} />
                             )}
                         </TouchableOpacity>
-                    )}
-                />
-                <ScrollView
-                    style={styles.scroll}
-                    contentContainerStyle={styles.content}
-                    keyboardShouldPersistTaps="handled"
-                >
-                    <View style={styles.section}>
-                        <Text style={styles.sectionTitle}>Group photo</Text>
-                        <View style={styles.imageRow}>
-                            <TouchableOpacity style={styles.imagePicker} onPress={handlePickImage} activeOpacity={0.9}>
-                                {selectedImage ? (
-                                    <Image source={{ uri: selectedImage.localImage.uri }} style={styles.imagePreview} />
-                                ) : (
-                                    <Ionicons name="image-outline" size={24} color={Colors.text.muted} />
-                                )}
+                        <View style={styles.imageActions}>
+                            <TouchableOpacity style={styles.imageButton} onPress={handlePickImage}>
+                                <Text style={styles.imageButtonText}>{selectedImage ? 'Replace image' : 'Add image'}</Text>
                             </TouchableOpacity>
-                            <View style={styles.imageActions}>
-                                <TouchableOpacity style={styles.imageButton} onPress={handlePickImage}>
-                                    <Text style={styles.imageButtonText}>{selectedImage ? 'Replace image' : 'Add image'}</Text>
-                                </TouchableOpacity>
-                                {selectedImage?.status === 'uploading' ? (
-                                    <View style={styles.imageUploadStatus}>
-                                        <ActivityIndicator size="small" color={Colors.primary} />
-                                        <Text style={styles.imageUploadText}>Uploading…</Text>
-                                    </View>
-                                ) : null}
-                                {selectedImage?.status === 'failed' ? (
-                                    <View style={styles.imageFailureActions}>
-                                        <TouchableOpacity style={styles.imageSecondaryButton} onPress={handleRetryImageUpload}>
-                                            <Text style={styles.imageSecondaryButtonText}>Retry</Text>
-                                        </TouchableOpacity>
-                                        <TouchableOpacity style={styles.imageSecondaryButton} onPress={handleRemoveImage}>
-                                            <Text style={styles.imageSecondaryButtonText}>Remove</Text>
-                                        </TouchableOpacity>
-                                    </View>
-                                ) : null}
-                            </View>
+                            {selectedImage?.status === 'uploading' ? (
+                                <View style={styles.imageUploadStatus}>
+                                    <ActivityIndicator size="small" color={Colors.primary} />
+                                    <Text style={styles.imageUploadText}>Uploading…</Text>
+                                </View>
+                            ) : null}
+                            {selectedImage?.status === 'failed' ? (
+                                <View style={styles.imageFailureActions}>
+                                    <TouchableOpacity style={styles.imageSecondaryButton} onPress={handleRetryImageUpload}>
+                                        <Text style={styles.imageSecondaryButtonText}>Retry</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity style={styles.imageSecondaryButton} onPress={handleRemoveImage}>
+                                        <Text style={styles.imageSecondaryButtonText}>Remove</Text>
+                                    </TouchableOpacity>
+                                </View>
+                            ) : null}
                         </View>
                     </View>
+                </View>
 
-                    <View style={styles.section}>
-                        <Text style={styles.sectionTitle}>Basics</Text>
-                        <TextField
-                            value={name}
-                            onChangeText={setName}
-                            placeholder="Group name"
-                            autoCapitalize="words"
-                            returnKeyType="next"
-                        />
-                        <TextField
-                            value={description}
-                            onChangeText={setDescription}
-                            placeholder="What is this group for?"
-                            multiline
-                            style={styles.descriptionInput}
-                        />
-                    </View>
+                <View style={styles.section}>
+                    <Text style={styles.sectionTitle}>Basics</Text>
+                    <TextField
+                        value={name}
+                        onChangeText={setName}
+                        placeholder="Group name"
+                        autoCapitalize="words"
+                        returnKeyType="next"
+                    />
+                    <TextField
+                        value={description}
+                        onChangeText={setDescription}
+                        placeholder="What is this group for?"
+                        multiline
+                        style={styles.descriptionInput}
+                    />
+                </View>
 
                 <View style={styles.section}>
                     <Text style={styles.sectionTitle}>Access</Text>
@@ -354,22 +359,22 @@ export function GroupCreateScreen({
                     />
                 </View>
 
-                    <TouchableOpacity
-                        style={[styles.primaryButton, !canSubmit && styles.disabled]}
-                        onPress={handleCreate}
-                        disabled={!canSubmit}
-                    >
-                        {isCreating ? (
-                            <ActivityIndicator color={Colors.textOn.primary} />
-                        ) : (
-                            <>
-                                <Ionicons name="people-outline" size={18} color={Colors.textOn.primary} />
-                                <Text style={styles.primaryButtonText}>Create group</Text>
-                            </>
-                        )}
-                    </TouchableOpacity>
-                </ScrollView>
-            </KeyboardAvoidingView>
+                <TouchableOpacity
+                    style={[styles.primaryButton, !canSubmit && styles.disabled]}
+                    onPress={handleCreate}
+                    disabled={!canSubmit}
+                >
+                    {isCreating ? (
+                        <ActivityIndicator color={Colors.textOn.primary} />
+                    ) : (
+                        <>
+                            <Ionicons name="people-outline" size={18} color={Colors.textOn.primary} />
+                            <Text style={styles.primaryButtonText}>Create group</Text>
+                        </>
+                    )}
+                </TouchableOpacity>
+            </ScrollView>
+            <Animated.View style={[styles.keyboardSpacer, keyboardSpacerStyle]} />
         </SafeAreaView>
     );
 }
@@ -378,9 +383,6 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: Colors.bg.page,
-    },
-    keyboardAvoiding: {
-        flex: 1,
     },
     headerAction: {
         minHeight: ControlSizes.iconButton,
@@ -395,10 +397,14 @@ const styles = StyleSheet.create({
     scroll: {
         flex: 1,
     },
+    keyboardSpacer: {
+        flexShrink: 0,
+        backgroundColor: Colors.bg.page,
+    },
     content: {
         paddingHorizontal: ContentInsets.screenHorizontal,
         paddingTop: CREATE_SURFACE_HEADER_HEIGHT + Spacing.md,
-        paddingBottom: ContentInsets.detailBottom + ControlSizes.fabMinHeight + Spacing.xl,
+        paddingBottom: Spacing.lg,
         gap: Spacing.lg,
     },
     section: {
