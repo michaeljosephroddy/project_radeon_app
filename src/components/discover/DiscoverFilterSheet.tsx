@@ -16,6 +16,7 @@ import {
     DISCOVER_SOBRIETY_OPTIONS,
     DiscoverDraftFilters,
     getDiscoverDistanceLabel,
+    getDiscoverIntentLabel,
 } from '../../hooks/useDiscoverFilters';
 import { Colors, ControlSizes, Radius, Spacing, TextStyles, Typography } from '../../theme';
 import { screenStandards } from '../../styles/screenStandards';
@@ -88,7 +89,7 @@ function getPreviewCopy(
     validationError?: string,
 ): string {
     if (!canUseAdvancedFilters) {
-        return 'Plus lets members refine discovery by age, distance, sobriety, and shared interests.';
+        return 'Plus lets members refine discovery by intent, age, distance, sobriety, and shared interests.';
     }
     if (validationError) {
         return validationError;
@@ -144,6 +145,20 @@ export function DiscoverFilterSheet({
                                     label={option.label}
                                     selected={draftFilters.gender === option.value}
                                     onPress={() => onChangeFilters((current) => ({ ...current, gender: option.value }))}
+                                />
+                            ))}
+                        </View>
+                    </View>
+
+                    <View style={styles.section}>
+                        <Text style={styles.sectionTitle}>Connection intent</Text>
+                        <View style={styles.optionWrap}>
+                            {(['any', 'support', 'friends', 'dating'] as const).map((intent) => (
+                                <FilterOptionChip
+                                    key={intent}
+                                    label={intent === 'any' ? 'Any' : getDiscoverIntentLabel(intent) ?? intent}
+                                    selected={draftFilters.intent === intent}
+                                    onPress={() => onChangeFilters((current) => ({ ...current, intent }))}
                                 />
                             ))}
                         </View>

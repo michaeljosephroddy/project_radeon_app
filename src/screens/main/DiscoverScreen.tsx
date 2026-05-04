@@ -44,6 +44,7 @@ import { useDiscoverResults as useDiscoverResultsQuery } from '../../hooks/queri
 import { getDeviceCoords } from '../../utils/location';
 import { getRecoveryMilestone } from '../../utils/date';
 import { formatUsername } from '../../utils/identity';
+import { getConnectionIntentLabel, normalizeConnectionIntents } from '../../utils/connectionIntents';
 import { Colors, ControlSizes, Spacing, TextStyles, Typography, Radius, getAvatarColors } from '../../theme';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -135,6 +136,13 @@ const DiscoverCard = memo(function DiscoverCard({ user, isFriended, onPress, onF
                     </View>
                 ) : null}
                 <Text style={styles.cardName} numberOfLines={1}>{formatUsername(user.username)}</Text>
+                <View style={styles.cardIntentRow}>
+                    {normalizeConnectionIntents(user.connection_intents).slice(0, 2).map((intent) => (
+                        <View key={intent} style={styles.cardIntentPill}>
+                            <Text style={styles.cardIntentText} numberOfLines={1}>{getConnectionIntentLabel(intent)}</Text>
+                        </View>
+                    ))}
+                </View>
             </View>
         </TouchableOpacity>
     );
@@ -160,6 +168,13 @@ const SearchResultRow = memo(function SearchResultRow({ user, isFriended, onOpen
                         {[milestone?.currentLabel, locationLabel].filter(Boolean).join(' · ')}
                     </Text>
                 ) : null}
+                <View style={styles.resultIntentRow}>
+                    {normalizeConnectionIntents(user.connection_intents).slice(0, 2).map((intent) => (
+                        <View key={intent} style={styles.resultIntentPill}>
+                            <Text style={styles.resultIntentText} numberOfLines={1}>{getConnectionIntentLabel(intent)}</Text>
+                        </View>
+                    ))}
+                </View>
             </View>
             {user.friendship_status !== 'self' ? (
                 <TouchableOpacity
@@ -746,6 +761,23 @@ const styles = StyleSheet.create({
         fontWeight: TextStyles.label.fontWeight,
         color: '#fff',
     },
+    cardIntentRow: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 4,
+    },
+    cardIntentPill: {
+        maxWidth: '100%',
+        borderRadius: Radius.pill,
+        backgroundColor: 'rgba(255,255,255,0.9)',
+        paddingHorizontal: 7,
+        paddingVertical: 3,
+    },
+    cardIntentText: {
+        fontSize: Typography.sizes.xs,
+        fontWeight: '700',
+        color: Colors.text.primary,
+    },
     resultRow: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -764,6 +796,22 @@ const styles = StyleSheet.create({
     },
     resultMeta: {
         ...TextStyles.secondary,
+    },
+    resultIntentRow: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: Spacing.xs,
+        marginTop: 3,
+    },
+    resultIntentPill: {
+        borderRadius: Radius.pill,
+        backgroundColor: Colors.primarySubtle,
+        paddingHorizontal: Spacing.sm,
+        paddingVertical: 3,
+    },
+    resultIntentText: {
+        ...TextStyles.badge,
+        color: Colors.primary,
     },
     resultFriendBtn: {
         width: ControlSizes.iconButton,

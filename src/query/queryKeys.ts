@@ -57,6 +57,7 @@ export const queryKeys = {
         query?: string;
         city?: string;
         gender?: string;
+        intent?: string;
         ageMin?: number;
         ageMax?: number;
         distanceKm?: number;
@@ -69,6 +70,7 @@ export const queryKeys = {
     discoverFiltered: (params?: {
         city?: string;
         gender?: string;
+        intent?: string;
         ageMin?: number;
         ageMax?: number;
         distanceKm?: number;
@@ -82,6 +84,7 @@ export const queryKeys = {
         query?: string;
         city?: string;
         gender?: string;
+        intent?: string;
         ageMin?: number;
         ageMax?: number;
         distanceKm?: number;
@@ -94,6 +97,7 @@ export const queryKeys = {
         query?: string;
         city?: string;
         gender?: string;
+        intent?: string;
         ageMin?: number;
         ageMax?: number;
         distanceKm?: number;
@@ -111,6 +115,7 @@ export const queryKeys = {
         const hasAdvancedFilters = Boolean(
             normalized.city
             || normalized.gender
+            || normalized.intent
             || normalized.ageMin !== undefined
             || normalized.ageMax !== undefined
             || normalized.distanceKm !== undefined

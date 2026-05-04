@@ -27,6 +27,7 @@ import { useUserPosts } from '../../hooks/queries/useUserPosts';
 import { useAuth } from '../../hooks/useAuth';
 import { Colors, Typography, Spacing, Radius, TextStyles } from '../../theme';
 import { formatUsername } from '../../utils/identity';
+import { CONNECTION_INTENT_OPTIONS, getConnectionIntentLabel, normalizeConnectionIntents } from '../../utils/connectionIntents';
 import { formatBirthDateValue, GENDER_SEGMENTS, getGenderLabel } from '../../utils/profileIdentity';
 import { formatSobrietyDate } from '../../utils/date';
 import { screenStandards } from '../../styles/screenStandards';
@@ -34,7 +35,7 @@ import { dedupeById } from '../../utils/list';
 
 type SubView = 'profile' | 'edit-profile' | 'friends' | 'requests' | 'settings' | 'hidden-content';
 type RequestsSubView = 'incoming' | 'outgoing';
-type EditableSection = 'bio' | 'location' | 'identity' | 'interests' | 'sobriety' | null;
+type EditableSection = 'bio' | 'location' | 'identity' | 'interests' | 'intent' | 'sobriety' | null;
 type EditableGender = api.UserGender | '';
 const MAX_BIO_LENGTH = 160;
 const MAX_INTERESTS = 5;
@@ -66,6 +67,7 @@ export function ProfileTabScreen({
     const [bio, setBio]               = useState(user?.bio ?? '');
     const [birthDate, setBirthDate]   = useState(user?.birth_date ?? '');
     const [selectedInterests, setSelectedInterests] = useState<string[]>(user?.interests ?? []);
+    const [selectedIntents, setSelectedIntents] = useState<api.ConnectionIntent[]>(normalizeConnectionIntents(user?.connection_intents));
     const [soberSince, setSoberSince] = useState(user?.sober_since ?? '');
     const [showBirthDatePicker, setShowBirthDatePicker] = useState(false);
     const [showSoberSincePicker, setShowSoberSincePicker] = useState(false);
@@ -122,6 +124,7 @@ export function ProfileTabScreen({
         setBio(user.bio ?? '');
         setBirthDate(user.birth_date ?? '');
         setSelectedInterests(user.interests ?? []);
+        setSelectedIntents(normalizeConnectionIntents(user.connection_intents));
         setSoberSince(user.sober_since ?? '');
         setEditingSection(null);
         setSavingSection(null);
@@ -237,6 +240,19 @@ export function ProfileTabScreen({
         });
     };
 
+    const handleToggleIntent = (intent: api.ConnectionIntent) => {
+        setSelectedIntents((current) => {
+            const isSelected = current.includes(intent);
+            if (isSelected && current.length === 1) {
+                Alert.alert('Connection intent required', 'Pick at least one intent.');
+                return current;
+            }
+            return isSelected
+                ? current.filter((item) => item !== intent)
+                : [...current, intent].sort((a, b) => a.localeCompare(b));
+        });
+    };
+
     const handleSoberSinceChange = (event: DateTimePickerEvent, selectedDate?: Date) => {
         if (Platform.OS === 'android') {
             setShowSoberSincePicker(false);
@@ -285,6 +301,7 @@ export function ProfileTabScreen({
             setShowBirthDatePicker(Platform.OS === 'ios');
         }
         if (section === 'interests') setSelectedInterests(user.interests ?? []);
+        if (section === 'intent') setSelectedIntents(normalizeConnectionIntents(user.connection_intents));
         if (section === 'sobriety') {
             setSoberSince(user.sober_since ?? '');
             setShowSoberSincePicker(Platform.OS === 'ios');
@@ -304,6 +321,7 @@ export function ProfileTabScreen({
         setGender(user.gender ?? '');
         setBirthDate(user.birth_date ?? '');
         setSelectedInterests(user.interests ?? []);
+        setSelectedIntents(normalizeConnectionIntents(user.connection_intents));
         setSoberSince(user.sober_since ?? '');
         setShowBirthDatePicker(false);
         setShowSoberSincePicker(false);
@@ -334,6 +352,10 @@ export function ProfileTabScreen({
 
     const handleSaveInterests = async () => {
         await saveSection('interests', { interests: selectedInterests });
+    };
+
+    const handleSaveIntent = async () => {
+        await saveSection('intent', { connection_intents: selectedIntents });
     };
 
     const handleSaveSobriety = async () => {
@@ -624,6 +646,13 @@ export function ProfileTabScreen({
                                     ))}
                                 </View>
                             ) : null}
+                            <View style={styles.profileSummaryIntents}>
+                                {normalizeConnectionIntents(user.connection_intents).map((intent) => (
+                                    <View key={intent} style={styles.profileSummaryIntentChip}>
+                                        <Text style={styles.profileSummaryIntentChipText}>{getConnectionIntentLabel(intent)}</Text>
+                                    </View>
+                                ))}
+                            </View>
                             <SobrietyCounter soberSince={user.sober_since} compact style={styles.profileSummarySobriety} />
 
                             <View style={styles.profileActionRow}>
@@ -819,6 +848,62 @@ export function ProfileTabScreen({
                             </View>
                         ) : (
                             <Text style={[styles.sectionValueText, styles.sectionValuePlaceholder]}>Pick a few interests to help people get to know you.</Text>
+                        )}
+                    </View>
+
+                    <View style={screenStandards.sectionLabelBlock}>
+                        <SectionLabel>CONNECTION INTENT</SectionLabel>
+                    </View>
+                    <View style={styles.fieldGroup}>
+                        <View style={styles.sectionCardHeader}>
+                            <Text style={styles.sectionCardTitle}>What are you open to?</Text>
+                            {editingSection === 'intent' ? (
+                                <Text style={styles.interestsCount}>{selectedIntents.length}/3</Text>
+                            ) : (
+                                <TouchableOpacity onPress={() => handleStartEditSection('intent')}>
+                                    <Text style={styles.sectionActionText}>Edit</Text>
+                                </TouchableOpacity>
+                            )}
+                        </View>
+                        {editingSection === 'intent' ? (
+                            <>
+                                <View style={styles.interestsWrap}>
+                                    {CONNECTION_INTENT_OPTIONS.map((option) => {
+                                        const isSelected = selectedIntents.includes(option.value);
+                                        return (
+                                            <TouchableOpacity
+                                                key={option.value}
+                                                style={[styles.interestChip, isSelected && styles.interestChipActive]}
+                                                onPress={() => handleToggleIntent(option.value)}
+                                            >
+                                                <Text style={[styles.interestChipText, isSelected && styles.interestChipTextActive]}>
+                                                    {option.label}
+                                                </Text>
+                                            </TouchableOpacity>
+                                        );
+                                    })}
+                                </View>
+                                <View style={styles.sectionActions}>
+                                    <TouchableOpacity style={styles.sectionSecondaryButton} onPress={handleCancelEditSection}>
+                                        <Text style={styles.sectionSecondaryButtonText}>Cancel</Text>
+                                    </TouchableOpacity>
+                                    <PrimaryButton
+                                        label="Save"
+                                        onPress={handleSaveIntent}
+                                        loading={savingSection === 'intent'}
+                                        disabled={savingSection === 'intent'}
+                                        style={styles.sectionPrimaryButton}
+                                    />
+                                </View>
+                            </>
+                        ) : (
+                            <View style={styles.interestsWrap}>
+                                {normalizeConnectionIntents(user.connection_intents).map((intent) => (
+                                    <View key={intent} style={styles.interestChip}>
+                                        <Text style={styles.interestChipText}>{getConnectionIntentLabel(intent)}</Text>
+                                    </View>
+                                ))}
+                            </View>
                         )}
                     </View>
 
@@ -1088,6 +1173,22 @@ const styles = StyleSheet.create({
     },
     profileSummaryInterestChipText: {
         ...TextStyles.chip,
+    },
+    profileSummaryIntents: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: Spacing.sm,
+        marginBottom: Spacing.sm,
+    },
+    profileSummaryIntentChip: {
+        borderRadius: Radius.pill,
+        backgroundColor: Colors.primarySubtle,
+        paddingHorizontal: Spacing.md,
+        paddingVertical: Spacing.xs,
+    },
+    profileSummaryIntentChipText: {
+        ...TextStyles.chip,
+        color: Colors.primary,
     },
     profileSummarySobriety: {
         borderBottomWidth: 0,
