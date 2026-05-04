@@ -1,17 +1,15 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, LayoutChangeEvent, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as api from '../../../api/client';
 import { Avatar } from '../../../components/Avatar';
-import { ScreenHeader } from '../../../components/ui/ScreenHeader';
-import { useReplyGroupAdminThreadMutation, useResolveGroupAdminThreadMutation } from '../../../hooks/queries/useGroups';
+import { useReplyGroupAdminThreadMutation } from '../../../hooks/queries/useGroups';
 import { useAuth } from '../../../hooks/useAuth';
-import { useGradualKeyboardInset } from '../../../hooks/useGradualKeyboardInset';
 import { composerStandards } from '../../../styles/composerStandards';
 import { Colors, Radius, Spacing, TextStyles, Typography } from '../../../theme';
-import { formatReadableTimestamp } from '../../../utils/date';
+import { formatUsername } from '../../../utils/identity';
+import { ChatHeader } from '../chat/ChatHeader';
 import {
     Composer,
     Day,
@@ -39,19 +37,10 @@ export function GroupAdminThreadScreen({
     const { user } = useAuth();
     const insets = useSafeAreaInsets();
     const replyMutation = useReplyGroupAdminThreadMutation(group.id);
-    const resolveMutation = useResolveGroupAdminThreadMutation(group.id);
     const [thread, setThread] = useState<api.GroupAdminThread | null>(null);
     const [loading, setLoading] = useState(true);
     const [loadError, setLoadError] = useState<string | null>(null);
     const [headerHeight, setHeaderHeight] = useState(0);
-    const bottomSafeSpace = Math.max(insets.bottom, Spacing.sm);
-    const { height: keyboardInsetHeight } = useGradualKeyboardInset({
-        closedHeight: bottomSafeSpace,
-        openedOffset: Spacing.sm,
-    });
-    const keyboardSpacerStyle = useAnimatedStyle((): { height: number } => ({
-        height: keyboardInsetHeight.value,
-    }));
     const bodyStyle = useMemo(
         () => [styles.body, { paddingBottom: insets.bottom }],
         [insets.bottom],
@@ -64,7 +53,7 @@ export function GroupAdminThreadScreen({
             const detail = await api.getGroupAdminThread(group.id, threadId);
             setThread(detail);
         } catch (error: unknown) {
-            setLoadError(error instanceof Error ? error.message : 'Could not load this thread.');
+            setLoadError(error instanceof Error ? error.message : 'Could not load this chat.');
         } finally {
             setLoading(false);
         }
@@ -91,23 +80,20 @@ export function GroupAdminThreadScreen({
             }))
     ), [thread?.messages]);
 
-    const canReply = thread?.status === 'open';
-    const displayName = thread?.subject || thread?.username || 'Admin inbox';
+    const canReply = thread ? thread.status !== 'resolved' : false;
+    const displayName = thread?.username ? formatUsername(thread.username) : 'Admin inbox';
     const keyboardVerticalOffset = insets.top + headerHeight;
+    const headerChat = useMemo<api.Chat>(() => ({
+        id: thread?.id ?? threadId,
+        is_group: false,
+        username: thread?.username ?? 'member',
+        avatar_url: thread?.avatar_url ?? undefined,
+        created_at: thread?.created_at ?? new Date().toISOString(),
+    }), [thread?.avatar_url, thread?.created_at, thread?.id, thread?.username, threadId]);
 
     const handleHeaderLayout = useCallback((event: LayoutChangeEvent) => {
         setHeaderHeight(event.nativeEvent.layout.height);
     }, []);
-
-    const handleResolve = useCallback(async (): Promise<void> => {
-        if (!thread || resolveMutation.isPending) return;
-        try {
-            await resolveMutation.mutateAsync(thread.id);
-            await loadThread();
-        } catch (error: unknown) {
-            Alert.alert('Could not resolve thread', error instanceof Error ? error.message : 'Please try again.');
-        }
-    }, [loadThread, resolveMutation, thread]);
 
     const handleSend = useCallback((outgoing: ThreadGiftedMessage[] = []): void => {
         const body = outgoing[0]?.text?.trim();
@@ -122,37 +108,11 @@ export function GroupAdminThreadScreen({
     return (
         <View style={styles.container}>
             <View onLayout={handleHeaderLayout}>
-                <ScreenHeader
+                <ChatHeader
+                    chat={headerChat}
+                    displayName={displayName}
                     onBack={onBack}
-                    centerContent={(
-                        <View style={styles.centerContent}>
-                            <Avatar
-                                username={thread?.username ?? 'member'}
-                                avatarUrl={thread?.avatar_url ?? undefined}
-                                size={32}
-                                fontSize={12}
-                            />
-                            <Text style={styles.headerName} numberOfLines={1}>{displayName}</Text>
-                        </View>
-                    )}
                 />
-                <View style={styles.contextCard}>
-                    <Text style={styles.contextEyebrow}>ADMIN THREAD</Text>
-                    <Text style={styles.contextTitle}>{formatAdminThreadStatus(thread?.status)}</Text>
-                    {thread?.updated_at ? (
-                        <Text style={styles.contextMeta}>{formatReadableTimestamp(thread.updated_at)}</Text>
-                    ) : null}
-                    {thread && thread.status !== 'resolved' ? (
-                        <TouchableOpacity
-                            style={styles.contextResolveAction}
-                            onPress={() => { void handleResolve(); }}
-                            disabled={resolveMutation.isPending}
-                        >
-                            <Ionicons name="checkmark-done" size={16} color={Colors.primary} />
-                            <Text style={styles.contextResolveText}>Resolve</Text>
-                        </TouchableOpacity>
-                    ) : null}
-                </View>
             </View>
 
             <View style={bodyStyle}>
@@ -162,7 +122,7 @@ export function GroupAdminThreadScreen({
                     </View>
                 ) : loadError ? (
                     <View style={styles.center}>
-                        <Text style={styles.errorTitle}>Could not load this thread</Text>
+                        <Text style={styles.errorTitle}>Could not load this chat</Text>
                         <Text style={styles.errorBody}>{loadError}</Text>
                         <TouchableOpacity style={styles.retryButton} onPress={() => { void loadThread(); }}>
                             <Text style={styles.retryButtonText}>Retry</Text>
@@ -225,7 +185,7 @@ export function GroupAdminThreadScreen({
                                             {...composerProps}
                                             textInputProps={{
                                                 ...composerProps.textInputProps,
-                                                placeholder: 'Reply',
+                                                placeholder: 'Message',
                                                 placeholderTextColor: Colors.text.muted,
                                                 style: [
                                                     composerStandards.input,
@@ -260,7 +220,7 @@ export function GroupAdminThreadScreen({
                             ) : (
                                 <View style={styles.lockedToolbar}>
                                     <Text style={styles.lockedToolbarText}>
-                                        This thread is closed to new messages.
+                                        This chat is closed to new messages.
                                     </Text>
                                 </View>
                             )
@@ -268,16 +228,8 @@ export function GroupAdminThreadScreen({
                     />
                 )}
             </View>
-            <Animated.View style={[styles.keyboardSpacer, keyboardSpacerStyle]} />
         </View>
     );
-}
-
-function formatAdminThreadStatus(status?: api.GroupAdminThread['status']): string {
-    if (status === 'open') return 'Open';
-    if (status === 'replied') return 'Replied';
-    if (status === 'resolved') return 'Resolved';
-    return 'Inbox';
 }
 
 function formatMessageTime(value: Date | number): string {
@@ -298,60 +250,6 @@ const styles = StyleSheet.create({
     },
     body: {
         flex: 1,
-    },
-    keyboardSpacer: {
-        flexShrink: 0,
-        backgroundColor: Colors.bg.page,
-    },
-    centerContent: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: Spacing.sm,
-        justifyContent: 'center',
-    },
-    headerName: {
-        flexShrink: 1,
-        ...TextStyles.sectionTitle,
-        color: Colors.text.primary,
-    },
-    contextCard: {
-        backgroundColor: Colors.successSubtle,
-        borderBottomWidth: 1,
-        borderBottomColor: Colors.border.default,
-        paddingHorizontal: Spacing.md,
-        paddingVertical: Spacing.sm,
-    },
-    contextEyebrow: {
-        fontSize: Typography.sizes.xs,
-        fontWeight: '700',
-        color: Colors.success,
-        letterSpacing: 0.8,
-    },
-    contextTitle: {
-        ...TextStyles.cardTitle,
-        marginTop: 4,
-    },
-    contextMeta: {
-        ...TextStyles.meta,
-        marginTop: 6,
-    },
-    contextResolveAction: {
-        alignSelf: 'flex-start',
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: Spacing.xs,
-        marginTop: Spacing.sm,
-        borderWidth: 1,
-        borderColor: Colors.primary,
-        borderRadius: Radius.pill,
-        backgroundColor: Colors.bg.page,
-        paddingHorizontal: Spacing.md,
-        paddingVertical: Spacing.xs,
-    },
-    contextResolveText: {
-        ...TextStyles.chip,
-        color: Colors.primary,
-        fontWeight: '800',
     },
     messagesContainer: {
         backgroundColor: Colors.bg.page,
