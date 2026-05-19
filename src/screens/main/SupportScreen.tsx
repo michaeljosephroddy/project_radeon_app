@@ -454,7 +454,8 @@ export function SupportScreen({
                         onChange={(key) => {
                             if (key === 'back') setDetail(null);
                         }}
-                        tone="primary"
+                        layer="form"
+                        tone="secondary"
                         style={screenStandards.tabControl}
                         items={[
                             { key: 'back', label: 'Back' },
@@ -566,12 +567,13 @@ export function SupportScreen({
     }
 
     const primaryTabs = (
-        <View style={screenStandards.fixedTabsWrap}>
+        <View style={screenStandards.pageTabsWrap}>
             <SegmentedControl
                 activeKey={surface}
                 onChange={(key) => setSurface(key as SupportSurface)}
-                tone="primary"
-                style={screenStandards.fixedTabsControl}
+                layer="page"
+                tone="success"
+                style={screenStandards.pageTabsControl}
                 items={[
                     { key: 'feed', label: 'Feed' },
                     { key: 'my_requests', label: 'My Requests', flex: 1.2 },
@@ -642,7 +644,8 @@ export function SupportScreen({
                             <SegmentedControl
                                 activeKey={myScope}
                                 onChange={(key) => setMyScope(key as MyRequestScope)}
-                                tone="warning"
+                                layer="section"
+                                tone="success"
                                 style={styles.nestedTabs}
                                 items={[
                                     { key: 'open', label: 'Open' },
@@ -709,6 +712,7 @@ export function SupportScreen({
                         <SegmentedControl
                             activeKey={feedFilter}
                             onChange={(key) => setFeedFilter(key as api.SupportRequestFilter)}
+                            layer="section"
                             tone="warning"
                             style={styles.nestedTabs}
                             items={[

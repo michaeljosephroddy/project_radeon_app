@@ -148,7 +148,7 @@ export function GroupDetailScreen({
                 </View>
             ) : group ? (
                 <>
-                    <View style={screenStandards.fixedTabsWrap}>
+                    <View style={screenStandards.sectionTabsWrap}>
                         <SegmentedControl
                             items={[
                                 { key: 'posts', label: 'Posts' },
@@ -158,7 +158,9 @@ export function GroupDetailScreen({
                             ]}
                             activeKey={activeTab}
                             onChange={(key) => setActiveTab(key as GroupDetailTab)}
-                            style={screenStandards.fixedTabsControl}
+                            layer="section"
+                            tone="secondary"
+                            style={screenStandards.sectionTabsControl}
                         />
                     </View>
                     {activeTab === 'posts' ? (
@@ -700,6 +702,8 @@ function GroupPostsTab({
                     ]}
                     activeKey={supportSurface}
                     onChange={(next) => setSupportSurface(next as GroupSupportSurface)}
+                    layer="section"
+                    tone="success"
                     style={styles.innerTabs}
                 />
             ) : null}

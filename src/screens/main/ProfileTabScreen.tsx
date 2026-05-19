@@ -521,12 +521,13 @@ export function ProfileTabScreen({
         return (
             <SafeAreaView style={styles.container} edges={['bottom']}>
                 <ScreenHeader onBack={() => setSubView('profile')} title="Requests" />
-                <View style={screenStandards.fixedTabsWrap}>
+                <View style={screenStandards.sectionTabsWrap}>
                     <SegmentedControl
                         activeKey={requestsSubView}
                         onChange={(key) => setRequestsSubView(key as RequestsSubView)}
-                        tone="primary"
-                        style={screenStandards.fixedTabsControl}
+                        layer="section"
+                        tone="secondary"
+                        style={screenStandards.sectionTabsControl}
                         items={[
                             {
                                 key: 'incoming',
@@ -932,6 +933,7 @@ export function ProfileTabScreen({
                                 <SegmentedControl
                                     activeKey={gender || 'none'}
                                     onChange={(key) => setGender(key as EditableGender)}
+                                    layer="form"
                                     tone="secondary"
                                     style={styles.identitySegments}
                                     items={GENDER_SEGMENTS.map((item) => ({

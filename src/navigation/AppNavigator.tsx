@@ -8,12 +8,11 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons';
 import { FeedCommentsModal, type CommentThreadTarget } from '../screens/main/feed/FeedCommentsModal';
 import { FeedScreen } from '../screens/main/FeedScreen';
-import { GroupsScreen } from '../screens/main/GroupsScreen';
 import { GroupDetailScreen } from '../screens/main/groups/GroupDetailScreen';
 import { GroupCommentsModal } from '../screens/main/groups/GroupCommentsModal';
 import { GroupCreateScreen } from '../screens/main/groups/GroupCreateScreen';
 import { DiscoverScreen } from '../screens/main/DiscoverScreen';
-import { MeetupsScreen } from '../screens/main/MeetupsScreen';
+import { CommunityHubScreen, type CommunityHubSurface } from '../screens/main/CommunityHubScreen';
 import { ChatsScreen } from '../screens/main/ChatsScreen';
 import { ProfileTabScreen } from '../screens/main/ProfileTabScreen';
 import { ChatScreen } from '../screens/main/ChatScreen';
@@ -42,13 +41,12 @@ interface OpenUserProfile {
     avatarUrl?: string;
 }
 
-type Tab = 'community' | 'discover' | 'groups' | 'meetups' | 'chats';
+type Tab = 'feed' | 'discover' | 'community' | 'chats';
 
 const TABS: { key: Tab; label: string; icon: keyof typeof Ionicons.glyphMap; iconActive: keyof typeof Ionicons.glyphMap }[] = [
-    { key: 'community', label: 'community', icon: 'newspaper-outline', iconActive: 'newspaper' },
+    { key: 'feed',      label: 'feed',      icon: 'newspaper-outline', iconActive: 'newspaper' },
     { key: 'discover',  label: 'discover',  icon: 'grid-outline', iconActive: 'grid' },
-    { key: 'groups',    label: 'groups',    icon: 'people-outline', iconActive: 'people' },
-    { key: 'meetups',   label: 'meetups',   icon: 'calendar-outline', iconActive: 'calendar' },
+    { key: 'community', label: 'community', icon: 'people-outline', iconActive: 'people' },
     { key: 'chats',     label: 'chats',     icon: 'chatbubble-outline', iconActive: 'chatbubble' },
 ];
 
@@ -70,7 +68,7 @@ const DiscoverTab = React.memo(function DiscoverTab({
     return <View style={isActive ? styles.tabVisible : styles.tabHidden}><DiscoverScreen isActive={isActive} onOpenUserProfile={onOpenUserProfile} onOpenPlus={onOpenPlus} /></View>;
 });
 
-const CommunityTab = React.memo(function CommunityTab({
+const FeedTab = React.memo(function FeedTab({
     isActive,
     onOpenUserProfile,
     onOpenComments,
@@ -96,38 +94,30 @@ const CommunityTab = React.memo(function CommunityTab({
     );
 });
 
-const GroupsTab = React.memo(function GroupsTab({
+const CommunityTab = React.memo(function CommunityTab({
     isActive,
+    activeSurface,
+    onChangeSurface,
     onOpenGroup,
-}: {
-    isActive: boolean;
-    onOpenGroup: (groupId: string) => void;
-}) {
-    return (
-        <View style={isActive ? styles.tabVisible : styles.tabHidden}>
-            <GroupsScreen
-                isActive={isActive}
-                onOpenGroup={onOpenGroup}
-            />
-        </View>
-    );
-});
-
-const MeetupsTab = React.memo(function MeetupsTab({
-    isActive,
     onOpenUserProfile,
     onOpenMeetup,
     onOpenManageMeetup,
 }: {
     isActive: boolean;
+    activeSurface: CommunityHubSurface;
+    onChangeSurface: (surface: CommunityHubSurface) => void;
+    onOpenGroup: (groupId: string) => void;
     onOpenUserProfile: (p: OpenUserProfile) => void;
     onOpenMeetup: (meetup: api.Meetup) => void;
     onOpenManageMeetup: (meetup: api.Meetup) => void;
 }) {
     return (
         <View style={isActive ? styles.tabVisible : styles.tabHidden}>
-            <MeetupsScreen
+            <CommunityHubScreen
                 isActive={isActive}
+                activeSurface={activeSurface}
+                onChangeSurface={onChangeSurface}
+                onOpenGroup={onOpenGroup}
                 onOpenUserProfile={onOpenUserProfile}
                 onOpenMeetup={onOpenMeetup}
                 onOpenManageMeetup={onOpenManageMeetup}
@@ -147,7 +137,8 @@ export function AppNavigator() {
         data: notificationSummary,
         refetch: refetchNotificationSummary,
     } = useNotificationSummary(Boolean(user?.id));
-    const [activeTab, setActiveTab] = useState<Tab>('community');
+    const [activeTab, setActiveTab] = useState<Tab>('feed');
+    const [communitySurface, setCommunitySurface] = useState<CommunityHubSurface>('groups');
     const [openChat, setOpenChat] = useState<Chat | null>(null);
     const [openUserProfile, setOpenUserProfile] = useState<OpenUserProfile | null>(null);
     const [pendingDM, setPendingDM] = useState<{ recipientId: string; username: string; avatarUrl?: string } | null>(null);
@@ -446,25 +437,29 @@ export function AppNavigator() {
 
     const handleGroupCreated = useCallback((group: api.Group): void => {
         setCreateGroupOpen(false);
-        setActiveTab('groups');
+        setCommunitySurface('groups');
+        setActiveTab('community');
         handleOpenGroup(group.id);
     }, [handleOpenGroup]);
 
     const handleSupportRequestCreated = useCallback((_request: api.SupportRequest): void => {
         setCreateSupportRequestOpen(false);
-        setActiveTab('groups');
+        setCommunitySurface('groups');
+        setActiveTab('community');
     }, []);
 
     const handleMeetupCreated = useCallback((_meetup: api.Meetup): void => {
         setCreateMeetupOpen(false);
         setEditingMeetup(null);
-        setActiveTab('meetups');
+        setCommunitySurface('meetups');
+        setActiveTab('community');
     }, []);
 
     const handleMeetupUpdated = useCallback((_meetup: api.Meetup): void => {
         setCreateMeetupOpen(false);
         setEditingMeetup(null);
-        setActiveTab('meetups');
+        setCommunitySurface('meetups');
+        setActiveTab('community');
     }, []);
 
     const handleFeedFocusRequestConsumed = useCallback((nonce: number) => {
@@ -514,7 +509,7 @@ export function AppNavigator() {
 
     const handleOpenNotificationMention = useCallback((target: { postId: string; commentId?: string }) => {
         setNotificationsOpen(false);
-        setActiveTab('community');
+        setActiveTab('feed');
         setOpenChat(null);
         setOpenUserProfile(null);
         setOwnProfileOpen(false);
@@ -545,7 +540,8 @@ export function AppNavigator() {
         setCreateGroupOpen(false);
         setPlusUpsellOpen(false);
         setOpenGroupComments(null);
-        setActiveTab('groups');
+        setCommunitySurface('groups');
+        setActiveTab('community');
     }, []);
 
     const syncingLocation = useRef(false);
@@ -626,7 +622,8 @@ export function AppNavigator() {
         }
 
         if (intent.kind === 'group') {
-            setActiveTab('groups');
+            setCommunitySurface('groups');
+            setActiveTab('community');
             setOpenChat(null);
             setOpenUserProfile(null);
             setOwnProfileOpen(false);
@@ -644,7 +641,8 @@ export function AppNavigator() {
         }
 
         if (intent.kind === 'group_admin_inbox') {
-            setActiveTab('groups');
+            setCommunitySurface('groups');
+            setActiveTab('community');
             setOpenChat(null);
             setOpenUserProfile(null);
             setOwnProfileOpen(false);
@@ -662,7 +660,8 @@ export function AppNavigator() {
         }
 
         if (intent.kind === 'group_report') {
-            setActiveTab('groups');
+            setCommunitySurface('groups');
+            setActiveTab('community');
             setOpenChat(null);
             setOpenUserProfile(null);
             setOwnProfileOpen(false);
@@ -680,7 +679,8 @@ export function AppNavigator() {
         }
 
         if (intent.kind === 'support_request') {
-            setActiveTab('groups');
+            setCommunitySurface('groups');
+            setActiveTab('community');
             setOpenChat(null);
             setOpenUserProfile(null);
             setOwnProfileOpen(false);
@@ -701,7 +701,7 @@ export function AppNavigator() {
             return;
         }
 
-        setActiveTab('community');
+        setActiveTab('feed');
         setOpenChat(null);
         setOpenUserProfile(null);
         setOwnProfileOpen(false);
@@ -718,14 +718,13 @@ export function AppNavigator() {
         if (inChat || inUserProfile || inOwnProfile || inComposeDM || inCreatePost || inCreateGroup || inCreateSupportRequest || inCreateMeetup || inMeetupDetail || inGroupDetail || inPlusUpsell || inNotifications || inComments || inGroupComments) return null;
 
         const titles: Record<Tab, React.ReactNode> = {
-            community: (
+            feed: (
                 <Text style={styles.wordmark}>
                     Sober<Text style={styles.wordmarkAccent}>Space</Text>
                 </Text>
             ),
             discover: <Text style={styles.pageTitle}>Discover</Text>,
-            groups: <Text style={styles.pageTitle}>Groups</Text>,
-            meetups: <Text style={styles.pageTitle}>Meetups</Text>,
+            community: <Text style={styles.pageTitle}>Community</Text>,
             chats: <Text style={styles.pageTitle}>Chats</Text>,
         };
 
@@ -960,20 +959,19 @@ export function AppNavigator() {
             <SafeAreaView style={styles.container} edges={['top']}>
                 {header}
                 <View style={styles.content}>
-                    <CommunityTab
-                        isActive={activeTab === 'community' && !isOverlayOpen}
+                    <FeedTab
+                        isActive={activeTab === 'feed' && !isOverlayOpen}
                         onOpenUserProfile={handleOpenUserProfile}
                         onOpenComments={handleOpenComments}
                         focusRequest={feedFocusRequest}
                         onFocusRequestConsumed={handleFeedFocusRequestConsumed}
                     />
                     <DiscoverTab isActive={activeTab === 'discover' && !isOverlayOpen} onOpenUserProfile={handleOpenUserProfile} onOpenPlus={openPlusUpsell} />
-                    <GroupsTab
-                        isActive={activeTab === 'groups' && !isOverlayOpen}
+                    <CommunityTab
+                        isActive={activeTab === 'community' && !isOverlayOpen}
+                        activeSurface={communitySurface}
+                        onChangeSurface={setCommunitySurface}
                         onOpenGroup={handleOpenGroup}
-                    />
-                    <MeetupsTab
-                        isActive={activeTab === 'meetups' && !isOverlayOpen}
                         onOpenUserProfile={handleOpenUserProfile}
                         onOpenMeetup={handleOpenMeetup}
                         onOpenManageMeetup={openManageMeetup}

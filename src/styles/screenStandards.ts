@@ -16,6 +16,26 @@ export const screenStandards = StyleSheet.create({
     fixedTabsControl: {
         marginBottom: 0,
     },
+    pageTabsWrap: {
+        paddingHorizontal: ContentInsets.screenHorizontal,
+        paddingTop: Spacing.sm,
+        paddingBottom: Spacing.md,
+        backgroundColor: Colors.bg.page,
+        zIndex: 1,
+    },
+    pageTabsControl: {
+        marginBottom: 0,
+    },
+    sectionTabsWrap: {
+        paddingHorizontal: ContentInsets.screenHorizontal,
+        paddingTop: Spacing.xs,
+        paddingBottom: Spacing.md,
+        backgroundColor: Colors.bg.page,
+        zIndex: 1,
+    },
+    sectionTabsControl: {
+        marginBottom: 0,
+    },
     listContent: {
         padding: ContentInsets.screenHorizontal,
         paddingBottom: ContentInsets.listBottom,

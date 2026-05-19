@@ -226,7 +226,7 @@ export function GroupsScreen({ isActive, onOpenGroup }: GroupsScreenProps): Reac
 
     return (
         <View style={styles.container}>
-            <View style={screenStandards.fixedTabsWrap}>
+            <View style={screenStandards.sectionTabsWrap}>
                 <SegmentedControl
                     items={[
                         { key: 'discover', label: 'Discover' },
@@ -234,8 +234,9 @@ export function GroupsScreen({ isActive, onOpenGroup }: GroupsScreenProps): Reac
                     ]}
                     activeKey={scope}
                     onChange={(next) => setScope(next as GroupScope)}
-                    tone="primary"
-                    style={screenStandards.fixedTabsControl}
+                    layer="section"
+                    tone="secondary"
+                    style={screenStandards.sectionTabsControl}
                 />
             </View>
             <FlatList

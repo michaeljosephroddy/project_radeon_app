@@ -448,7 +448,7 @@ export function DiscoverScreen({ isActive, onOpenUserProfile, onOpenPlus }: Disc
     ), [handleFriend, isFriendedFor, onOpenUserProfile]);
 
     const surfaceTabs = (
-        <View style={screenStandards.fixedTabsWrap}>
+        <View style={screenStandards.pageTabsWrap}>
             <SegmentedControl
                 items={[
                     { key: 'people', label: 'People' },
@@ -456,8 +456,9 @@ export function DiscoverScreen({ isActive, onOpenUserProfile, onOpenPlus }: Disc
                 ]}
                 activeKey={activeSurface}
                 onChange={(next) => setActiveSurface(next as DiscoverSurface)}
+                layer="page"
                 tone="primary"
-                style={screenStandards.fixedTabsControl}
+                style={screenStandards.pageTabsControl}
             />
         </View>
     );

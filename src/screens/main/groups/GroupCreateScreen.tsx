@@ -299,6 +299,8 @@ export function GroupCreateScreen({
                         ]}
                         activeKey={visibility}
                         onChange={(next) => setVisibility(next as api.GroupVisibility)}
+                        layer="form"
+                        tone="secondary"
                     />
                     <SegmentedControl
                         items={[
@@ -307,6 +309,8 @@ export function GroupCreateScreen({
                         ]}
                         activeKey={postingPermission}
                         onChange={(next) => setPostingPermission(next as api.GroupPostingPermission)}
+                        layer="form"
+                        tone="secondary"
                     />
                 </View>
 

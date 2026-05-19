@@ -966,7 +966,8 @@ export function MeetupsScreen({
                     ]}
                     activeKey={hostingScope}
                     onChange={(key) => setHostingScope(key as HostingScope)}
-                    tone="warning"
+                    layer="section"
+                    tone="secondary"
                     style={styles.scopeControl}
                 />
             ) : null}
@@ -1101,7 +1102,7 @@ export function MeetupsScreen({
     return (
         <View style={styles.container}>
             {activeView !== 'create' ? (
-                <View style={screenStandards.fixedTabsWrap}>
+                <View style={screenStandards.sectionTabsWrap}>
                     <SegmentedControl
                         items={[
                             { key: 'discover', label: 'Discover' },
@@ -1110,8 +1111,9 @@ export function MeetupsScreen({
                         ]}
                         activeKey={activeView}
                         onChange={handlePrimaryTabChange}
-                        tone="primary"
-                        style={screenStandards.fixedTabsControl}
+                        layer="section"
+                        tone="secondary"
+                        style={screenStandards.sectionTabsControl}
                     />
                 </View>
             ) : null}

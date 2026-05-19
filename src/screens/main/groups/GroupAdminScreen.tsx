@@ -77,7 +77,7 @@ export function GroupAdminScreen({
                 <Text style={styles.title}>{group.name}</Text>
                 <Text style={styles.subtitle}>{group.pending_request_count} pending requests</Text>
             </View>
-            <View style={screenStandards.fixedTabsWrap}>
+            <View style={screenStandards.sectionTabsWrap}>
                 <SegmentedControl
                     items={[
                         { key: 'requests', label: 'Requests' },
@@ -86,7 +86,9 @@ export function GroupAdminScreen({
                     ]}
                     activeKey={activeTab}
                     onChange={(key) => setActiveTab(key as AdminTab)}
-                    style={screenStandards.fixedTabsControl}
+                    layer="section"
+                    tone="secondary"
+                    style={screenStandards.sectionTabsControl}
                 />
             </View>
             {activeTab === 'requests' ? (
@@ -259,7 +261,7 @@ function ReportsPanel({ group }: { group: api.Group }): React.ReactElement {
 
     return (
         <View style={styles.listSurface}>
-            <View style={screenStandards.fixedTabsWrap}>
+            <View style={screenStandards.sectionTabsWrap}>
                 <SegmentedControl
                     items={[
                         { key: 'active', label: 'Active' },
@@ -267,7 +269,9 @@ function ReportsPanel({ group }: { group: api.Group }): React.ReactElement {
                     ]}
                     activeKey={reportScope}
                     onChange={(key) => setReportScope(key as 'active' | 'history')}
-                    style={screenStandards.fixedTabsControl}
+                    layer="section"
+                    tone="secondary"
+                    style={screenStandards.sectionTabsControl}
                 />
             </View>
             <FlatList
