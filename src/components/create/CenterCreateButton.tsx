@@ -5,19 +5,17 @@ import { Colors, ControlSizes, Radius, Spacing } from '../../theme';
 
 interface CenterCreateButtonProps {
     visible: boolean;
-    bottom: number;
     onPress: () => void;
 }
 
 export function CenterCreateButton({
     visible,
-    bottom,
     onPress,
 }: CenterCreateButtonProps): React.ReactElement | null {
     if (!visible) return null;
 
     return (
-        <View pointerEvents="box-none" style={[styles.container, { bottom }]}>
+        <View pointerEvents="box-none" style={styles.container}>
             <TouchableOpacity
                 accessibilityRole="button"
                 accessibilityLabel="Create"
@@ -33,11 +31,10 @@ export function CenterCreateButton({
 
 const styles = StyleSheet.create({
     container: {
-        position: 'absolute',
-        left: 0,
-        right: 0,
         alignItems: 'center',
+        justifyContent: 'flex-start',
         zIndex: 20,
+        transform: [{ translateY: -28 }],
     },
     button: {
         width: ControlSizes.iconButtonLarge + Spacing.lg,

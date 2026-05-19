@@ -906,7 +906,6 @@ export function AppNavigator() {
 
     const isOverlayOpen = inChat || inUserProfile || inOwnProfile || inComposeDM || inCreatePost || inCreateGroup || inCreateSupportRequest || inCreateMeetup || inMeetupDetail || inGroupDetail || inPlusUpsell || inNotifications || inComments || inGroupComments;
     const canShowGlobalCreate = Boolean(user) && !isOverlayOpen && !keyboardVisible;
-    const globalCreateButtonBottom = insets.bottom + 62;
 
     const openGlobalCreateMenu = useCallback((): void => {
         setCreateMenuOpen(true);
@@ -982,7 +981,29 @@ export function AppNavigator() {
 
                 {!isOverlayOpen && !keyboardVisible && (
                     <View style={[styles.tabBar, { paddingBottom: insets.bottom + 6 }]}>
-                        {TABS.map(tab => (
+                        {TABS.slice(0, 2).map(tab => (
+                            <TouchableOpacity
+                                key={tab.key}
+                                style={styles.tabItem}
+                                onPress={() => handleTabPress(tab.key)}
+                            >
+                                <Ionicons
+                                    name={activeTab === tab.key ? tab.iconActive : tab.icon}
+                                    size={22}
+                                    color={activeTab === tab.key ? Colors.primary : Colors.text.muted}
+                                />
+                                <Text style={[styles.tabLabel, activeTab === tab.key && styles.tabLabelActive]}>
+                                    {tab.label}
+                                </Text>
+                            </TouchableOpacity>
+                        ))}
+                        <View style={styles.createTabSlot}>
+                            <CenterCreateButton
+                                visible={canShowGlobalCreate}
+                                onPress={openGlobalCreateMenu}
+                            />
+                        </View>
+                        {TABS.slice(2).map(tab => (
                             <TouchableOpacity
                                 key={tab.key}
                                 style={styles.tabItem}
@@ -1000,11 +1021,6 @@ export function AppNavigator() {
                         ))}
                     </View>
                 )}
-                <CenterCreateButton
-                    visible={canShowGlobalCreate}
-                    bottom={globalCreateButtonBottom}
-                    onPress={openGlobalCreateMenu}
-                />
             </SafeAreaView>
 
             <CreateActionSheet
@@ -1095,12 +1111,20 @@ const styles = StyleSheet.create({
 
     tabBar: {
         flexDirection: 'row',
+        alignItems: 'flex-start',
         borderTopWidth: 1,
         borderTopColor: Colors.border.subtle,
-        paddingTop: 8,
+        paddingTop: 14,
         backgroundColor: Colors.bg.page,
+        overflow: 'visible',
     },
-    tabItem: { flex: 1, alignItems: 'center', gap: 4 },
+    tabItem: { flex: 1, alignItems: 'center', gap: 4, minHeight: 48 },
+    createTabSlot: {
+        width: 74,
+        alignItems: 'center',
+        minHeight: 48,
+        overflow: 'visible',
+    },
     tabLabel: { fontSize: Typography.sizes.sm, color: Colors.text.muted },
     tabLabelActive: { color: Colors.primary },
 });
