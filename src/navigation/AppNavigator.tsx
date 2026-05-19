@@ -12,7 +12,6 @@ import { GroupsScreen } from '../screens/main/GroupsScreen';
 import { GroupDetailScreen } from '../screens/main/groups/GroupDetailScreen';
 import { GroupCommentsModal } from '../screens/main/groups/GroupCommentsModal';
 import { GroupCreateScreen } from '../screens/main/groups/GroupCreateScreen';
-import { GroupCreatePostScreen } from '../screens/main/groups/GroupCreatePostScreen';
 import { DiscoverScreen } from '../screens/main/DiscoverScreen';
 import { MeetupsScreen } from '../screens/main/MeetupsScreen';
 import { ChatsScreen } from '../screens/main/ChatsScreen';
@@ -158,7 +157,6 @@ export function AppNavigator() {
     const [createMeetupOpen, setCreateMeetupOpen] = useState(false);
     const [createMenuOpen, setCreateMenuOpen] = useState(false);
     const [editingMeetup, setEditingMeetup] = useState<api.Meetup | null>(null);
-    const [groupCreatePostTarget, setGroupCreatePostTarget] = useState<api.Group | null>(null);
     const [createPostSessionKey, setCreatePostSessionKey] = useState(0);
     const [ownProfileOpen, setOwnProfileOpen] = useState(false);
     const [openMeetup, setOpenMeetup] = useState<api.Meetup | null>(null);
@@ -184,7 +182,7 @@ export function AppNavigator() {
     const inUserProfile = openUserProfile !== null;
     const inOwnProfile = ownProfileOpen;
     const inComposeDM = pendingDM !== null;
-    const inCreatePost = createPostOpen || groupCreatePostTarget !== null;
+    const inCreatePost = createPostOpen;
     const inCreateGroup = createGroupOpen;
     const inCreateSupportRequest = createSupportRequestOpen;
     const inCreateMeetup = createMeetupOpen || editingMeetup !== null;
@@ -349,27 +347,8 @@ export function AppNavigator() {
         setCreateSupportRequestOpen(false);
         setCreateMeetupOpen(false);
         setCreateGroupOpen(false);
-        setGroupCreatePostTarget(null);
         setCreatePostSessionKey((current) => current + 1);
         setCreatePostOpen(true);
-        setOpenGroupComments(null);
-        setOpenChat(null);
-        setOpenUserProfile(null);
-        setOwnProfileOpen(false);
-        setPendingDM(null);
-        setOpenMeetup(null);
-        setPlusUpsellOpen(false);
-        setNotificationsOpen(false);
-    }, []);
-
-    const handleOpenGroupCreatePost = useCallback((group: api.Group) => {
-        setCreateMenuOpen(false);
-        setCreateSupportRequestOpen(false);
-        setCreateMeetupOpen(false);
-        setCreateGroupOpen(false);
-        setCreatePostOpen(false);
-        setGroupCreatePostTarget(group);
-        setCreatePostSessionKey((current) => current + 1);
         setOpenGroupComments(null);
         setOpenChat(null);
         setOpenUserProfile(null);
@@ -384,7 +363,6 @@ export function AppNavigator() {
         Keyboard.dismiss();
         setKeyboardVisible(false);
         setCreatePostOpen(false);
-        setGroupCreatePostTarget(null);
     }, []);
 
     const openCreateGroup = useCallback(() => {
@@ -393,7 +371,6 @@ export function AppNavigator() {
         setCreateMeetupOpen(false);
         setCreateGroupOpen(true);
         setCreatePostOpen(false);
-        setGroupCreatePostTarget(null);
         setOpenGroupComments(null);
         setOpenChat(null);
         setOpenUserProfile(null);
@@ -411,7 +388,6 @@ export function AppNavigator() {
         setCreateMeetupOpen(false);
         setCreatePostOpen(false);
         setCreateGroupOpen(false);
-        setGroupCreatePostTarget(null);
         setOpenChat(null);
         setOpenUserProfile(null);
         setOwnProfileOpen(false);
@@ -432,7 +408,6 @@ export function AppNavigator() {
         setCreateSupportRequestOpen(false);
         setCreatePostOpen(false);
         setCreateGroupOpen(false);
-        setGroupCreatePostTarget(null);
         setOpenChat(null);
         setOpenUserProfile(null);
         setOwnProfileOpen(false);
@@ -450,7 +425,6 @@ export function AppNavigator() {
         setCreateSupportRequestOpen(false);
         setCreatePostOpen(false);
         setCreateGroupOpen(false);
-        setGroupCreatePostTarget(null);
         setOpenChat(null);
         setOpenUserProfile(null);
         setOwnProfileOpen(false);
@@ -827,8 +801,6 @@ export function AppNavigator() {
                         groupId={openGroupId!}
                         onBack={handleCloseGroup}
                         onOpenComments={handleOpenGroupComments}
-                        onOpenCreatePost={handleOpenGroupCreatePost}
-                        onOpenCreateSupportRequest={openCreateSupportRequest}
                         onOpenChat={setOpenChat}
                         initialAdminTab={groupAdminInitialTab ?? undefined}
                         initialAdminThreadId={groupAdminInitialThreadId ?? undefined}
@@ -845,18 +817,10 @@ export function AppNavigator() {
             )}
             {inCreatePost && (
                 <View style={StyleSheet.absoluteFill}>
-                    {groupCreatePostTarget ? (
-                        <GroupCreatePostScreen
-                            key={createPostSessionKey}
-                            group={groupCreatePostTarget}
-                            onBack={closeCreatePost}
-                        />
-                    ) : (
-                        <CreatePostScreen
-                            key={createPostSessionKey}
-                            onBack={closeCreatePost}
-                        />
-                    )}
+                    <CreatePostScreen
+                        key={createPostSessionKey}
+                        onBack={closeCreatePost}
+                    />
                 </View>
             )}
             {inCreateGroup && (
@@ -933,9 +897,9 @@ export function AppNavigator() {
         </>
     ), [
         inOwnProfile, inUserProfile, inChat, inComposeDM, inCreatePost, inCreateGroup, inCreateSupportRequest, inCreateMeetup, inMeetupDetail, inGroupDetail, inPlusUpsell, inNotifications,
-        openUserProfile, openChat, pendingDM, openMeetup, openGroupId, groupAdminInitialTab, groupAdminInitialThreadId, groupFocusRequest, groupSupportFocusRequest, ownProfileInitialContentTab, createPostSessionKey, groupCreatePostTarget, editingMeetup,
+        openUserProfile, openChat, pendingDM, openMeetup, openGroupId, groupAdminInitialTab, groupAdminInitialThreadId, groupFocusRequest, groupSupportFocusRequest, ownProfileInitialContentTab, createPostSessionKey, editingMeetup,
         handleOpenUserProfile, handleOpenGroup, handleOpenGroupReports, handleOpenGroupAdminInbox, handleOpenSupportRequestContext, handleCloseChat, closeUserProfile, closeOwnProfile,
-        handleOpenComments, handleOpenGroupComments, handleOpenGroupCreatePost, closeCreatePost, closeCreateGroup, handleGroupCreated,
+        handleOpenComments, handleOpenGroupComments, closeCreatePost, closeCreateGroup, handleGroupCreated,
         openCreateSupportRequest, closeCreateSupportRequest, closeCreateMeetup, handleSupportRequestCreated, handleMeetupCreated, handleMeetupUpdated,
         handleComposeDM, handleComposeDMComplete, handleCloseMeetup, handleCloseGroup, closePlusUpsell,
         closeNotifications, handleOpenNotificationChat, handleOpenNotificationMention,

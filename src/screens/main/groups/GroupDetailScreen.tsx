@@ -5,8 +5,6 @@ import {
     Alert,
     FlatList,
     Image,
-    NativeScrollEvent,
-    NativeSyntheticEvent,
     Share,
     ScrollView,
     StyleSheet,
@@ -20,7 +18,6 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons';
 import * as api from '../../../api/client';
 import { Avatar } from '../../../components/Avatar';
-import { CreatePostFab } from '../../../components/posts/CreatePostFab';
 import { PostCard } from '../../../components/posts/PostCard';
 import { groupPostToPostDisplayModel } from '../../../components/posts/postMappers';
 import { SupportRequestCard } from '../../../components/support/SupportRequestCard';
@@ -45,7 +42,6 @@ import {
 } from '../../../hooks/queries/useGroups';
 import { useMySupportRequests } from '../../../hooks/queries/useSupport';
 import { useAuth } from '../../../hooks/useAuth';
-import { useFloatingActionVisibility } from '../../../hooks/useFloatingActionVisibility';
 import { useGradualKeyboardInset } from '../../../hooks/useGradualKeyboardInset';
 import { useScrollToTopButton } from '../../../hooks/useScrollToTopButton';
 import { screenStandards } from '../../../styles/screenStandards';
@@ -61,8 +57,6 @@ interface GroupDetailScreenProps {
     groupId: string;
     onBack: () => void;
     onOpenComments: (post: api.GroupPost) => void;
-    onOpenCreatePost: (group: api.Group) => void;
-    onOpenCreateSupportRequest: () => void;
     onOpenChat: (chat: api.Chat) => void;
     initialAdminTab?: 'requests' | 'inbox' | 'reports';
     initialAdminThreadId?: string;
@@ -85,8 +79,6 @@ export function GroupDetailScreen({
     groupId,
     onBack,
     onOpenComments,
-    onOpenCreatePost,
-    onOpenCreateSupportRequest,
     onOpenChat,
     initialAdminTab,
     initialAdminThreadId,
@@ -173,8 +165,6 @@ export function GroupDetailScreen({
                         <GroupPostsTab
                             group={group}
                             onOpenComments={onOpenComments}
-                            onOpenCreatePost={onOpenCreatePost}
-                            onOpenCreateSupportRequest={onOpenCreateSupportRequest}
                             onOpenChat={onOpenChat}
                             onManageSupportRequest={(request, post) => setManagedSupportTarget({ request, post })}
                             focusPostRequest={focusPostRequest}
@@ -408,8 +398,6 @@ function GroupSummaryHeader({ group }: { group: api.Group }): React.ReactElement
 function GroupPostsTab({
     group,
     onOpenComments,
-    onOpenCreatePost,
-    onOpenCreateSupportRequest,
     onOpenChat,
     onManageSupportRequest,
     focusPostRequest,
@@ -419,8 +407,6 @@ function GroupPostsTab({
 }: {
     group: api.Group;
     onOpenComments: (post: api.GroupPost) => void;
-    onOpenCreatePost: (group: api.Group) => void;
-    onOpenCreateSupportRequest: () => void;
     onOpenChat: (chat: api.Chat) => void;
     onManageSupportRequest: (request: api.SupportRequest, post?: api.GroupPost) => void;
     focusPostRequest: { postId: string; nonce: number } | null;
@@ -432,7 +418,6 @@ function GroupPostsTab({
     const listRef = useRef<FlatList<api.GroupPost> | null>(null);
     const requestListRef = useRef<FlatList<api.SupportRequest> | null>(null);
     const scrollToTop = useScrollToTopButton({ threshold: 520 });
-    const createFab = useFloatingActionVisibility({ enabled: group.can_post, idleDelayMs: 150 });
     const insets = useSafeAreaInsets();
     const { user } = useAuth();
     const queryClient = useQueryClient();
@@ -721,10 +706,10 @@ function GroupPostsTab({
         </>
     ), [group, isCommunitySupport, supportSurface]);
 
-    const handleScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>): void => {
+    const handleScroll = useCallback((...args: Parameters<typeof scrollToTop.onScroll>): void => {
+        const [event] = args;
         scrollToTop.onScroll(event);
-        createFab.onScroll(event);
-    }, [createFab, scrollToTop]);
+    }, [scrollToTop]);
 
     if (isCommunitySupport && supportSurface === 'mine') {
         return (
@@ -756,12 +741,6 @@ function GroupPostsTab({
                     <ScrollToTopButton onPress={() => requestListRef.current?.scrollToOffset({ offset: 0, animated: true })} />
                 ) : null}
 
-                <CreatePostFab
-                    visible={group.can_post && createFab.isVisible}
-                    bottom={20}
-                    label="Support"
-                    onPress={onOpenCreateSupportRequest}
-                />
             </View>
         );
     }
@@ -795,12 +774,6 @@ function GroupPostsTab({
                 <ScrollToTopButton onPress={() => listRef.current?.scrollToOffset({ offset: 0, animated: true })} />
             ) : null}
 
-            <CreatePostFab
-                visible={group.can_post && createFab.isVisible}
-                bottom={20}
-                label={isCommunitySupport ? 'Support' : undefined}
-                onPress={() => isCommunitySupport ? onOpenCreateSupportRequest() : onOpenCreatePost(group)}
-            />
         </View>
     );
 }
