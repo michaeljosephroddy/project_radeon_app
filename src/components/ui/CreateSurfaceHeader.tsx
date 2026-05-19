@@ -1,7 +1,7 @@
 import React from 'react';
 import { StyleProp, StyleSheet, Text, TextStyle, TouchableOpacity, View, ViewStyle } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors, ContentInsets, ControlSizes, Spacing, TextStyles } from '../../theme';
+import { Colors, ContentInsets, ControlSizes, Header, Spacing, TextStyles } from '../../theme';
 
 export const CREATE_SURFACE_HEADER_HEIGHT = 56;
 
@@ -32,9 +32,9 @@ export function CreateSurfaceHeader({
                 disabled={backDisabled}
                 accessibilityRole="button"
                 accessibilityLabel="Back"
-                hitSlop={8}
+                hitSlop={10}
             >
-                <Ionicons name="arrow-back" size={24} color={Colors.text.primary} />
+                <Ionicons name="arrow-back" size={Header.iconSize} color={Colors.primary} />
             </TouchableOpacity>
 
             <View style={styles.center}>
@@ -71,8 +71,8 @@ const styles = StyleSheet.create({
         gap: Spacing.sm,
     },
     headerButton: {
-        width: ControlSizes.iconButton,
-        height: ControlSizes.iconButton,
+        width: ControlSizes.iconButtonLarge,
+        height: ControlSizes.iconButtonLarge,
         alignItems: 'center',
         justifyContent: 'center',
     },

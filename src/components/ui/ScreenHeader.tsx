@@ -8,6 +8,7 @@ import {
     View,
     ViewStyle,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { Colors, ControlSizes, Header, Spacing, TextStyles } from '../../theme';
 
 export interface ScreenHeaderProps {
@@ -34,9 +35,9 @@ export function ScreenHeader({
                     <TouchableOpacity
                         onPress={onBack}
                         style={styles.backButton}
-                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                     >
-                        <Text style={styles.backIcon}>←</Text>
+                        <Ionicons name="arrow-back" size={Header.iconSize} color={Colors.primary} />
                     </TouchableOpacity>
                 ) : null}
             </View>
@@ -83,14 +84,10 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
     },
     backButton: {
-        width: ControlSizes.iconButton,
-        height: ControlSizes.iconButton,
+        width: ControlSizes.iconButtonLarge,
+        height: ControlSizes.iconButtonLarge,
         alignItems: 'center',
         justifyContent: 'center',
-    },
-    backIcon: {
-        fontSize: Header.iconSize,
-        color: Colors.primary,
     },
     title: {
         ...TextStyles.screenTitle,
