@@ -654,7 +654,7 @@ export function FeedScreen({
                 itemId: post.id,
                 itemKind: 'post',
                 commentCount: post.comment_count,
-            }, true);
+            }, false);
             onFocusRequestConsumed?.(requestNonce);
         })();
     }, [activeFeedQuery, focusRequest, isActive, onFocusRequestConsumed, onOpenComments]);

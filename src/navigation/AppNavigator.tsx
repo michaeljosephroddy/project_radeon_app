@@ -741,7 +741,7 @@ export function AppNavigator() {
     }, [consumeIntent, intent]);
 
     const header = useMemo(() => {
-        if (inChat || inUserProfile || inOwnProfile || inComposeDM || inCreatePost || inCreateGroup || inCreateSupportRequest || inCreateMeetup || inMeetupDetail || inGroupDetail || inPlusUpsell || inNotifications) return null;
+        if (inChat || inUserProfile || inOwnProfile || inComposeDM || inCreatePost || inCreateGroup || inCreateSupportRequest || inCreateMeetup || inMeetupDetail || inGroupDetail || inPlusUpsell || inNotifications || inComments || inGroupComments) return null;
 
         const titles: Record<Tab, React.ReactNode> = {
             community: (
@@ -784,7 +784,7 @@ export function AppNavigator() {
         );
     }, [
         activeTab, inChat, inComposeDM, inCreateGroup, inCreateMeetup, inCreatePost, inCreateSupportRequest, inGroupDetail, inMeetupDetail, inNotifications,
-        inOwnProfile, inPlusUpsell, inUserProfile, notificationSummary?.unread_count,
+        inComments, inGroupComments, inOwnProfile, inPlusUpsell, inUserProfile, notificationSummary?.unread_count,
         openNotifications, openOwnProfile, user,
     ]);
 
@@ -941,8 +941,8 @@ export function AppNavigator() {
         closeNotifications, handleOpenNotificationChat, handleOpenNotificationMention,
     ]);
 
-    const isOverlayOpen = inChat || inUserProfile || inOwnProfile || inComposeDM || inCreatePost || inCreateGroup || inCreateSupportRequest || inCreateMeetup || inMeetupDetail || inGroupDetail || inPlusUpsell || inNotifications;
-    const canShowGlobalCreate = Boolean(user) && !isOverlayOpen && !inComments && !inGroupComments && !keyboardVisible;
+    const isOverlayOpen = inChat || inUserProfile || inOwnProfile || inComposeDM || inCreatePost || inCreateGroup || inCreateSupportRequest || inCreateMeetup || inMeetupDetail || inGroupDetail || inPlusUpsell || inNotifications || inComments || inGroupComments;
+    const canShowGlobalCreate = Boolean(user) && !isOverlayOpen && !keyboardVisible;
     const globalCreateButtonBottom = insets.bottom + 62;
 
     const openGlobalCreateMenu = useCallback((): void => {
@@ -1018,7 +1018,7 @@ export function AppNavigator() {
                     {overlays}
                 </View>
 
-                {!inChat && !inUserProfile && !inOwnProfile && !inComposeDM && !inCreatePost && !inCreateGroup && !inCreateSupportRequest && !inCreateMeetup && !inMeetupDetail && !inGroupDetail && !inNotifications && !keyboardVisible && (
+                {!isOverlayOpen && !keyboardVisible && (
                     <View style={[styles.tabBar, { paddingBottom: insets.bottom + 6 }]}>
                         {TABS.map(tab => (
                             <TouchableOpacity
