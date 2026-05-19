@@ -530,9 +530,7 @@ const styles = StyleSheet.create({
         paddingVertical: 2,
     },
     flatBubbleText: {
-        ...TextStyles.sectionTitle,
-        color: Colors.text.primary,
-        lineHeight: 22,
+        ...TextStyles.commentBody,
         textAlign: 'left',
     },
     inviteCard: {
@@ -549,8 +547,7 @@ const styles = StyleSheet.create({
         fontWeight: '800',
     },
     inviteBody: {
-        ...TextStyles.secondary,
-        color: Colors.text.primary,
+        ...TextStyles.commentBody,
     },
     inviteActions: {
         flexDirection: 'row',

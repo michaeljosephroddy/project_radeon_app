@@ -403,8 +403,7 @@ const styles = StyleSheet.create({
     pendingPillText: { fontSize: Typography.sizes.xs, color: Colors.textOn.primary, fontWeight: '700' },
     preview: {
         marginTop: 1,
-        fontSize: Typography.sizes.sm,
-        color: Colors.text.muted,
+        ...TextStyles.commentBody,
     },
     previewUnread: {
         color: Colors.text.primary,

@@ -269,9 +269,7 @@ const styles = StyleSheet.create({
         paddingVertical: 2,
     },
     flatBubbleText: {
-        ...TextStyles.sectionTitle,
-        color: Colors.text.primary,
-        lineHeight: 22,
+        ...TextStyles.commentBody,
         textAlign: 'left',
     },
     timeLabel: {
