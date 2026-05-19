@@ -627,7 +627,7 @@ export function ProfileTabScreen({
                 onEndReached={handleLoadMoreOwnPosts}
                 onEndReachedThreshold={0.4}
                 keyboardShouldPersistTaps="handled"
-                contentContainerStyle={[screenStandards.scrollContent, styles.content]}
+                contentContainerStyle={[screenStandards.scrollContent, styles.content, subView === 'profile' && styles.profileContent]}
                 ListFooterComponent={subView === 'profile' && userPostsQuery.isFetchingNextPage ? (
                     <ActivityIndicator color={Colors.primary} style={styles.profilePostsLoader} />
                 ) : null}
@@ -1151,13 +1151,14 @@ const styles = StyleSheet.create({
     requestActionSecondaryText: { fontSize: Typography.sizes.sm, fontWeight: '500', color: Colors.text.secondary },
 
     content: { paddingBottom: Spacing.md },
+    profileContent: { paddingTop: 0 },
     mainContent: { gap: 0, paddingHorizontal: Spacing.md },
     profileTopRow: {
         flexDirection: 'row',
         alignItems: 'center',
         gap: Spacing.lg,
         paddingHorizontal: Spacing.md,
-        paddingTop: Spacing.lg,
+        paddingTop: Spacing.sm,
         paddingBottom: Spacing.md,
     },
     avatarBorder: {

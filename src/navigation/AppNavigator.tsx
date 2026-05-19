@@ -944,7 +944,7 @@ export function AppNavigator() {
     const hidesBottomNav = inChat || inComposeDM || inCreatePost || inCreateGroup || inCreateSupportRequest || inCreateMeetup || inMeetupDetail || inGroupDetail || inPlusUpsell || inNotifications || inComments || inGroupComments;
     const canShowGlobalCreate = Boolean(user) && !hidesBottomNav && !keyboardVisible;
     const tabBarBottomPadding = Platform.OS === 'android'
-        ? Math.max(insets.bottom - 16, 0)
+        ? Math.max(insets.bottom - 12, Spacing.xs)
         : insets.bottom + 4;
 
     const openGlobalCreateMenu = useCallback((): void => {
