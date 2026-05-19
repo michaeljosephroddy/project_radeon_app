@@ -1,0 +1,57 @@
+import React from 'react';
+import { StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { Colors, ControlSizes, Radius, Spacing } from '../../theme';
+
+interface CenterCreateButtonProps {
+    visible: boolean;
+    bottom: number;
+    onPress: () => void;
+}
+
+export function CenterCreateButton({
+    visible,
+    bottom,
+    onPress,
+}: CenterCreateButtonProps): React.ReactElement | null {
+    if (!visible) return null;
+
+    return (
+        <View pointerEvents="box-none" style={[styles.container, { bottom }]}>
+            <TouchableOpacity
+                accessibilityRole="button"
+                accessibilityLabel="Create"
+                activeOpacity={0.9}
+                onPress={onPress}
+                style={styles.button}
+            >
+                <Ionicons name="add" size={30} color={Colors.textOn.primary} />
+            </TouchableOpacity>
+        </View>
+    );
+}
+
+const styles = StyleSheet.create({
+    container: {
+        position: 'absolute',
+        left: 0,
+        right: 0,
+        alignItems: 'center',
+        zIndex: 20,
+    },
+    button: {
+        width: ControlSizes.iconButtonLarge + Spacing.lg,
+        height: ControlSizes.iconButtonLarge + Spacing.lg,
+        borderRadius: Radius.pill,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: Colors.primary,
+        borderWidth: 4,
+        borderColor: Colors.bg.page,
+        shadowColor: Colors.shadow,
+        shadowOpacity: 0.28,
+        shadowRadius: 14,
+        shadowOffset: { width: 0, height: 6 },
+        elevation: 8,
+    },
+});

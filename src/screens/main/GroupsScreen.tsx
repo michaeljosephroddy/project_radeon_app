@@ -15,7 +15,6 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as api from '../../api/client';
-import { CreatePostFab } from '../../components/posts/CreatePostFab';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { SearchBar } from '../../components/ui/SearchBar';
 import { ScrollToTopButton } from '../../components/ui/ScrollToTopButton';
@@ -29,7 +28,6 @@ import { Colors, ContentInsets, ControlSizes, Radius, Spacing, TextStyles, getAv
 interface GroupsScreenProps {
     isActive: boolean;
     onOpenGroup: (groupId: string) => void;
-    onOpenCreateGroup: () => void;
 }
 
 type GroupScope = 'discover' | 'joined';
@@ -124,7 +122,7 @@ const GroupSearchRow = React.memo(function GroupSearchRow({
     );
 });
 
-export function GroupsScreen({ isActive, onOpenGroup, onOpenCreateGroup }: GroupsScreenProps): React.ReactElement {
+export function GroupsScreen({ isActive, onOpenGroup }: GroupsScreenProps): React.ReactElement {
     const listRef = useRef<FlatList<api.Group> | null>(null);
     const scrollToTop = useScrollToTopButton({ threshold: 520 });
     const [query, setQuery] = useState('');
@@ -287,12 +285,6 @@ export function GroupsScreen({ isActive, onOpenGroup, onOpenCreateGroup }: Group
             {isActive && scrollToTop.isVisible ? (
                 <ScrollToTopButton onPress={() => listRef.current?.scrollToOffset({ offset: 0, animated: true })} />
             ) : null}
-            <CreatePostFab
-                visible={isActive && scope === 'discover'}
-                bottom={20}
-                label="Group"
-                onPress={onOpenCreateGroup}
-            />
             {groupsQuery.isLoading ? (
                 <View style={styles.loadingOverlay}>
                     <ActivityIndicator color={Colors.primary} />

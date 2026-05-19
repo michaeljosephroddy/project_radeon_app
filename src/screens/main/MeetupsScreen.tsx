@@ -19,7 +19,6 @@ import { MeetupCard } from '../../components/events/MeetupCard';
 import { MeetupFilterSheet } from '../../components/events/MeetupFilterSheet';
 import { MeetupForm } from '../../components/events/MeetupForm';
 import { MeetupFormValues } from '../../components/events/MeetupFormState';
-import { CreatePostFab } from '../../components/posts/CreatePostFab';
 import { EmptyState } from '../../components/ui/EmptyState';
 import type { CardActionMenuAction } from '../../components/ui/CardActionMenu';
 import { InfoNoticeCard } from '../../components/ui/InfoNoticeCard';
@@ -45,7 +44,7 @@ import { queryKeys } from '../../query/queryKeys';
 import { MeetupReviewScreen } from './MeetupReviewScreen';
 import { dedupeById } from '../../utils/list';
 import { getListPerformanceProps } from '../../utils/listPerformance';
-import { Colors, ContentInsets, ControlSizes, Radius, Spacing, Typography } from '../../theme';
+import { Colors, ContentInsets, Radius, Spacing, Typography } from '../../theme';
 import { screenStandards } from '../../styles/screenStandards';
 
 type MeetupPrimaryView = 'discover' | 'hosting' | 'going' | 'create';
@@ -56,7 +55,6 @@ interface MeetupsScreenProps {
     isActive: boolean;
     onOpenUserProfile: (profile: { userId: string; username: string; avatarUrl?: string }) => void;
     onOpenMeetup: (meetup: api.Meetup) => void;
-    onOpenCreateMeetup: () => void;
     onOpenManageMeetup: (meetup: api.Meetup) => void;
 }
 
@@ -347,7 +345,6 @@ export function MeetupsScreen({
     isActive,
     onOpenUserProfile,
     onOpenMeetup,
-    onOpenCreateMeetup,
     onOpenManageMeetup,
 }: MeetupsScreenProps) {
     const { user } = useAuth();
@@ -758,10 +755,6 @@ export function MeetupsScreen({
         setLocalCoverPreviewUri(null);
         setFormError('');
         setCreateStage('form');
-    };
-
-    const handleOpenCreate = () => {
-        onOpenCreateMeetup();
     };
 
     const closeCreateEditor = () => {
@@ -1230,19 +1223,12 @@ export function MeetupsScreen({
                         scrollEventThrottle={16}
                         contentContainerStyle={[
                             screenStandards.listContent,
-                            activeView === 'discover' && styles.discoverListWithFab,
                         ]}
                         {...listProps}
                     />
                     {activeView === 'discover' && discoverScroll.isVisible ? (
                         <ScrollToTopButton onPress={() => listRef.current?.scrollToOffset({ offset: 0, animated: true })} />
                     ) : null}
-                    <CreatePostFab
-                        visible={isActive && activeView === 'discover'}
-                        bottom={20}
-                        label="Meetup"
-                        onPress={handleOpenCreate}
-                    />
                 </>
             )}
 
@@ -1266,9 +1252,6 @@ const styles = StyleSheet.create({
     },
     list: {
         marginTop: 0,
-    },
-    discoverListWithFab: {
-        paddingBottom: ContentInsets.listBottom + ControlSizes.fabMinHeight,
     },
     deleteAction: {
         width: 92,

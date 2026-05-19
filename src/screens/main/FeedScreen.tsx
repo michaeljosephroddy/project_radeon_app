@@ -5,7 +5,6 @@ import {
     StyleSheet, RefreshControl, ActivityIndicator, Alert, Modal,
     Platform, KeyboardAvoidingView,
 } from 'react-native';
-import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -14,7 +13,6 @@ import type { CommentThreadTarget } from './feed/FeedCommentsModal';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { InfoNoticeCard } from '../../components/ui/InfoNoticeCard';
 import { ScrollToTopButton } from '../../components/ui/ScrollToTopButton';
-import { CreatePostFab } from '../../components/posts/CreatePostFab';
 import { PostCard } from '../../components/posts/PostCard';
 import { feedItemToPostDisplayModel } from '../../components/posts/postMappers';
 import { CardActionMenu, type CardActionMenuAction } from '../../components/ui/CardActionMenu';
@@ -190,7 +188,6 @@ interface FeedScreenProps {
     isActive: boolean;
     onOpenUserProfile: (profile: { userId: string; username: string; avatarUrl?: string }) => void;
     onOpenComments: (thread: CommentThreadTarget, focusComposer: boolean, onCommentCreated?: (comment: api.Comment) => void) => void;
-    onOpenCreatePost: () => void;
     focusRequest?: { postId: string; commentId?: string; nonce: number } | null;
     onFocusRequestConsumed?: (nonce: number) => void;
 }
@@ -199,7 +196,6 @@ export function FeedScreen({
     isActive,
     onOpenUserProfile,
     onOpenComments,
-    onOpenCreatePost,
     focusRequest,
     onFocusRequestConsumed,
 }: FeedScreenProps) {
@@ -218,7 +214,6 @@ export function FeedScreen({
     const feedScrollToTop = useScrollToTopButton({ threshold: 520 });
     const insets = useSafeAreaInsets();
     const [feedItems, setFeedItems] = useState<api.FeedItem[]>([]);
-    const [isCreateFabVisible, setIsCreateFabVisible] = useState(true);
     const [shareTarget, setShareTarget] = useState<api.FeedItem | null>(null);
     const [shareCommentary, setShareCommentary] = useState('');
     const [isSubmittingShare, setIsSubmittingShare] = useState(false);
@@ -227,8 +222,6 @@ export function FeedScreen({
 
     const feedItemsRef = useRef<api.FeedItem[]>([]);
     const flatListRef = useRef<FlatList<api.FeedItem>>(null);
-    const lastFeedScrollYRef = useRef(0);
-    const createFabRevealTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
     const localManagedPostIdsRef = useRef<Set<string>>(new Set());
     const feedSessionIdRef = useRef(`feed-${Date.now()}`);
     const activeImpressionsRef = useRef<Record<string, ActiveFeedImpression>>({});
@@ -241,7 +234,6 @@ export function FeedScreen({
 
     useEffect(() => () => {
         if (hiddenUndoTimerRef.current) clearTimeout(hiddenUndoTimerRef.current);
-        if (createFabRevealTimerRef.current) clearTimeout(createFabRevealTimerRef.current);
         if (impressionFlushTimerRef.current) clearTimeout(impressionFlushTimerRef.current);
         if (eventFlushTimerRef.current) clearTimeout(eventFlushTimerRef.current);
     }, []);
@@ -278,55 +270,23 @@ export function FeedScreen({
         await homeFeedQuery.refetch();
     }, [homeFeedQuery, queryClient]);
 
-    const handleFeedScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
-        feedScrollToTop.onScroll(event);
-
-        const offsetY = event.nativeEvent.contentOffset.y;
-        const deltaY = offsetY - lastFeedScrollYRef.current;
-        lastFeedScrollYRef.current = offsetY;
-
-        if (createFabRevealTimerRef.current) {
-            clearTimeout(createFabRevealTimerRef.current);
-        }
-        if (Math.abs(deltaY) > 4) {
-            setIsCreateFabVisible((current) => (!current ? current : false));
-        }
-        createFabRevealTimerRef.current = setTimeout(() => {
-            setIsCreateFabVisible(true);
-        }, 150);
-    }, [feedScrollToTop.onScroll]);
-
     const handleLoadMore = useCallback(async () => {
         if (!isActive || !activeFeedQuery.hasNextPage || activeFeedQuery.isFetchingNextPage) return;
         await activeFeedQuery.fetchNextPage();
     }, [activeFeedQuery, isActive]);
     const feedListPagination = useGuardedEndReached(handleLoadMore);
 
-    const hideCreateFabDuringScroll = useCallback(() => {
-        if (createFabRevealTimerRef.current) {
-            clearTimeout(createFabRevealTimerRef.current);
-        }
-        setIsCreateFabVisible(false);
-    }, []);
-
     const handleFeedScrollBeginDrag = useCallback(() => {
         feedListPagination.onScrollBeginDrag();
-        hideCreateFabDuringScroll();
-    }, [feedListPagination.onScrollBeginDrag, hideCreateFabDuringScroll]);
+    }, [feedListPagination.onScrollBeginDrag]);
 
     const handleFeedMomentumScrollBegin = useCallback(() => {
         feedListPagination.onMomentumScrollBegin();
-        hideCreateFabDuringScroll();
-    }, [feedListPagination.onMomentumScrollBegin, hideCreateFabDuringScroll]);
+    }, [feedListPagination.onMomentumScrollBegin]);
 
-    const handleFeedScrollEnd = useCallback(() => {
-        if (createFabRevealTimerRef.current) {
-            clearTimeout(createFabRevealTimerRef.current);
-        }
-        createFabRevealTimerRef.current = setTimeout(() => {
-            setIsCreateFabVisible(true);
-        }, 150);
-    }, []);
+    const handleFeedScroll = useCallback((...args: Parameters<typeof feedScrollToTop.onScroll>) => {
+        feedScrollToTop.onScroll(...args);
+    }, [feedScrollToTop.onScroll]);
 
     const getImpressionKey = useCallback((item: api.FeedItem, feedMode: api.FeedMode = HOME_FEED_MODE) => {
         return `${feedMode}:${item.kind}:${item.id}`;
@@ -700,8 +660,6 @@ export function FeedScreen({
     }, [activeFeedQuery, focusRequest, isActive, onFocusRequestConsumed, onOpenComments]);
 
     const listPaddingBottom = (hiddenUndo ? 110 : 72) + insets.bottom;
-    const createFabBottom = hiddenUndo ? 60 + insets.bottom : 20;
-
     const renderItem = useCallback(({ item }: { item: api.FeedItem }) => {
         if (item.kind === 'reshare') {
             return (
@@ -756,8 +714,6 @@ export function FeedScreen({
                 onEndReachedThreshold={0.4}
                 onMomentumScrollBegin={handleFeedMomentumScrollBegin}
                 onScrollBeginDrag={handleFeedScrollBeginDrag}
-                onScrollEndDrag={handleFeedScrollEnd}
-                onMomentumScrollEnd={handleFeedScrollEnd}
                 onScroll={handleFeedScroll}
                 scrollEventThrottle={16}
                 onViewableItemsChanged={handleViewableItemsChanged}
@@ -799,12 +755,6 @@ export function FeedScreen({
             {isActive && feedScrollToTop.isVisible ? (
                 <ScrollToTopButton onPress={() => flatListRef.current?.scrollToOffset({ offset: 0, animated: true })} />
             ) : null}
-
-            <CreatePostFab
-                visible={isActive && Boolean(user) && isCreateFabVisible}
-                bottom={createFabBottom}
-                onPress={onOpenCreatePost}
-            />
 
             {hiddenUndo ? (
                 <View style={styles.hiddenUndoBanner}>

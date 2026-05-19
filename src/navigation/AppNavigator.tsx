@@ -27,6 +27,8 @@ import { UserProfileScreen } from '../screens/main/UserProfileScreen';
 import { MeetupDetailScreen } from '../screens/main/MeetupDetailScreen';
 import { Avatar } from '../components/Avatar';
 import { PlusUpsellScreen } from '../components/PlusUpsellScreen';
+import { CenterCreateButton } from '../components/create/CenterCreateButton';
+import { CreateActionSheet, type GlobalCreateAction } from '../components/create/CreateActionSheet';
 import type { ProfileContentTabKey } from '../components/profile/ProfileContentTabs';
 import * as api from '../api/client';
 import { Colors, ControlSizes, Radius, TextStyles, Typography, Spacing } from '../theme';
@@ -73,14 +75,12 @@ const CommunityTab = React.memo(function CommunityTab({
     isActive,
     onOpenUserProfile,
     onOpenComments,
-    onOpenCreatePost,
     focusRequest,
     onFocusRequestConsumed,
 }: {
     isActive: boolean;
     onOpenUserProfile: (p: OpenUserProfile) => void;
     onOpenComments: (thread: CommentThreadTarget, focusComposer: boolean, onCommentCreated?: (comment: api.Comment) => void) => void;
-    onOpenCreatePost: () => void;
     focusRequest: { postId: string; commentId?: string; nonce: number } | null;
     onFocusRequestConsumed: (nonce: number) => void;
 }) {
@@ -90,7 +90,6 @@ const CommunityTab = React.memo(function CommunityTab({
                 isActive={isActive}
                 onOpenUserProfile={onOpenUserProfile}
                 onOpenComments={onOpenComments}
-                onOpenCreatePost={onOpenCreatePost}
                 focusRequest={focusRequest}
                 onFocusRequestConsumed={onFocusRequestConsumed}
             />
@@ -101,18 +100,15 @@ const CommunityTab = React.memo(function CommunityTab({
 const GroupsTab = React.memo(function GroupsTab({
     isActive,
     onOpenGroup,
-    onOpenCreateGroup,
 }: {
     isActive: boolean;
     onOpenGroup: (groupId: string) => void;
-    onOpenCreateGroup: () => void;
 }) {
     return (
         <View style={isActive ? styles.tabVisible : styles.tabHidden}>
             <GroupsScreen
                 isActive={isActive}
                 onOpenGroup={onOpenGroup}
-                onOpenCreateGroup={onOpenCreateGroup}
             />
         </View>
     );
@@ -122,13 +118,11 @@ const MeetupsTab = React.memo(function MeetupsTab({
     isActive,
     onOpenUserProfile,
     onOpenMeetup,
-    onOpenCreateMeetup,
     onOpenManageMeetup,
 }: {
     isActive: boolean;
     onOpenUserProfile: (p: OpenUserProfile) => void;
     onOpenMeetup: (meetup: api.Meetup) => void;
-    onOpenCreateMeetup: () => void;
     onOpenManageMeetup: (meetup: api.Meetup) => void;
 }) {
     return (
@@ -137,7 +131,6 @@ const MeetupsTab = React.memo(function MeetupsTab({
                 isActive={isActive}
                 onOpenUserProfile={onOpenUserProfile}
                 onOpenMeetup={onOpenMeetup}
-                onOpenCreateMeetup={onOpenCreateMeetup}
                 onOpenManageMeetup={onOpenManageMeetup}
             />
         </View>
@@ -163,6 +156,7 @@ export function AppNavigator() {
     const [createGroupOpen, setCreateGroupOpen] = useState(false);
     const [createSupportRequestOpen, setCreateSupportRequestOpen] = useState(false);
     const [createMeetupOpen, setCreateMeetupOpen] = useState(false);
+    const [createMenuOpen, setCreateMenuOpen] = useState(false);
     const [editingMeetup, setEditingMeetup] = useState<api.Meetup | null>(null);
     const [groupCreatePostTarget, setGroupCreatePostTarget] = useState<api.Group | null>(null);
     const [createPostSessionKey, setCreatePostSessionKey] = useState(0);
@@ -201,6 +195,7 @@ export function AppNavigator() {
     const inComments = openComments !== null;
     const inGroupComments = openGroupComments !== null;
     const handleOpenUserProfile = useCallback((profile: OpenUserProfile) => {
+        setCreateMenuOpen(false);
         setCreateSupportRequestOpen(false);
         setCreateMeetupOpen(false);
         setOpenUserProfile(profile);
@@ -209,6 +204,7 @@ export function AppNavigator() {
     }, []);
 
     const handleOpenMeetup = useCallback((meetup: api.Meetup) => {
+        setCreateMenuOpen(false);
         setCreateMeetupOpen(false);
         setEditingMeetup(null);
         setOpenMeetup(meetup);
@@ -219,6 +215,7 @@ export function AppNavigator() {
     }, []);
 
     const openPlusUpsell = useCallback(() => {
+        setCreateMenuOpen(false);
         setCreateSupportRequestOpen(false);
         setCreateMeetupOpen(false);
         setPlusUpsellOpen(true);
@@ -229,6 +226,7 @@ export function AppNavigator() {
     }, []);
 
     const openNotifications = useCallback(() => {
+        setCreateMenuOpen(false);
         setCreateSupportRequestOpen(false);
         setCreateMeetupOpen(false);
         setNotificationsOpen(true);
@@ -247,6 +245,7 @@ export function AppNavigator() {
     }, []);
 
     const handleOpenGroup = useCallback((groupId: string, postId?: string) => {
+        setCreateMenuOpen(false);
         setCreateSupportRequestOpen(false);
         setCreateMeetupOpen(false);
         setOpenGroupId(groupId);
@@ -346,6 +345,7 @@ export function AppNavigator() {
     }, []);
 
     const openCreatePost = useCallback(() => {
+        setCreateMenuOpen(false);
         setCreateSupportRequestOpen(false);
         setCreateMeetupOpen(false);
         setCreateGroupOpen(false);
@@ -363,6 +363,7 @@ export function AppNavigator() {
     }, []);
 
     const handleOpenGroupCreatePost = useCallback((group: api.Group) => {
+        setCreateMenuOpen(false);
         setCreateSupportRequestOpen(false);
         setCreateMeetupOpen(false);
         setCreateGroupOpen(false);
@@ -387,6 +388,7 @@ export function AppNavigator() {
     }, []);
 
     const openCreateGroup = useCallback(() => {
+        setCreateMenuOpen(false);
         setCreateSupportRequestOpen(false);
         setCreateMeetupOpen(false);
         setCreateGroupOpen(true);
@@ -404,6 +406,7 @@ export function AppNavigator() {
     }, []);
 
     const openCreateSupportRequest = useCallback(() => {
+        setCreateMenuOpen(false);
         setCreateSupportRequestOpen(true);
         setCreateMeetupOpen(false);
         setCreatePostOpen(false);
@@ -423,6 +426,7 @@ export function AppNavigator() {
     }, []);
 
     const openCreateMeetup = useCallback(() => {
+        setCreateMenuOpen(false);
         setCreateMeetupOpen(true);
         setEditingMeetup(null);
         setCreateSupportRequestOpen(false);
@@ -440,6 +444,7 @@ export function AppNavigator() {
     }, []);
 
     const openManageMeetup = useCallback((meetup: api.Meetup) => {
+        setCreateMenuOpen(false);
         setEditingMeetup(meetup);
         setCreateMeetupOpen(false);
         setCreateSupportRequestOpen(false);
@@ -499,6 +504,7 @@ export function AppNavigator() {
     }, []);
 
     const openOwnProfile = useCallback(() => {
+        setCreateMenuOpen(false);
         setOwnProfileInitialContentTab('posts');
         setOwnProfileOpen(true);
         setOpenUserProfile(null);
@@ -510,6 +516,7 @@ export function AppNavigator() {
     }, []);
 
     const handleTabPress = useCallback((tab: Tab) => {
+        setCreateMenuOpen(false);
         setCreateSupportRequestOpen(false);
         setCreateMeetupOpen(false);
         setActiveTab(tab);
@@ -935,6 +942,53 @@ export function AppNavigator() {
     ]);
 
     const isOverlayOpen = inChat || inUserProfile || inOwnProfile || inComposeDM || inCreatePost || inCreateGroup || inCreateSupportRequest || inCreateMeetup || inMeetupDetail || inGroupDetail || inPlusUpsell || inNotifications;
+    const canShowGlobalCreate = Boolean(user) && !isOverlayOpen && !inComments && !inGroupComments && !keyboardVisible;
+    const globalCreateButtonBottom = insets.bottom + 62;
+
+    const openGlobalCreateMenu = useCallback((): void => {
+        setCreateMenuOpen(true);
+    }, []);
+
+    const closeGlobalCreateMenu = useCallback((): void => {
+        setCreateMenuOpen(false);
+    }, []);
+
+    const globalCreateActions = useMemo<GlobalCreateAction[]>(() => [
+        {
+            key: 'post',
+            title: 'Post',
+            description: 'Share an update with the community.',
+            icon: 'create-outline',
+            onPress: openCreatePost,
+        },
+        {
+            key: 'support_request',
+            title: 'Support request',
+            description: 'Ask the community for help right now.',
+            icon: 'heart-outline',
+            onPress: openCreateSupportRequest,
+        },
+        {
+            key: 'meetup',
+            title: 'Meetup',
+            description: 'Host a sober event or gathering.',
+            icon: 'calendar-outline',
+            onPress: openCreateMeetup,
+        },
+        {
+            key: 'group',
+            title: 'Group',
+            description: 'Start a focused recovery space.',
+            icon: 'people-outline',
+            onPress: openCreateGroup,
+        },
+    ], [openCreateGroup, openCreateMeetup, openCreatePost, openCreateSupportRequest]);
+
+    useEffect(() => {
+        if (!canShowGlobalCreate && createMenuOpen) {
+            setCreateMenuOpen(false);
+        }
+    }, [canShowGlobalCreate, createMenuOpen]);
 
     return (
         <>
@@ -946,7 +1000,6 @@ export function AppNavigator() {
                         isActive={activeTab === 'community' && !isOverlayOpen}
                         onOpenUserProfile={handleOpenUserProfile}
                         onOpenComments={handleOpenComments}
-                        onOpenCreatePost={openCreatePost}
                         focusRequest={feedFocusRequest}
                         onFocusRequestConsumed={handleFeedFocusRequestConsumed}
                     />
@@ -954,13 +1007,11 @@ export function AppNavigator() {
                     <GroupsTab
                         isActive={activeTab === 'groups' && !isOverlayOpen}
                         onOpenGroup={handleOpenGroup}
-                        onOpenCreateGroup={openCreateGroup}
                     />
                     <MeetupsTab
                         isActive={activeTab === 'meetups' && !isOverlayOpen}
                         onOpenUserProfile={handleOpenUserProfile}
                         onOpenMeetup={handleOpenMeetup}
-                        onOpenCreateMeetup={openCreateMeetup}
                         onOpenManageMeetup={openManageMeetup}
                     />
                     <ChatsTab isActive={activeTab === 'chats' && !isOverlayOpen} onOpenChat={setOpenChat} />
@@ -987,7 +1038,18 @@ export function AppNavigator() {
                         ))}
                     </View>
                 )}
+                <CenterCreateButton
+                    visible={canShowGlobalCreate}
+                    bottom={globalCreateButtonBottom}
+                    onPress={openGlobalCreateMenu}
+                />
             </SafeAreaView>
+
+            <CreateActionSheet
+                visible={createMenuOpen && canShowGlobalCreate}
+                actions={globalCreateActions}
+                onClose={closeGlobalCreateMenu}
+            />
 
             {inComments && user && (
                 <View style={StyleSheet.absoluteFillObject}>

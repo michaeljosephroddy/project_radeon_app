@@ -16,7 +16,6 @@ import { Avatar } from '../../components/Avatar';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { InfoNoticeCard } from '../../components/ui/InfoNoticeCard';
 import { PrimaryButton } from '../../components/ui/PrimaryButton';
-import { CreatePostFab } from '../../components/posts/CreatePostFab';
 import { ScrollToTopButton } from '../../components/ui/ScrollToTopButton';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { TextField } from '../../components/ui/TextField';
@@ -43,7 +42,6 @@ interface SupportScreenProps {
     isActive: boolean;
     onOpenChat: (chat: api.Chat) => void;
     onOpenUserProfile: (profile: { userId: string; username: string; avatarUrl?: string }) => void;
-    onOpenCreateSupportRequest: () => void;
 }
 
 interface DetailState {
@@ -210,7 +208,6 @@ export function SupportScreen({
     isActive,
     onOpenChat,
     onOpenUserProfile,
-    onOpenCreateSupportRequest,
 }: SupportScreenProps) {
     const queryClient = useQueryClient();
     const flatListRef = useRef<FlatList<api.SupportRequest> | null>(null);
@@ -735,12 +732,6 @@ export function SupportScreen({
             {isActive && scrollToTop.isVisible ? (
                 <ScrollToTopButton onPress={() => flatListRef.current?.scrollToOffset({ offset: 0, animated: true })} />
             ) : null}
-            <CreatePostFab
-                visible={isActive}
-                bottom={20}
-                label="Request"
-                onPress={onOpenCreateSupportRequest}
-            />
         </View>
     );
 }
@@ -750,7 +741,7 @@ const styles = StyleSheet.create({
     center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.bg.page },
     headerCard: { marginBottom: Spacing.md },
     nestedTabs: { marginBottom: Spacing.md },
-    feedListContent: { paddingBottom: ContentInsets.listBottom + ControlSizes.fabMinHeight },
+    feedListContent: { paddingBottom: ContentInsets.listBottom },
     card: {
         backgroundColor: Colors.bg.page,
         padding: Spacing.md,
