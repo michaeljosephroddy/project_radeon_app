@@ -1126,14 +1126,14 @@ const styles = StyleSheet.create({
     },
     requestActionSecondaryText: { fontSize: Typography.sizes.sm, fontWeight: '500', color: Colors.text.secondary },
 
-    content: { paddingBottom: Spacing.md },
+    content: { paddingTop: 0, paddingBottom: Spacing.md },
     mainContent: { gap: 0, paddingHorizontal: Spacing.md },
     profileTopRow: {
         flexDirection: 'row',
         alignItems: 'center',
         gap: Spacing.lg,
         paddingHorizontal: Spacing.md,
-        paddingTop: Spacing.lg,
+        paddingTop: Spacing.xs,
         paddingBottom: Spacing.md,
     },
     avatarBorder: {
