@@ -489,7 +489,6 @@ export function AppNavigator() {
         setCreateSupportRequestOpen(false);
         setCreateMeetupOpen(false);
         setActiveTab(tab);
-        setOwnProfileOpen(false);
         setOpenChat(null);
         setCreatePostOpen(false);
         setCreateGroupOpen(false);
@@ -764,6 +763,17 @@ export function AppNavigator() {
 
     const overlays = useMemo(() => (
         <>
+            {inOwnProfile && (
+                <View style={StyleSheet.absoluteFill}>
+                    <ProfileTabScreen
+                        isActive={inOwnProfile}
+                        initialContentTab={ownProfileInitialContentTab}
+                        onBack={closeOwnProfile}
+                        onOpenUserProfile={handleOpenUserProfile}
+                        onOpenComments={handleOpenComments}
+                    />
+                </View>
+            )}
             {inComposeDM && (
                 <View style={StyleSheet.absoluteFill}>
                     <ComposeDMScreen
@@ -887,19 +897,16 @@ export function AppNavigator() {
     ), [
         inOwnProfile, inUserProfile, inChat, inComposeDM, inCreatePost, inCreateGroup, inCreateSupportRequest, inCreateMeetup, inMeetupDetail, inGroupDetail, inPlusUpsell, inNotifications,
         openUserProfile, openChat, pendingDM, openMeetup, openGroupId, groupAdminInitialTab, groupAdminInitialThreadId, groupFocusRequest, groupSupportFocusRequest, ownProfileInitialContentTab, createPostSessionKey, editingMeetup,
-        handleOpenUserProfile, handleOpenGroup, handleOpenGroupReports, handleOpenGroupAdminInbox, handleOpenSupportRequestContext, handleCloseChat, closeUserProfile,
+        handleOpenUserProfile, handleOpenGroup, handleOpenGroupReports, handleOpenGroupAdminInbox, handleOpenSupportRequestContext, handleCloseChat, closeUserProfile, closeOwnProfile,
         handleOpenComments, handleOpenGroupComments, closeCreatePost, closeCreateGroup, handleGroupCreated,
         openCreateSupportRequest, closeCreateSupportRequest, closeCreateMeetup, handleSupportRequestCreated, handleMeetupCreated, handleMeetupUpdated,
         handleComposeDM, handleComposeDMComplete, handleCloseMeetup, handleCloseGroup, closePlusUpsell,
         closeNotifications, handleOpenNotificationChat, handleOpenNotificationMention,
     ]);
 
-    const isContentOverlayOpen = inChat || inUserProfile || inOwnProfile || inComposeDM || inCreatePost || inCreateGroup || inCreateSupportRequest || inCreateMeetup || inMeetupDetail || inGroupDetail || inPlusUpsell || inNotifications || inComments || inGroupComments;
-    const hidesBottomNav = inChat || inUserProfile || inComposeDM || inCreatePost || inCreateGroup || inCreateSupportRequest || inCreateMeetup || inMeetupDetail || inGroupDetail || inPlusUpsell || inNotifications || inComments || inGroupComments;
-    const canShowGlobalCreate = Boolean(user) && !hidesBottomNav && !keyboardVisible;
-    const tabBarBottomPadding = Platform.OS === 'android'
-        ? Math.max(insets.bottom - 12, 1)
-        : insets.bottom + 4;
+    const isOverlayOpen = inChat || inUserProfile || inOwnProfile || inComposeDM || inCreatePost || inCreateGroup || inCreateSupportRequest || inCreateMeetup || inMeetupDetail || inGroupDetail || inPlusUpsell || inNotifications || inComments || inGroupComments;
+    const canShowGlobalCreate = Boolean(user) && !isOverlayOpen && !keyboardVisible;
+    const shouldRenderTabs = !inOwnProfile;
 
     const openGlobalCreateMenu = useCallback((): void => {
         setCreateMenuOpen(true);
@@ -952,40 +959,33 @@ export function AppNavigator() {
             <SafeAreaView style={styles.container} edges={['top']}>
                 {header}
                 <View style={styles.content}>
-                    <FeedTab
-                        isActive={activeTab === 'feed' && !isContentOverlayOpen}
-                        onOpenUserProfile={handleOpenUserProfile}
-                        onOpenComments={handleOpenComments}
-                        focusRequest={feedFocusRequest}
-                        onFocusRequestConsumed={handleFeedFocusRequestConsumed}
-                    />
-                    <DiscoverTab isActive={activeTab === 'discover' && !isContentOverlayOpen} onOpenUserProfile={handleOpenUserProfile} onOpenPlus={openPlusUpsell} />
-                    <CommunityTab
-                        isActive={activeTab === 'community' && !isContentOverlayOpen}
-                        activeSurface={communitySurface}
-                        onChangeSurface={setCommunitySurface}
-                        onOpenGroup={handleOpenGroup}
-                        onOpenUserProfile={handleOpenUserProfile}
-                        onOpenMeetup={handleOpenMeetup}
-                        onOpenManageMeetup={openManageMeetup}
-                    />
-                    <ChatsTab isActive={activeTab === 'chats' && !isContentOverlayOpen} onOpenChat={setOpenChat} />
-                    {inOwnProfile && (
-                        <View style={styles.tabVisible}>
-                            <ProfileTabScreen
-                                isActive={inOwnProfile}
-                                initialContentTab={ownProfileInitialContentTab}
-                                onBack={closeOwnProfile}
+                    {shouldRenderTabs ? (
+                        <>
+                            <FeedTab
+                                isActive={activeTab === 'feed' && !isOverlayOpen}
                                 onOpenUserProfile={handleOpenUserProfile}
                                 onOpenComments={handleOpenComments}
+                                focusRequest={feedFocusRequest}
+                                onFocusRequestConsumed={handleFeedFocusRequestConsumed}
                             />
-                        </View>
-                    )}
+                            <DiscoverTab isActive={activeTab === 'discover' && !isOverlayOpen} onOpenUserProfile={handleOpenUserProfile} onOpenPlus={openPlusUpsell} />
+                            <CommunityTab
+                                isActive={activeTab === 'community' && !isOverlayOpen}
+                                activeSurface={communitySurface}
+                                onChangeSurface={setCommunitySurface}
+                                onOpenGroup={handleOpenGroup}
+                                onOpenUserProfile={handleOpenUserProfile}
+                                onOpenMeetup={handleOpenMeetup}
+                                onOpenManageMeetup={openManageMeetup}
+                            />
+                            <ChatsTab isActive={activeTab === 'chats' && !isOverlayOpen} onOpenChat={setOpenChat} />
+                        </>
+                    ) : null}
                     {overlays}
                 </View>
 
-                {!hidesBottomNav && !keyboardVisible && (
-                    <View style={[styles.tabBar, { paddingBottom: tabBarBottomPadding }]}>
+                {!isOverlayOpen && !keyboardVisible && (
+                    <View style={[styles.tabBar, { paddingBottom: insets.bottom + 6 }]}>
                         {TABS.slice(0, 2).map(tab => (
                             <TouchableOpacity
                                 key={tab.key}

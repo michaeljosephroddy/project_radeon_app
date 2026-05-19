@@ -2,7 +2,7 @@ import { appAlert } from '@/components/ui/appAlert';
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
     View, Text, TouchableOpacity,
-    StyleSheet, ScrollView, FlatList, ActivityIndicator, Alert, Platform,
+    StyleSheet, FlatList, ActivityIndicator, Alert, Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
@@ -361,13 +361,30 @@ export function ProfileTabScreen({
         await saveSection('sobriety', { sober_since: soberSince || '' });
     };
 
-    const handleOpenPostComments = (post: api.Post): void => {
+    const handleOpenPostComments = useCallback((post: api.Post): void => {
         onOpenComments({
             itemId: post.id,
             itemKind: 'post',
             commentCount: post.comment_count,
         }, false);
-    };
+    }, [onOpenComments]);
+
+    const profilePostsData = subView === 'profile' && activeContentTab === 'posts' && !userPostsQuery.isLoading
+        ? activeContentItems
+        : [];
+
+    const handleLoadMoreOwnPosts = useCallback((): void => {
+        if (subView !== 'profile' || activeContentTab !== 'posts') return;
+        if (!userPostsQuery.hasNextPage || userPostsQuery.isFetchingNextPage) return;
+        void userPostsQuery.fetchNextPage();
+    }, [activeContentTab, subView, userPostsQuery]);
+
+    const renderProfilePost = useCallback(({ item }: { item: api.Post }): React.ReactElement => (
+        <ProfilePostCard
+            post={item}
+            onPressComments={handleOpenPostComments}
+        />
+    ), [handleOpenPostComments]);
 
     // Optimistically removes an accepted friend.
     const handleRemoveFriend = async (u: api.FriendUser) => {
@@ -600,7 +617,20 @@ export function ProfileTabScreen({
                 ) : null}
             />
 
-            <ScrollView style={styles.scroll} contentContainerStyle={[screenStandards.scrollContent, styles.content]} keyboardShouldPersistTaps="handled">
+            <FlatList
+                style={styles.scroll}
+                data={profilePostsData}
+                keyExtractor={(item) => item.id}
+                renderItem={renderProfilePost}
+                onEndReached={handleLoadMoreOwnPosts}
+                onEndReachedThreshold={0.4}
+                keyboardShouldPersistTaps="handled"
+                contentContainerStyle={[screenStandards.scrollContent, styles.content]}
+                ListFooterComponent={subView === 'profile' && userPostsQuery.isFetchingNextPage ? (
+                    <ActivityIndicator color={Colors.primary} style={styles.profilePostsLoader} />
+                ) : null}
+                ListHeaderComponent={(
+                    <>
                 {subView === 'profile' ? (
                     <>
                         <View style={styles.profileTopRow}>
@@ -672,19 +702,9 @@ export function ProfileTabScreen({
                             </View>
                             {userPostsQuery.isLoading && activeContentTab === 'posts' ? (
                                 <ActivityIndicator color={Colors.primary} style={styles.profilePostsLoader} />
-                            ) : activeContentItems.length > 0 ? (
-                                <View style={styles.profilePostList}>
-                                    {activeContentItems.map((item) => (
-                                        <ProfilePostCard
-                                            key={item.id}
-                                            post={item}
-                                            onPressComments={handleOpenPostComments}
-                                        />
-                                    ))}
-                                </View>
-                            ) : (
+                            ) : activeContentItems.length === 0 ? (
                                 <ProfileEmptyTabState tab={activeContentTab} username={formatUsername(user.username)} />
-                            )}
+                            ) : null}
                         </View>
                     </>
                 ) : null}
@@ -1066,7 +1086,9 @@ export function ProfileTabScreen({
                 </View>
                 ) : null}
 
-            </ScrollView>
+                    </>
+                )}
+            />
         </SafeAreaView>
     );
 }
@@ -1126,14 +1148,14 @@ const styles = StyleSheet.create({
     },
     requestActionSecondaryText: { fontSize: Typography.sizes.sm, fontWeight: '500', color: Colors.text.secondary },
 
-    content: { paddingTop: 0, paddingBottom: Spacing.md },
+    content: { paddingBottom: Spacing.md },
     mainContent: { gap: 0, paddingHorizontal: Spacing.md },
     profileTopRow: {
         flexDirection: 'row',
         alignItems: 'center',
         gap: Spacing.lg,
         paddingHorizontal: Spacing.md,
-        paddingTop: Spacing.xs,
+        paddingTop: Spacing.lg,
         paddingBottom: Spacing.md,
     },
     avatarBorder: {
@@ -1227,10 +1249,6 @@ const styles = StyleSheet.create({
     profileContentTabsWrap: {
         marginHorizontal: -Spacing.md,
         marginBottom: Spacing.sm,
-    },
-    profilePostList: {
-        marginHorizontal: -Spacing.md,
-        marginBottom: Spacing.md,
     },
     profilePostsLoader: {
         paddingVertical: Spacing.xl,
