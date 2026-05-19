@@ -185,10 +185,7 @@ function AdminInboxPanel({
                             <Text style={styles.inboxName} numberOfLines={1}>{formatUsername(item.username)}</Text>
                             {item.last_message || item.subject ? (
                                 <Text
-                                    style={[
-                                        styles.inboxPreview,
-                                        (item.unread_count ?? 0) > 0 && styles.inboxPreviewUnread,
-                                    ]}
+                                    style={styles.inboxPreview}
                                     numberOfLines={1}
                                 >
                                     {item.last_message ?? item.subject}
@@ -426,10 +423,6 @@ const styles = StyleSheet.create({
         marginTop: 1,
         fontSize: Typography.sizes.sm,
         color: Colors.text.muted,
-    },
-    inboxPreviewUnread: {
-        color: Colors.text.primary,
-        fontWeight: '600',
     },
     inboxTrailing: {
         minWidth: 34,

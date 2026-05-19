@@ -125,7 +125,7 @@ const ChatItem = React.memo(function ChatItem({ item, currentUserId, onOpenChat,
                         ) : null}
                     </View>
                     {item.last_message && (
-                        <Text style={[styles.preview, hasUnread && styles.previewUnread]} numberOfLines={1}>{item.last_message}</Text>
+                        <Text style={styles.preview} numberOfLines={1}>{item.last_message}</Text>
                     )}
                 </View>
                 <View style={styles.trailing}>
@@ -404,10 +404,6 @@ const styles = StyleSheet.create({
     preview: {
         marginTop: 1,
         ...TextStyles.commentBody,
-    },
-    previewUnread: {
-        color: Colors.text.primary,
-        fontWeight: '600',
     },
     trailing: {
         minWidth: 34,
