@@ -21,6 +21,7 @@ import { DiscoverFilterSheet } from '../../components/discover/DiscoverFilterShe
 import { InfoNoticeCard } from '../../components/ui/InfoNoticeCard';
 import { SearchBar } from '../../components/ui/SearchBar';
 import { ScrollToTopButton } from '../../components/ui/ScrollToTopButton';
+import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import * as api from '../../api/client';
 import { useAuth } from '../../hooks/useAuth';
 import { useGuardedEndReached } from '../../hooks/useGuardedEndReached';
@@ -46,12 +47,16 @@ import { getDeviceCoords } from '../../utils/location';
 import { getRecoveryMilestone } from '../../utils/date';
 import { formatUsername } from '../../utils/identity';
 import { Colors, ControlSizes, Spacing, TextStyles, Typography, Radius, getAvatarColors } from '../../theme';
+import { screenStandards } from '../../styles/screenStandards';
+import { MeetingsView } from './support/MeetingsView';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 const CARD_GAP = Spacing.md;
 const CARD_WIDTH = (SCREEN_WIDTH - Spacing.md * 2 - CARD_GAP) / 2;
 const CARD_HEIGHT = CARD_WIDTH * 1.34;
+
+type DiscoverSurface = 'people' | 'meetings';
 
 interface DiscoverScreenProps {
     isActive: boolean;
@@ -233,6 +238,7 @@ function getNoResultsCopy(
 export function DiscoverScreen({ isActive, onOpenUserProfile, onOpenPlus }: DiscoverScreenProps) {
     const hasActivated = useLazyActivation(isActive);
     const { user } = useAuth();
+    const [activeSurface, setActiveSurface] = useState<DiscoverSurface>('people');
     const [searchText, setSearchText] = useState('');
     const liveSearchText = searchText.trim();
     const debouncedQuery = useDebounce(liveSearchText, 400);
@@ -274,7 +280,10 @@ export function DiscoverScreen({ isActive, onOpenUserProfile, onOpenPlus }: Disc
         [validatedDraft.normalized],
     );
 
-    const interestOptionsQuery = useInterests(hasActivated && filterSheetVisible);
+    const peopleActive = isActive && activeSurface === 'people';
+    const meetingsActive = isActive && activeSurface === 'meetings';
+
+    const interestOptionsQuery = useInterests(hasActivated && filterSheetVisible && activeSurface === 'people');
 
     const previewQuery = useDiscoverPreview({
         query: hasCommittedSearch ? debouncedQuery : undefined,
@@ -283,6 +292,7 @@ export function DiscoverScreen({ isActive, onOpenUserProfile, onOpenPlus }: Disc
         lng: discoverLng,
     }, Boolean(
         hasActivated
+        && activeSurface === 'people'
         && filterSheetVisible
         && canUseAdvancedFilters
         && validatedDraft.normalized
@@ -307,7 +317,7 @@ export function DiscoverScreen({ isActive, onOpenUserProfile, onOpenPlus }: Disc
         lat: discoverLat,
         lng: discoverLng,
         limit: 20,
-    }, hasActivated);
+    }, hasActivated && activeSurface === 'people');
     const showSearchLoadingState = isSearchPending || (isSearching && hasCommittedSearch && discoverQuery.isLoading);
     const displayedUsers = isSearching
         ? (showSearchLoadingState ? [] : discoverQuery.users)
@@ -338,11 +348,11 @@ export function DiscoverScreen({ isActive, onOpenUserProfile, onOpenPlus }: Disc
     }, [discoverQuery]);
 
     const handleLoadMore = useCallback(async () => {
-        if (isSearchPending || !isActive || !discoverQuery.hasNextPage || discoverQuery.isFetchingNextPage || discoverQuery.isRefetching) {
+        if (isSearchPending || !peopleActive || !discoverQuery.hasNextPage || discoverQuery.isFetchingNextPage || discoverQuery.isRefetching) {
             return;
         }
         await discoverQuery.fetchNextPage();
-    }, [discoverQuery, isActive, isSearchPending]);
+    }, [discoverQuery, isSearchPending, peopleActive]);
     const discoverListPagination = useGuardedEndReached(handleLoadMore);
 
     const handleOpenFilters = useCallback(() => {
@@ -437,16 +447,44 @@ export function DiscoverScreen({ isActive, onOpenUserProfile, onOpenPlus }: Disc
         />
     ), [handleFriend, isFriendedFor, onOpenUserProfile]);
 
+    const surfaceTabs = (
+        <View style={screenStandards.fixedTabsWrap}>
+            <SegmentedControl
+                items={[
+                    { key: 'people', label: 'People' },
+                    { key: 'meetings', label: 'Meetings' },
+                ]}
+                activeKey={activeSurface}
+                onChange={(next) => setActiveSurface(next as DiscoverSurface)}
+                tone="primary"
+                style={screenStandards.fixedTabsControl}
+            />
+        </View>
+    );
+
+    if (activeSurface === 'meetings') {
+        return (
+            <View style={styles.container}>
+                {surfaceTabs}
+                <MeetingsView isActive={meetingsActive} />
+            </View>
+        );
+    }
+
     if (!isSearching && discoverQuery.isLoading && discoverQuery.users.length === 0) {
         return (
-            <View style={styles.center}>
-                <ActivityIndicator color={Colors.primary} size="large" />
+            <View style={styles.container}>
+                {surfaceTabs}
+                <View style={styles.center}>
+                    <ActivityIndicator color={Colors.primary} size="large" />
+                </View>
             </View>
         );
     }
 
     return (
         <View style={styles.container}>
+            {surfaceTabs}
             <View style={styles.controls}>
                 <View style={styles.searchRow}>
                     <SearchBar
@@ -562,7 +600,7 @@ export function DiscoverScreen({ isActive, onOpenUserProfile, onOpenPlus }: Disc
                 />
             )}
 
-            {isActive && discoverScrollToTop.isVisible ? (
+            {peopleActive && discoverScrollToTop.isVisible ? (
                 <ScrollToTopButton onPress={() => listRef.current?.scrollToOffset({ offset: 0, animated: true })} />
             ) : null}
 
