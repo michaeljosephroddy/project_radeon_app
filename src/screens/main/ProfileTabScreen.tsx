@@ -44,6 +44,7 @@ const MAX_INTERESTS = 5;
 interface ProfileTabScreenProps {
     isActive: boolean;
     initialContentTab?: ProfileContentTabKey;
+    resetKey?: number;
     onOpenUserProfile: (profile: { userId: string; username: string; avatarUrl?: string }) => void;
     onOpenComments: (thread: CommentThreadTarget, focusComposer: boolean, onCommentCreated?: (comment: api.Comment) => void) => void;
     onBack?: () => void;
@@ -53,6 +54,7 @@ interface ProfileTabScreenProps {
 export function ProfileTabScreen({
     isActive,
     initialContentTab,
+    resetKey,
     onOpenUserProfile,
     onOpenComments,
     onBack,
@@ -181,10 +183,10 @@ export function ProfileTabScreen({
     }, [isActive, loadFriendSummary, refreshUser]);
 
     useEffect(() => {
-        if (!initialContentTab) return;
+        if (resetKey === undefined && !initialContentTab) return;
         setSubView('profile');
-        setActiveContentTab(initialContentTab);
-    }, [initialContentTab]);
+        setActiveContentTab(initialContentTab ?? 'posts');
+    }, [initialContentTab, resetKey]);
 
     // Opens the media picker and uploads a replacement avatar.
     const handlePickAvatar = async () => {
@@ -497,7 +499,7 @@ export function ProfileTabScreen({
 
     if (subView === 'friends') {
         return (
-            <SafeAreaView style={styles.container} edges={['bottom']}>
+            <SafeAreaView style={styles.container} edges={[]}>
                 <ScreenHeader onBack={() => setSubView('profile')} title="Friends" />
                 <FlatList
                     data={friends}
@@ -536,7 +538,7 @@ export function ProfileTabScreen({
 
     if (subView === 'requests') {
         return (
-            <SafeAreaView style={styles.container} edges={['bottom']}>
+            <SafeAreaView style={styles.container} edges={[]}>
                 <ScreenHeader onBack={() => setSubView('profile')} title="Requests" />
                 <View style={screenStandards.sectionTabsWrap}>
                     <SegmentedControl
@@ -603,7 +605,7 @@ export function ProfileTabScreen({
     }
 
     return (
-        <SafeAreaView style={styles.container} edges={['bottom']}>
+        <SafeAreaView style={styles.container} edges={[]}>
             <ScreenHeader
                 onBack={subView === 'edit-profile' ? () => {
                     handleCancelEditSection();

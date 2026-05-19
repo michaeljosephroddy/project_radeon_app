@@ -333,7 +333,7 @@ export function UserProfileScreen({
     );
 
     return (
-        <SafeAreaView style={styles.container} edges={['bottom']}>
+        <SafeAreaView style={styles.container} edges={[]}>
             <ScreenHeader onBack={onBack} title={profileName} />
 
             <FlatList
