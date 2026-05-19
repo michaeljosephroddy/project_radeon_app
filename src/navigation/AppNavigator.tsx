@@ -907,6 +907,9 @@ export function AppNavigator() {
     const isOverlayOpen = inChat || inUserProfile || inOwnProfile || inComposeDM || inCreatePost || inCreateGroup || inCreateSupportRequest || inCreateMeetup || inMeetupDetail || inGroupDetail || inPlusUpsell || inNotifications || inComments || inGroupComments;
     const canShowGlobalCreate = Boolean(user) && !isOverlayOpen && !keyboardVisible;
     const shouldRenderTabs = !inOwnProfile;
+    const tabBarBottomPadding = Platform.OS === 'android'
+        ? Math.max(insets.bottom - 16, 0)
+        : insets.bottom + 4;
 
     const openGlobalCreateMenu = useCallback((): void => {
         setCreateMenuOpen(true);
@@ -985,7 +988,7 @@ export function AppNavigator() {
                 </View>
 
                 {!isOverlayOpen && !keyboardVisible && (
-                    <View style={[styles.tabBar, { paddingBottom: insets.bottom + 6 }]}>
+                    <View style={[styles.tabBar, { paddingBottom: tabBarBottomPadding }]}>
                         {TABS.slice(0, 2).map(tab => (
                             <TouchableOpacity
                                 key={tab.key}
