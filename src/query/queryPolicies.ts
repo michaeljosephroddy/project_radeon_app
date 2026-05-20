@@ -27,6 +27,16 @@ const INFINITE_QUERY_POLICIES: Record<string, InfiniteQueryPolicy> = {
         persistedPages: 1,
         refetchOnMount: true,
     },
+    'dating-discover': {
+        persist: true,
+        persistedPages: 1,
+        refetchOnMount: true,
+    },
+    'dating-likes': {
+        persist: true,
+        persistedPages: 1,
+        refetchOnMount: true,
+    },
     chats: {
         persist: true,
         persistedPages: 1,

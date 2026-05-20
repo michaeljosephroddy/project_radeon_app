@@ -16,7 +16,6 @@ import {
     DISCOVER_SOBRIETY_OPTIONS,
     DiscoverDraftFilters,
     getDiscoverDistanceLabel,
-    getDiscoverIntentLabel,
 } from '../../hooks/useDiscoverFilters';
 import { Colors, ControlSizes, Radius, Spacing, TextStyles, Typography } from '../../theme';
 import { screenStandards } from '../../styles/screenStandards';
@@ -135,20 +134,6 @@ export function DiscoverFilterSheet({
                                     label={option.label}
                                     selected={draftFilters.gender === option.value}
                                     onPress={() => onChangeFilters((current) => ({ ...current, gender: option.value }))}
-                                />
-                            ))}
-                        </View>
-                    </View>
-
-                    <View style={styles.section}>
-                        <Text style={styles.sectionTitle}>Connection intent</Text>
-                        <View style={styles.optionWrap}>
-                            {(['any', 'dating'] as const).map((intent) => (
-                                <FilterOptionChip
-                                    key={intent}
-                                    label={intent === 'any' ? 'Any' : getDiscoverIntentLabel(intent) ?? intent}
-                                    selected={draftFilters.intent === intent}
-                                    onPress={() => onChangeFilters((current) => ({ ...current, intent }))}
                                 />
                             ))}
                         </View>

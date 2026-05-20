@@ -5,14 +5,28 @@ export interface Coords {
     longitude: number;
 }
 
-export async function getDeviceCoords(): Promise<Coords | null> {
+export type DeviceLocationStatus = 'available' | 'denied' | 'services_off' | 'unavailable';
+
+export interface DeviceLocationResult {
+    status: DeviceLocationStatus;
+    coords?: Coords;
+}
+
+export async function getDeviceCoords(): Promise<DeviceLocationResult> {
     try {
-        const { status } = await Location.requestForegroundPermissionsAsync();
-        if (status !== 'granted') return null;
+        const servicesEnabled = await Location.hasServicesEnabledAsync();
+        if (!servicesEnabled) return { status: 'services_off' };
+
+        const permission = await Location.requestForegroundPermissionsAsync();
+        if (permission.status !== 'granted') return { status: 'denied' };
+
         const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-        return { latitude: pos.coords.latitude, longitude: pos.coords.longitude };
+        return {
+            status: 'available',
+            coords: { latitude: pos.coords.latitude, longitude: pos.coords.longitude },
+        };
     } catch {
-        return null;
+        return { status: 'unavailable' };
     }
 }
 

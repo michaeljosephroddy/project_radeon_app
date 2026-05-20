@@ -1,8 +1,22 @@
 import type { ConnectionIntent } from '../api/client';
 
-export const CONNECTION_INTENT_OPTIONS: Array<{ value: ConnectionIntent; label: string }> = [
-    { value: 'friends', label: 'Friends' },
-    { value: 'dating', label: 'Open to dating' },
+export interface ConnectionIntentOption {
+    value: ConnectionIntent;
+    label: string;
+    description: string;
+}
+
+export const CONNECTION_INTENT_OPTIONS: ConnectionIntentOption[] = [
+    {
+        value: 'friends',
+        label: 'Friends',
+        description: 'Meet sober peers, build community, and stay connected.',
+    },
+    {
+        value: 'dating',
+        label: 'Dating',
+        description: 'Only people who also choose Dating can see you there.',
+    },
 ];
 
 export const DEFAULT_CONNECTION_INTENTS: ConnectionIntent[] = ['friends'];
