@@ -26,7 +26,6 @@ import { TextField } from '../ui/TextField';
 
 interface DiscoverFilterSheetProps {
     visible: boolean;
-    canUseAdvancedFilters: boolean;
     draftFilters: DiscoverDraftFilters;
     onChangeFilters: React.Dispatch<React.SetStateAction<DiscoverDraftFilters>>;
     preview?: api.DiscoverPreviewResponse;
@@ -59,14 +58,10 @@ function FilterOptionChip({
 }
 
 function getPrimaryLabel(
-    canUseAdvancedFilters: boolean,
     preview: api.DiscoverPreviewResponse | undefined,
     previewLoading: boolean,
     validationError?: string,
 ): string {
-    if (!canUseAdvancedFilters) {
-        return 'Unlock Plus filters';
-    }
     if (validationError) {
         return 'Fix age range';
     }
@@ -83,14 +78,10 @@ function getPrimaryLabel(
 }
 
 function getPreviewCopy(
-    canUseAdvancedFilters: boolean,
     preview: api.DiscoverPreviewResponse | undefined,
     previewLoading: boolean,
     validationError?: string,
 ): string {
-    if (!canUseAdvancedFilters) {
-        return 'Plus lets members refine discovery by dating openness, age, distance, sobriety, and shared interests.';
-    }
     if (validationError) {
         return validationError;
     }
@@ -111,7 +102,6 @@ function getPreviewCopy(
 
 export function DiscoverFilterSheet({
     visible,
-    canUseAdvancedFilters,
     draftFilters,
     onChangeFilters,
     preview,
@@ -122,8 +112,8 @@ export function DiscoverFilterSheet({
     onReset,
     onApply,
 }: DiscoverFilterSheetProps) {
-    const primaryLabel = getPrimaryLabel(canUseAdvancedFilters, preview, previewLoading, validationError);
-    const previewCopy = getPreviewCopy(canUseAdvancedFilters, preview, previewLoading, validationError);
+    const primaryLabel = getPrimaryLabel(preview, previewLoading, validationError);
+    const previewCopy = getPreviewCopy(preview, previewLoading, validationError);
 
     return (
         <Modal visible={visible} animationType="slide" transparent={false} onRequestClose={onClose}>
@@ -283,16 +273,16 @@ export function DiscoverFilterSheet({
                     <PrimaryButton
                         label={primaryLabel}
                         onPress={onApply}
-                        variant={canUseAdvancedFilters ? 'primary' : 'warning'}
+                        variant="primary"
                         style={styles.applyButton}
                         leftAdornment={
                             <Ionicons
-                                name={canUseAdvancedFilters ? 'options-outline' : 'star'}
+                                name="options-outline"
                                 size={16}
-                                color={canUseAdvancedFilters ? Colors.textOn.primary : Colors.textOn.warning}
+                                color={Colors.textOn.primary}
                             />
                         }
-                        loading={canUseAdvancedFilters && previewLoading}
+                        loading={previewLoading}
                     />
                 </View>
             </SafeAreaView>

@@ -2,7 +2,6 @@ import { appAlert } from '@/components/ui/appAlert';
 import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
     ActivityIndicator,
-    Alert,
     Dimensions,
     FlatList,
     Image,
@@ -23,7 +22,6 @@ import { SearchBar } from '../../components/ui/SearchBar';
 import { ScrollToTopButton } from '../../components/ui/ScrollToTopButton';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import * as api from '../../api/client';
-import { useAuth } from '../../hooks/useAuth';
 import { useGuardedEndReached } from '../../hooks/useGuardedEndReached';
 import { useLazyActivation } from '../../hooks/useLazyActivation';
 import { useInterests } from '../../hooks/queries/useInterests';
@@ -61,7 +59,6 @@ type DiscoverSurface = 'people' | 'meetings';
 interface DiscoverScreenProps {
     isActive: boolean;
     onOpenUserProfile: (profile: { userId: string; username: string; avatarUrl?: string }) => void;
-    onOpenPlus: () => void;
 }
 
 interface DiscoverCardProps {
@@ -76,12 +73,6 @@ interface SearchResultRowProps {
     isFriended: boolean;
     onOpenUserProfile: (profile: { userId: string; username: string; avatarUrl?: string }) => void;
     onFriend: (id: string) => void;
-}
-
-function hasPlusAccess(user: api.User | null): boolean {
-    if (!user) return false;
-    if (user.is_plus) return true;
-    return user.subscription_tier === 'plus' && user.subscription_status === 'active';
 }
 
 function useDebounce<T>(value: T, delay: number): T {
@@ -235,9 +226,8 @@ function getNoResultsCopy(
     };
 }
 
-export function DiscoverScreen({ isActive, onOpenUserProfile, onOpenPlus }: DiscoverScreenProps) {
+export function DiscoverScreen({ isActive, onOpenUserProfile }: DiscoverScreenProps) {
     const hasActivated = useLazyActivation(isActive);
-    const { user } = useAuth();
     const [activeSurface, setActiveSurface] = useState<DiscoverSurface>('people');
     const [searchText, setSearchText] = useState('');
     const liveSearchText = searchText.trim();
@@ -247,7 +237,6 @@ export function DiscoverScreen({ isActive, onOpenUserProfile, onOpenPlus }: Disc
     const [coords, setCoords] = useState<{ latitude: number; longitude: number } | null>(null);
     const [friendedIds, setFriendedIds] = useState<Set<string>>(new Set());
     const listRef = useRef<FlatList<api.User>>(null);
-    const canUseAdvancedFilters = hasPlusAccess(user);
     const discoverScrollToTop = useScrollToTopButton({ threshold: 520 });
 
     const {
@@ -294,7 +283,6 @@ export function DiscoverScreen({ isActive, onOpenUserProfile, onOpenPlus }: Disc
         hasActivated
         && activeSurface === 'people'
         && filterSheetVisible
-        && canUseAdvancedFilters
         && validatedDraft.normalized
         && hasNonDefaultDiscoverFilters(validatedDraft.normalized),
     ));
@@ -370,11 +358,6 @@ export function DiscoverScreen({ isActive, onOpenUserProfile, onOpenPlus }: Disc
             return;
         }
 
-        if (!canUseAdvancedFilters) {
-            onOpenPlus();
-            return;
-        }
-
         if (!validatedDraft.normalized) {
             return;
         }
@@ -383,7 +366,7 @@ export function DiscoverScreen({ isActive, onOpenUserProfile, onOpenPlus }: Disc
         setAppliedState(nextState);
         setDraftFilters(createDiscoverDraftFromApplied(validatedDraft.normalized));
         setFilterSheetVisible(false);
-    }, [canUseAdvancedFilters, onOpenPlus, previewQuery.data, setAppliedState, setDraftFilters, validatedDraft]);
+    }, [previewQuery.data, setAppliedState, setDraftFilters, validatedDraft]);
 
     const handleClearAllFilters = useCallback(() => {
         resetFilters();
@@ -607,7 +590,6 @@ export function DiscoverScreen({ isActive, onOpenUserProfile, onOpenPlus }: Disc
 
             <DiscoverFilterSheet
                 visible={filterSheetVisible}
-                canUseAdvancedFilters={canUseAdvancedFilters}
                 draftFilters={draftFilters}
                 onChangeFilters={setDraftFilters}
                 preview={previewQuery.data}

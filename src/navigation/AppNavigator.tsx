@@ -24,7 +24,6 @@ import { CreateMeetupScreen } from '../screens/main/CreateMeetupScreen';
 import { UserProfileScreen } from '../screens/main/UserProfileScreen';
 import { MeetupDetailScreen } from '../screens/main/MeetupDetailScreen';
 import { Avatar } from '../components/Avatar';
-import { PlusUpsellScreen } from '../components/PlusUpsellScreen';
 import { CenterCreateButton } from '../components/create/CenterCreateButton';
 import { CreateActionSheet, type GlobalCreateAction } from '../components/create/CreateActionSheet';
 import type { ProfileContentTabKey } from '../components/profile/ProfileContentTabs';
@@ -65,13 +64,11 @@ function isMainTab(tab: Tab): tab is MainTab {
 const DiscoverTab = React.memo(function DiscoverTab({
     isActive,
     onOpenUserProfile,
-    onOpenPlus,
 }: {
     isActive: boolean;
     onOpenUserProfile: (p: OpenUserProfile) => void;
-    onOpenPlus: () => void;
 }) {
-    return <View style={isActive ? styles.tabVisible : styles.tabHidden}><DiscoverScreen isActive={isActive} onOpenUserProfile={onOpenUserProfile} onOpenPlus={onOpenPlus} /></View>;
+    return <View style={isActive ? styles.tabVisible : styles.tabHidden}><DiscoverScreen isActive={isActive} onOpenUserProfile={onOpenUserProfile} /></View>;
 });
 
 const FeedTab = React.memo(function FeedTab({
@@ -223,7 +220,6 @@ export function AppNavigator() {
     const [groupAdminInitialThreadId, setGroupAdminInitialThreadId] = useState<string | null>(null);
     const [groupFocusRequest, setGroupFocusRequest] = useState<{ postId: string; nonce: number } | null>(null);
     const [groupSupportFocusRequest, setGroupSupportFocusRequest] = useState<{ requestId: string; postId?: string; nonce: number } | null>(null);
-    const [plusUpsellOpen, setPlusUpsellOpen] = useState(false);
     const [notificationsOpen, setNotificationsOpen] = useState(false);
     const [ownProfileInitialContentTab, setOwnProfileInitialContentTab] = useState<ProfileContentTabKey>('posts');
     const [ownProfileResetKey, setOwnProfileResetKey] = useState(0);
@@ -246,7 +242,6 @@ export function AppNavigator() {
     const inCreateMeetup = createMeetupOpen || editingMeetup !== null;
     const inMeetupDetail = openMeetup !== null;
     const inGroupDetail = openGroupId !== null;
-    const inPlusUpsell = plusUpsellOpen;
     const inNotifications = notificationsOpen;
     const inComments = openComments !== null;
     const inGroupComments = openGroupComments !== null;
@@ -273,17 +268,6 @@ export function AppNavigator() {
         setOpenMeetup(null);
     }, []);
 
-    const openPlusUpsell = useCallback(() => {
-        setCreateMenuOpen(false);
-        setCreateSupportRequestOpen(false);
-        setCreateMeetupOpen(false);
-        setPlusUpsellOpen(true);
-    }, []);
-
-    const closePlusUpsell = useCallback(() => {
-        setPlusUpsellOpen(false);
-    }, []);
-
     const openNotifications = useCallback(() => {
         setCreateMenuOpen(false);
         setCreateSupportRequestOpen(false);
@@ -295,7 +279,6 @@ export function AppNavigator() {
         setOpenMeetup(null);
         setOpenGroupId(null);
         setCreateGroupOpen(false);
-        setPlusUpsellOpen(false);
     }, []);
 
     const closeNotifications = useCallback(() => {
@@ -317,7 +300,6 @@ export function AppNavigator() {
         setPendingDM(null);
         setOpenMeetup(null);
         setCreateGroupOpen(false);
-        setPlusUpsellOpen(false);
         setOpenGroupComments(null);
     }, []);
 
@@ -335,7 +317,6 @@ export function AppNavigator() {
         setPendingDM(null);
         setOpenMeetup(null);
         setCreateGroupOpen(false);
-        setPlusUpsellOpen(false);
         setOpenGroupComments(null);
     }, []);
 
@@ -362,7 +343,6 @@ export function AppNavigator() {
         setPendingDM(null);
         setOpenMeetup(null);
         setCreateGroupOpen(false);
-        setPlusUpsellOpen(false);
         setOpenGroupComments(null);
     }, []);
 
@@ -409,7 +389,6 @@ export function AppNavigator() {
         setOpenChat(null);
         setPendingDM(null);
         setOpenMeetup(null);
-        setPlusUpsellOpen(false);
         setNotificationsOpen(false);
     }, []);
 
@@ -430,7 +409,6 @@ export function AppNavigator() {
         setPendingDM(null);
         setOpenMeetup(null);
         setOpenGroupId(null);
-        setPlusUpsellOpen(false);
         setNotificationsOpen(false);
     }, []);
 
@@ -443,7 +421,6 @@ export function AppNavigator() {
         setOpenChat(null);
         setPendingDM(null);
         setOpenMeetup(null);
-        setPlusUpsellOpen(false);
         setNotificationsOpen(false);
     }, []);
 
@@ -462,7 +439,6 @@ export function AppNavigator() {
         setPendingDM(null);
         setOpenMeetup(null);
         setOpenGroupId(null);
-        setPlusUpsellOpen(false);
         setNotificationsOpen(false);
     }, []);
 
@@ -477,7 +453,6 @@ export function AppNavigator() {
         setPendingDM(null);
         setOpenMeetup(null);
         setOpenGroupId(null);
-        setPlusUpsellOpen(false);
         setNotificationsOpen(false);
     }, []);
 
@@ -552,7 +527,6 @@ export function AppNavigator() {
         setPendingDM(null);
         setOpenMeetup(null);
         setOpenGroupId(null);
-        setPlusUpsellOpen(false);
         setOpenChat(null);
         setCreatePostOpen(false);
         setCreateGroupOpen(false);
@@ -566,7 +540,6 @@ export function AppNavigator() {
         setOpenUserProfile(null);
         setPendingDM(null);
         setOpenMeetup(null);
-        setPlusUpsellOpen(false);
         setOpenChat(chat);
     }, []);
 
@@ -577,7 +550,6 @@ export function AppNavigator() {
         setOpenUserProfile(null);
         setPendingDM(null);
         setOpenMeetup(null);
-        setPlusUpsellOpen(false);
         setFeedFocusRequest({
             postId: target.postId,
             commentId: target.commentId,
@@ -599,7 +571,6 @@ export function AppNavigator() {
         setPendingDM(null);
         setOpenMeetup(null);
         setCreateGroupOpen(false);
-        setPlusUpsellOpen(false);
         setOpenGroupComments(null);
         setCommunitySurface('groups');
         setActiveTab('community');
@@ -695,7 +666,6 @@ export function AppNavigator() {
             setNotificationsOpen(false);
             setPendingDM(null);
             setOpenMeetup(null);
-            setPlusUpsellOpen(false);
             setOpenGroupId(intent.groupId);
             setGroupAdminInitialTab(null);
             setGroupAdminInitialThreadId(null);
@@ -713,7 +683,6 @@ export function AppNavigator() {
             setNotificationsOpen(false);
             setPendingDM(null);
             setOpenMeetup(null);
-            setPlusUpsellOpen(false);
             setOpenGroupId(intent.groupId);
             setGroupAdminInitialTab('inbox');
             setGroupAdminInitialThreadId(intent.threadId ?? null);
@@ -731,7 +700,6 @@ export function AppNavigator() {
             setNotificationsOpen(false);
             setPendingDM(null);
             setOpenMeetup(null);
-            setPlusUpsellOpen(false);
             setOpenGroupId(intent.groupId);
             setGroupAdminInitialTab('reports');
             setGroupAdminInitialThreadId(null);
@@ -749,7 +717,6 @@ export function AppNavigator() {
             setNotificationsOpen(false);
             setPendingDM(null);
             setOpenMeetup(null);
-            setPlusUpsellOpen(false);
             setOpenGroupId(intent.groupId);
             setGroupAdminInitialTab(null);
             setGroupAdminInitialThreadId(null);
@@ -776,7 +743,7 @@ export function AppNavigator() {
     }, [consumeIntent, intent]);
 
     const header = useMemo(() => {
-        if (activeTab === 'profile' || activeTab === 'userProfile' || inChat || inComposeDM || inCreatePost || inCreateGroup || inCreateSupportRequest || inCreateMeetup || inMeetupDetail || inGroupDetail || inPlusUpsell || inNotifications || inComments || inGroupComments) return null;
+        if (activeTab === 'profile' || activeTab === 'userProfile' || inChat || inComposeDM || inCreatePost || inCreateGroup || inCreateSupportRequest || inCreateMeetup || inMeetupDetail || inGroupDetail || inNotifications || inComments || inGroupComments) return null;
 
         const titles: Record<MainTab, React.ReactNode> = {
             feed: (
@@ -818,7 +785,7 @@ export function AppNavigator() {
         );
     }, [
         activeTab, inChat, inComposeDM, inCreateGroup, inCreateMeetup, inCreatePost, inCreateSupportRequest, inGroupDetail, inMeetupDetail, inNotifications,
-        inComments, inGroupComments, inPlusUpsell, notificationSummary?.unread_count,
+        inComments, inGroupComments, notificationSummary?.unread_count,
         openNotifications, openOwnProfile, user,
     ]);
 
@@ -899,14 +866,6 @@ export function AppNavigator() {
                     />
                 </View>
             )}
-            {inPlusUpsell && (
-                <View style={StyleSheet.absoluteFill}>
-                    <PlusUpsellScreen
-                        onPrimary={closePlusUpsell}
-                        onDismiss={closePlusUpsell}
-                    />
-                </View>
-            )}
             {inNotifications && (
                 <View style={StyleSheet.absoluteFill}>
                     <NotificationsScreen
@@ -931,17 +890,17 @@ export function AppNavigator() {
             )}
         </>
     ), [
-        inChat, inComposeDM, inCreatePost, inCreateGroup, inCreateSupportRequest, inCreateMeetup, inMeetupDetail, inGroupDetail, inPlusUpsell, inNotifications,
+        inChat, inComposeDM, inCreatePost, inCreateGroup, inCreateSupportRequest, inCreateMeetup, inMeetupDetail, inGroupDetail, inNotifications,
         openUserProfile, openChat, pendingDM, openMeetup, openGroupId, groupAdminInitialTab, groupAdminInitialThreadId, groupFocusRequest, groupSupportFocusRequest, createPostSessionKey, editingMeetup,
         handleOpenUserProfile, handleOpenGroup, handleOpenGroupReports, handleOpenGroupAdminInbox, handleOpenSupportRequestContext, handleCloseChat, closeUserProfile,
         handleOpenComments, handleOpenGroupComments, closeCreatePost, closeCreateGroup, handleGroupCreated,
         openCreateSupportRequest, closeCreateSupportRequest, closeCreateMeetup, handleSupportRequestCreated, handleMeetupCreated, handleMeetupUpdated,
-        handleComposeDM, handleComposeDMComplete, handleCloseMeetup, handleCloseGroup, closePlusUpsell,
+        handleComposeDM, handleComposeDMComplete, handleCloseMeetup, handleCloseGroup,
         closeNotifications, handleOpenNotificationChat, handleOpenNotificationMention,
     ]);
 
-    const isOverlayOpen = inChat || inComposeDM || inCreatePost || inCreateGroup || inCreateSupportRequest || inCreateMeetup || inMeetupDetail || inGroupDetail || inPlusUpsell || inNotifications || inComments || inGroupComments;
-    const hidesBottomNav = inChat || inComposeDM || inCreatePost || inCreateGroup || inCreateSupportRequest || inCreateMeetup || inMeetupDetail || inGroupDetail || inPlusUpsell || inNotifications || inComments || inGroupComments;
+    const isOverlayOpen = inChat || inComposeDM || inCreatePost || inCreateGroup || inCreateSupportRequest || inCreateMeetup || inMeetupDetail || inGroupDetail || inNotifications || inComments || inGroupComments;
+    const hidesBottomNav = inChat || inComposeDM || inCreatePost || inCreateGroup || inCreateSupportRequest || inCreateMeetup || inMeetupDetail || inGroupDetail || inNotifications || inComments || inGroupComments;
     const canShowGlobalCreate = Boolean(user) && !hidesBottomNav && !keyboardVisible;
     const tabBarBottomPadding = Platform.OS === 'android'
         ? Math.max(insets.bottom - 12, Spacing.xs)
@@ -1005,7 +964,7 @@ export function AppNavigator() {
                         focusRequest={feedFocusRequest}
                         onFocusRequestConsumed={handleFeedFocusRequestConsumed}
                     />
-                    <DiscoverTab isActive={activeTab === 'discover' && !isOverlayOpen} onOpenUserProfile={handleOpenUserProfile} onOpenPlus={openPlusUpsell} />
+                    <DiscoverTab isActive={activeTab === 'discover' && !isOverlayOpen} onOpenUserProfile={handleOpenUserProfile} />
                     <CommunityTab
                         isActive={activeTab === 'community' && !isOverlayOpen}
                         activeSurface={communitySurface}
