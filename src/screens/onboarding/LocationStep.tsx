@@ -2,13 +2,14 @@ import { appAlert } from '@/components/ui/appAlert';
 import React, { useState, useEffect } from 'react';
 import {
     View, Text,
-    StyleSheet, KeyboardAvoidingView, Platform, Alert, Keyboard, ActivityIndicator,
+    StyleSheet, KeyboardAvoidingView, Platform, Keyboard, ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import { PrimaryButton } from '../../components/ui/PrimaryButton';
+import { OnboardingProgressHeader } from '../../components/onboarding/OnboardingProgressHeader';
 import { TextField } from '../../components/ui/TextField';
 import { useAuth } from '../../hooks/useAuth';
 import * as api from '../../api/client';
@@ -17,13 +18,14 @@ import type { OnboardingStepProps } from '../../navigation/OnboardingNavigator';
 
 type LocationStepProps = OnboardingStepProps;
 
-export function LocationStep({ onNext, dotIndex, dotTotal }: LocationStepProps) {
+export function LocationStep({ onNext, onBack, dotIndex, dotTotal }: LocationStepProps) {
     const { user, refreshUser } = useAuth();
     const [city, setCity] = useState(user?.city ?? '');
     const [country, setCountry] = useState(user?.country ?? '');
     const [detecting, setDetecting] = useState(false);
     const [saving, setSaving] = useState(false);
     const [detectedCoords, setDetectedCoords] = useState<{ lat: number; lng: number } | null>(null);
+    const canContinue = Boolean(city.trim() && country.trim());
 
     useEffect(() => {
         if (user?.city) return;
@@ -71,13 +73,7 @@ export function LocationStep({ onNext, dotIndex, dotTotal }: LocationStepProps) 
     return (
         <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
             <StatusBar style="light" />
-            <View style={styles.topBar}>
-                <View style={styles.dots}>
-                    {Array.from({ length: dotTotal }).map((_, i) => (
-                        <View key={i} style={[styles.dot, i === dotIndex && styles.dotActive]} />
-                    ))}
-                </View>
-            </View>
+            <OnboardingProgressHeader dotIndex={dotIndex} dotTotal={dotTotal} onBack={onBack} />
 
             <KeyboardAvoidingView
                 style={styles.flex}
@@ -126,7 +122,7 @@ export function LocationStep({ onNext, dotIndex, dotTotal }: LocationStepProps) 
                 </View>
 
                 <View style={styles.footer}>
-                    <PrimaryButton label="Continue" onPress={handleContinue} loading={saving} disabled={detecting} />
+                    <PrimaryButton label="Continue" onPress={handleContinue} loading={saving} disabled={detecting || saving || !canContinue} />
                 </View>
             </KeyboardAvoidingView>
         </SafeAreaView>

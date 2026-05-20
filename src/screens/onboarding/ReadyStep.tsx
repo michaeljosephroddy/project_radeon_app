@@ -3,16 +3,29 @@ import { View, Text, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
+import { appAlert } from '../../components/ui/appAlert';
 import { PrimaryButton } from '../../components/ui/PrimaryButton';
 import { useAuth } from '../../hooks/useAuth';
 import { Colors, Typography, Spacing } from '../../theme';
 
 interface ReadyStepProps {
-    onComplete: () => void;
+    onComplete: () => Promise<void>;
 }
 
 export function ReadyStep({ onComplete }: ReadyStepProps) {
     const { user } = useAuth();
+    const [saving, setSaving] = React.useState(false);
+
+    const handleComplete = async (): Promise<void> => {
+        setSaving(true);
+        try {
+            await onComplete();
+        } catch (error: unknown) {
+            appAlert.alert('Error', error instanceof Error ? error.message : 'Something went wrong.');
+        } finally {
+            setSaving(false);
+        }
+    };
 
     return (
         <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
@@ -29,7 +42,7 @@ export function ReadyStep({ onComplete }: ReadyStepProps) {
                 </Text>
             </View>
             <View style={styles.footer}>
-                <PrimaryButton label="Enter SoberSpace" onPress={onComplete} variant="success" />
+                <PrimaryButton label="Enter SoberSpace" onPress={handleComplete} loading={saving} variant="success" />
             </View>
         </SafeAreaView>
     );

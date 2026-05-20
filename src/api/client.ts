@@ -102,6 +102,13 @@ export interface User {
     is_plus?: boolean;
     subscription_tier?: string | null;
     subscription_status?: string | null;
+    onboarding_completed_at?: string | null;
+    identity_verification_status?: IdentityVerificationStatus;
+    identity_verified_at?: string | null;
+    identity_verification_last_error?: string | null;
+    onboarding_first_friend_user_id?: string | null;
+    onboarding_first_group_id?: string | null;
+    onboarding_first_post_id?: string | null;
     city?: string;
     country?: string;
     bio?: string | null;
@@ -118,6 +125,14 @@ export interface User {
     current_city?: string | null;
     location_updated_at?: string | null;
 }
+
+export type IdentityVerificationStatus =
+    | 'not_started'
+    | 'requires_input'
+    | 'pending'
+    | 'verified'
+    | 'failed'
+    | 'requires_retry';
 
 export interface PaginatedResponse<T> {
     items: T[];
@@ -732,6 +747,10 @@ export interface UpdateMeInput {
     sober_since?: string;
     lat?: number;
     lng?: number;
+    onboarding_completed?: boolean;
+    onboarding_first_friend_user_id?: string;
+    onboarding_first_group_id?: string;
+    onboarding_first_post_id?: string;
 }
 
 export type GroupVisibility = 'public' | 'approval_required' | 'invite_only' | 'private_hidden';

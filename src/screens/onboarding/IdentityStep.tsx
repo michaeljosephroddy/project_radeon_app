@@ -8,13 +8,13 @@ import {
     ScrollView,
     KeyboardAvoidingView,
     Platform,
-    Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { Ionicons } from '@expo/vector-icons';
 import { PrimaryButton } from '../../components/ui/PrimaryButton';
+import { OnboardingProgressHeader } from '../../components/onboarding/OnboardingProgressHeader';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { useAuth } from '../../hooks/useAuth';
 import * as api from '../../api/client';
@@ -25,7 +25,7 @@ import type { OnboardingStepProps } from '../../navigation/OnboardingNavigator';
 type EditableGender = api.UserGender | '';
 type IdentityStepProps = OnboardingStepProps;
 
-export function IdentityStep({ onNext, dotIndex, dotTotal }: IdentityStepProps) {
+export function IdentityStep({ onNext, onBack, dotIndex, dotTotal }: IdentityStepProps) {
     const { user, refreshUser } = useAuth();
     const [gender, setGender] = useState<EditableGender>(user?.gender ?? '');
     const [birthDate, setBirthDate] = useState(user?.birth_date ?? '');
@@ -34,6 +34,7 @@ export function IdentityStep({ onNext, dotIndex, dotTotal }: IdentityStepProps) 
 
     const birthDatePickerValue = birthDate ? new Date(`${birthDate}T12:00:00Z`) : new Date('1990-01-01T12:00:00Z');
     const formattedBirthDate = formatBirthDateValue(birthDate);
+    const canContinue = Boolean(gender && birthDate);
 
     const handleBirthDateChange = (event: DateTimePickerEvent, selectedDate?: Date) => {
         if (Platform.OS === 'android') {
@@ -67,13 +68,7 @@ export function IdentityStep({ onNext, dotIndex, dotTotal }: IdentityStepProps) 
     return (
         <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
             <StatusBar style="light" />
-            <View style={styles.topBar}>
-                <View style={styles.dots}>
-                    {Array.from({ length: dotTotal }).map((_, index) => (
-                        <View key={index} style={[styles.dot, index === dotIndex && styles.dotActive]} />
-                    ))}
-                </View>
-            </View>
+            <OnboardingProgressHeader dotIndex={dotIndex} dotTotal={dotTotal} onBack={onBack} />
 
             <KeyboardAvoidingView
                 style={styles.flex}
@@ -110,7 +105,7 @@ export function IdentityStep({ onNext, dotIndex, dotTotal }: IdentityStepProps) 
                                 <Text style={styles.clearText}>Clear gender</Text>
                             </TouchableOpacity>
                         ) : (
-                            <Text style={styles.helperText}>Optional. Leave blank if you do not want to set this yet.</Text>
+                            <Text style={styles.helperText}>Required for a complete profile. You can edit this later.</Text>
                         )}
                     </View>
 
@@ -135,7 +130,7 @@ export function IdentityStep({ onNext, dotIndex, dotTotal }: IdentityStepProps) 
                                 <Text style={styles.clearText}>Clear birth date</Text>
                             </TouchableOpacity>
                         ) : (
-                            <Text style={styles.helperText}>Used for age-based discovery and shown on your profile only where the app already uses age data.</Text>
+                            <Text style={styles.helperText}>Required for age-based discovery and safety controls.</Text>
                         )}
 
                         {showBirthDatePicker ? (
@@ -152,7 +147,7 @@ export function IdentityStep({ onNext, dotIndex, dotTotal }: IdentityStepProps) 
                 </ScrollView>
 
                 <View style={styles.footer}>
-                    <PrimaryButton label="Continue" onPress={handleContinue} loading={saving} disabled={saving} />
+                    <PrimaryButton label="Continue" onPress={handleContinue} loading={saving} disabled={saving || !canContinue} />
                 </View>
             </KeyboardAvoidingView>
         </SafeAreaView>

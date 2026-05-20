@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -6,16 +6,59 @@ import { Ionicons } from '@expo/vector-icons';
 import { PrimaryButton } from './ui/PrimaryButton';
 import { Colors, Typography, Spacing, Radius } from '../theme';
 
+interface SubscriptionPlan {
+    id: 'yearly' | 'six_months' | 'three_months' | 'monthly';
+    title: string;
+    price: string;
+    cadence: string;
+    monthlyEquivalent: string;
+    badge?: string;
+}
+
+const PLANS: SubscriptionPlan[] = [
+    {
+        id: 'yearly',
+        title: '1 Year',
+        price: '€119.88',
+        cadence: 'per year',
+        monthlyEquivalent: '€9.99 / month',
+        badge: 'Best value',
+    },
+    {
+        id: 'six_months',
+        title: '6 Months',
+        price: '€65.94',
+        cadence: 'every 6 months',
+        monthlyEquivalent: '€10.99 / month',
+        badge: 'Popular',
+    },
+    {
+        id: 'three_months',
+        title: '3 Months',
+        price: '€35.97',
+        cadence: 'every 3 months',
+        monthlyEquivalent: '€11.99 / month',
+    },
+    {
+        id: 'monthly',
+        title: '1 Month',
+        price: '€12.99',
+        cadence: 'per month',
+        monthlyEquivalent: 'Flexible monthly access',
+    },
+];
+
 const FEATURES = [
-    { icon: 'options' as const, label: 'Advanced filters for people discovery' },
-    { icon: 'trophy' as const, label: 'Advanced milestone tracking & badges' },
-    { icon: 'calendar' as const, label: 'Organize meetups & events' },
-    { icon: 'ban' as const, label: 'Ad-free experience' },
+    { icon: 'people' as const, label: 'Recovery-first community access' },
+    { icon: 'shield-checkmark' as const, label: 'Verified member experience' },
+    { icon: 'calendar' as const, label: 'Groups, meetups, chats, and support tools' },
+    { icon: 'heart' as const, label: 'Dating and friendship discovery' },
 ];
 
 interface PlusUpsellScreenProps {
     onPrimary: () => void;
-    onDismiss: () => void;
+    onDismiss?: () => void;
+    onBack?: () => void;
     primaryLabel?: string;
     dismissLabel?: string;
     dotIndex?: number;
@@ -25,11 +68,13 @@ interface PlusUpsellScreenProps {
 export function PlusUpsellScreen({
     onPrimary,
     onDismiss,
-    primaryLabel = 'Start 14-day free trial',
-    dismissLabel = 'Continue for free',
+    onBack,
+    primaryLabel = 'Continue',
+    dismissLabel = 'Not now',
     dotIndex,
     dotTotal,
 }: PlusUpsellScreenProps) {
+    const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan['id']>('yearly');
     const showDots = typeof dotIndex === 'number' && typeof dotTotal === 'number' && dotTotal > 0;
 
     return (
@@ -37,52 +82,83 @@ export function PlusUpsellScreen({
             <StatusBar style="light" />
             {showDots ? (
                 <View style={styles.topBar}>
+                    <View style={styles.topBarSide}>
+                        {onBack ? (
+                            <TouchableOpacity style={styles.backButton} onPress={onBack} accessibilityLabel="Go back">
+                                <Ionicons name="chevron-back" size={22} color={Colors.text.primary} />
+                            </TouchableOpacity>
+                        ) : null}
+                    </View>
                     <View style={styles.dots}>
-                        {Array.from({ length: dotTotal }).map((_, i) => (
-                            <View key={i} style={[styles.dot, i === dotIndex && styles.dotActive]} />
+                        {Array.from({ length: dotTotal }).map((_, index) => (
+                            <View key={index} style={[styles.dot, index === dotIndex && styles.dotActive]} />
                         ))}
                     </View>
+                    <View style={styles.topBarSide} />
                 </View>
             ) : null}
 
-            <ScrollView contentContainerStyle={styles.inner} showsVerticalScrollIndicator={false}>
-                <View style={styles.iconWrap}>
-                    <Ionicons name="star" size={40} color={Colors.warning} />
+            <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+                <View style={styles.heroIcon}>
+                    <Ionicons name="sparkles" size={32} color={Colors.warning} />
                 </View>
-
-                <Text style={styles.badge}>SoberSpace Plus</Text>
-                <Text style={styles.title}>Upgrade to SoberSpace Plus</Text>
+                <Text style={styles.kicker}>SoberSpace Plus</Text>
+                <Text style={styles.title}>Join the community</Text>
                 <Text style={styles.subtitle}>
-                    Unlock advanced discovery filters, smarter meetups tools, richer milestone tracking, and an ad-free app.
+                    Membership is required to keep SoberSpace focused, safer, and free from bots. Cancel anytime.
                 </Text>
 
-                <View style={styles.featureList}>
-                    {FEATURES.map(({ icon, label }) => (
-                        <View key={label} style={styles.featureRow}>
-                            <View style={styles.featureIcon}>
-                                <Ionicons name={icon} size={18} color={Colors.warning} />
-                            </View>
-                            <Text style={styles.featureLabel}>{label}</Text>
-                        </View>
-                    ))}
+                <View style={styles.planList}>
+                    {PLANS.map((plan) => {
+                        const isSelected = selectedPlan === plan.id;
+                        return (
+                            <TouchableOpacity
+                                key={plan.id}
+                                style={[styles.planCard, isSelected && styles.planCardSelected]}
+                                onPress={() => setSelectedPlan(plan.id)}
+                                activeOpacity={0.86}
+                            >
+                                <View style={styles.planHeader}>
+                                    <View style={styles.planTitleWrap}>
+                                        <Text style={styles.planTitle}>{plan.title}</Text>
+                                        {plan.badge ? (
+                                            <View style={styles.planBadge}>
+                                                <Text style={styles.planBadgeText}>{plan.badge}</Text>
+                                            </View>
+                                        ) : null}
+                                    </View>
+                                    <View style={[styles.radio, isSelected && styles.radioSelected]}>
+                                        {isSelected ? <View style={styles.radioDot} /> : null}
+                                    </View>
+                                </View>
+                                <View style={styles.priceRow}>
+                                    <Text style={styles.planPrice}>{plan.price}</Text>
+                                    <Text style={styles.planCadence}>{plan.cadence}</Text>
+                                </View>
+                                <Text style={styles.monthlyEquivalent}>{plan.monthlyEquivalent}</Text>
+                            </TouchableOpacity>
+                        );
+                    })}
                 </View>
 
-                <View style={styles.priceWrap}>
-                    <Text style={styles.priceFree}>Free for 14 days</Text>
-                    <Text style={styles.priceSub}>then €8.99 / month — cancel any time</Text>
+                <View style={styles.featureList}>
+                    {FEATURES.map((feature) => (
+                        <View key={feature.label} style={styles.featureRow}>
+                            <Ionicons name={feature.icon} size={18} color={Colors.primary} />
+                            <Text style={styles.featureLabel}>{feature.label}</Text>
+                        </View>
+                    ))}
                 </View>
             </ScrollView>
 
             <View style={styles.footer}>
-                <PrimaryButton
-                    label={primaryLabel}
-                    onPress={onPrimary}
-                    variant="warning"
-                    style={styles.trialBtn}
-                />
-                <TouchableOpacity style={styles.freeBtn} onPress={onDismiss}>
-                    <Text style={styles.freeBtnText}>{dismissLabel}</Text>
-                </TouchableOpacity>
+                <PrimaryButton label={primaryLabel} onPress={onPrimary} variant="warning" />
+                <Text style={styles.cancelText}>Cancel anytime from your app store subscription settings.</Text>
+                {onDismiss ? (
+                    <TouchableOpacity style={styles.dismissButton} onPress={onDismiss}>
+                        <Text style={styles.dismissText}>{dismissLabel}</Text>
+                    </TouchableOpacity>
+                ) : null}
             </View>
         </SafeAreaView>
     );
@@ -93,12 +169,20 @@ const styles = StyleSheet.create({
     topBar: {
         flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'center',
-        paddingHorizontal: Spacing.xl,
         paddingTop: Spacing.md,
         paddingBottom: Spacing.sm,
+        paddingHorizontal: Spacing.md,
     },
-    dots: { flexDirection: 'row', gap: Spacing.sm },
+    topBarSide: {
+        width: 40,
+    },
+    backButton: {
+        width: 36,
+        height: 36,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    dots: { flex: 1, flexDirection: 'row', justifyContent: 'center', gap: Spacing.sm },
     dot: {
         width: 8,
         height: 8,
@@ -106,100 +190,159 @@ const styles = StyleSheet.create({
         backgroundColor: Colors.border.default,
     },
     dotActive: { backgroundColor: Colors.primary },
-    inner: {
-        alignItems: 'center',
-        paddingHorizontal: Spacing.xl,
+    content: {
+        paddingHorizontal: Spacing.lg,
+        paddingTop: Spacing.lg,
         paddingBottom: Spacing.xl,
     },
-    iconWrap: {
-        width: 80,
-        height: 80,
-        borderRadius: 40,
-        backgroundColor: 'rgba(255, 193, 7, 0.12)',
+    heroIcon: {
+        width: 60,
+        height: 60,
+        borderRadius: 30,
+        backgroundColor: Colors.warningSubtle,
         alignItems: 'center',
         justifyContent: 'center',
-        marginBottom: Spacing.lg,
+        marginBottom: Spacing.md,
         borderWidth: 1,
-        borderColor: 'rgba(255, 193, 7, 0.25)',
+        borderColor: Colors.warning,
     },
-    badge: {
+    kicker: {
         fontSize: Typography.sizes.sm,
         fontWeight: '700',
         color: Colors.warning,
-        letterSpacing: 1.2,
         textTransform: 'uppercase',
-        marginBottom: Spacing.sm,
+        marginBottom: Spacing.xs,
     },
     title: {
         fontSize: Typography.sizes.xxxl,
         fontWeight: '700',
-        color: '#FFFFFF',
-        textAlign: 'center',
-        lineHeight: 36,
-        marginBottom: Spacing.md,
+        color: Colors.text.primary,
+        marginBottom: Spacing.sm,
     },
     subtitle: {
-        fontSize: Typography.sizes.lg,
+        fontSize: Typography.sizes.md,
         color: Colors.text.secondary,
-        textAlign: 'center',
-        lineHeight: 22,
-        marginBottom: Spacing.xl,
+        lineHeight: 21,
+        marginBottom: Spacing.lg,
+    },
+    planList: {
+        gap: Spacing.sm,
+        marginBottom: Spacing.lg,
+    },
+    planCard: {
+        borderWidth: 1,
+        borderColor: Colors.border.default,
+        backgroundColor: Colors.bg.surface,
+        borderRadius: Radius.md,
+        padding: Spacing.md,
+    },
+    planCardSelected: {
+        borderColor: Colors.warning,
+        backgroundColor: Colors.warningSubtle,
+    },
+    planHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: Spacing.md,
+        marginBottom: Spacing.sm,
+    },
+    planTitleWrap: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: Spacing.sm,
+    },
+    planTitle: {
+        fontSize: Typography.sizes.lg,
+        fontWeight: '700',
+        color: Colors.text.primary,
+    },
+    planBadge: {
+        borderRadius: Radius.pill,
+        backgroundColor: Colors.warning,
+        paddingHorizontal: Spacing.sm,
+        paddingVertical: 3,
+    },
+    planBadgeText: {
+        fontSize: Typography.sizes.xs,
+        fontWeight: '700',
+        color: Colors.textOn.warning,
+    },
+    radio: {
+        width: 22,
+        height: 22,
+        borderRadius: 11,
+        borderWidth: 1,
+        borderColor: Colors.border.emphasis,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    radioSelected: {
+        borderColor: Colors.warning,
+    },
+    radioDot: {
+        width: 12,
+        height: 12,
+        borderRadius: 6,
+        backgroundColor: Colors.warning,
+    },
+    priceRow: {
+        flexDirection: 'row',
+        alignItems: 'flex-end',
+        gap: Spacing.sm,
+    },
+    planPrice: {
+        fontSize: Typography.sizes.xxl,
+        fontWeight: '800',
+        color: Colors.text.primary,
+    },
+    planCadence: {
+        fontSize: Typography.sizes.sm,
+        color: Colors.text.secondary,
+        marginBottom: 3,
+    },
+    monthlyEquivalent: {
+        marginTop: Spacing.xs,
+        fontSize: Typography.sizes.sm,
+        fontWeight: '600',
+        color: Colors.warning,
     },
     featureList: {
-        width: '100%',
-        gap: Spacing.md,
-        marginBottom: Spacing.xl,
+        gap: Spacing.sm,
     },
     featureRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: Spacing.md,
-        backgroundColor: Colors.bg.surface,
-        borderRadius: Radius.md,
-        paddingHorizontal: Spacing.md,
-        paddingVertical: Spacing.md,
-    },
-    featureIcon: {
-        width: 36,
-        height: 36,
-        borderRadius: 18,
-        backgroundColor: 'rgba(255, 193, 7, 0.1)',
-        alignItems: 'center',
-        justifyContent: 'center',
+        gap: Spacing.sm,
     },
     featureLabel: {
         flex: 1,
-        fontSize: Typography.sizes.lg,
-        color: Colors.text.primary,
-        fontWeight: '500',
-    },
-    priceWrap: { alignItems: 'center', gap: 4 },
-    priceFree: {
-        fontSize: Typography.sizes.xl,
-        fontWeight: '700',
-        color: Colors.warning,
-    },
-    priceSub: {
-        fontSize: Typography.sizes.base,
-        color: Colors.text.muted,
+        fontSize: Typography.sizes.sm,
+        color: Colors.text.secondary,
+        lineHeight: 18,
     },
     footer: {
-        paddingHorizontal: Spacing.xl,
+        paddingHorizontal: Spacing.lg,
+        paddingTop: Spacing.sm,
         paddingBottom: Spacing.lg,
+        borderTopWidth: 1,
+        borderTopColor: Colors.border.subtle,
+        backgroundColor: Colors.bg.page,
         gap: Spacing.sm,
     },
-    trialBtn: {
-        backgroundColor: Colors.warning,
+    cancelText: {
+        fontSize: Typography.sizes.xs,
+        lineHeight: 16,
+        color: Colors.text.muted,
+        textAlign: 'center',
     },
-    freeBtn: {
-        borderRadius: Radius.md,
-        borderWidth: 1,
-        borderColor: Colors.border.default,
-        paddingVertical: 14,
+    dismissButton: {
         alignItems: 'center',
+        paddingVertical: Spacing.xs,
     },
-    freeBtnText: {
-        fontSize: Typography.sizes.md,
+    dismissText: {
+        fontSize: Typography.sizes.sm,
         fontWeight: '600',
         color: Colors.text.secondary,
     },

@@ -2,13 +2,14 @@ import { appAlert } from '@/components/ui/appAlert';
 import React, { useState } from 'react';
 import {
     View, Text, TouchableOpacity,
-    StyleSheet, ScrollView, KeyboardAvoidingView, Platform, Alert, Keyboard,
+    StyleSheet, ScrollView, KeyboardAvoidingView, Platform, Keyboard,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { Ionicons } from '@expo/vector-icons';
 import { PrimaryButton } from '../../components/ui/PrimaryButton';
+import { OnboardingProgressHeader } from '../../components/onboarding/OnboardingProgressHeader';
 import { TextField } from '../../components/ui/TextField';
 import { useAuth } from '../../hooks/useAuth';
 import * as api from '../../api/client';
@@ -20,7 +21,7 @@ const MAX_BIO = 160;
 
 type SobrietyStepProps = OnboardingStepProps;
 
-export function SobrietyStep({ onNext, dotIndex, dotTotal }: SobrietyStepProps) {
+export function SobrietyStep({ onNext, onBack, dotIndex, dotTotal }: SobrietyStepProps) {
     const { user, refreshUser } = useAuth();
     const [soberSince, setSoberSince] = useState(user?.sober_since ?? '');
     const [bio, setBio] = useState(user?.bio ?? '');
@@ -29,6 +30,7 @@ export function SobrietyStep({ onNext, dotIndex, dotTotal }: SobrietyStepProps) 
 
     const pickerValue = soberSince ? new Date(`${soberSince}T12:00:00Z`) : new Date();
     const formattedDate = formatSobrietyDate(soberSince);
+    const canContinue = Boolean(soberSince && bio.trim().length > 0 && bio.length <= MAX_BIO);
 
     const handleDateChange = (event: DateTimePickerEvent, selectedDate?: Date) => {
         if (Platform.OS === 'android') {
@@ -67,13 +69,7 @@ export function SobrietyStep({ onNext, dotIndex, dotTotal }: SobrietyStepProps) 
     return (
         <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
             <StatusBar style="light" />
-            <View style={styles.topBar}>
-                <View style={styles.dots}>
-                    {Array.from({ length: dotTotal }).map((_, i) => (
-                        <View key={i} style={[styles.dot, i === dotIndex && styles.dotActive]} />
-                    ))}
-                </View>
-            </View>
+            <OnboardingProgressHeader dotIndex={dotIndex} dotTotal={dotTotal} onBack={onBack} />
 
             <KeyboardAvoidingView
                 style={styles.flex}
@@ -141,7 +137,7 @@ export function SobrietyStep({ onNext, dotIndex, dotTotal }: SobrietyStepProps) 
                 </ScrollView>
 
                 <View style={styles.footer}>
-                    <PrimaryButton label="Continue" onPress={handleContinue} loading={saving} />
+                    <PrimaryButton label="Continue" onPress={handleContinue} loading={saving} disabled={!canContinue || saving} />
                 </View>
             </KeyboardAvoidingView>
         </SafeAreaView>

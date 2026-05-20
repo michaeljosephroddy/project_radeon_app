@@ -1,11 +1,12 @@
 import { appAlert } from '@/components/ui/appAlert';
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Alert, Image } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { Avatar } from '../../components/Avatar';
+import { OnboardingProgressHeader } from '../../components/onboarding/OnboardingProgressHeader';
 import { PrimaryButton } from '../../components/ui/PrimaryButton';
 import { useAuth } from '../../hooks/useAuth';
 import * as api from '../../api/client';
@@ -14,7 +15,7 @@ import type { OnboardingStepProps } from '../../navigation/OnboardingNavigator';
 
 type PhotoStepProps = OnboardingStepProps;
 
-export function PhotoStep({ onNext, dotIndex, dotTotal }: PhotoStepProps) {
+export function PhotoStep({ onNext, onBack, dotIndex, dotTotal }: PhotoStepProps) {
     const { user, refreshUser } = useAuth();
     const [uploading, setUploading] = useState(false);
     const [localAvatarUrl, setLocalAvatarUrl] = useState(user?.avatar_url);
@@ -39,7 +40,7 @@ export function PhotoStep({ onNext, dotIndex, dotTotal }: PhotoStepProps) {
         setUploading(true);
         try {
             await api.uploadAvatar(localUri);
-            refreshUser().catch(() => {});
+            await refreshUser();
         } catch (e: unknown) {
             setLocalAvatarUrl(previousUrl);
             appAlert.alert('Upload failed', e instanceof Error ? e.message : 'Something went wrong.');
@@ -51,13 +52,7 @@ export function PhotoStep({ onNext, dotIndex, dotTotal }: PhotoStepProps) {
     return (
         <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
             <StatusBar style="light" />
-            <View style={styles.topBar}>
-                <View style={styles.dots}>
-                    {Array.from({ length: dotTotal }).map((_, i) => (
-                        <View key={i} style={[styles.dot, i === dotIndex && styles.dotActive]} />
-                    ))}
-                </View>
-            </View>
+            <OnboardingProgressHeader dotIndex={dotIndex} dotTotal={dotTotal} onBack={onBack} />
 
             <View style={styles.inner}>
                 <Text style={styles.title}>Add a photo</Text>
@@ -85,7 +80,7 @@ export function PhotoStep({ onNext, dotIndex, dotTotal }: PhotoStepProps) {
             </View>
 
             <View style={styles.footer}>
-                <PrimaryButton label="Continue" onPress={onNext} />
+                <PrimaryButton label="Continue" onPress={onNext} disabled={!localAvatarUrl || uploading} />
             </View>
         </SafeAreaView>
     );
