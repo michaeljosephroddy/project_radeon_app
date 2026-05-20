@@ -743,8 +743,8 @@ export function SupportScreen({
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: Colors.bg.page },
     center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.bg.page },
-    headerCard: { marginBottom: Spacing.md },
-    nestedTabs: { marginBottom: Spacing.md },
+    headerCard: { marginBottom: Spacing.sm },
+    nestedTabs: { marginBottom: Spacing.sm },
     feedListContent: { paddingBottom: ContentInsets.listBottom },
     card: {
         backgroundColor: Colors.bg.page,

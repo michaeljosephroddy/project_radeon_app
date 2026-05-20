@@ -895,11 +895,11 @@ const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: Colors.bg.page },
     center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
     feedListContent: {
-        paddingTop: ContentInsets.screenHorizontal,
+        paddingTop: 0,
     },
     listHeader: {
         gap: Spacing.sm,
-        marginBottom: Spacing.md,
+        marginBottom: Spacing.sm,
     },
     headerNotice: {
         marginHorizontal: ContentInsets.screenHorizontal,

@@ -202,8 +202,8 @@ const styles = StyleSheet.create({
         backgroundColor: Colors.bg.page,
     },
     header: {
-        gap: Spacing.md,
-        paddingBottom: Spacing.md,
+        gap: Spacing.sm,
+        paddingBottom: Spacing.sm,
     },
     searchRow: {
         flexDirection: 'row',

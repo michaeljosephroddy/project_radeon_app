@@ -8,8 +8,8 @@ export const screenStandards = StyleSheet.create({
     },
     fixedTabsWrap: {
         paddingHorizontal: ContentInsets.screenHorizontal,
-        paddingTop: Spacing.sm,
-        paddingBottom: Spacing.md,
+        paddingTop: 0,
+        paddingBottom: Spacing.sm,
         backgroundColor: Colors.bg.page,
         zIndex: 1,
     },
@@ -18,8 +18,8 @@ export const screenStandards = StyleSheet.create({
     },
     pageTabsWrap: {
         paddingHorizontal: ContentInsets.screenHorizontal,
-        paddingTop: Spacing.sm,
-        paddingBottom: Spacing.md,
+        paddingTop: 0,
+        paddingBottom: Spacing.sm,
         backgroundColor: Colors.bg.page,
         zIndex: 1,
     },
@@ -28,8 +28,8 @@ export const screenStandards = StyleSheet.create({
     },
     sectionTabsWrap: {
         paddingHorizontal: ContentInsets.screenHorizontal,
-        paddingTop: Spacing.sm,
-        paddingBottom: Spacing.md,
+        paddingTop: 0,
+        paddingBottom: Spacing.sm,
         backgroundColor: Colors.bg.page,
         zIndex: 1,
     },
@@ -37,7 +37,8 @@ export const screenStandards = StyleSheet.create({
         marginBottom: 0,
     },
     listContent: {
-        padding: ContentInsets.screenHorizontal,
+        paddingHorizontal: ContentInsets.screenHorizontal,
+        paddingTop: 0,
         paddingBottom: ContentInsets.listBottom,
     },
     detailContent: {
