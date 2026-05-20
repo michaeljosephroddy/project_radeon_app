@@ -77,7 +77,7 @@ export function GroupAdminScreen({
                 <Text style={styles.title}>{group.name}</Text>
                 <Text style={styles.subtitle}>{group.pending_request_count} pending requests</Text>
             </View>
-            <View style={screenStandards.sectionTabsWrap}>
+            <View style={screenStandards.pageTabsWrap}>
                 <SegmentedControl
                     items={[
                         { key: 'requests', label: 'Requests' },
@@ -86,9 +86,9 @@ export function GroupAdminScreen({
                     ]}
                     activeKey={activeTab}
                     onChange={(key) => setActiveTab(key as AdminTab)}
-                    layer="section"
-                    tone="secondary"
-                    style={screenStandards.sectionTabsControl}
+                    layer="page"
+                    tone="primary"
+                    style={screenStandards.pageTabsControl}
                 />
             </View>
             {activeTab === 'requests' ? (

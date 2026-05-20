@@ -275,7 +275,7 @@ export function SupportScreen({
         try {
             const [repliesPage, offersPage] = await Promise.all([
                 api.getSupportReplies(request.id, undefined, 30),
-                request.is_own_request ? api.getSupportOffers(request.id, 1, 30) : Promise.resolve(null),
+                request.is_own_request ? api.getSupportOffers(request.id, { page: 1, limit: 30 }) : Promise.resolve(null),
             ]);
             setDetail({
                 request,
@@ -572,7 +572,7 @@ export function SupportScreen({
                 activeKey={surface}
                 onChange={(key) => setSurface(key as SupportSurface)}
                 layer="page"
-                tone="success"
+                tone="primary"
                 style={screenStandards.pageTabsControl}
                 items={[
                     { key: 'feed', label: 'Feed' },
@@ -645,7 +645,7 @@ export function SupportScreen({
                                 activeKey={myScope}
                                 onChange={(key) => setMyScope(key as MyRequestScope)}
                                 layer="section"
-                                tone="success"
+                                tone="secondary"
                                 style={styles.nestedTabs}
                                 items={[
                                     { key: 'open', label: 'Open' },
@@ -713,7 +713,7 @@ export function SupportScreen({
                             activeKey={feedFilter}
                             onChange={(key) => setFeedFilter(key as api.SupportRequestFilter)}
                             layer="section"
-                            tone="warning"
+                            tone="secondary"
                             style={styles.nestedTabs}
                             items={[
                                 { key: 'all', label: 'All' },

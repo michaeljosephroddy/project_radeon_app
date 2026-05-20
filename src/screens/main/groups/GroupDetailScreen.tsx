@@ -40,9 +40,10 @@ import {
     usePinGroupPostMutation,
     useToggleGroupPostReactionMutation,
 } from '../../../hooks/queries/useGroups';
-import { useMySupportRequests } from '../../../hooks/queries/useSupport';
+import { useMySupportRequests, useSupportOffers, useSupportReplies } from '../../../hooks/queries/useSupport';
 import { useAuth } from '../../../hooks/useAuth';
 import { useGradualKeyboardInset } from '../../../hooks/useGradualKeyboardInset';
+import { useGuardedEndReached } from '../../../hooks/useGuardedEndReached';
 import { useScrollToTopButton } from '../../../hooks/useScrollToTopButton';
 import { screenStandards } from '../../../styles/screenStandards';
 import { Colors, ControlSizes, Radius, Spacing, TextStyles, Typography } from '../../../theme';
@@ -52,6 +53,11 @@ import { formatReadableTimestamp } from '../../../utils/date';
 import { formatUsername } from '../../../utils/identity';
 
 const COMMUNITY_SUPPORT_KEY = 'community_support';
+const SUPPORT_MANAGEMENT_PAGE_SIZE = 25;
+const OFFER_STATUS_FILTERS: Array<{ key: api.SupportOfferStatusFilter; label: string }> = [
+    { key: 'pending', label: 'Pending' },
+    { key: 'accepted', label: 'Accepted' },
+];
 
 interface GroupDetailScreenProps {
     groupId: string;
@@ -69,10 +75,29 @@ interface GroupDetailScreenProps {
 type GroupDetailTab = 'posts' | 'media' | 'members' | 'about';
 type GroupDetailSurface = 'detail' | 'admin' | 'report';
 type GroupSupportSurface = 'feed' | 'mine';
+type SupportManageTab = 'offers' | 'replies';
 
 interface SupportManagementTarget {
     request: api.SupportRequest;
     post?: api.GroupPost;
+}
+
+function getDefaultOfferStatusFilter(request: api.SupportRequest): api.SupportOfferStatusFilter {
+    if (request.status === 'open') return 'pending';
+    return 'accepted';
+}
+
+function getOfferStatusLabel(status: api.SupportOffer['status']): string {
+    switch (status) {
+        case 'pending':
+            return 'Pending';
+        case 'accepted':
+            return 'Accepted';
+        case 'not_selected':
+            return 'Passed';
+        default:
+            return status;
+    }
 }
 
 export function GroupDetailScreen({
@@ -148,7 +173,7 @@ export function GroupDetailScreen({
                 </View>
             ) : group ? (
                 <>
-                    <View style={screenStandards.sectionTabsWrap}>
+                    <View style={screenStandards.pageTabsWrap}>
                         <SegmentedControl
                             items={[
                                 { key: 'posts', label: 'Posts' },
@@ -158,9 +183,9 @@ export function GroupDetailScreen({
                             ]}
                             activeKey={activeTab}
                             onChange={(key) => setActiveTab(key as GroupDetailTab)}
-                            layer="section"
-                            tone="secondary"
-                            style={screenStandards.sectionTabsControl}
+                            layer="page"
+                            tone="primary"
+                            style={screenStandards.pageTabsControl}
                         />
                     </View>
                     {activeTab === 'posts' ? (
@@ -217,42 +242,49 @@ function SupportRequestManagementScreen({
     onOpenChat: (chat: api.Chat) => void;
     onChanged: () => void;
 }): React.ReactElement {
-    const [offers, setOffers] = useState<api.SupportOffer[]>([]);
-    const [replies, setReplies] = useState<api.SupportReply[]>([]);
-    const [loading, setLoading] = useState(true);
+    const queryClient = useQueryClient();
+    const [activeManageTab, setActiveManageTab] = useState<SupportManageTab>('offers');
+    const [offerStatusFilter, setOfferStatusFilter] = useState<api.SupportOfferStatusFilter>(() => getDefaultOfferStatusFilter(request));
     const [pendingId, setPendingId] = useState<string | null>(null);
+    const offersQuery = useSupportOffers(
+        request.id,
+        offerStatusFilter,
+        SUPPORT_MANAGEMENT_PAGE_SIZE,
+        activeManageTab === 'offers',
+    );
+    const repliesQuery = useSupportReplies(
+        request.id,
+        SUPPORT_MANAGEMENT_PAGE_SIZE,
+        activeManageTab === 'replies',
+    );
 
     useEffect(() => {
-        if (!request) return undefined;
-        let cancelled = false;
-        setLoading(true);
-        void Promise.all([
-            api.getSupportOffers(request.id, 1, 30),
-            api.getSupportReplies(request.id, undefined, 40),
-        ])
-            .then(([offersPage, repliesPage]) => {
-                if (cancelled) return;
-                setOffers(offersPage.items ?? []);
-                setReplies(repliesPage.items ?? []);
-            })
-            .catch((e: unknown) => {
-                if (!cancelled) {
-                    appAlert.alert('Could not load request details', e instanceof Error ? e.message : 'Something went wrong.');
-                }
-            })
-            .finally(() => {
-                if (!cancelled) setLoading(false);
-            });
-        return () => {
-            cancelled = true;
-        };
-    }, [request]);
+        setOfferStatusFilter(getDefaultOfferStatusFilter(request));
+    }, [request.id, request.status]);
+
+    const offers = useMemo(
+        () => offersQuery.data?.pages.flatMap((page) => page.items ?? []) ?? [],
+        [offersQuery.data],
+    );
+    const replies = useMemo(
+        () => repliesQuery.data?.pages.flatMap((page) => page.items ?? []) ?? [],
+        [repliesQuery.data],
+    );
+
+    const invalidateManagementQueries = useCallback(async (): Promise<void> => {
+        await Promise.all([
+            queryClient.invalidateQueries({ queryKey: ['support-offers', request.id] }),
+            queryClient.invalidateQueries({ queryKey: ['support-replies', request.id] }),
+            queryClient.invalidateQueries({ queryKey: ['support-requests'] }),
+        ]);
+    }, [queryClient, request.id]);
 
     const handleAcceptOffer = useCallback(async (offer: api.SupportOffer): Promise<void> => {
         if (!request) return;
         setPendingId(offer.id);
         try {
             const accepted = await api.acceptSupportOffer(request.id, offer.id);
+            await invalidateManagementQueries();
             onChanged();
             if (accepted.chat_id) {
                 const chat = await api.getChat(accepted.chat_id);
@@ -263,20 +295,20 @@ function SupportRequestManagementScreen({
         } finally {
             setPendingId(null);
         }
-    }, [onChanged, onOpenChat, request]);
+    }, [invalidateManagementQueries, onChanged, onOpenChat, request]);
 
     const handleDeclineOffer = useCallback(async (offer: api.SupportOffer): Promise<void> => {
         if (!request) return;
         setPendingId(offer.id);
         try {
             await api.declineSupportOffer(request.id, offer.id);
-            setOffers((current) => current.map((item) => item.id === offer.id ? { ...item, status: 'not_selected' } : item));
+            await invalidateManagementQueries();
         } catch (e: unknown) {
             appAlert.alert('Could not decline offer', e instanceof Error ? e.message : 'Something went wrong.');
         } finally {
             setPendingId(null);
         }
-    }, [request]);
+    }, [invalidateManagementQueries, request]);
 
     const handleCloseRequest = useCallback((): void => {
         if (!request) return;
@@ -291,7 +323,10 @@ function SupportRequestManagementScreen({
                     onPress: () => {
                         setPendingId(request.id);
                         void api.updateSupportRequest(request.id, { status: 'closed' })
-                            .then(onChanged)
+                            .then(async () => {
+                                await invalidateManagementQueries();
+                                onChanged();
+                            })
                             .catch((e: unknown) => {
                                 appAlert.alert('Could not close request', e instanceof Error ? e.message : 'Something went wrong.');
                             })
@@ -300,82 +335,182 @@ function SupportRequestManagementScreen({
                 },
             ],
         );
-    }, [onChanged, request]);
+    }, [invalidateManagementQueries, onChanged, request]);
+
+    const handleOpenComments = useCallback((): void => {
+        if (post) {
+            onOpenComments(post);
+            return;
+        }
+        appAlert.alert('Replies unavailable', 'Open this request from the group feed to view public replies.');
+    }, [onOpenComments, post]);
+
+    const handleLoadMoreOffers = useCallback(async (): Promise<void> => {
+        if (!offersQuery.hasNextPage || offersQuery.isFetchingNextPage || offersQuery.isRefetching) return;
+        await offersQuery.fetchNextPage();
+    }, [offersQuery]);
+
+    const handleLoadMoreReplies = useCallback(async (): Promise<void> => {
+        if (!repliesQuery.hasNextPage || repliesQuery.isFetchingNextPage || repliesQuery.isRefetching) return;
+        await repliesQuery.fetchNextPage();
+    }, [repliesQuery]);
+
+    const offersPagination = useGuardedEndReached(handleLoadMoreOffers);
+    const repliesPagination = useGuardedEndReached(handleLoadMoreReplies);
+
+    const listHeader = useMemo(() => (
+        <View style={styles.manageHeader}>
+            <SupportRequestCard
+                request={request}
+                pending={pendingId === request.id}
+                onOpenComments={handleOpenComments}
+                onClose={handleCloseRequest}
+            />
+            <SegmentedControl
+                items={[
+                    { key: 'offers', label: 'Offers' },
+                    { key: 'replies', label: 'Replies' },
+                ]}
+                activeKey={activeManageTab}
+                onChange={(key) => setActiveManageTab(key as SupportManageTab)}
+                layer="page"
+                tone="primary"
+                style={styles.manageTabs}
+            />
+            {activeManageTab === 'offers' ? (
+                <SegmentedControl
+                    items={OFFER_STATUS_FILTERS}
+                    activeKey={offerStatusFilter}
+                    onChange={(key) => setOfferStatusFilter(key as api.SupportOfferStatusFilter)}
+                    layer="section"
+                    tone="secondary"
+                    style={styles.manageTabs}
+                />
+            ) : post ? (
+                <TouchableOpacity style={styles.discussionButton} onPress={handleOpenComments}>
+                    <Text style={styles.discussionButtonText}>View full discussion</Text>
+                </TouchableOpacity>
+            ) : null}
+        </View>
+    ), [activeManageTab, handleCloseRequest, handleOpenComments, offerStatusFilter, pendingId, post, request]);
+
+    const renderOffer = useCallback(({ item }: { item: api.SupportOffer }): React.ReactElement => (
+        <SupportOfferRow
+            offer={item}
+            requestStatus={request.status}
+            pending={pendingId === item.id}
+            onAccept={handleAcceptOffer}
+            onDecline={handleDeclineOffer}
+        />
+    ), [handleAcceptOffer, handleDeclineOffer, pendingId, request.status]);
+
+    const renderReply = useCallback(({ item }: { item: api.SupportReply }): React.ReactElement => (
+        <SupportReplyRow reply={item} />
+    ), []);
+
+    const offerEmptyText = offerStatusFilter === 'pending' ? 'No pending offers.' : 'No accepted offers.';
+    const offersInitialLoading = offersQuery.isLoading && offers.length === 0;
+    const repliesInitialLoading = repliesQuery.isLoading && replies.length === 0;
 
     return (
         <SafeAreaView style={styles.container} edges={['bottom']}>
             <ScreenHeader title="Support request" onBack={onBack} />
-            <ScrollView contentContainerStyle={styles.manageContent}>
-                <SupportRequestCard
-                    request={request}
-                    pending={pendingId === request.id}
-                    onOpenComments={() => {
-                        if (post) {
-                            onOpenComments(post);
-                        } else {
-                            appAlert.alert('Replies unavailable', 'Open this request from the group feed to view public replies.');
-                        }
-                    }}
-                    onClose={handleCloseRequest}
+            {activeManageTab === 'offers' ? (
+                <FlatList<api.SupportOffer>
+                    key={`offers-${offerStatusFilter}`}
+                    data={offers}
+                    keyExtractor={(item) => item.id}
+                    renderItem={renderOffer}
+                    contentContainerStyle={styles.manageListContent}
+                    ListHeaderComponent={listHeader}
+                    ListEmptyComponent={offersInitialLoading ? <ActivityIndicator style={styles.manageEmptyLoader} color={Colors.primary} /> : <EmptyState title={offerEmptyText} />}
+                    ListFooterComponent={offersQuery.isFetchingNextPage ? <ActivityIndicator style={styles.footerLoader} color={Colors.primary} /> : null}
+                    ItemSeparatorComponent={ManageListSeparator}
+                    onEndReached={offersPagination.onEndReached}
+                    onEndReachedThreshold={0.4}
+                    onMomentumScrollBegin={offersPagination.onMomentumScrollBegin}
+                    onScrollBeginDrag={offersPagination.onScrollBeginDrag}
                 />
-
-                <View style={styles.manageSection}>
-                    <Text style={styles.manageTitle}>Replies</Text>
-                    {loading ? (
-                        <ActivityIndicator color={Colors.primary} />
-                    ) : replies.length === 0 ? (
-                        <Text style={styles.aboutBody}>No replies yet.</Text>
-                    ) : (
-                        replies.map((reply) => (
-                            <View key={reply.id} style={styles.replyRow}>
-                                <Avatar username={reply.username} avatarUrl={reply.avatar_url ?? undefined} size={30} />
-                                <View style={styles.replyBody}>
-                                    <Text style={styles.replyAuthor}>{reply.username}</Text>
-                                    <Text style={styles.aboutBody}>{reply.body}</Text>
-                                    <Text style={styles.metaText}>{formatReadableTimestamp(reply.created_at)}</Text>
-                                </View>
-                            </View>
-                        ))
-                    )}
-                </View>
-
-                <View style={styles.manageSection}>
-                    <Text style={styles.manageTitle}>Offers</Text>
-                    {loading ? (
-                        <ActivityIndicator color={Colors.primary} />
-                    ) : offers.length === 0 ? (
-                        <Text style={styles.aboutBody}>No private offers yet.</Text>
-                    ) : offers.map((offer) => (
-                        <View key={offer.id} style={styles.offerRow}>
-                            <Avatar username={offer.username} avatarUrl={offer.avatar_url ?? undefined} size={34} />
-                            <View style={styles.offerBody}>
-                                <Text style={styles.offerName}>{offer.username}</Text>
-                                <Text style={styles.metaText}>{getSupportTypeLabel(offer.offer_type)} · {offer.status.replace('_', ' ')}</Text>
-                                {offer.message ? <Text style={styles.aboutBody}>{offer.message}</Text> : null}
-                            </View>
-                            {offer.status === 'pending' && request.status === 'open' ? (
-                                <View style={styles.offerActions}>
-                                    <TouchableOpacity
-                                        style={[styles.offerPrimaryButton, pendingId === offer.id && styles.composerButtonDisabled]}
-                                        onPress={() => { void handleAcceptOffer(offer); }}
-                                        disabled={pendingId === offer.id}
-                                    >
-                                        <Text style={styles.offerPrimaryButtonText}>Accept</Text>
-                                    </TouchableOpacity>
-                                    <TouchableOpacity
-                                        style={[styles.offerSecondaryButton, pendingId === offer.id && styles.composerButtonDisabled]}
-                                        onPress={() => { void handleDeclineOffer(offer); }}
-                                        disabled={pendingId === offer.id}
-                                    >
-                                        <Text style={styles.offerSecondaryButtonText}>Decline</Text>
-                                    </TouchableOpacity>
-                                </View>
-                            ) : null}
-                        </View>
-                    ))}
-                </View>
-            </ScrollView>
+            ) : (
+                <FlatList<api.SupportReply>
+                    key="replies"
+                    data={replies}
+                    keyExtractor={(item) => item.id}
+                    renderItem={renderReply}
+                    contentContainerStyle={styles.manageListContent}
+                    ListHeaderComponent={listHeader}
+                    ListEmptyComponent={repliesInitialLoading ? <ActivityIndicator style={styles.manageEmptyLoader} color={Colors.primary} /> : <EmptyState title="No replies yet." />}
+                    ListFooterComponent={repliesQuery.isFetchingNextPage ? <ActivityIndicator style={styles.footerLoader} color={Colors.primary} /> : null}
+                    ItemSeparatorComponent={ManageListSeparator}
+                    onEndReached={repliesPagination.onEndReached}
+                    onEndReachedThreshold={0.4}
+                    onMomentumScrollBegin={repliesPagination.onMomentumScrollBegin}
+                    onScrollBeginDrag={repliesPagination.onScrollBeginDrag}
+                />
+            )}
         </SafeAreaView>
+    );
+}
+
+function ManageListSeparator(): React.ReactElement {
+    return <View style={styles.manageListSeparator} />;
+}
+
+function SupportReplyRow({ reply }: { reply: api.SupportReply }): React.ReactElement {
+    return (
+        <View style={styles.replyRow}>
+            <Avatar username={reply.username} avatarUrl={reply.avatar_url ?? undefined} size={30} />
+            <View style={styles.replyBody}>
+                <Text style={styles.replyAuthor}>{reply.username}</Text>
+                <Text style={styles.aboutBody}>{reply.body}</Text>
+                <Text style={styles.metaText}>{formatReadableTimestamp(reply.created_at)}</Text>
+            </View>
+        </View>
+    );
+}
+
+function SupportOfferRow({
+    offer,
+    requestStatus,
+    pending,
+    onAccept,
+    onDecline,
+}: {
+    offer: api.SupportOffer;
+    requestStatus: api.SupportRequest['status'];
+    pending: boolean;
+    onAccept: (offer: api.SupportOffer) => Promise<void>;
+    onDecline: (offer: api.SupportOffer) => Promise<void>;
+}): React.ReactElement {
+    const canAct = offer.status === 'pending' && requestStatus === 'open';
+
+    return (
+        <View style={styles.offerRow}>
+            <Avatar username={offer.username} avatarUrl={offer.avatar_url ?? undefined} size={34} />
+            <View style={styles.offerBody}>
+                <Text style={styles.offerName}>{offer.username}</Text>
+                <Text style={styles.metaText}>{getSupportTypeLabel(offer.offer_type)} - {getOfferStatusLabel(offer.status)}</Text>
+                {offer.message ? <Text style={styles.aboutBody}>{offer.message}</Text> : null}
+            </View>
+            {canAct ? (
+                <View style={styles.offerActions}>
+                    <TouchableOpacity
+                        style={[styles.offerPrimaryButton, pending && styles.composerButtonDisabled]}
+                        onPress={() => { void onAccept(offer); }}
+                        disabled={pending}
+                    >
+                        <Text style={styles.offerPrimaryButtonText}>Accept</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                        style={[styles.offerSecondaryButton, pending && styles.composerButtonDisabled]}
+                        onPress={() => { void onDecline(offer); }}
+                        disabled={pending}
+                    >
+                        <Text style={styles.offerSecondaryButtonText}>Decline</Text>
+                    </TouchableOpacity>
+                </View>
+            ) : null}
+        </View>
     );
 }
 
@@ -703,7 +838,7 @@ function GroupPostsTab({
                     activeKey={supportSurface}
                     onChange={(next) => setSupportSurface(next as GroupSupportSurface)}
                     layer="section"
-                    tone="success"
+                    tone="secondary"
                     style={styles.innerTabs}
                 />
             ) : null}
@@ -1334,12 +1469,41 @@ const styles = StyleSheet.create({
         flexShrink: 0,
         backgroundColor: Colors.bg.page,
     },
-    manageContent: {
+    manageListContent: {
+        padding: Spacing.md,
         paddingBottom: Spacing.xl,
     },
-    manageSection: {
-        padding: Spacing.md,
+    manageHeader: {
         gap: Spacing.sm,
+        marginBottom: Spacing.sm,
+    },
+    manageTabs: {
+        marginBottom: 0,
+    },
+    discussionButton: {
+        minHeight: ControlSizes.chipMinHeight,
+        alignSelf: 'flex-start',
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderRadius: Radius.pill,
+        borderWidth: 1,
+        borderColor: Colors.border.default,
+        backgroundColor: Colors.bg.surface,
+        paddingHorizontal: Spacing.md,
+    },
+    discussionButtonText: {
+        ...TextStyles.chip,
+        color: Colors.text.primary,
+        fontWeight: '700',
+    },
+    manageListSeparator: {
+        height: Spacing.sm,
+    },
+    manageEmptyLoader: {
+        paddingVertical: Spacing.xl,
+    },
+    footerLoader: {
+        paddingVertical: Spacing.lg,
     },
     replyRow: {
         flexDirection: 'row',
@@ -1358,10 +1522,6 @@ const styles = StyleSheet.create({
     replyAuthor: {
         ...TextStyles.bodyEmphasis,
         fontSize: TextStyles.bodyEmphasis.fontSize,
-    },
-    manageTitle: {
-        ...TextStyles.sectionTitle,
-        fontWeight: '800',
     },
     offerRow: {
         flexDirection: 'row',

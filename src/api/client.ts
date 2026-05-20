@@ -542,6 +542,14 @@ export interface SupportOffer {
     chat_id?: string | null;
 }
 
+export type SupportOfferStatusFilter = Extract<SupportOffer['status'], 'pending' | 'accepted'>;
+
+export interface GetSupportOffersOptions {
+    page?: number;
+    limit?: number;
+    status?: SupportOfferStatusFilter;
+}
+
 export interface SupportReply {
     id: string;
     support_request_id: string;
@@ -1762,11 +1770,16 @@ export async function cancelSupportOffer(requestId: string, offerId: string): Pr
     await request(`/support/requests/${requestId}/offers/${offerId}/cancel`, { method: 'POST' });
 }
 
-export async function getSupportOffers(id: string, page = 1, limit = 20): Promise<PaginatedResponse<SupportOffer>> {
+export async function getSupportOffers(id: string, options: GetSupportOffersOptions = {}): Promise<PaginatedResponse<SupportOffer>> {
+    const page = options.page ?? 1;
+    const limit = options.limit ?? 20;
     const search = new URLSearchParams({
         page: String(page),
         limit: String(limit),
     });
+    if (options.status) {
+        search.set('status', options.status);
+    }
     return request(`/support/requests/${id}/offers?${search.toString()}`);
 }
 
