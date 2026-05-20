@@ -161,17 +161,18 @@ const styles = StyleSheet.create({
         backgroundColor: Colors.bg.page,
     },
     header: {
-        minHeight: 58,
+        minHeight: 46,
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
         paddingHorizontal: Spacing.md,
+        paddingVertical: 2,
         borderBottomWidth: 1,
         borderBottomColor: Colors.border.subtle,
     },
     backButton: {
-        width: 42,
-        height: 42,
+        width: 34,
+        height: 34,
         borderRadius: Radius.pill,
         alignItems: 'center',
         justifyContent: 'center',
@@ -180,13 +181,13 @@ const styles = StyleSheet.create({
         borderColor: Colors.border.default,
     },
     title: {
-        fontSize: Typography.sizes.xl,
+        fontSize: Typography.sizes.lg,
         fontWeight: '800',
         color: Colors.text.primary,
     },
     headerSpacer: {
-        width: 42,
-        height: 42,
+        width: 34,
+        height: 34,
     },
     center: {
         flex: 1,
@@ -195,7 +196,8 @@ const styles = StyleSheet.create({
     },
     listContent: {
         paddingHorizontal: Spacing.md,
-        paddingVertical: Spacing.md,
+        paddingTop: Spacing.sm,
+        paddingBottom: Spacing.md,
         gap: Spacing.sm,
     },
     row: {
