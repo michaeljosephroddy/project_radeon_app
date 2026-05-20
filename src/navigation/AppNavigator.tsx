@@ -202,10 +202,8 @@ const UserProfileTab = React.memo(function UserProfileTab({
 export function AppNavigator() {
     const { user, refreshUser } = useAuth();
     const { intent, consumeIntent } = useNotificationIntent();
-    const {
-        data: notificationSummary,
-        refetch: refetchNotificationSummary,
-    } = useNotificationSummary(Boolean(user?.id));
+    const notificationSummaryQuery = useNotificationSummary(Boolean(user?.id));
+    const notificationSummary = notificationSummaryQuery.data;
     const [activeTab, setActiveTab] = useState<Tab>('feed');
     const [previousMainTab, setPreviousMainTab] = useState<MainTab>('feed');
     const [previousContentTab, setPreviousContentTab] = useState<ContentTab>('feed');
@@ -617,11 +615,23 @@ export function AppNavigator() {
         if (!user?.id) return undefined;
 
         const sub = AppState.addEventListener('change', nextState => {
-            if (nextState === 'active') void refetchNotificationSummary();
+            if (nextState !== 'active') return;
+            if (!notificationSummaryQuery.isStale) return;
+            if (notificationSummaryQuery.isFetching || notificationSummaryQuery.isLoading) return;
+            if (notificationSummaryQuery.dataUpdatedAt === 0) return;
+
+            void notificationSummaryQuery.refetch();
         });
 
         return () => sub.remove();
-    }, [refetchNotificationSummary, user?.id]);
+    }, [
+        notificationSummaryQuery.dataUpdatedAt,
+        notificationSummaryQuery.isFetching,
+        notificationSummaryQuery.isLoading,
+        notificationSummaryQuery.isStale,
+        notificationSummaryQuery.refetch,
+        user?.id,
+    ]);
 
     useEffect(() => {
         if (activeTab === 'userProfile' && openUserProfile === null) {
