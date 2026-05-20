@@ -29,10 +29,12 @@ export const queryKeys = {
     notifications: (params?: { limit?: number }) => ['notifications', params ?? {}] as const,
     notificationSummary: () => ['notification-summary'] as const,
     meetupCategories: () => ['meetup-categories'] as const,
+    meetupLocationSuggestions: (params?: { query?: string; limit?: number }) => ['meetup-location-suggestions', params ?? {}] as const,
     meetups: (filters?: {
         q?: string;
         category?: string;
         city?: string;
+        country?: string;
         distance_km?: number;
         event_type?: string;
         date_preset?: string;

@@ -862,7 +862,7 @@ export function MeetupsScreen({
             {showDiscoverNotice ? (
                 <InfoNoticeCard
                     title="Find meetups"
-                    description="Browse upcoming sober events by category, location, date, format, and spots."
+                    description="Browse upcoming sober events by category, location, date, format, and availability."
                     onDismiss={() => setShowDiscoverNotice(false)}
                 />
             ) : null}
@@ -1011,7 +1011,7 @@ export function MeetupsScreen({
         ? (
             <EmptyState
                 title="No events match those filters"
-                description="Try widening the distance, changing the category, or clearing the date filters."
+                description="Try another location, category, date, or format."
                 compact
                 style={styles.emptyState}
             />
