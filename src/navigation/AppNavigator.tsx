@@ -920,7 +920,7 @@ export function AppNavigator() {
     const canShowGlobalCreate = Boolean(user) && !hidesBottomNav && !keyboardVisible;
     const tabBarBottomPadding = Platform.OS === 'android'
         ? Math.max(insets.bottom - 12, Spacing.xs)
-        : insets.bottom + 4;
+        : Math.max(insets.bottom, Spacing.sm);
 
     const openGlobalCreateMenu = useCallback((): void => {
         setCreateMenuOpen(true);
@@ -1152,15 +1152,15 @@ const styles = StyleSheet.create({
         alignItems: 'flex-start',
         borderTopWidth: 1,
         borderTopColor: Colors.border.subtle,
-        paddingTop: 14,
+        paddingTop: Spacing.sm,
         backgroundColor: Colors.bg.page,
         overflow: 'visible',
     },
-    tabItem: { flex: 1, alignItems: 'center', gap: 4, minHeight: 48 },
+    tabItem: { flex: 1, alignItems: 'center', gap: 4, minHeight: 44 },
     createTabSlot: {
         width: 74,
         alignItems: 'center',
-        minHeight: 48,
+        minHeight: 44,
         overflow: 'visible',
     },
     tabLabel: { fontSize: Typography.sizes.sm, color: Colors.text.muted },

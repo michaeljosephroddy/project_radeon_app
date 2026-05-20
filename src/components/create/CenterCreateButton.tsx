@@ -34,7 +34,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'flex-start',
         zIndex: 20,
-        transform: [{ translateY: -28 }],
+        transform: [{ translateY: -24 }],
     },
     button: {
         width: ControlSizes.iconButtonLarge + Spacing.lg,
