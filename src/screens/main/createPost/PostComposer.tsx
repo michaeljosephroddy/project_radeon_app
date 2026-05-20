@@ -1,30 +1,22 @@
 import { appAlert } from '@/components/ui/appAlert';
 import React, {
   useCallback,
-  useEffect,
-  useMemo,
   useRef,
   useState,
 } from "react";
-import { Alert, StyleSheet, View } from "react-native";
-import Animated, { useAnimatedStyle } from "react-native-reanimated";
+import { StyleSheet, View } from "react-native";
+import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as ImagePicker from "expo-image-picker";
 import * as Haptics from "expo-haptics";
 import * as api from "../../../api/client";
 import { Colors, Spacing } from "../../../theme";
 import { useAuth } from "../../../hooks/useAuth";
-import {
-  DraftPayload,
-  useCreatePostDrafts,
-} from "../../../hooks/useCreatePostDrafts";
-import { useGradualKeyboardInset } from "../../../hooks/useGradualKeyboardInset";
 import { useRecentTags } from "../../../hooks/useRecentTags";
 import { CREATE_SURFACE_HEADER_HEIGHT } from "../../../components/ui/CreateSurfaceHeader";
 import { ComposerCanvas } from "./ComposerCanvas";
 import { ComposerToolbar } from "./ComposerToolbar";
 import { CreatePostHeader } from "./CreatePostHeader";
-import { DraftsSheet } from "./DraftsSheet";
 import { ImagePreviewSource } from "./ImagePreviewCard";
 import {
   TagCategory,
@@ -41,7 +33,6 @@ interface PostComposerProps {
   title?: string;
   isSubmitting: boolean;
   tagsEnabled?: boolean;
-  draftsEnabled?: boolean;
   onBack: () => void;
   onSubmit: (input: PostComposerSubmitInput) => Promise<void>;
 }
@@ -79,7 +70,6 @@ export function PostComposer({
   title,
   isSubmitting,
   tagsEnabled = true,
-  draftsEnabled = true,
   onBack,
   onSubmit,
 }: PostComposerProps): React.ReactElement | null {
@@ -93,41 +83,12 @@ export function PostComposer({
     null,
   );
   const [isTagPickerOpen, setIsTagPickerOpen] = useState(false);
-  const [isDraftsOpen, setIsDraftsOpen] = useState(false);
-  const [draftSessionId, setDraftSessionId] = useState(() => createDraftId());
   const uploadPromiseRef = useRef<Promise<api.PostImage> | null>(null);
   const bottomSafeSpace = Math.max(insets.bottom, Spacing.sm);
-  const { height: keyboardInsetHeight } = useGradualKeyboardInset({
-    closedHeight: bottomSafeSpace,
-    openedOffset: Spacing.sm,
-  });
-  const keyboardSpacerStyle = useAnimatedStyle(
-    (): { height: number } => ({
-      height: keyboardInsetHeight.value,
-    }),
-  );
 
   const userId = user?.id ?? null;
-  const {
-    drafts,
-    isHydrated: draftsHydrated,
-    saveCurrent,
-    commitCurrent,
-    removeDraft,
-    loadDraft,
-    clearCurrent,
-  } = useCreatePostDrafts(userId);
   const { recentTags, recordTag } = useRecentTags(userId);
   const activeTags = tagsEnabled ? tags : [];
-
-  const draftPayload = useMemo<DraftPayload>(
-    () => ({
-      body,
-      tags: activeTags,
-      image: selectedImage ? selectedImage.localImage : null,
-    }),
-    [activeTags, body, selectedImage],
-  );
 
   const hasContent =
     body.trim().length > 0 || activeTags.length > 0 || selectedImage !== null;
@@ -135,12 +96,6 @@ export function PostComposer({
     (body.trim().length > 0 || selectedImage !== null) &&
     body.length <= MAX_BODY_LENGTH &&
     !isSubmitting;
-
-  useEffect(() => {
-    if (!draftsEnabled) return;
-    if (!draftsHydrated) return;
-    saveCurrent(draftSessionId, draftPayload);
-  }, [draftPayload, draftSessionId, draftsEnabled, draftsHydrated, saveCurrent]);
 
   const beginImageUpload = useCallback(
     (image: SelectedPostImage): Promise<api.PostImage> => {
@@ -258,82 +213,20 @@ export function PostComposer({
   );
 
   const handleBack = useCallback((): void => {
-    if (!draftsEnabled) {
+    if (!hasContent) {
       onBack();
       return;
     }
 
-    if (!hasContent) {
-      void clearCurrent(draftSessionId).finally(onBack);
-      return;
-    }
-
-    appAlert.alert("Save draft?", "Keep this post in drafts or discard it?", [
+    appAlert.alert("Discard post?", "Your current post will be lost.", [
       { text: "Cancel", style: "cancel" },
       {
         text: "Discard",
         style: "destructive",
-        onPress: () => {
-          void clearCurrent(draftSessionId).finally(onBack);
-        },
-      },
-      {
-        text: "Save",
-        onPress: () => {
-          triggerHaptic(Haptics.ImpactFeedbackStyle.Soft);
-          void commitCurrent(draftSessionId, draftPayload).finally(onBack);
-        },
+        onPress: onBack,
       },
     ]);
-  }, [
-    clearCurrent,
-    commitCurrent,
-    draftPayload,
-    draftSessionId,
-    draftsEnabled,
-    hasContent,
-    onBack,
-  ]);
-
-  const handleLoadDraft = useCallback(
-    (draftId: string): void => {
-      const draft = loadDraft(draftId);
-      if (!draft) return;
-
-      uploadPromiseRef.current = null;
-      setBody(draft.body);
-      setTags(tagsEnabled ? draft.tags : []);
-      setCustomTag("");
-      setTagError(null);
-      setIsDraftsOpen(false);
-      setIsTagPickerOpen(false);
-      setDraftSessionId(createDraftId());
-
-      if (draft.image) {
-        const image = {
-          uri: draft.image.uri,
-          mimeType: draft.image.mimeType,
-          fileName: draft.image.fileName,
-          width: draft.image.width,
-          height: draft.image.height,
-        };
-        setSelectedImage({ localImage: image, status: "uploading" });
-        beginImageUpload(image).catch(() => {});
-      } else {
-        setSelectedImage(null);
-      }
-
-      void removeDraft(draftId);
-    },
-    [beginImageUpload, loadDraft, removeDraft, tagsEnabled],
-  );
-
-  const handleDeleteDraft = useCallback(
-    (draftId: string): void => {
-      void removeDraft(draftId);
-    },
-    [removeDraft],
-  );
+  }, [hasContent, onBack]);
 
   const handleSubmit = useCallback((): void => {
     if (!canSubmit) return;
@@ -362,9 +255,6 @@ export function PostComposer({
           images,
           tags: activeTags,
         });
-        if (draftsEnabled) {
-          await clearCurrent(draftSessionId);
-        }
         onBack();
       } catch (e: unknown) {
         appAlert.alert(
@@ -378,9 +268,6 @@ export function PostComposer({
     beginImageUpload,
     body,
     canSubmit,
-    clearCurrent,
-    draftSessionId,
-    draftsEnabled,
     onBack,
     onSubmit,
     selectedImage,
@@ -398,7 +285,7 @@ export function PostComposer({
 
   return (
     <View style={styles.container}>
-      <View style={styles.bodyWrap}>
+      <KeyboardAvoidingView behavior="padding" style={styles.bodyWrap}>
         <ComposerCanvas
           body={body}
           image={previewImage}
@@ -412,60 +299,45 @@ export function PostComposer({
           onRetryImage={handleRetryImageUpload}
         />
 
-        {isTagPickerOpen && tagsEnabled ? (
-          <TagPickerPanel
-            categories={TAG_CATEGORIES}
-            customTag={customTag}
-            error={tagError}
-            recentTags={recentTags}
-            selectedTags={activeTags}
-            tagCount={activeTags.length}
-            maxTags={MAX_POST_TAGS}
-            onAddTag={addTag}
-            onChangeCustomTag={setCustomTag}
-            onClose={() => setIsTagPickerOpen(false)}
-            onRemoveTag={removeTag}
-            onToggleTag={toggleTag}
-          />
-        ) : (
-          <ComposerToolbar
-            hasImage={selectedImage !== null}
-            tagCount={activeTags.length}
-            maxTags={MAX_POST_TAGS}
-            tagsEnabled={tagsEnabled}
-            onPickImage={handlePickImage}
-            onOpenTagPicker={() => setIsTagPickerOpen(true)}
-          />
-        )}
-
-        <Animated.View style={[styles.keyboardSpacer, keyboardSpacerStyle]} />
-      </View>
+        <View style={[styles.footerSurface, { paddingBottom: bottomSafeSpace }]}>
+          {isTagPickerOpen && tagsEnabled ? (
+            <TagPickerPanel
+              categories={TAG_CATEGORIES}
+              customTag={customTag}
+              error={tagError}
+              recentTags={recentTags}
+              selectedTags={activeTags}
+              tagCount={activeTags.length}
+              maxTags={MAX_POST_TAGS}
+              onAddTag={addTag}
+              onChangeCustomTag={setCustomTag}
+              onClose={() => setIsTagPickerOpen(false)}
+              onRemoveTag={removeTag}
+              onToggleTag={toggleTag}
+            />
+          ) : (
+            <ComposerToolbar
+              hasImage={selectedImage !== null}
+              tagCount={activeTags.length}
+              maxTags={MAX_POST_TAGS}
+              tagsEnabled={tagsEnabled}
+              onPickImage={handlePickImage}
+              onOpenTagPicker={() => setIsTagPickerOpen(true)}
+            />
+          )}
+        </View>
+      </KeyboardAvoidingView>
 
       <CreatePostHeader
         bodyLength={body.length}
         canSubmit={canSubmit}
-        draftCount={draftsEnabled ? drafts.length : 0}
         isSubmitting={isSubmitting}
         maxLength={MAX_BODY_LENGTH}
         postType={selectedImage ? "photo" : "text"}
         title={title}
         onBack={handleBack}
-        onOpenDrafts={() => {
-          if (draftsEnabled) {
-            setIsDraftsOpen(true);
-          }
-        }}
         onSubmit={handleSubmit}
       />
-
-      {draftsEnabled && isDraftsOpen ? (
-        <DraftsSheet
-          drafts={drafts}
-          onClose={() => setIsDraftsOpen(false)}
-          onDeleteDraft={handleDeleteDraft}
-          onLoadDraft={handleLoadDraft}
-        />
-      ) : null}
     </View>
   );
 }
@@ -510,10 +382,6 @@ function inferFileName(uri: string | undefined, fallback: string): string {
   return segment && segment.includes(".") ? segment : fallback;
 }
 
-function createDraftId(): string {
-  return `draft-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-}
-
 function triggerHaptic(style: Haptics.ImpactFeedbackStyle): void {
   try {
     Haptics.impactAsync(style).catch(() => {});
@@ -531,8 +399,7 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingTop: CREATE_SURFACE_HEADER_HEIGHT,
   },
-  keyboardSpacer: {
-    flexShrink: 0,
+  footerSurface: {
     backgroundColor: Colors.bg.page,
   },
 });
