@@ -2,6 +2,7 @@ import { appAlert } from '@/components/ui/appAlert';
 import React, { useMemo, useRef, useState } from 'react';
 import {
     View, Text, TouchableOpacity, StyleSheet, FlatList, ActivityIndicator, RefreshControl, Alert,
+    NativeScrollEvent, NativeSyntheticEvent,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -66,6 +67,8 @@ export function UserProfileScreen({
     onBack, onOpenComments, onComposeDM,
 }: UserProfileScreenProps) {
     const flatListRef = useRef<FlatList<api.Post> | null>(null);
+    const scrollOffsetRef = useRef(0);
+    const contentTabsYRef = useRef(0);
     const queryClient = useQueryClient();
     const profileQuery = useUserProfile(userId);
     const userPostsQuery = useUserPosts(userId);
@@ -219,9 +222,27 @@ export function UserProfileScreen({
         await userPostsQuery.fetchNextPage();
     };
 
+    const restoreContentTabAnchor = (): void => {
+        const targetOffset = Math.max(contentTabsYRef.current, 0);
+        if (scrollOffsetRef.current + Spacing.sm < targetOffset) return;
+
+        requestAnimationFrame(() => {
+            flatListRef.current?.scrollToOffset({
+                offset: targetOffset,
+                animated: false,
+            });
+        });
+    };
+
     const handleTabChange = (tab: ProfileContentTabKey): void => {
+        if (tab === activeTab) return;
         setActiveTab(tab);
-        flatListRef.current?.scrollToOffset({ offset: 0, animated: false });
+        restoreContentTabAnchor();
+    };
+
+    const handleProfileScroll = (event: NativeSyntheticEvent<NativeScrollEvent>): void => {
+        scrollOffsetRef.current = event.nativeEvent.contentOffset.y;
+        userPostsScrollToTop.onScroll(event);
     };
 
     const userPostsPagination = useGuardedEndReached(handleLoadMorePosts);
@@ -328,7 +349,13 @@ export function UserProfileScreen({
                 </TouchableOpacity>
             </View>
 
-            <ProfileContentTabs activeTab={activeTab} onChange={handleTabChange} />
+            <View
+                onLayout={(event) => {
+                    contentTabsYRef.current = event.nativeEvent.layout.y;
+                }}
+            >
+                <ProfileContentTabs activeTab={activeTab} onChange={handleTabChange} />
+            </View>
         </View>
     );
 
@@ -338,7 +365,6 @@ export function UserProfileScreen({
 
             <FlatList
                 ref={flatListRef}
-                key={activeTab}
                 data={activeData}
                 keyExtractor={item => item.id}
                 {...userPostsListProps}
@@ -346,7 +372,7 @@ export function UserProfileScreen({
                 onEndReachedThreshold={0.4}
                 onMomentumScrollBegin={userPostsPagination.onMomentumScrollBegin}
                 onScrollBeginDrag={userPostsPagination.onScrollBeginDrag}
-                onScroll={userPostsScrollToTop.onScroll}
+                onScroll={handleProfileScroll}
                 scrollEventThrottle={16}
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
                 ListHeaderComponent={ProfileHeader}
