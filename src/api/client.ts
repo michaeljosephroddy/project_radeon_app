@@ -340,6 +340,15 @@ export interface MeetupCategory {
     sort_order: number;
 }
 
+export interface MeetupLocationSuggestion {
+    label: string;
+    city: string;
+    country?: string | null;
+    lat?: number | null;
+    lng?: number | null;
+    meetup_count: number;
+}
+
 export type MeetupEventType = 'in_person' | 'online' | 'hybrid';
 export type MeetupStatus = 'published' | 'cancelled' | 'completed';
 export type MeetupVisibility = 'public' | 'unlisted';
@@ -419,6 +428,7 @@ export interface MeetupFilters {
     q?: string;
     category?: string;
     city?: string;
+    country?: string;
     distance_km?: number;
     event_type?: MeetupEventType;
     date_preset?: MeetupDatePreset;
@@ -1630,6 +1640,7 @@ export async function getMeetups(params?: MeetupFilters & { cursor?: string; lim
     if (params?.q) search.set('q', params.q);
     if (params?.category) search.set('category', params.category);
     if (params?.city) search.set('city', params.city);
+    if (params?.country) search.set('country', params.country);
     if (params?.distance_km !== undefined) search.set('distance_km', String(params.distance_km));
     if (params?.event_type) search.set('event_type', params.event_type);
     if (params?.date_preset) search.set('date_preset', params.date_preset);
@@ -1652,6 +1663,13 @@ export async function getMeetups(params?: MeetupFilters & { cursor?: string; lim
 // Loads available meetup categories for discovery and creation.
 export async function getMeetupCategories(): Promise<MeetupCategory[]> {
     return request('/meetups/categories');
+}
+
+export async function getMeetupLocationSuggestions(query: string, limit = 8): Promise<MeetupLocationSuggestion[]> {
+    const search = new URLSearchParams();
+    search.set('q', query);
+    search.set('limit', String(limit));
+    return request<MeetupLocationSuggestion[]>(`/meetups/locations?${search.toString()}`);
 }
 
 // Loads a single meetup detail record.

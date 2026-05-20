@@ -14,6 +14,16 @@ export function useMeetupCategories(enabled = true) {
     });
 }
 
+export function useMeetupLocationSuggestions(query: string, enabled = true, limit = 8) {
+    const normalizedQuery = query.trim();
+    return useQuery({
+        queryKey: queryKeys.meetupLocationSuggestions({ query: normalizedQuery, limit }),
+        queryFn: () => api.getMeetupLocationSuggestions(normalizedQuery, limit),
+        staleTime: 1000 * 60 * 10,
+        enabled: enabled && normalizedQuery.length >= 2,
+    });
+}
+
 export function useMeetups(params: api.MeetupFilters & { limit?: number }, enabled = true) {
     const limit = params.limit ?? 20;
     const queryKey = queryKeys.meetups({ ...params, limit });

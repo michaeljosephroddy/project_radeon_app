@@ -12,14 +12,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import * as api from '../../api/client';
 import {
     MEETUP_DATE_PRESET_OPTIONS,
-    MEETUP_DAY_OPTIONS,
-    MEETUP_DISTANCE_OPTIONS,
     MEETUP_EVENT_TYPE_OPTIONS,
     MeetupDraftFilters,
-    MEETUP_SORT_OPTIONS,
-    MEETUP_TIME_OPTIONS,
 } from '../../hooks/useMeetupFilters';
-import { Colors, ControlSizes, Radius, Spacing, TextStyles, Typography } from '../../theme';
+import { useMeetupLocationSuggestions } from '../../hooks/queries/useMeetups';
+import { Colors, ControlSizes, Radius, Spacing, TextStyles } from '../../theme';
 import { screenStandards } from '../../styles/screenStandards';
 import { PrimaryButton } from '../ui/PrimaryButton';
 import { ScreenHeader } from '../ui/ScreenHeader';
@@ -55,6 +52,17 @@ function FilterChip({
     );
 }
 
+function useDebouncedValue<T>(value: T, delayMs: number): T {
+    const [debounced, setDebounced] = React.useState(value);
+
+    React.useEffect(() => {
+        const timer = setTimeout(() => setDebounced(value), delayMs);
+        return () => clearTimeout(timer);
+    }, [delayMs, value]);
+
+    return debounced;
+}
+
 export function MeetupFilterSheet({
     visible,
     draftFilters,
@@ -64,6 +72,18 @@ export function MeetupFilterSheet({
     onReset,
     onApply,
 }: MeetupFilterSheetProps) {
+    const debouncedLocationQuery = useDebouncedValue(draftFilters.locationQuery.trim(), 250);
+    const locationSuggestionsQuery = useMeetupLocationSuggestions(
+        debouncedLocationQuery,
+        visible && debouncedLocationQuery.length >= 2,
+    );
+    const locationSuggestions = locationSuggestionsQuery.data ?? [];
+    const selectedLocationLabel = draftFilters.locationCountry
+        ? `${draftFilters.locationCity}, ${draftFilters.locationCountry}`
+        : draftFilters.locationCity;
+    const showLocationSuggestions = debouncedLocationQuery.length >= 2
+        && selectedLocationLabel !== draftFilters.locationQuery.trim();
+
     return (
         <Modal visible={visible} animationType="slide" transparent={false} onRequestClose={onClose}>
             <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
@@ -92,20 +112,44 @@ export function MeetupFilterSheet({
                     <View style={styles.section}>
                         <Text style={styles.sectionTitle}>Location</Text>
                         <TextField
-                            value={draftFilters.city}
-                            onChangeText={(value) => onChangeFilters((current) => ({ ...current, city: value }))}
-                            placeholder="City or venue area"
+                            value={draftFilters.locationQuery}
+                            onChangeText={(value) => onChangeFilters((current) => ({
+                                ...current,
+                                locationQuery: value,
+                                locationCity: '',
+                                locationCountry: null,
+                            }))}
+                            placeholder="City or area"
+                            returnKeyType="search"
                         />
-                        <View style={[styles.wrap, styles.spacingTop]}>
-                            {MEETUP_DISTANCE_OPTIONS.map((option) => (
-                                <FilterChip
-                                    key={option.label}
-                                    label={option.label}
-                                    selected={draftFilters.distanceKm === option.value}
-                                    onPress={() => onChangeFilters((current) => ({ ...current, distanceKm: option.value }))}
-                                />
-                            ))}
-                        </View>
+                        {showLocationSuggestions ? (
+                            <View style={styles.suggestionList}>
+                                {locationSuggestionsQuery.isFetching ? (
+                                    <Text style={styles.suggestionMeta}>Searching...</Text>
+                                ) : null}
+                                {locationSuggestions.map((location) => (
+                                    <TouchableOpacity
+                                        key={`${location.city}-${location.country ?? ''}`}
+                                        style={styles.suggestionItem}
+                                        onPress={() => onChangeFilters((current) => ({
+                                            ...current,
+                                            locationQuery: location.label,
+                                            locationCity: location.city,
+                                            locationCountry: location.country ?? null,
+                                        }))}
+                                        activeOpacity={0.82}
+                                    >
+                                        <Text style={styles.suggestionTitle}>{location.label}</Text>
+                                        <Text style={styles.suggestionSubtitle}>
+                                            {location.meetup_count} meetup{location.meetup_count === 1 ? '' : 's'}
+                                        </Text>
+                                    </TouchableOpacity>
+                                ))}
+                                {!locationSuggestionsQuery.isFetching && locationSuggestions.length === 0 ? (
+                                    <Text style={styles.suggestionMeta}>No meetup locations found</Text>
+                                ) : null}
+                            </View>
+                        ) : null}
                     </View>
 
                     <View style={styles.section}>
@@ -130,90 +174,7 @@ export function MeetupFilterSheet({
                                     key={option.label}
                                     label={option.label}
                                     selected={draftFilters.datePreset === option.value}
-                                    onPress={() => onChangeFilters((current) => ({
-                                        ...current,
-                                        datePreset: option.value,
-                                        dateFrom: option.value === 'custom' ? current.dateFrom : '',
-                                        dateTo: option.value === 'custom' ? current.dateTo : '',
-                                    }))}
-                                />
-                            ))}
-                        </View>
-                        {draftFilters.datePreset === 'custom' ? (
-                            <View style={styles.dateRow}>
-                                <View style={styles.dateField}>
-                                    <Text style={styles.fieldLabel}>From</Text>
-                                    <TextField
-                                        value={draftFilters.dateFrom}
-                                        onChangeText={(value) => onChangeFilters((current) => ({ ...current, dateFrom: value }))}
-                                        placeholder="2026-05-01"
-                                    />
-                                </View>
-                                <View style={styles.dateField}>
-                                    <Text style={styles.fieldLabel}>To</Text>
-                                    <TextField
-                                        value={draftFilters.dateTo}
-                                        onChangeText={(value) => onChangeFilters((current) => ({ ...current, dateTo: value }))}
-                                        placeholder="2026-05-31"
-                                    />
-                                </View>
-                            </View>
-                        ) : null}
-                    </View>
-
-                    <View style={styles.section}>
-                        <Text style={styles.sectionTitle}>Day of week</Text>
-                        <View style={styles.wrap}>
-                            {MEETUP_DAY_OPTIONS.map((option) => {
-                                const selected = draftFilters.dayOfWeek.includes(option.value);
-                                return (
-                                    <FilterChip
-                                        key={option.value}
-                                        label={option.label}
-                                        selected={selected}
-                                        onPress={() => onChangeFilters((current) => ({
-                                            ...current,
-                                            dayOfWeek: selected
-                                                ? current.dayOfWeek.filter((value) => value !== option.value)
-                                                : [...current.dayOfWeek, option.value].sort((left, right) => left - right),
-                                        }))}
-                                    />
-                                );
-                            })}
-                        </View>
-                    </View>
-
-                    <View style={styles.section}>
-                        <Text style={styles.sectionTitle}>Time of day</Text>
-                        <View style={styles.wrap}>
-                            {MEETUP_TIME_OPTIONS.map((option) => {
-                                const selected = draftFilters.timeOfDay.includes(option.value);
-                                return (
-                                    <FilterChip
-                                        key={option.value}
-                                        label={option.label}
-                                        selected={selected}
-                                        onPress={() => onChangeFilters((current) => ({
-                                            ...current,
-                                            timeOfDay: selected
-                                                ? current.timeOfDay.filter((value) => value !== option.value)
-                                                : [...current.timeOfDay, option.value],
-                                        }))}
-                                    />
-                                );
-                            })}
-                        </View>
-                    </View>
-
-                    <View style={styles.section}>
-                        <Text style={styles.sectionTitle}>Sort</Text>
-                        <View style={styles.wrap}>
-                            {MEETUP_SORT_OPTIONS.map((option) => (
-                                <FilterChip
-                                    key={option.value}
-                                    label={option.label}
-                                    selected={draftFilters.sort === option.value}
-                                    onPress={() => onChangeFilters((current) => ({ ...current, sort: option.value }))}
+                                    onPress={() => onChangeFilters((current) => ({ ...current, datePreset: option.value }))}
                                 />
                             ))}
                         </View>
@@ -263,9 +224,6 @@ const styles = StyleSheet.create({
         flexWrap: 'wrap',
         gap: Spacing.sm,
     },
-    spacingTop: {
-        marginTop: Spacing.sm,
-    },
     chip: {
         minHeight: ControlSizes.chipMinHeight,
         paddingHorizontal: Spacing.md,
@@ -285,17 +243,32 @@ const styles = StyleSheet.create({
     chipTextSelected: {
         color: Colors.textOn.primary,
     },
-    dateRow: {
-        flexDirection: 'row',
-        gap: Spacing.md,
+    suggestionList: {
+        borderRadius: Radius.md,
+        borderWidth: 1,
+        borderColor: Colors.border.subtle,
+        backgroundColor: Colors.bg.surface,
+        overflow: 'hidden',
     },
-    dateField: {
-        flex: 1,
-        gap: Spacing.xs,
+    suggestionItem: {
+        paddingHorizontal: Spacing.md,
+        paddingVertical: Spacing.sm,
+        borderBottomWidth: 1,
+        borderBottomColor: Colors.border.subtle,
     },
-    fieldLabel: {
+    suggestionTitle: {
+        ...TextStyles.bodyEmphasis,
+    },
+    suggestionSubtitle: {
         ...TextStyles.caption,
-        textTransform: 'uppercase',
+        color: Colors.text.secondary,
+        marginTop: 2,
+    },
+    suggestionMeta: {
+        ...TextStyles.secondary,
+        color: Colors.text.secondary,
+        paddingHorizontal: Spacing.md,
+        paddingVertical: Spacing.sm,
     },
     switchRow: {
         flexDirection: 'row',
