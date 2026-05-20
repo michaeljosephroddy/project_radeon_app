@@ -2,11 +2,12 @@ import { appAlert } from '@/components/ui/appAlert';
 import React, { useState } from 'react';
 import {
     View, Text, TouchableOpacity, StyleSheet,
-    ScrollView, Alert,
+    ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { PrimaryButton } from '../../components/ui/PrimaryButton';
+import { OnboardingProgressHeader } from '../../components/onboarding/OnboardingProgressHeader';
 import { useAuth } from '../../hooks/useAuth';
 import { useInterests } from '../../hooks/queries/useInterests';
 import * as api from '../../api/client';
@@ -17,7 +18,7 @@ const MAX_INTERESTS = 5;
 
 type InterestsStepProps = OnboardingStepProps;
 
-export function InterestsStep({ onNext, dotIndex, dotTotal }: InterestsStepProps) {
+export function InterestsStep({ onNext, onBack, dotIndex, dotTotal }: InterestsStepProps) {
     const { user, refreshUser } = useAuth();
     const interestsQuery = useInterests(true);
     const availableInterests = interestsQuery.data ?? [];
@@ -53,13 +54,7 @@ export function InterestsStep({ onNext, dotIndex, dotTotal }: InterestsStepProps
     return (
         <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
             <StatusBar style="light" />
-            <View style={styles.topBar}>
-                <View style={styles.dots}>
-                    {Array.from({ length: dotTotal }).map((_, i) => (
-                        <View key={i} style={[styles.dot, i === dotIndex && styles.dotActive]} />
-                    ))}
-                </View>
-            </View>
+            <OnboardingProgressHeader dotIndex={dotIndex} dotTotal={dotTotal} onBack={onBack} />
 
             <View style={styles.header}>
                 <Text style={styles.title}>What are you into?</Text>
@@ -92,7 +87,7 @@ export function InterestsStep({ onNext, dotIndex, dotTotal }: InterestsStepProps
             </ScrollView>
 
             <View style={styles.footer}>
-                <PrimaryButton label="Continue" onPress={handleContinue} loading={saving} />
+                <PrimaryButton label="Continue" onPress={handleContinue} loading={saving} disabled={saving || selected.length === 0} />
             </View>
         </SafeAreaView>
     );

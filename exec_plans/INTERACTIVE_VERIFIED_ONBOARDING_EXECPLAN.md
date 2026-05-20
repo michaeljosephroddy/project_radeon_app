@@ -6,25 +6,29 @@ This document follows `PLANS.md` in the repository root. If the implementation c
 
 ## Purpose / Big Picture
 
-SoberSpace onboarding currently collects profile details but does not let the user move backward, does not persist onboarding completion on the server, and does not prove value before the Plus upsell. After this change, a new user can complete a guided, interactive first session: build a complete profile, verify they are human through identity verification, send a first friend request, join or request a group, and publish a first post that receives an automatic owner welcome reply. The Plus upsell appears after those value moments, so the user has already experienced a real community loop before being asked to upgrade.
+SoberSpace onboarding currently collects profile details but does not let the user move backward, does not persist onboarding completion on the server, and does not prove value before the subscription gate. After this change, a new user can complete a guided, interactive first session: build a complete profile, verify they are human through identity verification, send a first friend request, join or request a group, and publish a first post that receives an automatic owner welcome reply. The required SoberSpace Plus paywall appears after those value moments, so the user has already experienced a real community loop before being asked to subscribe.
 
-A human can see the finished behavior by registering a new account, moving forward and backward through onboarding, being blocked from continuing when a required field is empty, completing identity verification, sending a friend request, joining a group, creating a first post, seeing the owner welcome reply appear on that post, seeing the Plus screen, and then entering the app. If the app is killed mid-onboarding, signing back in resumes onboarding because completion is stored on the backend, not only in local React state.
+A human can see the finished behavior by registering a new account, moving forward and backward through onboarding, being blocked from continuing when a required field is empty, completing identity verification, sending a friend request, joining a group, creating a first post, seeing the owner welcome reply appear on that post, choosing a required Plus subscription, and then entering the app. If the app is killed mid-onboarding, signing back in resumes onboarding because completion is stored on the backend, not only in local React state. If an authenticated user does not have an active subscription, they see the paywall instead of the main app.
 
 ## Progress
 
 - [x] (2026-05-20T22:54Z) Read `PLANS.md` and existing onboarding, interests, friends, groups, feed, and auth code before authoring this ExecPlan.
 - [x] (2026-05-20T22:54Z) Researched Stripe Identity's official Verification Session and React Native integration shape for the identity verification milestone.
 - [x] (2026-05-20T22:54Z) Created this ExecPlan in `exec_plans/INTERACTIVE_VERIFIED_ONBOARDING_EXECPLAN.md`.
+- [x] (2026-05-20T23:03Z) Updated this ExecPlan to make Plus a required hard subscription gate with four plans and visible cancel-anytime terms.
 - [ ] Confirm the identity verification provider and account readiness. This plan assumes Stripe Identity unless the product owner chooses a different provider before implementation.
-- [ ] Implement backend migrations for onboarding completion, verification state, first-action tracking, and generic profile interests.
+- [ ] Confirm the subscription provider and store product IDs. This plan assumes RevenueCat or equivalent store-backed receipt validation unless the product owner chooses direct StoreKit/Google Play billing before implementation.
+- [x] (2026-05-20T23:03Z) Implemented backend migrations for onboarding completion, verification state, first-action tracking, and generic profile interests.
 - [ ] Implement backend identity verification session, status, and webhook endpoints.
 - [ ] Implement backend onboarding first-post endpoint with idempotent owner auto-reply.
 - [ ] Add backend guards so unverified users cannot perform community actions outside the onboarding path.
-- [ ] Update the app API client and auth state to use server-backed onboarding and verification status.
-- [ ] Refactor onboarding navigation into a typed step list with shared frame, back navigation, required validation, and persisted progress.
-- [ ] Add interactive onboarding steps for identity verification, first friend request, first group join, and first post.
-- [ ] Move the Plus upsell after the interactive value steps.
-- [ ] Run backend tests, app typecheck, and manual end-to-end onboarding QA.
+- [x] (2026-05-20T23:03Z) Updated the app API client and auth state to use server-backed onboarding and verification status.
+- [x] (2026-05-20T23:03Z) Added shared onboarding progress/back navigation and required field gating to the existing profile setup steps.
+- [x] (2026-05-20T23:03Z) Added interactive onboarding steps for first friend request, first group join, and first post.
+- [x] (2026-05-20T23:03Z) Replaced the current static Plus upsell with a required hard paywall shell after the interactive value steps.
+- [x] (2026-05-20T23:03Z) Ran backend tests and app typecheck.
+- [ ] Refactor onboarding navigation into a fully typed step list instead of a numeric switch.
+- [ ] Run manual end-to-end onboarding QA on device after purchase and identity provider wiring exists.
 
 ## Surprises & Discoveries
 
@@ -42,6 +46,12 @@ A human can see the finished behavior by registering a new account, moving forwa
 
 - Observation: Stripe Identity supports the shape needed for this app: create a server-side verification session, present a React Native verification sheet with a `client_secret`, and update local status from provider events or backend polling.
     Evidence: Stripe's official docs describe Verification Sessions with statuses such as `requires_input`, `processing`, `verified`, and `canceled`; the React Native guide uses `@stripe/stripe-identity-react-native` to present the verification sheet from the app.
+
+- Observation: The current Plus screen is only a static upsell and cannot enforce a paid subscription.
+    Evidence: `src/components/PlusUpsellScreen.tsx` renders hardcoded copy and calls `onPrimary` or `onDismiss`; `rg` finds no purchase, StoreKit, RevenueCat, billing, or receipt-validation implementation in the app.
+
+- Observation: The backend checkout and identity provider integrations cannot be completed inside the current repos without provider credentials, product IDs, webhook configuration, and a purchase SDK choice.
+    Evidence: The app repo has no StoreKit, Google Play Billing, RevenueCat, or Stripe Identity dependency, and the backend router source is not the full deployment surface for adding new provider callbacks.
 
 ## Decision Log
 
@@ -73,9 +83,29 @@ A human can see the finished behavior by registering a new account, moving forwa
     Rationale: A pending request is honest and respects the other user. It still gives the new user a meaningful first connection action.
     Date/Author: 2026-05-20 / Codex
 
+- Decision: Make SoberSpace Plus a required hard subscription gate, not a freemium upsell.
+    Rationale: The product owner confirmed there will be no freemium path. Users should not be able to dismiss the paywall and enter the app without an active subscription.
+    Date/Author: 2026-05-20 / Codex
+
+- Decision: Offer four subscription durations on the hard paywall: one year, six months, three months, and one month.
+    Rationale: The product owner requested these durations and later clarified that the best-value annual plan should work out at 9.99 per month, with shorter durations proportionately higher. Every option should show the full billed amount and monthly equivalent so the value is clear without hiding the billing commitment.
+    Date/Author: 2026-05-20 / Codex
+
+- Decision: Show cancel-anytime terms directly under the paywall call to action.
+    Rationale: Subscription paywalls should clearly disclose renewal and cancellation expectations. The user explicitly asked to note cancel anytime, and app store review commonly expects clear subscription terms.
+    Date/Author: 2026-05-20 / Codex
+
+- Decision: Use store-backed purchase validation, preferably RevenueCat for the first implementation unless direct StoreKit/Google Play billing is chosen before work starts.
+    Rationale: The current app has no purchase wiring. A hard paywall must validate real active entitlements instead of trusting button taps. RevenueCat is a common cross-platform React Native option that handles App Store and Google Play receipt validation and exposes entitlements consistently.
+    Date/Author: 2026-05-20 / Codex
+
+- Decision: Persist onboarding completion and first-action markers through the existing `PATCH /users/me` handler for this implementation pass.
+    Rationale: The backend checkout and public router wiring are not fully represented in the current backend checkout, while `/users/me` is already routed and used by the app. This gives the app durable onboarding state now without inventing direct fetch paths or depending on missing router code.
+    Date/Author: 2026-05-20 / Codex
+
 ## Outcomes & Retrospective
 
-This plan has not been implemented yet. It is intentionally broad because the requested onboarding changes touch auth, backend schema, identity provider integration, API permissions, app onboarding UI, and product copy. The highest-risk area is identity verification because it depends on provider account setup, webhook correctness, and production policy decisions. The plan isolates that risk into an early milestone before adding the first-friend, first-group, and first-post steps.
+This plan has not been implemented yet. It is intentionally broad because the requested onboarding changes touch auth, backend schema, identity provider integration, subscription billing, API permissions, app onboarding UI, and product copy. The highest-risk areas are identity verification and subscription enforcement because they depend on provider account setup, webhook correctness, receipt validation, and production policy decisions. The plan isolates those risks into early and explicit milestones before adding the first-friend, first-group, and first-post steps.
 
 ## Context and Orientation
 
@@ -89,6 +119,17 @@ The planned provider is Stripe Identity. Stripe's key object is a Verification S
 
 Community action means an action that can affect other people: sending friend requests, joining groups, creating posts or comments, dating actions, support requests, support offers, and direct messages. This plan requires verification before those actions, except for the specific onboarding endpoints that are designed to complete first friend, group, and post actions after verification.
 
+Hard paywall means there is no free path into SoberSpace after onboarding. A user must have an active SoberSpace Plus subscription to enter the main app. The current app has `subscription_tier` and `subscription_status` on the `User` type, but those fields are not connected to a real purchase flow. This plan requires store-backed purchase validation before the paywall can actually enforce access.
+
+The subscription products planned for SoberSpace Plus are one subscription group or equivalent entitlement named `plus`, with four durations. Annual is the best-value anchor and must work out at 9.99 per month. Shorter terms increase progressively so the value ladder is clear:
+
+    One Year: €119.88 / year, equivalent to €9.99 / month, badge `Best value`
+    Six Months: €65.94 / 6 months, equivalent to €10.99 / month, badge `Popular`
+    Three Months: €35.97 / 3 months, equivalent to €11.99 / month
+    One Month: €12.99 / month, label `Flexible`
+
+The paywall must show the full billed amount for every option, not only the monthly equivalent. It must also show clear renewal and cancellation language: `Cancel anytime. Auto-renews unless cancelled before renewal. Manage or cancel in your App Store or Google Play account settings.`
+
 The current profile interest catalog is stored in the backend `interests` table. `migrations/020_profile_bio_interests.sql` and `migrations/001_bootstrap.sql` seeded older values such as `Art`, `Books`, `Coffee`, `Gaming`, `Gym`, `Hiking`, `Journaling`, `Live Music`, and `Nature Walks`. The app reads this list from `/interests`, so updating the backend catalog updates onboarding, profile editing, discover filters, and dating filters.
 
 Important current app files:
@@ -97,6 +138,7 @@ Important current app files:
 - `src/hooks/useAuth.tsx` owns `user`, `isAuthenticated`, `isNewUser`, `login`, `register`, `refreshUser`, and `completeOnboarding`.
 - `src/navigation/OnboardingNavigator.tsx` switches over numeric steps and currently has no back navigation.
 - `src/screens/onboarding/*.tsx` contains existing screens: Welcome, Photo, Identity, Sobriety, Location, Interests, Intent, Plus, and Ready.
+- `src/components/PlusUpsellScreen.tsx` is the existing Plus screen. It currently shows one static monthly-style trial offer and has a dismiss path. It must be redesigned into a required hard paywall with selectable plans.
 - `src/api/client.ts` defines the `User` type, auth calls, profile update calls, discover users, friends, groups, posts, and comments.
 - `src/hooks/queries/useGroups.ts`, `src/hooks/queries/useFriends.ts`, and `src/hooks/queries/useCreatePostMutation.ts` show existing React Query patterns for related data.
 
@@ -142,7 +184,7 @@ Update `/home/michaelroddy/repos/project_radeon/schema/base.sql` with the same c
 
 In the app, update `src/api/client.ts` `User` with these fields. Update `src/hooks/useAuth.tsx` so `isNewUser` is derived from `user?.onboarding_completed_at == null`, not only from local registration state. Keep a small local override during registration if needed, but token restore must route incomplete users to onboarding.
 
-Add a backend endpoint `POST /onboarding/complete`. It should require authentication, require `identity_verification_status = 'verified'`, require first friend, first group, and first post columns to be non-null, set `onboarding_completed_at = NOW()` if it is null, and return the updated user or a compact status response. Existing users with `onboarding_completed_at` already set should receive HTTP 200 and no destructive changes.
+Add a backend endpoint `POST /onboarding/complete`. It should require authentication, require `identity_verification_status = 'verified'`, require first friend, first group, and first post columns to be non-null, require active Plus subscription, set `onboarding_completed_at = NOW()` if it is null, and return the updated user or a compact status response. Existing users with `onboarding_completed_at` already set should receive HTTP 200 and no destructive changes, but app access should still depend on active subscription status.
 
 ### Milestone 2: Update the generic interest catalog
 
@@ -293,10 +335,10 @@ Refactor `src/navigation/OnboardingNavigator.tsx` to use a typed step list inste
     first_friend
     first_group
     first_post
-    plus
+    subscription
     ready
 
-The navigator should expose `next`, `back`, `canGoBack`, `dotIndex`, and `dotTotal` to every step after Welcome. Dots should count only setup/action steps and not include Welcome or Ready. If Plus should show dots, include it at the end; if it feels too sales-like to count it, keep its dots optional but document the decision.
+The navigator should expose `next`, `back`, `canGoBack`, `dotIndex`, and `dotTotal` to every step after Welcome. Dots should count setup/action steps and include the subscription step because the subscription is required. Dots should not include Welcome or Ready.
 
 Update existing step props in `src/navigation/OnboardingNavigator.tsx`:
 
@@ -308,7 +350,7 @@ Update existing step props in `src/navigation/OnboardingNavigator.tsx`:
       dotTotal: number;
     }
 
-Remove `onSkip` from required onboarding steps. The product requirement is that users must fill out each screen completely before moving to the next. The only non-required screen should be Plus, where dismissing continues to Ready.
+Remove `onSkip` from required onboarding steps. The product requirement is that users must fill out each screen completely before moving to the next. The subscription step is also required, so it must not have a `Continue for free` or dismiss path.
 
 Refactor existing screens one by one to use `OnboardingFrame`: Welcome, Photo, Identity, Sobriety, Location, Interests, Intent, Plus, and Ready. Keep behavior stable first, then tighten validation.
 
@@ -321,6 +363,7 @@ Validation rules:
 - Interests: Continue disabled until 3 to 5 interests are selected.
 - Verification: Continue disabled until `identity_verification_status === 'verified'`.
 - Intent: Continue enabled because `friends` is always selected by default, but the user must explicitly tap Continue.
+- Subscription: Continue disabled until a purchase or restore flow confirms an active Plus entitlement.
 
 ### Milestone 6: Add first friend request step
 
@@ -385,19 +428,54 @@ Create `src/screens/onboarding/FirstPostStep.tsx`. It should be a compact text c
 
 The user must enter a non-empty body with a reasonable minimum such as 10 characters. On submit, call `api.createOnboardingFirstPost({ body })`, then show a success state with a short preview of the owner reply and enable Continue.
 
-### Milestone 9: Move Plus upsell after value moments and complete onboarding
+### Milestone 9: Replace Plus upsell with a required hard subscription paywall
 
-This milestone positions Plus at the right point in the user journey. At the end, the user sees Plus only after profile setup, verification, first friend request, first group action, and first post.
+This milestone positions the paid subscription gate at the right point in the user journey. At the end, the user sees the paywall only after profile setup, verification, first friend request, first group action, and first post. There is no freemium path: the user must purchase or restore an active subscription before Ready and before entering the main app.
 
-Keep `src/screens/onboarding/PlusStep.tsx` using `PlusUpsellScreen`, but render it after `first_post`. The primary button continues to the Ready screen. Dismiss should also continue to Ready. Do not let Plus block completion.
+Redesign `src/components/PlusUpsellScreen.tsx` into a hard paywall. Keep the component reusable, but change its model from `onPrimary` and `onDismiss` to selected-plan purchase behavior. It should show:
 
-Update `src/screens/onboarding/ReadyStep.tsx` so `Enter SoberSpace` calls `api.completeOnboarding()` and then `refreshUser()` or a new `completeOnboarding()` auth method that calls the backend before clearing onboarding UI. It should not just set local `isNewUser` false. The backend should reject completion if required steps are missing, and the app should show the missing step message if that happens.
+- a compact SoberSpace Plus header;
+- a benefit-led title such as `Get more from SoberSpace`;
+- short recovery-appropriate value copy;
+- tight benefit rows for advanced discovery filters, richer recovery milestones, meetup/group discovery boosts, and an ad-free experience;
+- four selectable plan cards for one year, six months, three months, and one month;
+- one year selected by default;
+- visible full billed amount and monthly equivalent on every multi-month option;
+- a primary CTA that changes with the selected plan, such as `Continue with 1 Year`;
+- `Cancel anytime. Auto-renews unless cancelled before renewal. Manage or cancel in your App Store or Google Play account settings.`;
+- `Restore purchases`;
+- Terms and Privacy links or tappable placeholders if the legal URLs are not ready yet.
+
+Use these first-pass price labels until the store products provide localized prices:
+
+    One Year: €119.88 / year, €9.99 / month, `Best value`, `Save 23%`
+    Six Months: €65.94 / 6 months, €10.99 / month, `Popular`, `Save 15%`
+    Three Months: €35.97 / 3 months, €11.99 / month, `Save 8%`
+    One Month: €12.99 / month, `Flexible`
+
+The annual price is fixed by product requirement to work out at 9.99 per month. The shorter terms step up by one euro per monthly equivalent, so the ladder is easy to understand: annual at 9.99/month, six months at 10.99/month, three months at 11.99/month, and monthly at 12.99/month. The discount percentages compare each option against paying monthly at 12.99/month. When real store products are wired, use localized store prices for display and keep the same plan ordering.
+
+Add purchase plumbing before enforcing the paywall in production. Prefer RevenueCat for the first implementation unless direct StoreKit and Google Play billing is explicitly chosen before work starts. Add a single Plus entitlement named `plus`. Product identifiers should be stable and documented in this plan during implementation, for example:
+
+    soberspace_plus_1m
+    soberspace_plus_3m
+    soberspace_plus_6m
+    soberspace_plus_1y
+
+Add backend subscription validation support. The exact implementation depends on the provider, but at the end the backend must be the source of truth for `users.subscription_tier` and `users.subscription_status`. If using RevenueCat, configure RevenueCat webhooks to the backend and add endpoints for the app to sync customer info after purchase or restore. A successful active Plus entitlement should set `subscription_tier = 'plus'` and `subscription_status = 'active'`; expired, cancelled, or missing entitlement should not allow app access.
+
+Update `src/screens/onboarding/PlusStep.tsx` to render the required paywall after `first_post`. It should not accept `onSkip`, and it should call `onNext` only after the purchase or restore flow confirms active Plus status through the backend and `refreshUser()`.
+
+Update `App.tsx` or the auth routing layer so authenticated users who have completed onboarding but do not have active Plus are routed to the hard paywall instead of `AppNavigator`. This prevents users from bypassing payment by restarting the app after onboarding. Define active Plus in one helper, for example `isActivePlus(user)`, using `user.subscription_tier === 'plus' && user.subscription_status === 'active'`.
+
+Update `src/screens/onboarding/ReadyStep.tsx` so `Enter SoberSpace` calls `api.completeOnboarding()` and then `refreshUser()` or a new `completeOnboarding()` auth method that calls the backend before clearing onboarding UI. It should not just set local `isNewUser` false. The backend should reject completion if required steps are missing or if there is no active subscription, and the app should show the missing step message if that happens.
 
 Update `src/hooks/useAuth.tsx`:
 
 - `completeOnboarding` should call the backend, refresh `user`, and no longer be a local-only setter.
 - `isNewUser` should derive from `user?.onboarding_completed_at == null`.
 - `register()` should still set the user and route to onboarding because the returned `me` has no `onboarding_completed_at`.
+- Add or import an `isActivePlus(user)` helper so app routing and paywall logic use one definition of active subscription.
 
 ### Milestone 10: Manual QA and polish
 
@@ -414,8 +492,10 @@ Run through these manual flows:
 7. First friend request succeeds and marks the step complete.
 8. First group join/request succeeds and marks the step complete.
 9. First post creates exactly one owner welcome reply, even if the request is retried.
-10. Plus appears after first post, can be dismissed, and Ready completes onboarding.
-11. After onboarding, the user can enter the main app and use community actions.
+10. The hard Plus paywall appears after first post, cannot be dismissed into the app, shows all four subscription durations, and includes cancel-anytime renewal copy.
+11. Purchase or restore confirms active Plus and enables Ready.
+12. After onboarding, the subscribed user can enter the main app and use community actions.
+13. If the same user loses active subscription status later, app restart or refresh routes them to the hard paywall instead of the main app.
 
 ## Concrete Steps
 
@@ -481,6 +561,7 @@ Automated backend acceptance:
 - `go test ./...` passes in `/home/michaelroddy/repos/project_radeon`.
 - Migration tests or manual migration runs prove existing users receive `onboarding_completed_at` and are not forced through onboarding.
 - Identity endpoint tests prove session creation updates user status, webhook signature validation rejects invalid signatures, verified events set `identity_verification_status = 'verified'`, and failed/retry events do not mark users verified.
+- Subscription tests prove active Plus entitlement updates the user to `subscription_tier = 'plus'` and `subscription_status = 'active'`, expired or missing entitlement does not allow app access, and onboarding completion is rejected without active subscription.
 - Guard tests prove unverified users receive HTTP 403 for community actions and verified users can proceed.
 - First-post tests prove exactly one user post and one owner welcome comment are created, and retries return the existing records instead of duplicating them.
 
@@ -501,7 +582,11 @@ Manual product acceptance:
 - After verification, the user can send a first friend request.
 - The user can join or request to join a first group.
 - The user can create a first post and see the owner welcome reply.
-- Plus appears after those value actions, not before.
+- The hard Plus paywall appears after those value actions, not before.
+- The paywall shows one year, six months, three months, and one month plans. One year is clearly shown as `€119.88 / year`, equivalent to `€9.99 / month`.
+- The paywall shows full billed amounts, monthly equivalents for multi-month plans, `Cancel anytime`, auto-renewal copy, Restore purchases, Terms, and Privacy.
+- There is no `Continue for free` or dismiss path into the app.
+- Attempting to enter the app without active Plus keeps the user on the paywall.
 - Tapping Enter SoberSpace calls the backend completion endpoint and enters the main app.
 
 ## Idempotence and Recovery
@@ -515,6 +600,8 @@ First friend and first group progress endpoints must verify the real relationshi
 First post creation must be transactionally idempotent. If `onboarding_first_post_id` is already set, return the existing IDs. If the post exists but the owner comment failed in a previous attempt, retry should create the missing comment and update `onboarding_owner_welcome_comment_id`.
 
 If the identity provider is unavailable, the app should show a retryable error and keep the user on the verification step. Do not mark verification complete on network failure.
+
+If the subscription provider is unavailable, the app should show a retryable purchase or restore error and keep the user on the paywall. Do not mark Plus active on a client-only success state. The backend or subscription provider webhook must confirm entitlement before access is granted.
 
 ## Artifacts and Notes
 
@@ -549,6 +636,15 @@ Stripe Identity implementation notes embedded for implementers:
 - The app never receives the provider secret key.
 - Provider webhooks must be signature-verified before updating SoberSpace users.
 - Store only provider IDs, status, error, and timestamps in SoberSpace. Do not store ID document images or extracted sensitive fields.
+
+Subscription paywall notes embedded for implementers:
+
+- This is a hard paywall. Do not include `Continue for free`.
+- Show all four durations: one year, six months, three months, and one month.
+- Annual must work out at `€9.99 / month`; shorter terms should be incrementally higher.
+- Always show the full billed amount, even when also showing a monthly equivalent.
+- Keep `Cancel anytime` visible under the CTA, along with auto-renewal and account-settings cancellation language.
+- Purchase and restore must confirm an active Plus entitlement before onboarding can complete or the main app can render.
 
 ## Interfaces and Dependencies
 
@@ -600,6 +696,14 @@ App API functions to add in `src/api/client.ts`:
     export async function recordOnboardingFirstGroup(groupId: string): Promise<User>;
     export async function createOnboardingFirstPost(input: { body: string }): Promise<{ post_id: string; welcome_comment_id: string }>;
     export async function completeOnboarding(): Promise<User>;
+    export async function syncSubscriptionStatus(): Promise<User>;
+    export async function restorePurchases(): Promise<User>;
+
+Add a shared subscription helper in the app, for example `src/utils/subscription.ts`:
+
+    export function isActivePlus(user: api.User | null): boolean {
+        return user?.subscription_tier === 'plus' && user?.subscription_status === 'active';
+    }
 
 New app screens to add:
 
@@ -607,6 +711,11 @@ New app screens to add:
     src/screens/onboarding/FirstFriendStep.tsx
     src/screens/onboarding/FirstGroupStep.tsx
     src/screens/onboarding/FirstPostStep.tsx
+
+Existing app screen/component to redesign:
+
+    src/components/PlusUpsellScreen.tsx
+    src/screens/onboarding/PlusStep.tsx
 
 New shared app component:
 
@@ -618,6 +727,14 @@ Provider dependency to add during the identity milestone:
 
 Use this dependency only from `VerificationStep.tsx` or a small wrapper hook such as `src/hooks/useIdentityVerificationSheet.ts`. Keeping provider calls in one place makes it easier to switch providers later.
 
+Subscription dependency to add during the hard paywall milestone if RevenueCat is chosen:
+
+    react-native-purchases
+
+Use this dependency only from a small purchase wrapper such as `src/hooks/usePlusPurchases.ts` or `src/services/purchases.ts`. Keep purchase-provider logic outside `PlusUpsellScreen.tsx`; the component should render plans and call typed callbacks so it can be previewed and tested without a live store connection.
+
 ## Revision Notes
 
 - 2026-05-20T22:54Z: Initial ExecPlan created. It incorporates the requested back navigation, complete required steps, generic interests, first friend, first group, first post, owner auto-reply, Plus repositioning, and mandatory identity verification during onboarding.
+- 2026-05-20T23:03Z: Updated the plan to reflect the no-freemium product decision. The Plus step is now a required hard subscription paywall with one year, six months, three months, and one month options, with visible cancel-anytime terms.
+- 2026-05-20T23:03Z: Updated pricing so annual is the best-value anchor at 9.99 per month, with six-month, three-month, and monthly options stepping up proportionately.

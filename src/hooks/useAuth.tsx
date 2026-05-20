@@ -12,7 +12,7 @@ interface AuthContextType {
     register: (data: Parameters<typeof api.register>[0]) => Promise<void>;
     logout: () => Promise<void>;
     refreshUser: () => Promise<void>;
-    completeOnboarding: () => void;
+    completeOnboarding: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -21,9 +21,9 @@ const AuthContext = createContext<AuthContextType | null>(null);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [user, setUser] = useState<api.User | null>(null);
     const [isLoading, setIsLoading] = useState(true);
-    const [isNewUser, setIsNewUser] = useState(false);
     const setUserRef = useRef(setUser);
     setUserRef.current = setUser;
+    const isNewUser = Boolean(user && !user.onboarding_completed_at);
 
     useEffect(() => {
         // Any 401 received after startup clears the session and forces re-login.
@@ -68,10 +68,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         await api.setToken(token);
         queryClient.clear();
         const me = await api.getMe();
-        unstable_batchedUpdates(() => {
-            setUser(me);
-            setIsNewUser(true);
-        });
+        setUser(me);
     }, []);
 
     // Clears local auth state and removes the current user from context.
@@ -87,8 +84,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(me);
     }, []);
 
-    const completeOnboarding = useCallback(() => {
-        setIsNewUser(false);
+    const completeOnboarding = useCallback(async () => {
+        const updated = await api.updateMe({ onboarding_completed: true });
+        unstable_batchedUpdates(() => {
+            setUser(updated);
+        });
     }, []);
 
     return (

@@ -10,6 +10,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { PrimaryButton } from '../../components/ui/PrimaryButton';
+import { OnboardingProgressHeader } from '../../components/onboarding/OnboardingProgressHeader';
 import { useAuth } from '../../hooks/useAuth';
 import * as api from '../../api/client';
 import { Colors, Radius, Spacing, Typography } from '../../theme';
@@ -18,7 +19,7 @@ import { CONNECTION_INTENT_OPTIONS, normalizeConnectionIntents } from '../../uti
 
 type IntentStepProps = OnboardingStepProps;
 
-export function IntentStep({ onNext, dotIndex, dotTotal }: IntentStepProps) {
+export function IntentStep({ onNext, onBack, dotIndex, dotTotal }: IntentStepProps) {
     const { user, refreshUser } = useAuth();
     const [selected, setSelected] = useState<api.ConnectionIntent[]>(normalizeConnectionIntents(user?.connection_intents));
     const [saving, setSaving] = useState(false);
@@ -50,13 +51,7 @@ export function IntentStep({ onNext, dotIndex, dotTotal }: IntentStepProps) {
     return (
         <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
             <StatusBar style="light" />
-            <View style={styles.topBar}>
-                <View style={styles.dots}>
-                    {Array.from({ length: dotTotal }).map((_, index) => (
-                        <View key={index} style={[styles.dot, index === dotIndex && styles.dotActive]} />
-                    ))}
-                </View>
-            </View>
+            <OnboardingProgressHeader dotIndex={dotIndex} dotTotal={dotTotal} onBack={onBack} />
 
             <View style={styles.header}>
                 <Text style={styles.title}>Why are you here?</Text>
