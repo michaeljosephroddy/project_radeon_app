@@ -2,12 +2,14 @@ import React, { useEffect } from 'react';
 import {
     ActivityIndicator,
     Dimensions,
+    type GestureResponderEvent,
     Image,
     StyleSheet,
     Text,
     TouchableOpacity,
     View,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -50,11 +52,15 @@ interface DatingDeckProps {
 function DatingProfileCard({
     user,
     onPress,
+    onPassPress,
+    onConnectPress,
     likeLabelStyle,
     passLabelStyle,
 }: {
     user: api.User;
     onPress: () => void;
+    onPassPress: () => void;
+    onConnectPress: () => void;
     likeLabelStyle: AnimatedStyle<object>;
     passLabelStyle: AnimatedStyle<object>;
 }) {
@@ -64,7 +70,21 @@ function DatingProfileCard({
         ? `${user.city}${user.country ? `, ${user.country}` : ''}`
         : user.country ?? null;
     const metaLabel = [milestone?.currentLabel, locationLabel].filter(Boolean).join(' · ');
-    const interests = user.interests.slice(0, 4);
+
+    const handlePassPress = (event: GestureResponderEvent): void => {
+        event.stopPropagation();
+        onPassPress();
+    };
+
+    const handleConnectPress = (event: GestureResponderEvent): void => {
+        event.stopPropagation();
+        onConnectPress();
+    };
+
+    const handleOpenProfilePress = (event: GestureResponderEvent): void => {
+        event.stopPropagation();
+        onPress();
+    };
 
     return (
         <TouchableOpacity
@@ -94,21 +114,42 @@ function DatingProfileCard({
                 <Text style={[styles.swipeLabelText, styles.passLabelText]}>PASS</Text>
             </Animated.View>
             <Animated.View style={[styles.swipeLabel, styles.likeLabel, likeLabelStyle]} pointerEvents="none">
-                <Text style={[styles.swipeLabelText, styles.likeLabelText]}>LIKE</Text>
+                <Text style={[styles.swipeLabelText, styles.likeLabelText]}>CONNECT</Text>
             </Animated.View>
             <View style={styles.cardOverlay}>
-                <Text style={styles.name} numberOfLines={1}>{formatUsername(user.username)}</Text>
+                <View style={styles.nameRow}>
+                    <Text style={styles.name} numberOfLines={1}>{formatUsername(user.username)}</Text>
+                    <TouchableOpacity
+                        style={styles.viewProfileButton}
+                        onPress={handleOpenProfilePress}
+                        activeOpacity={0.84}
+                    accessibilityRole="button"
+                    accessibilityLabel={`View ${formatUsername(user.username)} profile`}
+                >
+                        <Ionicons name="chevron-up" size={21} color={Colors.textOn.primary} />
+                    </TouchableOpacity>
+                </View>
                 {metaLabel ? <Text style={styles.meta} numberOfLines={1}>{metaLabel}</Text> : null}
-                {user.bio ? <Text style={styles.bio} numberOfLines={2}>{user.bio}</Text> : null}
-                {interests.length ? (
-                    <View style={styles.interestRow}>
-                        {interests.map((interest) => (
-                            <View key={interest} style={styles.interestChip}>
-                                <Text style={styles.interestText} numberOfLines={1}>{interest}</Text>
-                            </View>
-                        ))}
-                    </View>
-                ) : null}
+            </View>
+            <View style={styles.cardActionRow}>
+                <TouchableOpacity
+                    style={styles.cardActionButton}
+                    onPress={handlePassPress}
+                    activeOpacity={0.84}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Pass on ${formatUsername(user.username)}`}
+                >
+                    <Ionicons name="close" size={28} color={Colors.danger} />
+                </TouchableOpacity>
+                <TouchableOpacity
+                    style={styles.cardActionButton}
+                    onPress={handleConnectPress}
+                    activeOpacity={0.84}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Connect with ${formatUsername(user.username)}`}
+                >
+                    <Ionicons name="heart" size={30} color={Colors.primary} />
+                </TouchableOpacity>
             </View>
         </TouchableOpacity>
     );
@@ -148,6 +189,34 @@ export function DatingDeck({
 
     const triggerLike = (): void => {
         if (activeUser) onLike(activeUser);
+    };
+
+    const animatePass = (): void => {
+        if (!activeUser || isDismissing.value) return;
+        isDismissing.value = true;
+        translateX.value = withTiming(
+            -SWIPE_EXIT_DISTANCE,
+            { duration: SWIPE_EXIT_DURATION_MS, easing: Easing.out(Easing.cubic) },
+            (finished) => {
+                if (finished) {
+                    runOnJS(triggerPass)();
+                }
+            },
+        );
+    };
+
+    const animateLike = (): void => {
+        if (!activeUser || isDismissing.value) return;
+        isDismissing.value = true;
+        translateX.value = withTiming(
+            SWIPE_EXIT_DISTANCE,
+            { duration: SWIPE_EXIT_DURATION_MS, easing: Easing.out(Easing.cubic) },
+            (finished) => {
+                if (finished) {
+                    runOnJS(triggerLike)();
+                }
+            },
+        );
     };
 
     const gesture = Gesture.Pan()
@@ -262,6 +331,8 @@ export function DatingDeck({
                     <DatingProfileCard
                         user={activeUser}
                         onPress={() => onOpenProfile(activeUser)}
+                        onPassPress={animatePass}
+                        onConnectPress={animateLike}
                         likeLabelStyle={likeLabelStyle}
                         passLabelStyle={passLabelStyle}
                     />
@@ -318,11 +389,11 @@ const styles = StyleSheet.create({
         backgroundColor: 'rgba(0,0,0,0.26)',
     },
     passLabel: {
-        left: Spacing.lg,
+        left: Spacing.xl,
         borderColor: Colors.danger,
     },
     likeLabel: {
-        right: Spacing.lg,
+        right: Spacing.xl,
         borderColor: Colors.primary,
     },
     swipeLabelText: {
@@ -343,41 +414,58 @@ const styles = StyleSheet.create({
         bottom: 0,
         paddingHorizontal: Spacing.lg,
         paddingTop: Spacing.xl,
-        paddingBottom: Spacing.lg,
+        paddingBottom: 92,
         gap: Spacing.xs,
     },
+    nameRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: Spacing.sm,
+    },
+    viewProfileButton: {
+        width: 34,
+        height: 34,
+        borderRadius: Radius.pill,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.24)',
+        backgroundColor: 'rgba(0,0,0,0.48)',
+    },
+    cardActionRow: {
+        position: 'absolute',
+        left: Spacing.lg,
+        right: Spacing.lg,
+        bottom: Spacing.lg,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: Spacing.xl,
+    },
+    cardActionButton: {
+        width: 58,
+        height: 58,
+        borderRadius: Radius.pill,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.24)',
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        shadowColor: Colors.shadow,
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.18,
+        shadowRadius: 14,
+        elevation: 4,
+    },
     name: {
+        flex: 1,
+        minWidth: 0,
         fontSize: Typography.sizes.xxl,
         fontWeight: '700',
         color: Colors.text.primary,
     },
     meta: {
         ...TextStyles.secondary,
-        color: Colors.text.primary,
-    },
-    bio: {
-        ...TextStyles.body,
-        lineHeight: 21,
-        color: Colors.text.secondary,
-    },
-    interestRow: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        gap: Spacing.xs,
-        paddingTop: Spacing.sm,
-    },
-    interestChip: {
-        borderRadius: Radius.pill,
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.22)',
-        backgroundColor: 'rgba(0,0,0,0.38)',
-        paddingHorizontal: Spacing.sm,
-        paddingVertical: 5,
-        maxWidth: '48%',
-    },
-    interestText: {
-        fontSize: Typography.sizes.xs,
-        fontWeight: '700',
         color: Colors.text.primary,
     },
     footerLoader: {

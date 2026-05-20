@@ -7,13 +7,13 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import { Avatar } from '../Avatar';
 import { DiscoverEmptyState } from './DiscoverEmptyState';
+import { ScreenHeader } from '../ui/ScreenHeader';
 import * as api from '../../api/client';
 import { getRecoveryMilestone } from '../../utils/date';
 import { formatUsername } from '../../utils/identity';
-import { Colors, Radius, Spacing, TextStyles, Typography } from '../../theme';
+import { Colors, ContentInsets, Radius, Spacing, TextStyles, Typography } from '../../theme';
 
 interface DatingLikesScreenProps {
     likes: api.User[];
@@ -48,19 +48,7 @@ export function DatingLikesScreen({
 
     return (
         <View style={styles.container}>
-            <View style={styles.header}>
-                <TouchableOpacity
-                    style={styles.backButton}
-                    onPress={onBack}
-                    activeOpacity={0.84}
-                    accessibilityRole="button"
-                    accessibilityLabel="Back to Dating"
-                >
-                    <Ionicons name="chevron-back" size={22} color={Colors.text.primary} />
-                </TouchableOpacity>
-                <Text style={styles.title}>Liked you</Text>
-                <View style={styles.headerSpacer} />
-            </View>
+            <ScreenHeader title="Liked you" onBack={onBack} />
 
             {loading && likes.length === 0 ? (
                 <View style={styles.center}>
@@ -160,44 +148,15 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: Colors.bg.page,
     },
-    header: {
-        minHeight: 46,
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        paddingHorizontal: Spacing.md,
-        paddingVertical: 2,
-        borderBottomWidth: 1,
-        borderBottomColor: Colors.border.subtle,
-    },
-    backButton: {
-        width: 34,
-        height: 34,
-        borderRadius: Radius.pill,
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: Colors.bg.surface,
-        borderWidth: 1,
-        borderColor: Colors.border.default,
-    },
-    title: {
-        fontSize: Typography.sizes.lg,
-        fontWeight: '800',
-        color: Colors.text.primary,
-    },
-    headerSpacer: {
-        width: 34,
-        height: 34,
-    },
     center: {
         flex: 1,
         alignItems: 'center',
         justifyContent: 'center',
     },
     listContent: {
-        paddingHorizontal: Spacing.md,
+        paddingHorizontal: ContentInsets.screenHorizontal,
         paddingTop: Spacing.sm,
-        paddingBottom: Spacing.md,
+        paddingBottom: ContentInsets.listBottom,
         gap: Spacing.sm,
     },
     row: {
