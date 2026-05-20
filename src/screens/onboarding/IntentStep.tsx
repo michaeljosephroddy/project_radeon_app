@@ -1,7 +1,6 @@
 import { appAlert } from '@/components/ui/appAlert';
 import React, { useState } from 'react';
 import {
-    Alert,
     ScrollView,
     StyleSheet,
     Text,
@@ -60,9 +59,9 @@ export function IntentStep({ onNext, dotIndex, dotTotal }: IntentStepProps) {
             </View>
 
             <View style={styles.header}>
-                <Text style={styles.title}>What kind of connection helps you?</Text>
+                <Text style={styles.title}>Why are you here?</Text>
                 <Text style={styles.subtitle}>
-                    Everyone is here for recovery and friendship. Choose whether you are also open to dating.
+                    SoberSpace is recovery-first. Choose how you want to connect. You can change this anytime in Settings.
                 </Text>
             </View>
 
@@ -82,6 +81,9 @@ export function IntentStep({ onNext, dotIndex, dotTotal }: IntentStepProps) {
                             activeOpacity={0.86}
                         >
                             <Text style={[styles.optionTitle, isSelected && styles.optionTitleActive]}>{option.label}</Text>
+                            <Text style={[styles.optionDescription, isSelected && styles.optionDescriptionActive]}>
+                                {option.description}
+                            </Text>
                         </TouchableOpacity>
                     );
                 })}
@@ -151,6 +153,15 @@ const styles = StyleSheet.create({
     },
     optionTitleActive: {
         color: Colors.primary,
+    },
+    optionDescription: {
+        marginTop: Spacing.xs,
+        fontSize: Typography.sizes.sm,
+        lineHeight: 18,
+        color: Colors.text.secondary,
+    },
+    optionDescriptionActive: {
+        color: Colors.text.primary,
     },
     footer: {
         paddingHorizontal: Spacing.xl,

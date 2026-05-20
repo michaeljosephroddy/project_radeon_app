@@ -5,6 +5,8 @@ import {
     Dimensions,
     FlatList,
     Image,
+    Linking,
+    Modal,
     RefreshControl,
     StyleSheet,
     Text,
@@ -13,11 +15,15 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import { useQueryClient } from '@tanstack/react-query';
 import { Avatar } from '../../components/Avatar';
 import { DiscoverActiveFiltersBar } from '../../components/discover/DiscoverActiveFiltersBar';
 import { DiscoverEmptyState } from '../../components/discover/DiscoverEmptyState';
 import { DiscoverFilterSheet } from '../../components/discover/DiscoverFilterSheet';
+import { DatingDeck } from '../../components/discover/DatingDeck';
+import { DatingLikesScreen } from '../../components/discover/DatingLikesScreen';
 import { InfoNoticeCard } from '../../components/ui/InfoNoticeCard';
+import { PrimaryButton } from '../../components/ui/PrimaryButton';
 import { SearchBar } from '../../components/ui/SearchBar';
 import { ScrollToTopButton } from '../../components/ui/ScrollToTopButton';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
@@ -26,12 +32,18 @@ import { useGuardedEndReached } from '../../hooks/useGuardedEndReached';
 import { useLazyActivation } from '../../hooks/useLazyActivation';
 import { useInterests } from '../../hooks/queries/useInterests';
 import { useDiscoverPreview } from '../../hooks/queries/useDiscoverPreview';
+import { useDatingDiscoverPreview } from '../../hooks/queries/useDatingDiscoverPreview';
+import { useDatingDiscoverResults } from '../../hooks/queries/useDatingDiscoverResults';
+import { useDatingLikes } from '../../hooks/queries/useDatingLikes';
+import { useDatingLikesPreview } from '../../hooks/queries/useDatingLikesPreview';
 import { useScrollToTopButton } from '../../hooks/useScrollToTopButton';
+import { useAuth } from '../../hooks/useAuth';
 import {
     applyDiscoverPreviewEffectiveFilters,
     clearDiscoverChip,
     createDefaultDiscoverDraftFilters,
     createDiscoverDraftFromApplied,
+    DISCOVER_DEFAULT_DISTANCE_KM,
     getDiscoverActiveChips,
     getDiscoverRelaxedCopy,
     hasNonDefaultDiscoverFilters,
@@ -42,6 +54,7 @@ import {
 } from '../../hooks/useDiscoverFilters';
 import { useDiscoverResults as useDiscoverResultsQuery } from '../../hooks/queries/useDiscoverResults';
 import { getDeviceCoords } from '../../utils/location';
+import type { Coords, DeviceLocationStatus } from '../../utils/location';
 import { getRecoveryMilestone } from '../../utils/date';
 import { formatUsername } from '../../utils/identity';
 import { Colors, ControlSizes, Spacing, TextStyles, Typography, Radius, getAvatarColors } from '../../theme';
@@ -54,12 +67,18 @@ const CARD_GAP = Spacing.md;
 const CARD_WIDTH = (SCREEN_WIDTH - Spacing.md * 2 - CARD_GAP) / 2;
 const CARD_HEIGHT = CARD_WIDTH * 1.34;
 
-type DiscoverSurface = 'people' | 'meetings';
+type DiscoverTab = 'friends' | 'meetings' | 'dating';
 
 interface DiscoverScreenProps {
     isActive: boolean;
     onOpenUserProfile: (profile: { userId: string; username: string; avatarUrl?: string }) => void;
+    onOpenChat: (chat: api.Chat) => void;
 }
+
+type DiscoverLocationState =
+    | { status: 'loading' }
+    | { status: 'available'; coords: Coords }
+    | { status: Exclude<DeviceLocationStatus, 'available'> };
 
 interface DiscoverCardProps {
     user: api.User;
@@ -178,15 +197,73 @@ const SearchResultRow = memo(function SearchResultRow({ user, isFriended, onOpen
     );
 });
 
-function getResultsHeading(isSearching: boolean, hasFilters: boolean, broadened: boolean): string {
+function MatchModal({
+    visible,
+    match,
+    openingChat,
+    onClose,
+    onOpenChat,
+}: {
+    visible: boolean;
+    match: api.DatingMatch | null;
+    openingChat: boolean;
+    onClose: () => void;
+    onOpenChat: () => void;
+}) {
+    return (
+        <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+            <View style={styles.matchModalBackdrop}>
+                <View style={styles.matchModalCard}>
+                    {match ? (
+                        <Avatar
+                            username={match.user.username}
+                            avatarUrl={match.user.avatar_url}
+                            size={82}
+                            fontSize={28}
+                        />
+                    ) : null}
+                    <Text style={styles.matchTitle}>It's a match</Text>
+                    <Text style={styles.matchCopy}>
+                        {match ? `You and ${formatUsername(match.user.username)} liked each other.` : 'You both liked each other.'}
+                    </Text>
+                    <PrimaryButton
+                        label="Send message"
+                        onPress={onOpenChat}
+                        loading={openingChat}
+                        leftAdornment={<Ionicons name="chatbubble-outline" size={16} color={Colors.textOn.primary} />}
+                    />
+                    <TouchableOpacity style={styles.keepBrowsingButton} onPress={onClose} activeOpacity={0.85}>
+                        <Text style={styles.keepBrowsingText}>Keep browsing</Text>
+                    </TouchableOpacity>
+                </View>
+            </View>
+        </Modal>
+    );
+}
+
+function getResultsHeading(
+    isSearching: boolean,
+    hasFilters: boolean,
+    broadened: boolean,
+    isDatingTab: boolean,
+): string {
     if (isSearching && hasFilters) {
+        if (isDatingTab) {
+            return broadened ? 'Close Dating matches in search' : 'Filtered Dating search results';
+        }
         return broadened ? 'Close matches in search' : 'Filtered search results';
     }
     if (isSearching) {
-        return 'Search results';
+        return isDatingTab ? 'Dating search results' : 'Search results';
     }
     if (hasFilters) {
+        if (isDatingTab) {
+            return broadened ? 'Close Dating matches' : 'Filtered Dating profiles';
+        }
         return broadened ? 'Close matches' : 'Filtered people';
+    }
+    if (isDatingTab) {
+        return 'Dating profiles';
     }
     return 'Suggested for you';
 }
@@ -196,11 +273,14 @@ function getNoResultsCopy(
     query: string,
     appliedFilters: DiscoverAppliedFilters,
     broadened: boolean,
+    isDatingTab: boolean,
 ): { title: string; description: string } {
+    const hasFilters = hasNonDefaultDiscoverFilters(appliedFilters);
+
     if (isSearching) {
         return {
-            title: `No people found for "${query}"`,
-            description: hasNonDefaultDiscoverFilters(appliedFilters)
+            title: isDatingTab ? `No Dating profiles found for "${query}"` : `No people found for "${query}"`,
+            description: hasFilters
                 ? 'Try removing a filter or broadening your match pool.'
                 : 'Try a shorter username or clear the search.',
         };
@@ -208,15 +288,24 @@ function getNoResultsCopy(
 
     if (broadened) {
         return {
-            title: 'No close matches right now',
+            title: isDatingTab ? 'No close Dating matches right now' : 'No close matches right now',
             description: 'Your broadened search still came up empty. Try clearing one or two filters and check back later.',
         };
     }
 
-    if (hasNonDefaultDiscoverFilters(appliedFilters)) {
+    if (hasFilters) {
         return {
-            title: 'No exact matches yet',
-            description: 'Try widening distance, easing your age range, or letting the app broaden results when inventory is low.',
+            title: isDatingTab ? 'No Dating profiles match those filters' : 'No exact matches yet',
+            description: isDatingTab
+                ? 'Dating only includes people who also opted in. Try widening distance, easing your age range, or check back later.'
+                : 'Try widening distance, easing your age range, or letting the app broaden results when inventory is low.',
+        };
+    }
+
+    if (isDatingTab) {
+        return {
+            title: 'No Dating profiles nearby yet',
+            description: 'Dating mode only includes people who also opted in. Try widening your filters or check back later.',
         };
     }
 
@@ -226,18 +315,54 @@ function getNoResultsCopy(
     };
 }
 
-export function DiscoverScreen({ isActive, onOpenUserProfile }: DiscoverScreenProps) {
+function getDatingLocationCopy(status: DiscoverLocationState['status']): { title: string; description: string; primaryLabel: string } {
+    if (status === 'services_off') {
+        return {
+            title: 'Turn on location services',
+            description: 'Dating needs your location to apply distance filters. Turn on location services, or set distance to Anywhere.',
+            primaryLabel: 'Open settings',
+        };
+    }
+
+    if (status === 'denied') {
+        return {
+            title: 'Allow location',
+            description: 'Dating needs location permission to show people within your selected distance. Allow location, or set distance to Anywhere.',
+            primaryLabel: 'Allow location',
+        };
+    }
+
+    return {
+        title: 'Location needed',
+        description: 'Dating needs your location to use distance filters. Try again, or set distance to Anywhere.',
+        primaryLabel: 'Try again',
+    };
+}
+
+function formatCompactCount(count: number): string {
+    return count > 99 ? '99+' : String(count);
+}
+
+export function DiscoverScreen({ isActive, onOpenUserProfile, onOpenChat }: DiscoverScreenProps) {
+    const { user } = useAuth();
+    const queryClient = useQueryClient();
     const hasActivated = useLazyActivation(isActive);
-    const [activeSurface, setActiveSurface] = useState<DiscoverSurface>('people');
+    const [activeTab, setActiveTab] = useState<DiscoverTab>('friends');
     const [searchText, setSearchText] = useState('');
     const liveSearchText = searchText.trim();
     const debouncedQuery = useDebounce(liveSearchText, 400);
     const [filterSheetVisible, setFilterSheetVisible] = useState(false);
     const [showFilterNotice, setShowFilterNotice] = useState(true);
-    const [coords, setCoords] = useState<{ latitude: number; longitude: number } | null>(null);
+    const [locationState, setLocationState] = useState<DiscoverLocationState>({ status: 'loading' });
     const [friendedIds, setFriendedIds] = useState<Set<string>>(new Set());
+    const [dismissedDatingIds, setDismissedDatingIds] = useState<Set<string>>(new Set());
+    const [pendingDatingActionIds, setPendingDatingActionIds] = useState<Set<string>>(new Set());
+    const [matchModal, setMatchModal] = useState<{ match: api.DatingMatch; chatId?: string | null } | null>(null);
+    const [datingLikesOpen, setDatingLikesOpen] = useState(false);
+    const [openingMatchChat, setOpeningMatchChat] = useState(false);
     const listRef = useRef<FlatList<api.User>>(null);
     const discoverScrollToTop = useScrollToTopButton({ threshold: 520 });
+    const datingEnabled = user?.connection_intents?.includes('dating') ?? false;
 
     const {
         draftFilters,
@@ -248,15 +373,73 @@ export function DiscoverScreen({ isActive, onOpenUserProfile }: DiscoverScreenPr
         syncDraftToApplied,
     } = useDiscoverFilters();
 
+    const refreshDeviceLocation = useCallback(async (): Promise<void> => {
+        setLocationState({ status: 'loading' });
+        const result = await getDeviceCoords();
+        if (result.status === 'available' && result.coords) {
+            setLocationState({ status: 'available', coords: result.coords });
+            return;
+        }
+        if (result.status === 'denied' || result.status === 'services_off' || result.status === 'unavailable') {
+            setLocationState({ status: result.status });
+        }
+    }, []);
+
     useEffect(() => {
         if (!hasActivated) return;
-        getDeviceCoords().then(setCoords);
-    }, [hasActivated]);
+        void refreshDeviceLocation();
+    }, [hasActivated, refreshDeviceLocation]);
 
+    useEffect(() => {
+        if (!datingEnabled && activeTab === 'dating') {
+            setActiveTab('friends');
+        }
+    }, [activeTab, datingEnabled]);
+
+    useEffect(() => {
+        if (!isActive || activeTab !== 'dating') {
+            setDatingLikesOpen(false);
+        }
+    }, [activeTab, isActive]);
+
+    useEffect(() => {
+        if (draftFilters.intent === 'dating') {
+            setDraftFilters((current) => current.intent === 'dating'
+                ? { ...current, intent: 'any' }
+                : current);
+        }
+
+        if (appliedState.requested.intent === 'dating' || appliedState.effective.intent === 'dating') {
+            setAppliedState((current) => {
+                if (current.requested.intent !== 'dating' && current.effective.intent !== 'dating') {
+                    return current;
+                }
+
+                return {
+                    ...current,
+                    requested: { ...current.requested, intent: 'any' },
+                    effective: { ...current.effective, intent: 'any' },
+                    broadened: false,
+                    relaxedFields: current.relaxedFields.filter((field) => field !== 'intent'),
+                };
+            });
+        }
+    }, [
+        appliedState.effective.intent,
+        appliedState.requested.intent,
+        draftFilters.intent,
+        setAppliedState,
+        setDraftFilters,
+    ]);
+
+    const coords = locationState.status === 'available' ? locationState.coords : null;
     const discoverLat = coords ? Math.round(coords.latitude * 100) / 100 : undefined;
     const discoverLng = coords ? Math.round(coords.longitude * 100) / 100 : undefined;
-    const isSearching = liveSearchText.length > 0;
-    const hasCommittedSearch = debouncedQuery.length > 0;
+    const isDatingTab = activeTab === 'dating';
+    const isFriendsTab = activeTab === 'friends';
+    const isPeopleTab = isFriendsTab || isDatingTab;
+    const isSearching = isFriendsTab && liveSearchText.length > 0;
+    const hasCommittedSearch = isFriendsTab && debouncedQuery.length > 0;
     const isSearchPending = isSearching && liveSearchText !== debouncedQuery;
     const hasAppliedFilters = hasNonDefaultDiscoverFilters(appliedState.requested);
     const activeChips = useMemo(() => getDiscoverActiveChips(appliedState.requested), [appliedState.requested]);
@@ -264,15 +447,24 @@ export function DiscoverScreen({ isActive, onOpenUserProfile }: DiscoverScreenPr
     const filterCount = activeChips.length;
 
     const validatedDraft = useMemo(() => validateDiscoverDraft(draftFilters), [draftFilters]);
+    const peopleActive = isActive && isFriendsTab;
+    const meetingsActive = isActive && activeTab === 'meetings';
+    const tabIntent: api.ConnectionIntent | undefined = isDatingTab ? 'dating' : undefined;
+
     const draftApiFilters = useMemo(
-        () => validatedDraft.normalized ? toDiscoverApiFilters(validatedDraft.normalized) : undefined,
-        [validatedDraft.normalized],
+        () => validatedDraft.normalized ? {
+            ...toDiscoverApiFilters(validatedDraft.normalized),
+            intent: tabIntent,
+        } : undefined,
+        [tabIntent, validatedDraft.normalized],
     );
+    const datingDraftApiFilters = useMemo(() => {
+        if (!validatedDraft.normalized) return undefined;
+        const { intent: _intent, ...filters } = toDiscoverApiFilters(validatedDraft.normalized);
+        return filters;
+    }, [validatedDraft.normalized]);
 
-    const peopleActive = isActive && activeSurface === 'people';
-    const meetingsActive = isActive && activeSurface === 'meetings';
-
-    const interestOptionsQuery = useInterests(hasActivated && filterSheetVisible && activeSurface === 'people');
+    const interestOptionsQuery = useInterests(hasActivated && filterSheetVisible && isPeopleTab);
 
     const previewQuery = useDiscoverPreview({
         query: hasCommittedSearch ? debouncedQuery : undefined,
@@ -281,35 +473,83 @@ export function DiscoverScreen({ isActive, onOpenUserProfile }: DiscoverScreenPr
         lng: discoverLng,
     }, Boolean(
         hasActivated
-        && activeSurface === 'people'
+        && activeTab === 'friends'
         && filterSheetVisible
         && validatedDraft.normalized
         && hasNonDefaultDiscoverFilters(validatedDraft.normalized),
+    ));
+    const datingDraftDistanceKm = datingDraftApiFilters?.distanceKm ?? DISCOVER_DEFAULT_DISTANCE_KM;
+    const datingPreviewNeedsLocation = datingDraftDistanceKm > 0;
+    const datingPreviewQuery = useDatingDiscoverPreview({
+        ...datingDraftApiFilters,
+        lat: discoverLat,
+        lng: discoverLng,
+    }, Boolean(
+        hasActivated
+        && isDatingTab
+        && filterSheetVisible
+        && validatedDraft.normalized
+        && hasNonDefaultDiscoverFilters(validatedDraft.normalized)
+        && (!datingPreviewNeedsLocation || locationState.status === 'available')
     ));
 
     const effectiveApiFilters = useMemo(
         () => hasAppliedFilters ? toDiscoverApiFilters(appliedState.effective) : {},
         [appliedState.effective, hasAppliedFilters],
     );
+    const datingEffectiveApiFilters = useMemo(() => {
+        const { intent: _intent, ...filters } = toDiscoverApiFilters(appliedState.effective);
+        return filters;
+    }, [appliedState.effective]);
+    const queryApiFilters = useMemo(
+        () => ({
+            ...effectiveApiFilters,
+            intent: tabIntent,
+        }),
+        [effectiveApiFilters, tabIntent],
+    );
 
     const discoverMode: 'suggested' | 'search' | 'filtered' = hasCommittedSearch
         ? 'search'
-        : hasAppliedFilters
+        : hasAppliedFilters || isDatingTab
             ? 'filtered'
             : 'suggested';
 
     const discoverQuery = useDiscoverResultsQuery({
         mode: discoverMode,
         query: hasCommittedSearch ? debouncedQuery : undefined,
-        ...effectiveApiFilters,
+        ...queryApiFilters,
         lat: discoverLat,
         lng: discoverLng,
         limit: 20,
-    }, hasActivated && activeSurface === 'people');
+    }, hasActivated && activeTab === 'friends');
+    const datingQuery = useDatingDiscoverResults({
+        ...datingEffectiveApiFilters,
+        lat: discoverLat,
+        lng: discoverLng,
+        limit: 10,
+    }, hasActivated && isDatingTab && (
+        (datingEffectiveApiFilters.distanceKm ?? DISCOVER_DEFAULT_DISTANCE_KM) <= 0
+        || locationState.status === 'available'
+    ));
+    const datingLikesQuery = useDatingLikes({ limit: 20 }, hasActivated && isDatingTab && datingEnabled);
+    const datingLikesPreviewQuery = useDatingLikesPreview(hasActivated && isDatingTab && datingEnabled);
     const showSearchLoadingState = isSearchPending || (isSearching && hasCommittedSearch && discoverQuery.isLoading);
     const displayedUsers = isSearching
         ? (showSearchLoadingState ? [] : discoverQuery.users)
         : discoverQuery.users;
+    const displayedDatingUsers = useMemo(
+        () => datingQuery.users.filter((profile) => !dismissedDatingIds.has(profile.id)),
+        [datingQuery.users, dismissedDatingIds],
+    );
+    const displayedDatingLikes = useMemo(
+        () => datingLikesQuery.users.filter((profile) => !dismissedDatingIds.has(profile.id)),
+        [datingLikesQuery.users, dismissedDatingIds],
+    );
+    const datingLikesCount = Math.max(
+        datingLikesPreviewQuery.data?.exact_count ?? displayedDatingLikes.length,
+        displayedDatingLikes.length,
+    );
 
     const handleFriend = useCallback(async (id: string) => {
         setFriendedIds((current) => new Set([...current, id]));
@@ -362,11 +602,12 @@ export function DiscoverScreen({ isActive, onOpenUserProfile }: DiscoverScreenPr
             return;
         }
 
-        const nextState = applyDiscoverPreviewEffectiveFilters(validatedDraft.normalized, previewQuery.data);
+        const preview = isDatingTab ? datingPreviewQuery.data : previewQuery.data;
+        const nextState = applyDiscoverPreviewEffectiveFilters(validatedDraft.normalized, preview);
         setAppliedState(nextState);
         setDraftFilters(createDiscoverDraftFromApplied(validatedDraft.normalized));
         setFilterSheetVisible(false);
-    }, [previewQuery.data, setAppliedState, setDraftFilters, validatedDraft]);
+    }, [datingPreviewQuery.data, isDatingTab, previewQuery.data, setAppliedState, setDraftFilters, validatedDraft]);
 
     const handleClearAllFilters = useCallback(() => {
         resetFilters();
@@ -385,8 +626,101 @@ export function DiscoverScreen({ isActive, onOpenUserProfile }: DiscoverScreenPr
         });
     }, [setAppliedState, setDraftFilters]);
 
-    const resultsHeading = getResultsHeading(isSearching, hasAppliedFilters, appliedState.broadened);
-    const noResultsCopy = getNoResultsCopy(isSearching, debouncedQuery, appliedState.requested, appliedState.broadened);
+    const handleSetDatingDistanceAnywhere = useCallback((): void => {
+        const requested = { ...appliedState.requested, distanceKm: 0 };
+        const effective = { ...appliedState.effective, distanceKm: 0 };
+        setAppliedState({
+            requested,
+            effective,
+            broadened: false,
+            relaxedFields: [],
+        });
+        setDraftFilters(createDiscoverDraftFromApplied(requested));
+    }, [appliedState.effective, appliedState.requested, setAppliedState, setDraftFilters]);
+
+    const handleOpenLocationSettings = useCallback((): void => {
+        void Linking.openSettings().catch(() => {
+            appAlert.alert('Could not open settings', 'Open your device settings and turn on location services for this app.');
+        });
+    }, []);
+
+    const handleDatingAction = useCallback(async (profile: api.User, action: api.DatingAction): Promise<void> => {
+        if (pendingDatingActionIds.has(profile.id)) return;
+
+        setPendingDatingActionIds((current) => new Set([...current, profile.id]));
+        setDismissedDatingIds((current) => new Set([...current, profile.id]));
+
+        try {
+            const result = await api.recordDatingAction(profile.id, action);
+            if (result.matched && result.match) {
+                setMatchModal({
+                    match: result.match,
+                    chatId: result.chat?.id ?? result.match.chat_id,
+                });
+                void queryClient.invalidateQueries({ queryKey: ['dating-matches'] });
+                void queryClient.invalidateQueries({ queryKey: ['chats'] });
+            }
+            void queryClient.invalidateQueries({ queryKey: ['dating-likes'] });
+            void queryClient.invalidateQueries({ queryKey: ['dating-likes-preview'] });
+            void queryClient.invalidateQueries({ queryKey: ['dating-discover'] });
+            if (displayedDatingUsers.length <= 3 && datingQuery.hasNextPage && !datingQuery.isFetchingNextPage) {
+                void datingQuery.fetchNextPage();
+            }
+        } catch (error: unknown) {
+            setDismissedDatingIds((current) => {
+                const next = new Set(current);
+                next.delete(profile.id);
+                return next;
+            });
+            appAlert.alert(
+                action === 'like' ? 'Could not like profile' : 'Could not pass profile',
+                error instanceof Error ? error.message : 'Please try again.',
+            );
+        } finally {
+            setPendingDatingActionIds((current) => {
+                const next = new Set(current);
+                next.delete(profile.id);
+                return next;
+            });
+        }
+    }, [
+        datingQuery,
+        displayedDatingUsers.length,
+        pendingDatingActionIds,
+        queryClient,
+    ]);
+
+    const handleOpenMatchChat = useCallback(async (): Promise<void> => {
+        if (!matchModal?.chatId) {
+            setMatchModal(null);
+            return;
+        }
+
+        setOpeningMatchChat(true);
+        try {
+            const chat = await api.getChat(matchModal.chatId);
+            setMatchModal(null);
+            onOpenChat(chat);
+        } catch (error: unknown) {
+            appAlert.alert('Could not open chat', error instanceof Error ? error.message : 'Please try again.');
+        } finally {
+            setOpeningMatchChat(false);
+        }
+    }, [matchModal?.chatId, onOpenChat]);
+
+    const resultsHeading = getResultsHeading(isSearching, hasAppliedFilters, appliedState.broadened, isDatingTab);
+    const noResultsCopy = getNoResultsCopy(
+        isSearching,
+        debouncedQuery,
+        appliedState.requested,
+        appliedState.broadened,
+        isDatingTab,
+    );
+    const showEmptyFilterAction = hasAppliedFilters || isDatingTab;
+    const datingDistanceKm = datingEffectiveApiFilters.distanceKm ?? DISCOVER_DEFAULT_DISTANCE_KM;
+    const datingNeedsLocation = datingDistanceKm > 0;
+    const datingLocationBlocked = isDatingTab && datingNeedsLocation && locationState.status !== 'available';
+    const datingLocationCopy = getDatingLocationCopy(locationState.status);
     const keyExtractor = useCallback((item: api.User) => item.id, []);
     const resultsHeader = useMemo(() => (
         <View style={styles.resultsHeader}>
@@ -430,15 +764,21 @@ export function DiscoverScreen({ isActive, onOpenUserProfile }: DiscoverScreenPr
         />
     ), [handleFriend, isFriendedFor, onOpenUserProfile]);
 
+    const discoverTabs = useMemo(
+        () => [
+            { key: 'friends', label: 'Friends' },
+            { key: 'meetings', label: 'Meetings' },
+            ...(datingEnabled ? [{ key: 'dating', label: 'Dating' }] : []),
+        ],
+        [datingEnabled],
+    );
+
     const surfaceTabs = (
         <View style={screenStandards.pageTabsWrap}>
             <SegmentedControl
-                items={[
-                    { key: 'people', label: 'People' },
-                    { key: 'meetings', label: 'Meetings' },
-                ]}
-                activeKey={activeSurface}
-                onChange={(next) => setActiveSurface(next as DiscoverSurface)}
+                items={discoverTabs}
+                activeKey={activeTab}
+                onChange={(next) => setActiveTab(next as DiscoverTab)}
                 layer="page"
                 tone="primary"
                 style={screenStandards.pageTabsControl}
@@ -446,11 +786,166 @@ export function DiscoverScreen({ isActive, onOpenUserProfile }: DiscoverScreenPr
         </View>
     );
 
-    if (activeSurface === 'meetings') {
+    if (activeTab === 'meetings') {
         return (
             <View style={styles.container}>
                 {surfaceTabs}
                 <MeetingsView isActive={meetingsActive} />
+            </View>
+        );
+    }
+
+    if (isDatingTab && datingLikesOpen) {
+        return (
+            <View style={styles.container}>
+                <DatingLikesScreen
+                    likes={displayedDatingLikes}
+                    loading={datingLikesQuery.isLoading}
+                    fetchingNext={datingLikesQuery.isFetchingNextPage}
+                    hasNextPage={Boolean(datingLikesQuery.hasNextPage)}
+                    pendingActionIds={pendingDatingActionIds}
+                    onBack={() => setDatingLikesOpen(false)}
+                    onLike={(profile) => void handleDatingAction(profile, 'like')}
+                    onPass={(profile) => void handleDatingAction(profile, 'pass')}
+                    onOpenProfile={(profile) => {
+                        setDatingLikesOpen(false);
+                        onOpenUserProfile({
+                            userId: profile.id,
+                            username: profile.username,
+                            avatarUrl: profile.avatar_url,
+                        });
+                    }}
+                    onLoadMore={() => {
+                        if (datingLikesQuery.hasNextPage && !datingLikesQuery.isFetchingNextPage) {
+                            void datingLikesQuery.fetchNextPage();
+                        }
+                    }}
+                />
+
+                <MatchModal
+                    visible={matchModal !== null}
+                    match={matchModal?.match ?? null}
+                    openingChat={openingMatchChat}
+                    onClose={() => setMatchModal(null)}
+                    onOpenChat={() => void handleOpenMatchChat()}
+                />
+            </View>
+        );
+    }
+
+    if (isDatingTab) {
+        return (
+            <View style={styles.container}>
+                {surfaceTabs}
+                <View style={[styles.controls, styles.datingControls]}>
+                    <View style={styles.datingControlsRow}>
+                        <TouchableOpacity
+                            style={styles.datingControlButton}
+                            onPress={() => {
+                                setFilterSheetVisible(false);
+                                setDatingLikesOpen(true);
+                            }}
+                            activeOpacity={0.85}
+                            accessibilityRole="button"
+                            accessibilityLabel="Open people who liked you"
+                        >
+                            <View style={styles.datingIconButton}>
+                                <Ionicons name="heart-outline" size={22} color={Colors.text.primary} />
+                                {datingLikesCount > 0 ? (
+                                    <View style={[styles.datingControlBadge, styles.likesBadge]}>
+                                        <Text style={styles.datingControlBadgeText}>{formatCompactCount(datingLikesCount)}</Text>
+                                    </View>
+                                ) : null}
+                            </View>
+                            <Text style={styles.datingControlLabel}>Liked you</Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                            style={styles.datingControlButton}
+                            onPress={handleOpenFilters}
+                            activeOpacity={0.85}
+                            accessibilityRole="button"
+                            accessibilityLabel="Open dating filters"
+                        >
+                            <View style={styles.datingIconButton}>
+                                <Ionicons name="options-outline" size={20} color={Colors.text.primary} />
+                                {filterCount > 0 ? (
+                                    <View style={styles.datingControlBadge}>
+                                        <Text style={styles.datingControlBadgeText}>{filterCount}</Text>
+                                    </View>
+                                ) : null}
+                            </View>
+                            <Text style={styles.datingControlLabel}>Filters</Text>
+                        </TouchableOpacity>
+                    </View>
+
+                    <DiscoverActiveFiltersBar
+                        chips={activeChips}
+                        broadenedCopy={broadenedCopy}
+                        onRemoveChip={handleClearChip}
+                        onClearAll={handleClearAllFilters}
+                    />
+                </View>
+
+                {datingLocationBlocked ? (
+                    locationState.status === 'loading' ? (
+                        <View style={styles.center}>
+                            <ActivityIndicator color={Colors.primary} size="large" />
+                        </View>
+                    ) : (
+                        <DiscoverEmptyState
+                            title={datingLocationCopy.title}
+                            description={datingLocationCopy.description}
+                            primaryLabel={datingLocationCopy.primaryLabel}
+                            onPrimaryPress={locationState.status === 'services_off'
+                                ? handleOpenLocationSettings
+                                : () => void refreshDeviceLocation()}
+                            secondaryLabel="Set distance to Anywhere"
+                            onSecondaryPress={handleSetDatingDistanceAnywhere}
+                        />
+                    )
+                ) : (
+                    <DatingDeck
+                        users={displayedDatingUsers}
+                        loading={datingQuery.isLoading}
+                        fetchingNext={datingQuery.isFetchingNextPage}
+                        emptyTitle={noResultsCopy.title}
+                        emptyDescription={noResultsCopy.description}
+                        onLike={(profile) => void handleDatingAction(profile, 'like')}
+                        onPass={(profile) => void handleDatingAction(profile, 'pass')}
+                        onOpenProfile={(profile) => onOpenUserProfile({
+                            userId: profile.id,
+                            username: profile.username,
+                            avatarUrl: profile.avatar_url,
+                        })}
+                        onLoadMore={() => {
+                            if (datingQuery.hasNextPage && !datingQuery.isFetchingNextPage) {
+                                void datingQuery.fetchNextPage();
+                            }
+                        }}
+                    />
+                )}
+
+                <MatchModal
+                    visible={matchModal !== null}
+                    match={matchModal?.match ?? null}
+                    openingChat={openingMatchChat}
+                    onClose={() => setMatchModal(null)}
+                    onOpenChat={() => void handleOpenMatchChat()}
+                />
+
+                <DiscoverFilterSheet
+                    visible={filterSheetVisible}
+                    draftFilters={draftFilters}
+                    onChangeFilters={setDraftFilters}
+                    preview={datingPreviewQuery.data}
+                    previewLoading={datingPreviewQuery.isFetching}
+                    validationError={validatedDraft.error}
+                    interestOptions={interestOptionsQuery.data ?? []}
+                    onClose={handleCloseFilters}
+                    onReset={() => setDraftFilters(createDefaultDiscoverDraftFilters())}
+                    onApply={handleApplyFilters}
+                />
             </View>
         );
     }
@@ -508,8 +1003,8 @@ export function DiscoverScreen({ isActive, onOpenUserProfile }: DiscoverScreenPr
                 <DiscoverEmptyState
                     title={noResultsCopy.title}
                     description={noResultsCopy.description}
-                    primaryLabel={hasAppliedFilters ? 'Edit filters' : undefined}
-                    onPrimaryPress={hasAppliedFilters ? handleOpenFilters : undefined}
+                    primaryLabel={showEmptyFilterAction ? 'Edit filters' : undefined}
+                    onPrimaryPress={showEmptyFilterAction ? handleOpenFilters : undefined}
                     secondaryLabel={hasAppliedFilters ? 'Clear filters' : undefined}
                     onSecondaryPress={hasAppliedFilters ? handleClearAllFilters : undefined}
                 />
@@ -620,6 +1115,56 @@ const styles = StyleSheet.create({
         paddingTop: Spacing.xs,
         paddingBottom: Spacing.sm,
         gap: Spacing.sm,
+    },
+    datingControls: {
+        paddingBottom: Spacing.xs,
+        gap: Spacing.xs,
+    },
+    datingControlsRow: {
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        justifyContent: 'flex-start',
+        gap: Spacing.sm,
+    },
+    datingControlButton: {
+        alignItems: 'center',
+        gap: 4,
+        minWidth: 58,
+    },
+    datingIconButton: {
+        width: 46,
+        height: 46,
+        borderRadius: Radius.pill,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderWidth: 1,
+        borderColor: Colors.border.default,
+        backgroundColor: Colors.bg.surface,
+    },
+    datingControlBadge: {
+        position: 'absolute',
+        top: 4,
+        right: 4,
+        minWidth: 18,
+        height: 18,
+        borderRadius: Radius.pill,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: Colors.primary,
+        paddingHorizontal: 5,
+    },
+    likesBadge: {
+        backgroundColor: Colors.danger,
+    },
+    datingControlBadgeText: {
+        fontSize: 10,
+        fontWeight: '800',
+        color: Colors.textOn.primary,
+    },
+    datingControlLabel: {
+        fontSize: Typography.sizes.xs,
+        fontWeight: '700',
+        color: Colors.text.muted,
     },
     searchRow: {
         flexDirection: 'row',
@@ -803,5 +1348,46 @@ const styles = StyleSheet.create({
     },
     listFooter: {
         marginVertical: Spacing.lg,
+    },
+    matchModalBackdrop: {
+        flex: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: 'rgba(0,0,0,0.46)',
+        padding: Spacing.xl,
+    },
+    matchModalCard: {
+        width: '100%',
+        maxWidth: 360,
+        alignItems: 'center',
+        gap: Spacing.md,
+        borderRadius: Radius.lg,
+        backgroundColor: Colors.bg.surface,
+        borderWidth: 1,
+        borderColor: Colors.border.subtle,
+        padding: Spacing.xl,
+    },
+    matchTitle: {
+        fontSize: Typography.sizes.xxl,
+        fontWeight: '700',
+        color: Colors.text.primary,
+        textAlign: 'center',
+    },
+    matchCopy: {
+        fontSize: Typography.sizes.base,
+        lineHeight: 21,
+        color: Colors.text.secondary,
+        textAlign: 'center',
+    },
+    keepBrowsingButton: {
+        minHeight: 44,
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingHorizontal: Spacing.lg,
+    },
+    keepBrowsingText: {
+        fontSize: Typography.sizes.base,
+        fontWeight: '700',
+        color: Colors.text.secondary,
     },
 });

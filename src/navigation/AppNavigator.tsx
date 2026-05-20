@@ -64,11 +64,17 @@ function isMainTab(tab: Tab): tab is MainTab {
 const DiscoverTab = React.memo(function DiscoverTab({
     isActive,
     onOpenUserProfile,
+    onOpenChat,
 }: {
     isActive: boolean;
     onOpenUserProfile: (p: OpenUserProfile) => void;
+    onOpenChat: (chat: Chat) => void;
 }) {
-    return <View style={isActive ? styles.tabVisible : styles.tabHidden}><DiscoverScreen isActive={isActive} onOpenUserProfile={onOpenUserProfile} /></View>;
+    return (
+        <View style={isActive ? styles.tabVisible : styles.tabHidden}>
+            <DiscoverScreen isActive={isActive} onOpenUserProfile={onOpenUserProfile} onOpenChat={onOpenChat} />
+        </View>
+    );
 });
 
 const FeedTab = React.memo(function FeedTab({
@@ -585,11 +591,11 @@ export function AppNavigator() {
             if (syncingLocation.current) return;
             syncingLocation.current = true;
             try {
-                const coords = await getDeviceCoords();
-                if (!coords) return;
-                const city = await reverseGeocode(coords.latitude, coords.longitude);
+                const location = await getDeviceCoords();
+                if (location.status !== 'available' || !location.coords) return;
+                const city = await reverseGeocode(location.coords.latitude, location.coords.longitude);
                 if (!city) return;
-                await api.updateMyCurrentLocation({ lat: coords.latitude, lng: coords.longitude, city });
+                await api.updateMyCurrentLocation({ lat: location.coords.latitude, lng: location.coords.longitude, city });
                 await refreshUser();
             } catch {
                 // background sync — failures are non-critical
@@ -964,7 +970,11 @@ export function AppNavigator() {
                         focusRequest={feedFocusRequest}
                         onFocusRequestConsumed={handleFeedFocusRequestConsumed}
                     />
-                    <DiscoverTab isActive={activeTab === 'discover' && !isOverlayOpen} onOpenUserProfile={handleOpenUserProfile} />
+                    <DiscoverTab
+                        isActive={activeTab === 'discover' && !isOverlayOpen}
+                        onOpenUserProfile={handleOpenUserProfile}
+                        onOpenChat={setOpenChat}
+                    />
                     <CommunityTab
                         isActive={activeTab === 'community' && !isOverlayOpen}
                         activeSurface={communitySurface}

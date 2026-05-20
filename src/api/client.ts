@@ -680,6 +680,24 @@ export interface DiscoverPreviewResponse {
     };
 }
 
+export type DatingAction = 'like' | 'pass';
+
+export interface DatingMatch {
+    id: string;
+    user: User;
+    chat_id?: string | null;
+    status: 'active' | 'unmatched';
+    matched_at: string;
+    unmatched_at?: string | null;
+}
+
+export interface DatingActionResponse {
+    action: DatingAction;
+    matched: boolean;
+    match?: DatingMatch | null;
+    chat?: Chat | null;
+}
+
 export interface UpdateMeInput {
     username?: string;
     city?: string;
@@ -1295,6 +1313,62 @@ export async function previewDiscoverUsers(params?: {
     return request(`/users/discover/preview${suffix}`);
 }
 
+export async function discoverDatingUsers(params?: Omit<DiscoverFiltersPayload, 'intent'> & {
+    lat?: number;
+    lng?: number;
+    cursor?: string;
+    limit?: number;
+    signal?: AbortSignal;
+}): Promise<CursorResponse<User>> {
+    const search = buildDatingDiscoverSearchParams(params);
+    const suffix = search.toString() ? `?${search.toString()}` : '';
+    return request(`/dating/discover${suffix}`, { signal: params?.signal });
+}
+
+export async function previewDatingDiscover(params?: Omit<DiscoverFiltersPayload, 'intent'> & {
+    lat?: number;
+    lng?: number;
+}): Promise<DiscoverPreviewResponse> {
+    const search = buildDatingDiscoverSearchParams(params);
+    const suffix = search.toString() ? `?${search.toString()}` : '';
+    return request(`/dating/discover/preview${suffix}`);
+}
+
+export async function listDatingLikes(params?: { cursor?: string; limit?: number; signal?: AbortSignal }): Promise<CursorResponse<User>> {
+    const search = new URLSearchParams();
+    if (params?.cursor) search.set('before', params.cursor);
+    if (params?.limit) search.set('limit', String(params.limit));
+    const suffix = search.toString() ? `?${search.toString()}` : '';
+    return request(`/dating/likes${suffix}`, { signal: params?.signal });
+}
+
+export async function previewDatingLikes(): Promise<DiscoverPreviewResponse> {
+    return request('/dating/likes/preview');
+}
+
+export async function recordDatingAction(targetUserId: string, action: DatingAction): Promise<DatingActionResponse> {
+    return request('/dating/actions', {
+        method: 'POST',
+        body: JSON.stringify({ target_user_id: targetUserId, action }),
+    });
+}
+
+export async function listDatingMatches(params?: { cursor?: string; limit?: number }): Promise<CursorResponse<DatingMatch>> {
+    const search = new URLSearchParams();
+    if (params?.cursor) search.set('before', params.cursor);
+    if (params?.limit) search.set('limit', String(params.limit));
+    const suffix = search.toString() ? `?${search.toString()}` : '';
+    return request(`/dating/matches${suffix}`);
+}
+
+export async function getDatingMatch(id: string): Promise<DatingMatch> {
+    return request(`/dating/matches/${id}`);
+}
+
+export async function unmatchDatingMatch(id: string): Promise<DatingMatch> {
+    return request(`/dating/matches/${id}/unmatch`, { method: 'POST' });
+}
+
 function buildDiscoverSearchParams(params?: {
     query?: string;
     city?: string;
@@ -1315,6 +1389,28 @@ function buildDiscoverSearchParams(params?: {
     if (params?.city?.trim()) search.set('city', params.city.trim());
     if (params?.gender?.trim()) search.set('gender', params.gender.trim());
     if (params?.intent?.trim()) search.set('intent', params.intent.trim());
+    if (typeof params?.ageMin === 'number') search.set('age_min', String(params.ageMin));
+    if (typeof params?.ageMax === 'number') search.set('age_max', String(params.ageMax));
+    if (typeof params?.distanceKm === 'number') search.set('distance_km', String(params.distanceKm));
+    if (params?.sobriety?.trim()) search.set('sobriety', params.sobriety.trim());
+    for (const interest of params?.interests ?? []) {
+        if (interest.trim()) search.append('interest', interest.trim());
+    }
+    if (typeof params?.lat === 'number') search.set('lat', String(params.lat));
+    if (typeof params?.lng === 'number') search.set('lng', String(params.lng));
+    if (params?.cursor) search.set('cursor', params.cursor);
+    if (params?.limit) search.set('limit', String(params.limit));
+    return search;
+}
+
+function buildDatingDiscoverSearchParams(params?: Omit<DiscoverFiltersPayload, 'intent'> & {
+    lat?: number;
+    lng?: number;
+    cursor?: string;
+    limit?: number;
+}): URLSearchParams {
+    const search = new URLSearchParams();
+    if (params?.gender?.trim()) search.set('gender', params.gender.trim());
     if (typeof params?.ageMin === 'number') search.set('age_min', String(params.ageMin));
     if (typeof params?.ageMax === 'number') search.set('age_max', String(params.ageMax));
     if (typeof params?.distanceKm === 'number') search.set('distance_km', String(params.distanceKm));

@@ -93,6 +93,30 @@ export const queryKeys = {
         lat?: number;
         lng?: number;
     }) => ['discover-preview', params ?? {}] as const,
+    datingDiscover: (params?: {
+        gender?: string;
+        ageMin?: number;
+        ageMax?: number;
+        distanceKm?: number;
+        sobriety?: string;
+        interests?: string[];
+        lat?: number;
+        lng?: number;
+        limit?: number;
+    }) => ['dating-discover', params ?? {}] as const,
+    datingDiscoverPreview: (params?: {
+        gender?: string;
+        ageMin?: number;
+        ageMax?: number;
+        distanceKm?: number;
+        sobriety?: string;
+        interests?: string[];
+        lat?: number;
+        lng?: number;
+    }) => ['dating-discover-preview', params ?? {}] as const,
+    datingLikes: (params?: { limit?: number }) => ['dating-likes', params ?? {}] as const,
+    datingLikesPreview: () => ['dating-likes-preview'] as const,
+    datingMatches: (params?: { limit?: number }) => ['dating-matches', params ?? {}] as const,
     discover: (params?: {
         query?: string;
         city?: string;
