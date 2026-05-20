@@ -1282,9 +1282,9 @@ const styles = StyleSheet.create({
         paddingTop: CREATE_SURFACE_HEADER_HEIGHT + Spacing.sm,
     },
     discoverHeader: {
-        gap: Spacing.md,
+        gap: Spacing.sm,
         paddingTop: 0,
-        paddingBottom: Spacing.md,
+        paddingBottom: Spacing.sm,
     },
     searchRow: {
         flexDirection: 'row',

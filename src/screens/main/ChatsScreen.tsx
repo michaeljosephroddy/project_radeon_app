@@ -322,12 +322,12 @@ const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: Colors.bg.page },
     center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
     listContent: {
-        paddingTop: ContentInsets.screenHorizontal,
+        paddingTop: 0,
         paddingBottom: ContentInsets.listBottom,
     },
 
     searchBar: {
-        marginBottom: Spacing.md,
+        marginBottom: Spacing.sm,
         marginHorizontal: ContentInsets.screenHorizontal,
     },
     searchStatusRow: {

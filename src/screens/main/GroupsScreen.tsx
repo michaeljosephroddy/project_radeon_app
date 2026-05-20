@@ -561,7 +561,7 @@ const styles = StyleSheet.create({
     headerContent: {
         paddingHorizontal: ContentInsets.screenHorizontal,
         paddingTop: 0,
-        paddingBottom: Spacing.xs,
+        paddingBottom: Spacing.sm,
     },
     searchRow: {
         flexDirection: 'row',

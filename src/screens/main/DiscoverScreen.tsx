@@ -1112,13 +1112,13 @@ const styles = StyleSheet.create({
     },
     controls: {
         paddingHorizontal: Spacing.md,
-        paddingTop: Spacing.xs,
+        paddingTop: 0,
         paddingBottom: Spacing.sm,
         gap: Spacing.sm,
     },
     datingControls: {
-        paddingBottom: Spacing.xs,
-        gap: Spacing.xs,
+        paddingBottom: Spacing.sm,
+        gap: Spacing.sm,
     },
     datingControlsRow: {
         flexDirection: 'row',
@@ -1239,11 +1239,11 @@ const styles = StyleSheet.create({
         color: Colors.text.secondary,
     },
     resultsContent: {
-        paddingTop: Spacing.xs,
+        paddingTop: 0,
         paddingBottom: Spacing.xl,
     },
     gridContent: {
-        paddingTop: Spacing.xs,
+        paddingTop: 0,
         paddingBottom: Spacing.xl,
     },
     gridRow: {

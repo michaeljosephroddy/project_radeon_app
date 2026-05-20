@@ -1103,7 +1103,8 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'space-between',
         paddingHorizontal: Spacing.md,
-        paddingVertical: 12,
+        paddingTop: Spacing.sm,
+        paddingBottom: Spacing.sm,
     },
     wordmark: {
         fontSize: Typography.sizes.xl,
