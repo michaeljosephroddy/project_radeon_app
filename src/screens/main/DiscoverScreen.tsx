@@ -851,13 +851,16 @@ export function DiscoverScreen({ isActive, onOpenUserProfile, onOpenChat }: Disc
                         >
                             <View style={styles.datingIconButton}>
                                 <Ionicons name="heart-outline" size={22} color={Colors.text.primary} />
+                            </View>
+                            <View style={styles.datingControlLabelRow}>
+                                <Text style={styles.datingControlLabel}>Liked you</Text>
                                 {datingLikesCount > 0 ? (
-                                    <View style={[styles.datingControlBadge, styles.likesBadge]}>
-                                        <Text style={styles.datingControlBadgeText}>{formatCompactCount(datingLikesCount)}</Text>
-                                    </View>
+                                    <>
+                                        <Text style={styles.datingControlLabel}>·</Text>
+                                        <Text style={styles.likesCountLabel}>{formatCompactCount(datingLikesCount)}</Text>
+                                    </>
                                 ) : null}
                             </View>
-                            <Text style={styles.datingControlLabel}>Liked you</Text>
                         </TouchableOpacity>
 
                         <TouchableOpacity
@@ -1153,9 +1156,6 @@ const styles = StyleSheet.create({
         backgroundColor: Colors.primary,
         paddingHorizontal: 5,
     },
-    likesBadge: {
-        backgroundColor: Colors.danger,
-    },
     datingControlBadgeText: {
         fontSize: 10,
         fontWeight: '800',
@@ -1165,6 +1165,16 @@ const styles = StyleSheet.create({
         fontSize: Typography.sizes.xs,
         fontWeight: '700',
         color: Colors.text.muted,
+    },
+    datingControlLabelRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 3,
+    },
+    likesCountLabel: {
+        fontSize: Typography.sizes.xs,
+        fontWeight: '800',
+        color: Colors.danger,
     },
     searchRow: {
         flexDirection: 'row',
