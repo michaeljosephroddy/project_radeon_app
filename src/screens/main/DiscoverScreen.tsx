@@ -73,6 +73,7 @@ interface DiscoverScreenProps {
     isActive: boolean;
     onOpenUserProfile: (profile: { userId: string; username: string; avatarUrl?: string }) => void;
     onOpenChat: (chat: api.Chat) => void;
+    onDatingLikesOpenChange?: (open: boolean) => void;
 }
 
 type DiscoverLocationState =
@@ -343,7 +344,7 @@ function formatCompactCount(count: number): string {
     return count > 99 ? '99+' : String(count);
 }
 
-export function DiscoverScreen({ isActive, onOpenUserProfile, onOpenChat }: DiscoverScreenProps) {
+export function DiscoverScreen({ isActive, onOpenUserProfile, onOpenChat, onDatingLikesOpenChange }: DiscoverScreenProps) {
     const { user } = useAuth();
     const queryClient = useQueryClient();
     const hasActivated = useLazyActivation(isActive);
@@ -401,6 +402,11 @@ export function DiscoverScreen({ isActive, onOpenUserProfile, onOpenChat }: Disc
             setDatingLikesOpen(false);
         }
     }, [activeTab, isActive]);
+
+    useEffect(() => {
+        onDatingLikesOpenChange?.(isActive && activeTab === 'dating' && datingLikesOpen);
+        return () => onDatingLikesOpenChange?.(false);
+    }, [activeTab, datingLikesOpen, isActive, onDatingLikesOpenChange]);
 
     useEffect(() => {
         if (draftFilters.intent === 'dating') {
@@ -834,61 +840,88 @@ export function DiscoverScreen({ isActive, onOpenUserProfile, onOpenChat }: Disc
     }
 
     if (isDatingTab) {
+        const likesPreview = displayedDatingLikes.slice(0, 3);
+        const datingControls = (
+            <View style={styles.datingControlsRow}>
+                <TouchableOpacity
+                    style={styles.datingControlButton}
+                    onPress={() => {
+                        setFilterSheetVisible(false);
+                        setDatingLikesOpen(true);
+                    }}
+                    activeOpacity={0.85}
+                    accessibilityRole="button"
+                    accessibilityLabel="Open people who liked you"
+                >
+                    <Ionicons name="heart-outline" size={20} color={Colors.text.primary} />
+                    <View style={styles.likesPreviewBody}>
+                        <Text style={styles.datingControlLabel}>Users who liked you</Text>
+                        {likesPreview.length ? (
+                            <View style={styles.likesPreviewRow}>
+                                <View style={styles.likesPreviewCluster}>
+                                    {likesPreview.map((profile, index) => (
+                                        <View
+                                            key={profile.id}
+                                            style={[
+                                                styles.likesPreviewAvatarWrap,
+                                                { left: index * 16, zIndex: 10 - index },
+                                            ]}
+                                        >
+                                            <Avatar
+                                                username={profile.username}
+                                                avatarUrl={profile.avatar_url ?? undefined}
+                                                size={22}
+                                                fontSize={9}
+                                            />
+                                        </View>
+                                    ))}
+                                </View>
+                                <Text style={styles.likesPreviewCount}>
+                                    {datingLikesCount > 3 ? `+${formatCompactCount(datingLikesCount - 3)} more` : formatCompactCount(datingLikesCount)}
+                                </Text>
+                            </View>
+                        ) : datingLikesCount > 0 ? (
+                            <Text style={styles.likesPreviewCount}>{formatCompactCount(datingLikesCount)}</Text>
+                        ) : null}
+                    </View>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                    style={styles.datingFilterButton}
+                    onPress={handleOpenFilters}
+                    activeOpacity={0.85}
+                    accessibilityRole="button"
+                    accessibilityLabel="Open dating filters"
+                >
+                    <View style={styles.datingFilterIconWrap}>
+                        <Ionicons name="options-outline" size={20} color={Colors.text.primary} />
+                        {filterCount > 0 ? (
+                            <View style={styles.datingControlBadge}>
+                                <Text style={styles.datingControlBadgeText}>{filterCount}</Text>
+                            </View>
+                        ) : null}
+                    </View>
+                    <Text style={styles.datingFilterLabel}>Filters</Text>
+                </TouchableOpacity>
+            </View>
+        );
+
         return (
             <View style={styles.container}>
                 {surfaceTabs}
-                <View style={[styles.controls, styles.datingControls]}>
-                    <View style={styles.datingControlsRow}>
-                        <TouchableOpacity
-                            style={styles.datingControlButton}
-                            onPress={() => {
-                                setFilterSheetVisible(false);
-                                setDatingLikesOpen(true);
-                            }}
-                            activeOpacity={0.85}
-                            accessibilityRole="button"
-                            accessibilityLabel="Open people who liked you"
-                        >
-                            <View style={styles.datingIconButton}>
-                                <Ionicons name="heart-outline" size={22} color={Colors.text.primary} />
-                            </View>
-                            <View style={styles.datingControlLabelRow}>
-                                <Text style={styles.datingControlLabel}>Liked you</Text>
-                                {datingLikesCount > 0 ? (
-                                    <>
-                                        <Text style={styles.datingControlLabel}>·</Text>
-                                        <Text style={styles.likesCountLabel}>{formatCompactCount(datingLikesCount)}</Text>
-                                    </>
-                                ) : null}
-                            </View>
-                        </TouchableOpacity>
-
-                        <TouchableOpacity
-                            style={styles.datingControlButton}
-                            onPress={handleOpenFilters}
-                            activeOpacity={0.85}
-                            accessibilityRole="button"
-                            accessibilityLabel="Open dating filters"
-                        >
-                            <View style={styles.datingIconButton}>
-                                <Ionicons name="options-outline" size={20} color={Colors.text.primary} />
-                                {filterCount > 0 ? (
-                                    <View style={styles.datingControlBadge}>
-                                        <Text style={styles.datingControlBadgeText}>{filterCount}</Text>
-                                    </View>
-                                ) : null}
-                            </View>
-                            <Text style={styles.datingControlLabel}>Filters</Text>
-                        </TouchableOpacity>
-                    </View>
-
-                    <DiscoverActiveFiltersBar
-                        chips={activeChips}
-                        broadenedCopy={broadenedCopy}
-                        onRemoveChip={handleClearChip}
-                        onClearAll={handleClearAllFilters}
-                    />
+                <View style={styles.datingControls}>
+                    {datingControls}
                 </View>
+                {activeChips.length || broadenedCopy ? (
+                    <View style={styles.datingFilterSummary}>
+                        <DiscoverActiveFiltersBar
+                            chips={activeChips}
+                            broadenedCopy={broadenedCopy}
+                            onRemoveChip={handleClearChip}
+                            onClearAll={handleClearAllFilters}
+                        />
+                    </View>
+                ) : null}
 
                 {datingLocationBlocked ? (
                     locationState.status === 'loading' ? (
@@ -1119,35 +1152,79 @@ const styles = StyleSheet.create({
         paddingBottom: Spacing.sm,
         gap: Spacing.sm,
     },
-    datingControls: {
+    datingFilterSummary: {
+        paddingHorizontal: Spacing.md,
         paddingBottom: Spacing.sm,
-        gap: Spacing.sm,
+    },
+    datingControls: {
+        paddingHorizontal: Spacing.md,
+        paddingBottom: Spacing.sm,
     },
     datingControlsRow: {
         flexDirection: 'row',
-        alignItems: 'flex-start',
-        justifyContent: 'flex-start',
+        alignItems: 'center',
+        justifyContent: 'space-between',
         gap: Spacing.sm,
     },
     datingControlButton: {
+        flex: 1,
+        minHeight: 54,
+        flexDirection: 'row',
         alignItems: 'center',
-        gap: 4,
-        minWidth: 58,
-    },
-    datingIconButton: {
-        width: 46,
-        height: 46,
-        borderRadius: Radius.pill,
-        alignItems: 'center',
-        justifyContent: 'center',
+        gap: Spacing.sm,
+        borderRadius: Radius.md,
         borderWidth: 1,
         borderColor: Colors.border.default,
         backgroundColor: Colors.bg.surface,
+        paddingHorizontal: Spacing.sm,
+    },
+    likesPreviewBody: {
+        flex: 1,
+        minWidth: 0,
+        gap: 3,
+    },
+    likesPreviewRow: {
+        minHeight: 24,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: Spacing.xs,
+    },
+    likesPreviewCluster: {
+        width: 56,
+        height: 24,
+    },
+    likesPreviewAvatarWrap: {
+        position: 'absolute',
+        top: 0,
+        borderRadius: Radius.pill,
+        borderWidth: 1,
+        borderColor: Colors.bg.surface,
+    },
+    likesPreviewCount: {
+        ...TextStyles.caption,
+        color: Colors.text.secondary,
+        fontWeight: '700',
+    },
+    datingFilterButton: {
+        minHeight: 54,
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 3,
+        borderRadius: Radius.md,
+        borderWidth: 1,
+        borderColor: Colors.border.default,
+        backgroundColor: Colors.bg.surface,
+        paddingHorizontal: Spacing.sm,
+    },
+    datingFilterIconWrap: {
+        position: 'relative',
+        alignItems: 'center',
+        justifyContent: 'center',
     },
     datingControlBadge: {
         position: 'absolute',
-        top: 4,
-        right: 4,
+        top: -8,
+        right: -8,
         minWidth: 18,
         height: 18,
         borderRadius: Radius.pill,
@@ -1163,18 +1240,13 @@ const styles = StyleSheet.create({
     },
     datingControlLabel: {
         fontSize: Typography.sizes.xs,
-        fontWeight: '700',
-        color: Colors.text.muted,
+        fontWeight: '800',
+        color: Colors.text.primary,
     },
-    datingControlLabelRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 3,
-    },
-    likesCountLabel: {
+    datingFilterLabel: {
         fontSize: Typography.sizes.xs,
         fontWeight: '800',
-        color: Colors.danger,
+        color: Colors.text.primary,
     },
     searchRow: {
         flexDirection: 'row',

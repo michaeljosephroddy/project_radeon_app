@@ -18,7 +18,7 @@ export const screenStandards = StyleSheet.create({
     },
     pageTabsWrap: {
         paddingHorizontal: ContentInsets.screenHorizontal,
-        paddingTop: 0,
+        paddingTop: Spacing.sm,
         paddingBottom: Spacing.sm,
         backgroundColor: Colors.bg.page,
         zIndex: 1,

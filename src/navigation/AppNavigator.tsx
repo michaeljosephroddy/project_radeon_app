@@ -65,14 +65,21 @@ const DiscoverTab = React.memo(function DiscoverTab({
     isActive,
     onOpenUserProfile,
     onOpenChat,
+    onDatingLikesOpenChange,
 }: {
     isActive: boolean;
     onOpenUserProfile: (p: OpenUserProfile) => void;
     onOpenChat: (chat: Chat) => void;
+    onDatingLikesOpenChange: (open: boolean) => void;
 }) {
     return (
         <View style={isActive ? styles.tabVisible : styles.tabHidden}>
-            <DiscoverScreen isActive={isActive} onOpenUserProfile={onOpenUserProfile} onOpenChat={onOpenChat} />
+            <DiscoverScreen
+                isActive={isActive}
+                onOpenUserProfile={onOpenUserProfile}
+                onOpenChat={onOpenChat}
+                onDatingLikesOpenChange={onDatingLikesOpenChange}
+            />
         </View>
     );
 });
@@ -225,6 +232,7 @@ export function AppNavigator() {
     const [groupFocusRequest, setGroupFocusRequest] = useState<{ postId: string; nonce: number } | null>(null);
     const [groupSupportFocusRequest, setGroupSupportFocusRequest] = useState<{ requestId: string; postId?: string; nonce: number } | null>(null);
     const [notificationsOpen, setNotificationsOpen] = useState(false);
+    const [datingLikesOpen, setDatingLikesOpen] = useState(false);
     const [ownProfileInitialContentTab, setOwnProfileInitialContentTab] = useState<ProfileContentTabKey>('posts');
     const [ownProfileResetKey, setOwnProfileResetKey] = useState(0);
     const [openComments, setOpenComments] = useState<{
@@ -247,6 +255,7 @@ export function AppNavigator() {
     const inMeetupDetail = openMeetup !== null;
     const inGroupDetail = openGroupId !== null;
     const inNotifications = notificationsOpen;
+    const inDatingLikes = activeTab === 'discover' && datingLikesOpen;
     const inComments = openComments !== null;
     const inGroupComments = openGroupComments !== null;
     const handleOpenUserProfile = useCallback((profile: OpenUserProfile) => {
@@ -759,7 +768,7 @@ export function AppNavigator() {
     }, [consumeIntent, intent]);
 
     const header = useMemo(() => {
-        if (activeTab === 'profile' || activeTab === 'userProfile' || inChat || inComposeDM || inCreatePost || inCreateGroup || inCreateSupportRequest || inCreateMeetup || inMeetupDetail || inGroupDetail || inNotifications || inComments || inGroupComments) return null;
+        if (activeTab === 'profile' || activeTab === 'userProfile' || inChat || inComposeDM || inCreatePost || inCreateGroup || inCreateSupportRequest || inCreateMeetup || inMeetupDetail || inGroupDetail || inNotifications || inDatingLikes || inComments || inGroupComments) return null;
 
         const titles: Record<MainTab, React.ReactNode> = {
             feed: (
@@ -800,7 +809,7 @@ export function AppNavigator() {
             </View>
         );
     }, [
-        activeTab, inChat, inComposeDM, inCreateGroup, inCreateMeetup, inCreatePost, inCreateSupportRequest, inGroupDetail, inMeetupDetail, inNotifications,
+        activeTab, inChat, inComposeDM, inCreateGroup, inCreateMeetup, inCreatePost, inCreateSupportRequest, inGroupDetail, inMeetupDetail, inNotifications, inDatingLikes,
         inComments, inGroupComments, notificationSummary?.unread_count,
         openNotifications, openOwnProfile, user,
     ]);
@@ -916,7 +925,7 @@ export function AppNavigator() {
     ]);
 
     const isOverlayOpen = inChat || inComposeDM || inCreatePost || inCreateGroup || inCreateSupportRequest || inCreateMeetup || inMeetupDetail || inGroupDetail || inNotifications || inComments || inGroupComments;
-    const hidesBottomNav = inChat || inComposeDM || inCreatePost || inCreateGroup || inCreateSupportRequest || inCreateMeetup || inMeetupDetail || inGroupDetail || inNotifications || inComments || inGroupComments;
+    const hidesBottomNav = inChat || inComposeDM || inCreatePost || inCreateGroup || inCreateSupportRequest || inCreateMeetup || inMeetupDetail || inGroupDetail || inNotifications || inDatingLikes || inComments || inGroupComments;
     const canShowGlobalCreate = Boolean(user) && !hidesBottomNav && !keyboardVisible;
     const tabBarBottomPadding = Platform.OS === 'android'
         ? Math.max(insets.bottom - 12, Spacing.xs)
@@ -984,6 +993,7 @@ export function AppNavigator() {
                         isActive={activeTab === 'discover' && !isOverlayOpen}
                         onOpenUserProfile={handleOpenUserProfile}
                         onOpenChat={setOpenChat}
+                        onDatingLikesOpenChange={setDatingLikesOpen}
                     />
                     <CommunityTab
                         isActive={activeTab === 'community' && !isOverlayOpen}
