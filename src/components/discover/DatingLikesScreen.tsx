@@ -7,6 +7,7 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Avatar } from '../Avatar';
 import { DiscoverEmptyState } from './DiscoverEmptyState';
 import { ScreenHeader } from '../ui/ScreenHeader';
@@ -47,7 +48,7 @@ export function DatingLikesScreen({
     }, [fetchingNext, hasNextPage, onLoadMore]);
 
     return (
-        <View style={styles.container}>
+        <SafeAreaView style={styles.container} edges={['bottom']}>
             <ScreenHeader title="Liked you" onBack={onBack} />
 
             {loading && likes.length === 0 ? (
@@ -80,7 +81,7 @@ export function DatingLikesScreen({
                     ) : null}
                 />
             )}
-        </View>
+        </SafeAreaView>
     );
 }
 
