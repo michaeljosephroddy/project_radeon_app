@@ -13,15 +13,19 @@ export const SUPPORT_URGENCY_LABELS: Record<api.SupportUrgency, string> = {
 };
 
 export const SUPPORT_TOPIC_LABELS: Record<api.SupportTopic, string> = {
-    anxiety: 'Anxiety',
-    relapse_risk: 'Relapse risk',
-    loneliness: 'Loneliness',
     cravings: 'Cravings',
-    depression: 'Depression',
-    family: 'Family',
-    work: 'Work',
-    sleep: 'Sleep',
-    celebration: 'Celebration',
+    relapse_risk: 'Relapse risk',
+    mental_health: 'Mental health',
+    loneliness: 'Loneliness',
+    relationships: 'Relationships',
+    practical_support: 'Practical support',
+    anxiety: 'Mental health',
+    depression: 'Mental health',
+    family: 'Relationships',
+    work: 'Practical support',
+    sleep: 'Practical support',
+    celebration: 'General support',
+    general: 'General support',
 };
 
 export function normalizeSupportType(value: unknown): api.SupportType {
@@ -36,15 +40,19 @@ export function getSupportTypeLabel(value: unknown): string {
 
 export function getSupportTopicLabel(value: unknown): string | null {
     if (
-        value === 'anxiety'
+        value === 'cravings'
         || value === 'relapse_risk'
+        || value === 'mental_health'
         || value === 'loneliness'
-        || value === 'cravings'
+        || value === 'relationships'
+        || value === 'practical_support'
+        || value === 'anxiety'
         || value === 'depression'
         || value === 'family'
         || value === 'work'
         || value === 'sleep'
         || value === 'celebration'
+        || value === 'general'
     ) {
         return SUPPORT_TOPIC_LABELS[value];
     }

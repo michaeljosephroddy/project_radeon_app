@@ -458,15 +458,19 @@ export interface MeetupUpsertInput {
 export type SupportUrgency = 'low' | 'medium' | 'high';
 export type SupportType = 'chat' | 'call' | 'meetup';
 export type SupportTopic =
-    | 'anxiety'
     | 'relapse_risk'
-    | 'loneliness'
     | 'cravings'
+    | 'mental_health'
+    | 'loneliness'
+    | 'relationships'
+    | 'practical_support'
+    | 'anxiety'
     | 'depression'
     | 'family'
     | 'work'
     | 'sleep'
-    | 'celebration';
+    | 'celebration'
+    | 'general';
 export type PreferredGender = 'woman' | 'man' | 'non_binary' | 'no_preference';
 export type SupportRequestFilter = 'all' | 'urgent' | 'unanswered';
 

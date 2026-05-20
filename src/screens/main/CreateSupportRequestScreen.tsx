@@ -1,6 +1,6 @@
 import { appAlert } from '@/components/ui/appAlert';
 import React, { useCallback, useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
 import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -13,6 +13,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { useGradualKeyboardInset } from '../../hooks/useGradualKeyboardInset';
 import { screenStandards } from '../../styles/screenStandards';
 import { Colors, Radius, Spacing, TextStyles } from '../../theme';
+import { getDeviceCoords, reverseGeocode } from '../../utils/location';
 
 interface CreateSupportRequestScreenProps {
     onBack: () => void;
@@ -32,39 +33,40 @@ const URGENCY_LABELS: Record<api.SupportUrgency, string> = {
 };
 
 const TOPIC_LABELS: Record<api.SupportTopic, string> = {
-    anxiety: 'Anxiety',
-    relapse_risk: 'Relapse risk',
-    loneliness: 'Loneliness',
     cravings: 'Cravings',
-    depression: 'Depression',
-    family: 'Family',
-    work: 'Work',
-    sleep: 'Sleep',
-    celebration: 'Celebration',
+    relapse_risk: 'Relapse risk',
+    mental_health: 'Mental health',
+    loneliness: 'Loneliness',
+    relationships: 'Relationships',
+    practical_support: 'Practical support',
+    anxiety: 'Mental health',
+    depression: 'Mental health',
+    family: 'Relationships',
+    work: 'Practical support',
+    sleep: 'Practical support',
+    celebration: 'General support',
+    general: 'General support',
 };
 
 const SUPPORT_TYPES: api.SupportType[] = ['chat', 'call', 'meetup'];
 const URGENCIES: api.SupportUrgency[] = ['low', 'medium', 'high'];
 const TOPICS: api.SupportTopic[] = [
-    'anxiety',
-    'relapse_risk',
-    'loneliness',
     'cravings',
-    'depression',
-    'family',
-    'work',
-    'sleep',
-    'celebration',
+    'relapse_risk',
+    'mental_health',
+    'loneliness',
+    'relationships',
+    'practical_support',
 ];
 
-function defaultSupportForm(): api.CreateSupportRequestInput {
+function defaultSupportForm(city?: string | null): api.CreateSupportRequestInput {
     return {
         support_type: 'chat',
         message: '',
         urgency: 'low',
         topics: [],
         preferred_gender: null,
-        location: null,
+        location: city ? { city, visibility: 'city' } : null,
         privacy_level: 'standard',
     };
 }
@@ -73,13 +75,17 @@ export function CreateSupportRequestScreen({
     onBack,
     onCreated,
 }: CreateSupportRequestScreenProps): React.ReactElement {
-    const { user } = useAuth();
+    const { user, refreshUser } = useAuth();
     const insets = useSafeAreaInsets();
     const queryClient = useQueryClient();
-    const [form, setForm] = useState<api.CreateSupportRequestInput>(defaultSupportForm);
+    const initialCity = user?.current_city ?? user?.city ?? null;
+    const [form, setForm] = useState<api.CreateSupportRequestInput>(() => defaultSupportForm(initialCity));
     const [showNotice, setShowNotice] = useState(true);
     const [submitting, setSubmitting] = useState(false);
-    const city = user?.current_city ?? user?.city ?? null;
+    const [detectingLocation, setDetectingLocation] = useState(false);
+    const storedCity = user?.current_city ?? user?.city ?? null;
+    const selectedLocationCity = form.location?.visibility === 'city' ? form.location.city ?? null : null;
+    const locationCity = storedCity ?? selectedLocationCity;
     const includeCity = form.location?.visibility === 'city';
     const messageBody = form.message?.trim() ?? '';
     const canSubmit = messageBody.length > 0 && !submitting;
@@ -100,6 +106,45 @@ export function CreateSupportRequestScreen({
                 : [...current.topics, topic],
         }));
     }, []);
+
+    const handleUseCurrentLocation = useCallback(async (): Promise<void> => {
+        if (detectingLocation) return;
+
+        setDetectingLocation(true);
+        try {
+            const result = await getDeviceCoords();
+            if (result.status !== 'available' || !result.coords) {
+                const message = result.status === 'services_off'
+                    ? 'Turn on location services, then try again.'
+                    : result.status === 'denied'
+                        ? 'Allow location access to use your current city.'
+                        : 'We could not detect your location. Please try again.';
+                appAlert.alert('Location unavailable', message);
+                return;
+            }
+
+            const detectedCity = await reverseGeocode(result.coords.latitude, result.coords.longitude);
+            if (!detectedCity) {
+                appAlert.alert('Location unavailable', 'We could not identify your city from your current location.');
+                return;
+            }
+
+            await api.updateMyCurrentLocation({
+                lat: result.coords.latitude,
+                lng: result.coords.longitude,
+                city: detectedCity,
+            });
+            await refreshUser();
+            setForm((current) => ({
+                ...current,
+                location: { city: detectedCity, visibility: 'city' },
+            }));
+        } catch (error: unknown) {
+            appAlert.alert('Location unavailable', error instanceof Error ? error.message : 'Please try again.');
+        } finally {
+            setDetectingLocation(false);
+        }
+    }, [detectingLocation, refreshUser]);
 
     const handleSubmit = useCallback(async () => {
         const trimmedMessage = form.message?.trim() ?? '';
@@ -216,28 +261,36 @@ export function CreateSupportRequestScreen({
                     })}
                 </View>
 
-                {city ? (
-                    <>
-                        <Text style={styles.formLabel}>Location</Text>
-                        <View style={styles.selectorWrap}>
-                            <TouchableOpacity
-                                style={[styles.selectorChip, !includeCity && styles.selectorChipActive]}
-                                onPress={() => setForm((current) => ({ ...current, location: null }))}
-                            >
-                                <Text style={[styles.selectorChipText, !includeCity && styles.selectorChipTextActive]}>Hidden</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                                style={[styles.selectorChip, includeCity && styles.selectorChipActive]}
-                                onPress={() => setForm((current) => ({
-                                    ...current,
-                                    location: { city, visibility: 'city' },
-                                }))}
-                            >
-                                <Text style={[styles.selectorChipText, includeCity && styles.selectorChipTextActive]}>{city}</Text>
-                            </TouchableOpacity>
-                        </View>
-                    </>
-                ) : null}
+                <Text style={styles.formLabel}>Location</Text>
+                <View style={styles.selectorWrap}>
+                    <TouchableOpacity
+                        style={[styles.selectorChip, !includeCity && styles.selectorChipActive]}
+                        onPress={() => setForm((current) => ({ ...current, location: null }))}
+                    >
+                        <Text style={[styles.selectorChipText, !includeCity && styles.selectorChipTextActive]}>Hidden</Text>
+                    </TouchableOpacity>
+                    {locationCity ? (
+                        <TouchableOpacity
+                            style={[styles.selectorChip, includeCity && styles.selectorChipActive]}
+                            onPress={() => setForm((current) => ({
+                                ...current,
+                                location: { city: locationCity, visibility: 'city' },
+                            }))}
+                        >
+                            <Text style={[styles.selectorChipText, includeCity && styles.selectorChipTextActive]}>Use {locationCity}</Text>
+                        </TouchableOpacity>
+                    ) : (
+                        <TouchableOpacity
+                            style={[styles.selectorChip, detectingLocation && styles.selectorChipDisabled]}
+                            onPress={() => void handleUseCurrentLocation()}
+                            disabled={detectingLocation}
+                        >
+                            <Text style={styles.selectorChipText}>
+                                {detectingLocation ? 'Detecting...' : 'Use current location'}
+                            </Text>
+                        </TouchableOpacity>
+                    )}
+                </View>
 
                 <TextField
                     value={form.message ?? ''}
@@ -284,6 +337,7 @@ const styles = StyleSheet.create({
         backgroundColor: Colors.bg.surface,
     },
     selectorChipActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
+    selectorChipDisabled: { opacity: 0.6 },
     selectorChipText: { ...TextStyles.chip },
     selectorChipTextActive: { color: Colors.textOn.primary, fontWeight: '700' },
     formInput: { marginTop: Spacing.md },
