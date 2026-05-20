@@ -3,6 +3,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import {
     View, Text, TouchableOpacity,
     StyleSheet, FlatList, ActivityIndicator, Alert, Platform,
+    NativeScrollEvent, NativeSyntheticEvent,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
@@ -60,6 +61,9 @@ export function ProfileTabScreen({
     onBack,
 }: ProfileTabScreenProps) {
     const { user, refreshUser, logout } = useAuth();
+    const profileListRef = useRef<FlatList<api.Post> | null>(null);
+    const profileScrollOffsetRef = useRef(0);
+    const contentTabsYRef = useRef(0);
     const [subView, setSubView] = useState<SubView>('profile');
     const [requestsSubView, setRequestsSubView] = useState<RequestsSubView>('incoming');
     const [activeContentTab, setActiveContentTab] = useState<ProfileContentTabKey>('posts');
@@ -381,6 +385,28 @@ export function ProfileTabScreen({
         void userPostsQuery.fetchNextPage();
     }, [activeContentTab, subView, userPostsQuery]);
 
+    const restoreContentTabAnchor = useCallback((): void => {
+        const targetOffset = Math.max(contentTabsYRef.current, 0);
+        if (profileScrollOffsetRef.current + Spacing.sm < targetOffset) return;
+
+        requestAnimationFrame(() => {
+            profileListRef.current?.scrollToOffset({
+                offset: targetOffset,
+                animated: false,
+            });
+        });
+    }, []);
+
+    const handleContentTabChange = useCallback((tab: ProfileContentTabKey): void => {
+        if (tab === activeContentTab) return;
+        setActiveContentTab(tab);
+        restoreContentTabAnchor();
+    }, [activeContentTab, restoreContentTabAnchor]);
+
+    const handleProfileScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>): void => {
+        profileScrollOffsetRef.current = event.nativeEvent.contentOffset.y;
+    }, []);
+
     const renderProfilePost = useCallback(({ item }: { item: api.Post }): React.ReactElement => (
         <ProfilePostCard
             post={item}
@@ -620,12 +646,15 @@ export function ProfileTabScreen({
             />
 
             <FlatList
+                ref={profileListRef}
                 style={styles.scroll}
                 data={profilePostsData}
                 keyExtractor={(item) => item.id}
                 renderItem={renderProfilePost}
                 onEndReached={handleLoadMoreOwnPosts}
                 onEndReachedThreshold={0.4}
+                onScroll={handleProfileScroll}
+                scrollEventThrottle={16}
                 keyboardShouldPersistTaps="handled"
                 contentContainerStyle={[screenStandards.scrollContent, styles.content, subView === 'profile' && styles.profileContent]}
                 ListFooterComponent={subView === 'profile' && userPostsQuery.isFetchingNextPage ? (
@@ -696,10 +725,15 @@ export function ProfileTabScreen({
                                 </TouchableOpacity>
                             </View>
 
-                            <View style={styles.profileContentTabsWrap}>
+                            <View
+                                style={styles.profileContentTabsWrap}
+                                onLayout={(event) => {
+                                    contentTabsYRef.current = event.nativeEvent.layout.y;
+                                }}
+                            >
                                 <ProfileContentTabs
                                     activeTab={activeContentTab}
-                                    onChange={setActiveContentTab}
+                                    onChange={handleContentTabChange}
                                 />
                             </View>
                             {userPostsQuery.isLoading && activeContentTab === 'posts' ? (
