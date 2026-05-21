@@ -64,7 +64,7 @@ const styles = StyleSheet.create({
         height: CREATE_SURFACE_HEADER_HEIGHT,
         paddingHorizontal: ContentInsets.screenHorizontal,
         borderBottomWidth: 1,
-        borderBottomColor: Colors.border.default,
+        borderBottomColor: Colors.border.emphasis,
         backgroundColor: Colors.bg.page,
         flexDirection: 'row',
         alignItems: 'center',

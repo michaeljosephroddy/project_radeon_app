@@ -372,7 +372,7 @@ const styles = StyleSheet.create({
         paddingTop: Spacing.sm,
         paddingBottom: Spacing.lg,
         borderTopWidth: 1,
-        borderTopColor: Colors.border.subtle,
+        borderTopColor: Colors.border.emphasis,
         backgroundColor: Colors.bg.page,
         gap: Spacing.sm,
     },

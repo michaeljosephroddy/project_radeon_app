@@ -612,7 +612,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'space-between',
         borderBottomWidth: 1,
-        borderBottomColor: Colors.border.subtle,
+        borderBottomColor: Colors.border.emphasis,
         paddingHorizontal: Spacing.md,
     },
     filterHeaderButton: {
@@ -671,7 +671,7 @@ const styles = StyleSheet.create({
     },
     filterFooter: {
         borderTopWidth: 1,
-        borderTopColor: Colors.border.subtle,
+        borderTopColor: Colors.border.emphasis,
         padding: Spacing.md,
     },
     applyButton: {
@@ -688,7 +688,7 @@ const styles = StyleSheet.create({
     },
     card: {
         borderBottomWidth: 1,
-        borderBottomColor: Colors.border.default,
+        borderBottomColor: Colors.border.emphasis,
         backgroundColor: Colors.bg.page,
         padding: Spacing.md,
     },

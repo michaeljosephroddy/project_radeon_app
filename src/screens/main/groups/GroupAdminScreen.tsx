@@ -407,7 +407,7 @@ const styles = StyleSheet.create({
     },
     inboxSeparator: {
         height: 1,
-        backgroundColor: Colors.border.default,
+        backgroundColor: Colors.border.emphasis,
         marginLeft: ContentInsets.screenHorizontal + 44 + 10,
     },
     inboxMeta: {

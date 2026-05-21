@@ -893,7 +893,7 @@ const styles = StyleSheet.create({
         gap: Spacing.sm,
         padding: Spacing.md,
         borderTopWidth: 1,
-        borderTopColor: Colors.border.subtle,
+        borderTopColor: Colors.border.emphasis,
     },
     switchRow: {
         flexDirection: 'row',
@@ -941,7 +941,7 @@ const styles = StyleSheet.create({
     },
     footer: {
         borderTopWidth: 1,
-        borderTopColor: Colors.border.default,
+        borderTopColor: Colors.border.emphasis,
         backgroundColor: Colors.bg.page,
         paddingHorizontal: Spacing.md,
         paddingTop: Spacing.sm,

@@ -1441,7 +1441,7 @@ const styles = StyleSheet.create({
     },
     mediaSeparator: {
         height: 1,
-        backgroundColor: Colors.border.subtle,
+        backgroundColor: Colors.border.emphasis,
     },
     memberRow: {
         minHeight: 58,
@@ -1449,7 +1449,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         gap: Spacing.sm,
         borderBottomWidth: 1,
-        borderBottomColor: Colors.border.subtle,
+        borderBottomColor: Colors.border.emphasis,
         paddingHorizontal: Spacing.md,
     },
     memberName: {
@@ -1667,7 +1667,7 @@ const styles = StyleSheet.create({
     },
     chatSharePanel: {
         borderTopWidth: 1,
-        borderTopColor: Colors.border.default,
+        borderTopColor: Colors.border.emphasis,
         paddingTop: Spacing.sm,
         gap: Spacing.xs,
     },

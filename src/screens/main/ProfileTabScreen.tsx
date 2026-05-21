@@ -1282,7 +1282,7 @@ const styles = StyleSheet.create({
     statItem: { flex: 1, alignItems: 'center', gap: 2 },
     statCount: { ...TextStyles.sectionTitle },
     statLabel: { ...TextStyles.caption, letterSpacing: 0 },
-    statDivider: { width: 0.5, height: 34, backgroundColor: Colors.border.default },
+    statDivider: { width: 1, height: 34, backgroundColor: Colors.border.emphasis },
     profileContentTabsWrap: {
         marginHorizontal: -Spacing.md,
         marginBottom: Spacing.sm,
@@ -1354,7 +1354,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: Spacing.md,
         paddingBottom: Spacing.md,
     },
-    fieldDivider: { height: 0.5, backgroundColor: Colors.border.default, marginLeft: Spacing.md },
+    fieldDivider: { height: 1, backgroundColor: Colors.border.emphasis, marginLeft: Spacing.md },
     editFieldLabel: {
         ...Typography.formLabel,
         color: Colors.text.secondary,
@@ -1384,8 +1384,8 @@ const styles = StyleSheet.create({
         color: Colors.primary,
     },
     inlineDatePickerWrap: {
-        borderTopWidth: 0.5,
-        borderTopColor: Colors.border.default,
+        borderTopWidth: 1,
+        borderTopColor: Colors.border.emphasis,
         paddingHorizontal: Spacing.sm,
         paddingBottom: Spacing.sm,
     },

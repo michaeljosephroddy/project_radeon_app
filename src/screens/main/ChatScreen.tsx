@@ -421,7 +421,7 @@ const styles = StyleSheet.create({
     supportContextCard: {
         backgroundColor: Colors.successSubtle,
         borderBottomWidth: 1,
-        borderBottomColor: Colors.border.default,
+        borderBottomColor: Colors.border.emphasis,
         paddingHorizontal: Spacing.md,
         paddingVertical: Spacing.md,
         marginBottom: Spacing.xs,
@@ -461,7 +461,7 @@ const styles = StyleSheet.create({
     supportPendingPanel: {
         marginTop: Spacing.md,
         borderTopWidth: 1,
-        borderTopColor: Colors.border.default,
+        borderTopColor: Colors.border.emphasis,
         paddingTop: Spacing.md,
     },
     supportPendingTitle: {
@@ -483,7 +483,7 @@ const styles = StyleSheet.create({
     },
     lockedToolbar: {
         borderTopWidth: 1,
-        borderTopColor: Colors.border.default,
+        borderTopColor: Colors.border.emphasis,
         backgroundColor: Colors.bg.surface,
         paddingHorizontal: Spacing.md,
         paddingVertical: Spacing.md,

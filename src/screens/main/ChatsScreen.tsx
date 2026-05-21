@@ -352,7 +352,7 @@ const styles = StyleSheet.create({
     },
     separator: {
         height: 1,
-        backgroundColor: Colors.border.default,
+        backgroundColor: Colors.border.emphasis,
         marginLeft: ContentInsets.screenHorizontal + 44 + 10,
     },
     deleteAction: {

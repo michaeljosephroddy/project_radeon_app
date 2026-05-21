@@ -173,7 +173,7 @@ const styles = StyleSheet.create({
     card: {
         backgroundColor: Colors.bg.page,
         borderBottomWidth: 1,
-        borderBottomColor: Colors.border.default,
+        borderBottomColor: Colors.border.emphasis,
         padding: Spacing.md,
         gap: Spacing.sm,
         paddingHorizontal: ContentInsets.screenHorizontal,

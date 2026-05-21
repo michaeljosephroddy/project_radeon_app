@@ -81,7 +81,7 @@ const styles = StyleSheet.create({
     postCard: {
         backgroundColor: Colors.bg.page,
         borderBottomWidth: 1,
-        borderBottomColor: Colors.border.default,
+        borderBottomColor: Colors.border.emphasis,
     },
     postHead: {
         flexDirection: 'row',

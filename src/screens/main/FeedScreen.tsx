@@ -907,7 +907,7 @@ const styles = StyleSheet.create({
     postCard: {
         backgroundColor: Colors.bg.page,
         borderBottomWidth: 1,
-        borderBottomColor: Colors.border.default,
+        borderBottomColor: Colors.border.emphasis,
     },
     postHeadBody: { flex: 1, minWidth: 0 },
     postHead: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, padding: Spacing.md, paddingBottom: Spacing.sm, position: 'relative' },
