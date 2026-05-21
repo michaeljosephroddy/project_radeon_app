@@ -1,13 +1,16 @@
-import React from 'react';
-import { Image } from 'react-native';
-import { Platform, ScrollView, StyleProp, StyleSheet, Switch, Text, TouchableOpacity, View, ViewStyle } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
+import React from 'react';
+import { Image, Platform, ScrollView, StyleProp, StyleSheet, Switch, Text, TouchableOpacity, View, ViewStyle } from 'react-native';
+import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as api from '../../api/client';
 import { Colors, ControlSizes, Radius, Spacing, TextStyles, Typography } from '../../theme';
-import { InfoNoticeCard } from '../ui/InfoNoticeCard';
 import { PrimaryButton } from '../ui/PrimaryButton';
 import { TextField } from '../ui/TextField';
 import { MeetupFormValues } from './MeetupFormState';
+
+export type MeetupFormStep = 'essentials' | 'when_where' | 'attendance';
 
 interface MeetupFormProps {
     title: string;
@@ -15,6 +18,9 @@ interface MeetupFormProps {
     categories: api.MeetupCategory[];
     friends: api.FriendUser[];
     mode: 'create' | 'published';
+    step: MeetupFormStep;
+    stepIndex: number;
+    stepTotal: number;
     loading: boolean;
     coverUploading: boolean;
     coverPreviewUri?: string | null;
@@ -27,6 +33,7 @@ interface MeetupFormProps {
     onPickCover: () => void;
     onRemoveCover: () => void;
     onPrimaryAction: () => void;
+    onBackStep?: () => void;
     onSecondaryAction?: () => void;
     onDestructiveAction?: () => void;
     onCancelEdit?: () => void;
@@ -35,15 +42,27 @@ interface MeetupFormProps {
 
 type PickerField = 'starts_on' | 'starts_at' | 'ends_on' | 'ends_at' | null;
 
-function ChoiceChip({
-    label,
-    selected,
-    onPress,
-}: {
+interface ChoiceChipProps {
     label: string;
     selected: boolean;
     onPress: () => void;
-}) {
+}
+
+interface StepMeta {
+    key: MeetupFormStep;
+    label: string;
+    icon: keyof typeof Ionicons.glyphMap;
+}
+
+const STEPS: StepMeta[] = [
+    { key: 'essentials', label: 'Essentials', icon: 'sparkles-outline' },
+    { key: 'when_where', label: 'When & Where', icon: 'calendar-outline' },
+    { key: 'attendance', label: 'Attendance', icon: 'people-outline' },
+];
+const CO_HOST_PREVIEW_LIMIT = 3;
+const CO_HOST_SEARCH_LIMIT = 6;
+
+function ChoiceChip({ label, selected, onPress }: ChoiceChipProps): React.ReactElement {
     return (
         <TouchableOpacity
             style={[styles.chip, selected && styles.chipSelected]}
@@ -52,6 +71,63 @@ function ChoiceChip({
         >
             <Text style={[styles.chipText, selected && styles.chipTextSelected]}>{label}</Text>
         </TouchableOpacity>
+    );
+}
+
+function EventTypeChoice({
+    type,
+    selected,
+    onPress,
+}: {
+    type: api.MeetupEventType;
+    selected: boolean;
+    onPress: () => void;
+}): React.ReactElement {
+    const icon: keyof typeof Ionicons.glyphMap = type === 'online'
+        ? 'videocam-outline'
+        : type === 'hybrid'
+            ? 'git-compare-outline'
+            : 'location-outline';
+    const label = type === 'in_person' ? 'In person' : type === 'online' ? 'Online' : 'Hybrid';
+
+    return (
+        <TouchableOpacity
+            style={[styles.eventTypeCard, selected && styles.eventTypeCardSelected]}
+            onPress={onPress}
+            activeOpacity={0.86}
+        >
+            <View style={[styles.eventTypeIcon, selected && styles.eventTypeIconSelected]}>
+                <Ionicons name={icon} size={19} color={selected ? Colors.textOn.primary : Colors.primary} />
+            </View>
+            <Text style={[styles.eventTypeLabel, selected && styles.eventTypeLabelSelected]}>{label}</Text>
+        </TouchableOpacity>
+    );
+}
+
+function ExpandableSection({
+    title,
+    summary,
+    expanded,
+    onToggle,
+    children,
+}: {
+    title: string;
+    summary: string;
+    expanded: boolean;
+    onToggle: () => void;
+    children: React.ReactNode;
+}): React.ReactElement {
+    return (
+        <View style={styles.expandable}>
+            <TouchableOpacity style={styles.expandableHeader} onPress={onToggle} activeOpacity={0.84}>
+                <View style={styles.expandableCopy}>
+                    <Text style={styles.expandableTitle}>{title}</Text>
+                    <Text style={styles.expandableSummary}>{summary}</Text>
+                </View>
+                <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={20} color={Colors.text.secondary} />
+            </TouchableOpacity>
+            {expanded ? <View style={styles.expandableBody}>{children}</View> : null}
+        </View>
     );
 }
 
@@ -93,11 +169,36 @@ function formatTimeLabel(value: string): string {
     });
 }
 
+function getStepSubtitle(step: MeetupFormStep, mode: 'create' | 'published'): string {
+    if (step === 'essentials') {
+        return mode === 'published' ? 'Update the public face of this meetup.' : 'Name the meetup and set its format.';
+    }
+    if (step === 'when_where') {
+        return 'Set the schedule and joining details.';
+    }
+    return 'Set optional capacity, hosts, and visibility.';
+}
+
+function getCoHostSummary(values: MeetupFormValues, friends: api.FriendUser[]): string {
+    const selected = friends.filter((friend) => values.co_host_ids.includes(friend.user_id));
+    if (!selected.length) return 'No co-hosts selected';
+    if (selected.length === 1) return selected[0].username;
+    return `${selected.length} co-hosts selected`;
+}
+
+function getVisibilityLabel(visibility: api.MeetupVisibility): string {
+    return visibility === 'public' ? 'Public' : 'Unlisted';
+}
+
 export function MeetupForm({
+    title,
     values,
     categories,
     friends,
     mode,
+    step,
+    stepIndex,
+    stepTotal,
     loading,
     coverUploading,
     coverPreviewUri,
@@ -110,18 +211,18 @@ export function MeetupForm({
     onPickCover,
     onRemoveCover,
     onPrimaryAction,
+    onBackStep,
     onSecondaryAction,
     onDestructiveAction,
     onCancelEdit,
     contentStyle,
-}: MeetupFormProps) {
+}: MeetupFormProps): React.ReactElement {
+    const insets = useSafeAreaInsets();
     const [activePicker, setActivePicker] = React.useState<PickerField>(null);
     const [coHostQuery, setCoHostQuery] = React.useState('');
-    const [showNotice, setShowNotice] = React.useState(true);
-    const noticeTitle = mode === 'published' ? 'Manage live meetup' : 'Create meetup';
-    const noticeDescription = mode === 'published'
-        ? 'Update live details while keeping the meetup published.'
-        : 'Add the details, location, capacity, co-hosts, and cover image.';
+    const [locationAdvancedOpen, setLocationAdvancedOpen] = React.useState(false);
+    const [coHostsOpen, setCoHostsOpen] = React.useState(values.co_host_ids.length > 0);
+    const [visibilityOpen, setVisibilityOpen] = React.useState(false);
     const isOnline = values.event_type === 'online';
     const showLocationFields = values.event_type !== 'online';
     const selectedCoHosts = React.useMemo(
@@ -130,11 +231,15 @@ export function MeetupForm({
     );
     const availableCoHosts = React.useMemo(() => {
         const query = coHostQuery.trim().toLowerCase();
-        return friends
-            .filter((friend) => !values.co_host_ids.includes(friend.user_id))
-            .filter((friend) => !query || friend.username.toLowerCase().includes(query))
-            .slice(0, 10);
+        const unselectedFriends = friends.filter((friend) => !values.co_host_ids.includes(friend.user_id));
+        if (!query) {
+            return unselectedFriends.slice(0, CO_HOST_PREVIEW_LIMIT);
+        }
+        return unselectedFriends
+            .filter((friend) => friend.username.toLowerCase().includes(query))
+            .slice(0, CO_HOST_SEARCH_LIMIT);
     }, [coHostQuery, friends, values.co_host_ids]);
+    const hasMoreCoHostsToSearch = !coHostQuery.trim() && friends.length - values.co_host_ids.length > CO_HOST_PREVIEW_LIMIT;
     const defaultStart = React.useMemo(() => {
         const start = new Date();
         start.setDate(start.getDate() + 7);
@@ -155,7 +260,7 @@ export function MeetupForm({
         }
     }, [activePicker, defaultStart, values.ends_at, values.ends_on, values.starts_at, values.starts_on]);
 
-    const handlePickerChange = (event: DateTimePickerEvent, selectedDate?: Date) => {
+    const handlePickerChange = (event: DateTimePickerEvent, selectedDate?: Date): void => {
         const field = activePicker;
         if (Platform.OS !== 'ios') {
             setActivePicker(null);
@@ -170,277 +275,413 @@ export function MeetupForm({
         onChange(field, formatTimeInput(selectedDate));
     };
 
-    const toggleCoHost = (friend: api.FriendUser) => {
+    const toggleCoHost = (friend: api.FriendUser): void => {
         const next = values.co_host_ids.includes(friend.user_id)
             ? values.co_host_ids.filter((id) => id !== friend.user_id)
             : [...values.co_host_ids, friend.user_id];
         onChange('co_host_ids', next);
     };
+    const footerBackAction = onBackStep ?? onCancelEdit;
+    const footerBackLabel = onBackStep ? 'Back' : 'Cancel';
 
-    return (
-        <ScrollView contentContainerStyle={[styles.content, contentStyle]} showsVerticalScrollIndicator={false}>
-            {showNotice ? (
-                <InfoNoticeCard
-                    title={noticeTitle}
-                    description={noticeDescription}
-                    onDismiss={() => setShowNotice(false)}
-                />
-            ) : null}
-
-            {!!error && (
-                <View style={styles.errorCard}>
-                    <Text style={styles.errorText}>{error}</Text>
-                </View>
-            )}
-
-            <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Basics</Text>
-                <TextField value={values.title} onChangeText={(value) => onChange('title', value)} placeholder="Event title" />
-                <TextField
-                    value={values.description}
-                    onChangeText={(value) => onChange('description', value)}
-                    placeholder="What should people expect?"
-                    multiline
-                    style={styles.multilineField}
-                />
-                <Text style={styles.fieldLabel}>Categories</Text>
-                <View style={styles.wrap}>
-                    {categories.map((category) => (
-                        <ChoiceChip
-                            key={category.slug}
-                            label={category.label}
-                            selected={values.category_slug === category.slug}
-                            onPress={() => onChange('category_slug', category.slug)}
-                        />
-                    ))}
-                </View>
-            </View>
-
-            <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Format</Text>
-                <View style={styles.wrap}>
-                    {(['in_person', 'online', 'hybrid'] as api.MeetupEventType[]).map((type) => (
-                        <ChoiceChip
-                            key={type}
-                            label={type.replace('_', ' ')}
-                            selected={values.event_type === type}
-                            onPress={() => onChange('event_type', type)}
-                        />
-                    ))}
-                </View>
-            </View>
-
-            <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Timing</Text>
-                <View style={styles.row}>
-                    <View style={styles.half}>
-                        <Text style={styles.fieldLabel}>Start date</Text>
-                        <TouchableOpacity style={styles.pickerButton} onPress={() => setActivePicker('starts_on')} activeOpacity={0.82}>
-                            <Text style={styles.pickerButtonText}>{formatDateLabel(values.starts_on)}</Text>
-                        </TouchableOpacity>
-                    </View>
-                    <View style={styles.half}>
-                        <Text style={styles.fieldLabel}>Start time</Text>
-                        <TouchableOpacity style={styles.pickerButton} onPress={() => setActivePicker('starts_at')} activeOpacity={0.82}>
-                            <Text style={styles.pickerButtonText}>{formatTimeLabel(values.starts_at)}</Text>
-                        </TouchableOpacity>
-                    </View>
-                </View>
-                <View style={styles.row}>
-                    <View style={styles.half}>
-                        <Text style={styles.fieldLabel}>End date</Text>
-                        <TouchableOpacity style={styles.pickerButton} onPress={() => setActivePicker('ends_on')} activeOpacity={0.82}>
-                            <Text style={styles.pickerButtonText}>{formatDateLabel(values.ends_on)}</Text>
-                        </TouchableOpacity>
-                    </View>
-                    <View style={styles.half}>
-                        <Text style={styles.fieldLabel}>End time</Text>
-                        <TouchableOpacity style={styles.pickerButton} onPress={() => setActivePicker('ends_at')} activeOpacity={0.82}>
-                            <Text style={styles.pickerButtonText}>{formatTimeLabel(values.ends_at)}</Text>
-                        </TouchableOpacity>
-                    </View>
-                </View>
-                {activePicker ? (
-                    Platform.OS === 'ios' ? (
-                        <View style={styles.inlinePickerWrap}>
-                            <DateTimePicker
-                                value={pickerValue}
-                                mode={activePicker === 'starts_on' || activePicker === 'ends_on' ? 'date' : 'time'}
-                                display="spinner"
-                                onChange={handlePickerChange}
-                            />
-                        </View>
-                    ) : (
-                        <DateTimePicker
-                            value={pickerValue}
-                            mode={activePicker === 'starts_on' || activePicker === 'ends_on' ? 'date' : 'time'}
-                            display="default"
-                            onChange={handlePickerChange}
-                        />
-                    )
-                ) : null}
-                <TextField value={values.timezone} onChangeText={(value) => onChange('timezone', value)} placeholder="Timezone (e.g. Europe/Dublin)" />
-            </View>
-
-            <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Co-hosts</Text>
-                <Text style={styles.helperText}>Invite trusted friends to help host the meetup. Organizers stay in full control.</Text>
-                {friends.length ? (
-                    <>
-                        <TextField
-                            value={coHostQuery}
-                            onChangeText={setCoHostQuery}
-                            placeholder="Search your friends"
-                            autoCapitalize="none"
-                        />
-                        {selectedCoHosts.length ? (
-                            <View style={styles.wrap}>
-                                {selectedCoHosts.map((friend) => (
-                                    <TouchableOpacity
-                                        key={friend.user_id}
-                                        style={styles.selectedHostChip}
-                                        onPress={() => toggleCoHost(friend)}
-                                        activeOpacity={0.82}
-                                    >
-                                        <Text style={styles.selectedHostChipText}>{friend.username}</Text>
-                                        <Text style={styles.selectedHostChipRemove}>Remove</Text>
-                                    </TouchableOpacity>
-                                ))}
-                            </View>
-                        ) : null}
-                        <View style={styles.wrap}>
-                            {availableCoHosts.length ? availableCoHosts.map((friend) => (
-                                <ChoiceChip
-                                    key={friend.user_id}
-                                    label={friend.username}
-                                    selected={false}
-                                    onPress={() => toggleCoHost(friend)}
-                                />
-                            )) : (
-                                <Text style={styles.emptyHostsText}>
-                                    {coHostQuery.trim() ? 'No friends match that search.' : 'All available friends are already selected.'}
-                                </Text>
+    const renderStepContent = (): React.ReactNode => {
+        if (step === 'essentials') {
+            return (
+                <>
+                    <View style={styles.coverSection}>
+                        <TouchableOpacity style={styles.coverHero} onPress={onPickCover} activeOpacity={0.88} disabled={coverUploading}>
+                            {coverPreviewUri ? (
+                                <Image source={{ uri: coverPreviewUri }} style={styles.coverPreview} />
+                            ) : (
+                                <View style={styles.coverPlaceholder}>
+                                    <Ionicons name="image-outline" size={28} color={Colors.primary} />
+                                    <Text style={styles.coverPlaceholderTitle}>Add cover image</Text>
+                                    <Text style={styles.coverPlaceholderText}>Choose a photo that represents the meetup.</Text>
+                                </View>
                             )}
-                        </View>
-                    </>
-                ) : (
-                    <Text style={styles.emptyHostsText}>Add friends first if you want co-host support on this event.</Text>
-                )}
-            </View>
-
-            <View style={styles.section}>
-                <Text style={styles.sectionTitle}>{isOnline ? 'Online setup' : 'Venue and location'}</Text>
-                <TextField value={values.city} onChangeText={(value) => onChange('city', value)} placeholder="City" />
-                <TextField value={values.country} onChangeText={(value) => onChange('country', value)} placeholder="Country" />
-                {showLocationFields ? (
-                    <>
-                        <TextField value={values.venue_name} onChangeText={(value) => onChange('venue_name', value)} placeholder="Venue name" />
-                        <TextField value={values.address_line_1} onChangeText={(value) => onChange('address_line_1', value)} placeholder="Address line 1" />
-                        <TextField value={values.address_line_2} onChangeText={(value) => onChange('address_line_2', value)} placeholder="Address line 2" />
-                        <TextField value={values.how_to_find_us} onChangeText={(value) => onChange('how_to_find_us', value)} placeholder="How to find the group" />
-                    </>
-                ) : null}
-                {(isOnline || values.event_type === 'hybrid') ? (
-                    <TextField value={values.online_url} onChangeText={(value) => onChange('online_url', value)} placeholder="Online event link" autoCapitalize="none" />
-                ) : null}
-                <Text style={styles.fieldLabel}>Coordinates</Text>
-                <Text style={styles.helperText}>Optional, but useful if you want map placement to be precise.</Text>
-                <View style={styles.row}>
-                    <View style={styles.half}>
-                        <TextField
-                            value={values.lat}
-                            onChangeText={(value) => onChange('lat', value)}
-                            placeholder="Latitude"
-                            keyboardType="numbers-and-punctuation"
-                            autoCapitalize="none"
-                        />
-                    </View>
-                    <View style={styles.half}>
-                        <TextField
-                            value={values.lng}
-                            onChangeText={(value) => onChange('lng', value)}
-                            placeholder="Longitude"
-                            keyboardType="numbers-and-punctuation"
-                            autoCapitalize="none"
-                        />
-                    </View>
-                </View>
-            </View>
-
-            <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Attendance</Text>
-                <TextField value={values.capacity} onChangeText={(value) => onChange('capacity', value)} placeholder="Capacity" keyboardType="number-pad" />
-                <View style={styles.switchRow}>
-                    <View style={styles.switchCopy}>
-                        <Text style={styles.switchTitle}>Enable waitlist</Text>
-                        <Text style={styles.switchSubtitle}>Let people join a queue if the event fills up.</Text>
-                    </View>
-                    <Switch
-                        value={values.waitlist_enabled}
-                        onValueChange={(value) => onChange('waitlist_enabled', value)}
-                        trackColor={{ false: Colors.border.default, true: Colors.primary }}
-                        thumbColor={Colors.bg.page}
-                    />
-                </View>
-                <View style={styles.coverSection}>
-                    <Text style={styles.fieldLabel}>Cover image</Text>
-                    {coverPreviewUri ? (
-                        <Image source={{ uri: coverPreviewUri }} style={styles.coverPreview} />
-                    ) : (
-                        <View style={styles.coverPlaceholder}>
-                            <Text style={styles.coverPlaceholderText}>Add a cover image to make the event card stand out.</Text>
-                        </View>
-                    )}
-                    <View style={styles.coverActions}>
-                        <TouchableOpacity style={styles.coverActionButton} onPress={onPickCover} activeOpacity={0.82} disabled={coverUploading}>
-                            <Text style={styles.coverActionText}>{coverUploading ? 'Uploading…' : coverPreviewUri ? 'Replace image' : 'Upload image'}</Text>
+                            <View style={styles.coverOverlay}>
+                                <Ionicons name={coverPreviewUri ? 'camera-outline' : 'add'} size={18} color={Colors.textOn.primary} />
+                                <Text style={styles.coverOverlayText}>{coverUploading ? 'Uploading...' : coverPreviewUri ? 'Replace' : 'Upload'}</Text>
+                            </View>
                         </TouchableOpacity>
                         {coverPreviewUri ? (
-                            <TouchableOpacity style={styles.coverSecondaryAction} onPress={onRemoveCover} activeOpacity={0.82} disabled={coverUploading}>
-                                <Text style={styles.coverSecondaryActionText}>Remove</Text>
+                            <TouchableOpacity style={styles.coverRemoveButton} onPress={onRemoveCover} activeOpacity={0.82} disabled={coverUploading}>
+                                <Text style={styles.coverRemoveText}>Remove image</Text>
                             </TouchableOpacity>
                         ) : null}
                     </View>
-                </View>
-            </View>
 
-            <View style={styles.footerActions}>
-                {onCancelEdit ? (
-                    <TouchableOpacity style={styles.secondaryAction} onPress={onCancelEdit} activeOpacity={0.8}>
-                        <Text style={styles.secondaryActionText}>Cancel editing</Text>
-                    </TouchableOpacity>
-                ) : null}
-                {secondaryActionLabel && onSecondaryAction ? (
-                    <TouchableOpacity style={styles.secondaryAction} onPress={onSecondaryAction} activeOpacity={0.8} disabled={loading}>
-                        <Text style={styles.secondaryActionText}>{secondaryActionLabel}</Text>
-                    </TouchableOpacity>
-                ) : null}
-                <PrimaryButton
-                    label={primaryActionLabel}
-                    onPress={onPrimaryAction}
-                    loading={loading}
-                    variant={primaryActionVariant}
-                    style={styles.primaryAction}
-                />
-                {destructiveActionLabel && onDestructiveAction ? (
-                    <TouchableOpacity
-                        style={styles.destructiveAction}
-                        onPress={onDestructiveAction}
-                        activeOpacity={0.8}
-                        disabled={loading}
+                    <View style={styles.section}>
+                        <Text style={styles.sectionTitle}>Basics</Text>
+                        <TextField value={values.title} onChangeText={(value) => onChange('title', value)} placeholder="Event title" />
+                        <Text style={styles.fieldLabel}>Category</Text>
+                        <View style={styles.wrap}>
+                            {categories.map((category) => (
+                                <ChoiceChip
+                                    key={category.slug}
+                                    label={category.label}
+                                    selected={values.category_slug === category.slug}
+                                    onPress={() => onChange('category_slug', category.slug)}
+                                />
+                            ))}
+                        </View>
+                        <Text style={styles.fieldLabel}>Format</Text>
+                        <View style={styles.eventTypeGrid}>
+                            {(['in_person', 'online', 'hybrid'] as api.MeetupEventType[]).map((type) => (
+                                <EventTypeChoice
+                                    key={type}
+                                    type={type}
+                                    selected={values.event_type === type}
+                                    onPress={() => onChange('event_type', type)}
+                                />
+                            ))}
+                        </View>
+                        <TextField
+                            value={values.description}
+                            onChangeText={(value) => onChange('description', value)}
+                            placeholder="What should people expect?"
+                            multiline
+                            style={styles.multilineField}
+                        />
+                    </View>
+                </>
+            );
+        }
+
+        if (step === 'when_where') {
+            return (
+                <>
+                    <View style={styles.section}>
+                        <Text style={styles.sectionTitle}>Schedule</Text>
+                        <View style={styles.row}>
+                            <View style={styles.half}>
+                                <Text style={styles.fieldLabel}>Start date</Text>
+                                <TouchableOpacity style={styles.pickerButton} onPress={() => setActivePicker('starts_on')} activeOpacity={0.82}>
+                                    <Text style={styles.pickerButtonText}>{formatDateLabel(values.starts_on)}</Text>
+                                </TouchableOpacity>
+                            </View>
+                            <View style={styles.half}>
+                                <Text style={styles.fieldLabel}>Start time</Text>
+                                <TouchableOpacity style={styles.pickerButton} onPress={() => setActivePicker('starts_at')} activeOpacity={0.82}>
+                                    <Text style={styles.pickerButtonText}>{formatTimeLabel(values.starts_at)}</Text>
+                                </TouchableOpacity>
+                            </View>
+                        </View>
+                        <View style={styles.row}>
+                            <View style={styles.half}>
+                                <Text style={styles.fieldLabel}>End date</Text>
+                                <TouchableOpacity style={styles.pickerButton} onPress={() => setActivePicker('ends_on')} activeOpacity={0.82}>
+                                    <Text style={styles.pickerButtonText}>{formatDateLabel(values.ends_on)}</Text>
+                                </TouchableOpacity>
+                            </View>
+                            <View style={styles.half}>
+                                <Text style={styles.fieldLabel}>End time</Text>
+                                <TouchableOpacity style={styles.pickerButton} onPress={() => setActivePicker('ends_at')} activeOpacity={0.82}>
+                                    <Text style={styles.pickerButtonText}>{formatTimeLabel(values.ends_at)}</Text>
+                                </TouchableOpacity>
+                            </View>
+                        </View>
+                        {activePicker ? (
+                            Platform.OS === 'ios' ? (
+                                <View style={styles.inlinePickerWrap}>
+                                    <DateTimePicker
+                                        value={pickerValue}
+                                        mode={activePicker === 'starts_on' || activePicker === 'ends_on' ? 'date' : 'time'}
+                                        display="spinner"
+                                        onChange={handlePickerChange}
+                                    />
+                                </View>
+                            ) : (
+                                <DateTimePicker
+                                    value={pickerValue}
+                                    mode={activePicker === 'starts_on' || activePicker === 'ends_on' ? 'date' : 'time'}
+                                    display="default"
+                                    onChange={handlePickerChange}
+                                />
+                            )
+                        ) : null}
+                        <TextField value={values.timezone} onChangeText={(value) => onChange('timezone', value)} placeholder="Timezone (e.g. Europe/Dublin)" />
+                    </View>
+
+                    <View style={styles.section}>
+                        <Text style={styles.sectionTitle}>{isOnline ? 'Online setup' : 'Location'}</Text>
+                        <TextField value={values.city} onChangeText={(value) => onChange('city', value)} placeholder="City" />
+                        <TextField value={values.country} onChangeText={(value) => onChange('country', value)} placeholder="Country" />
+                        {showLocationFields ? (
+                            <>
+                                <TextField value={values.venue_name} onChangeText={(value) => onChange('venue_name', value)} placeholder="Venue name" />
+                                <TextField value={values.address_line_1} onChangeText={(value) => onChange('address_line_1', value)} placeholder="Address line 1" />
+                            </>
+                        ) : null}
+                        {(isOnline || values.event_type === 'hybrid') ? (
+                            <TextField value={values.online_url} onChangeText={(value) => onChange('online_url', value)} placeholder="Online event link" autoCapitalize="none" />
+                        ) : null}
+                        <ExpandableSection
+                            title="Advanced location"
+                            summary="Directions, address line 2, and map coordinates"
+                            expanded={locationAdvancedOpen}
+                            onToggle={() => setLocationAdvancedOpen((current) => !current)}
+                        >
+                            {showLocationFields ? (
+                                <>
+                                    <TextField value={values.address_line_2} onChangeText={(value) => onChange('address_line_2', value)} placeholder="Address line 2" />
+                                    <TextField value={values.how_to_find_us} onChangeText={(value) => onChange('how_to_find_us', value)} placeholder="How to find the group" />
+                                </>
+                            ) : null}
+                            <View style={styles.row}>
+                                <View style={styles.half}>
+                                    <TextField
+                                        value={values.lat}
+                                        onChangeText={(value) => onChange('lat', value)}
+                                        placeholder="Latitude"
+                                        keyboardType="numbers-and-punctuation"
+                                        autoCapitalize="none"
+                                    />
+                                </View>
+                                <View style={styles.half}>
+                                    <TextField
+                                        value={values.lng}
+                                        onChangeText={(value) => onChange('lng', value)}
+                                        placeholder="Longitude"
+                                        keyboardType="numbers-and-punctuation"
+                                        autoCapitalize="none"
+                                    />
+                                </View>
+                            </View>
+                        </ExpandableSection>
+                    </View>
+                </>
+            );
+        }
+
+        return (
+            <>
+                <View style={styles.section}>
+                    <Text style={styles.sectionTitle}>Attendance</Text>
+                    <TextField
+                        value={values.capacity}
+                        onChangeText={(value) => onChange('capacity', value)}
+                        placeholder="Capacity (optional)"
+                        keyboardType="number-pad"
+                    />
+                    <View style={styles.switchRow}>
+                        <View style={styles.switchCopy}>
+                            <Text style={styles.switchTitle}>Enable waitlist</Text>
+                            <Text style={styles.switchSubtitle}>Let people join a queue if the event fills up.</Text>
+                        </View>
+                        <Switch
+                            value={values.waitlist_enabled}
+                            onValueChange={(value) => onChange('waitlist_enabled', value)}
+                            trackColor={{ false: Colors.border.default, true: Colors.primary }}
+                            thumbColor={Colors.bg.page}
+                        />
+                    </View>
+                </View>
+
+                <View style={styles.section}>
+                    <Text style={styles.sectionTitle}>Hosting</Text>
+                    <ExpandableSection
+                        title="Co-hosts"
+                        summary={getCoHostSummary(values, friends)}
+                        expanded={coHostsOpen}
+                        onToggle={() => setCoHostsOpen((current) => !current)}
                     >
+                        {friends.length ? (
+                            <>
+                                <TextField
+                                    value={coHostQuery}
+                                    onChangeText={setCoHostQuery}
+                                    placeholder="Search friends by name"
+                                    autoCapitalize="none"
+                                />
+                                {hasMoreCoHostsToSearch ? (
+                                    <Text style={styles.coHostHint}>Showing a few friends. Search by name to find someone else.</Text>
+                                ) : null}
+                                {selectedCoHosts.length ? (
+                                    <View style={styles.wrap}>
+                                        {selectedCoHosts.map((friend) => (
+                                            <TouchableOpacity
+                                                key={friend.user_id}
+                                                style={styles.selectedHostChip}
+                                                onPress={() => toggleCoHost(friend)}
+                                                activeOpacity={0.82}
+                                            >
+                                                <Text style={styles.selectedHostChipText}>{friend.username}</Text>
+                                                <Text style={styles.selectedHostChipRemove}>Remove</Text>
+                                            </TouchableOpacity>
+                                        ))}
+                                    </View>
+                                ) : null}
+                                <View style={styles.wrap}>
+                                    {availableCoHosts.length ? availableCoHosts.map((friend) => (
+                                        <ChoiceChip
+                                            key={friend.user_id}
+                                            label={friend.username}
+                                            selected={false}
+                                            onPress={() => toggleCoHost(friend)}
+                                        />
+                                    )) : (
+                                        <Text style={styles.emptyText}>
+                                            {coHostQuery.trim() ? 'No friends match that search.' : 'All available friends are selected.'}
+                                        </Text>
+                                    )}
+                                </View>
+                            </>
+                        ) : (
+                            <Text style={styles.emptyText}>Add friends first if you want co-host support on this event.</Text>
+                        )}
+                    </ExpandableSection>
+
+                    <ExpandableSection
+                        title="Visibility"
+                        summary={getVisibilityLabel(values.visibility)}
+                        expanded={visibilityOpen}
+                        onToggle={() => setVisibilityOpen((current) => !current)}
+                    >
+                        <View style={styles.wrap}>
+                            {(['public', 'unlisted'] as api.MeetupVisibility[]).map((visibility) => (
+                                <ChoiceChip
+                                    key={visibility}
+                                    label={getVisibilityLabel(visibility)}
+                                    selected={values.visibility === visibility}
+                                    onPress={() => onChange('visibility', visibility)}
+                                />
+                            ))}
+                        </View>
+                    </ExpandableSection>
+                </View>
+            </>
+        );
+    };
+
+    return (
+        <KeyboardAvoidingView behavior="padding" style={styles.container}>
+            <ScrollView
+                contentContainerStyle={[styles.content, contentStyle]}
+                keyboardDismissMode="interactive"
+                keyboardShouldPersistTaps="handled"
+                showsVerticalScrollIndicator={false}
+            >
+                <View style={styles.progressBlock}>
+                    <Text style={styles.progressText}>{`${STEPS[stepIndex]?.label ?? 'Step'} ${stepIndex + 1} of ${stepTotal}`}</Text>
+                    <View style={styles.progressTrack}>
+                        {STEPS.map((item, index) => (
+                            <View
+                                key={item.key}
+                                style={[
+                                    styles.progressSegment,
+                                    index <= stepIndex && styles.progressSegmentActive,
+                                ]}
+                            />
+                        ))}
+                    </View>
+                    <View style={styles.stepTitleRow}>
+                        <View style={styles.stepIcon}>
+                            <Ionicons name={STEPS[stepIndex]?.icon ?? 'sparkles-outline'} size={18} color={Colors.primary} />
+                        </View>
+                        <View style={styles.stepCopy}>
+                            <Text style={styles.stepTitle}>{STEPS[stepIndex]?.label ?? title}</Text>
+                            <Text style={styles.stepSubtitle}>{getStepSubtitle(step, mode)}</Text>
+                        </View>
+                    </View>
+                </View>
+
+                {!!error && (
+                    <View style={styles.errorCard}>
+                        <Text style={styles.errorText}>{error}</Text>
+                    </View>
+                )}
+
+                {renderStepContent()}
+            </ScrollView>
+
+            <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, Spacing.sm) + Spacing.sm }]}>
+                <View style={styles.footerActionRow}>
+                    {footerBackAction ? (
+                        <TouchableOpacity style={styles.backStepButton} onPress={footerBackAction} activeOpacity={0.84} disabled={loading}>
+                            {onBackStep ? <Ionicons name="chevron-back" size={18} color={Colors.primary} /> : null}
+                            <Text style={styles.backStepText}>{footerBackLabel}</Text>
+                        </TouchableOpacity>
+                    ) : null}
+                    <PrimaryButton
+                        label={primaryActionLabel}
+                        onPress={onPrimaryAction}
+                        loading={loading}
+                        variant={primaryActionVariant}
+                        rightAdornment={<Ionicons name="chevron-forward" size={18} color={primaryActionVariant === 'warning' ? Colors.textOn.warning : Colors.textOn.primary} />}
+                        style={styles.primaryAction}
+                    />
+                </View>
+                {secondaryActionLabel && onSecondaryAction ? (
+                    <View style={styles.footerSecondaryRow}>
+                        <TouchableOpacity style={styles.secondaryAction} onPress={onSecondaryAction} activeOpacity={0.84} disabled={loading}>
+                            <Text style={styles.secondaryActionText}>{secondaryActionLabel}</Text>
+                        </TouchableOpacity>
+                    </View>
+                ) : null}
+                {destructiveActionLabel && onDestructiveAction ? (
+                    <TouchableOpacity style={styles.destructiveAction} onPress={onDestructiveAction} activeOpacity={0.84} disabled={loading}>
                         <Text style={styles.destructiveActionText}>{destructiveActionLabel}</Text>
                     </TouchableOpacity>
                 ) : null}
             </View>
-        </ScrollView>
+        </KeyboardAvoidingView>
     );
 }
 
 const styles = StyleSheet.create({
+    container: {
+        flex: 1,
+    },
     content: {
         padding: Spacing.md,
         gap: Spacing.lg,
+    },
+    progressBlock: {
+        gap: Spacing.sm,
+        paddingTop: Spacing.sm,
+    },
+    progressText: {
+        ...TextStyles.caption,
+        color: Colors.primary,
+    },
+    progressTrack: {
+        flexDirection: 'row',
+        gap: Spacing.xs,
+    },
+    progressSegment: {
+        flex: 1,
+        height: 4,
+        borderRadius: Radius.pill,
+        backgroundColor: Colors.border.default,
+    },
+    progressSegmentActive: {
+        backgroundColor: Colors.primary,
+    },
+    stepTitleRow: {
+        flexDirection: 'row',
+        gap: Spacing.md,
+        alignItems: 'center',
+    },
+    stepIcon: {
+        width: 38,
+        height: 38,
+        borderRadius: Radius.pill,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: Colors.primarySubtle,
+    },
+    stepCopy: {
+        flex: 1,
+        gap: 2,
+    },
+    stepTitle: {
+        color: Colors.text.primary,
+        fontSize: Typography.sizes.lg,
+        fontWeight: '800',
+    },
+    stepSubtitle: {
+        ...TextStyles.secondary,
     },
     errorCard: {
         borderRadius: Radius.lg,
@@ -454,19 +695,82 @@ const styles = StyleSheet.create({
         fontSize: Typography.sizes.sm,
         fontWeight: '600',
     },
-    helperText: {
+    coverSection: {
+        gap: Spacing.sm,
+    },
+    coverHero: {
+        minHeight: 218,
+        borderRadius: Radius.lg,
+        overflow: 'hidden',
+        borderWidth: 1,
+        borderColor: Colors.border.default,
+        backgroundColor: Colors.bg.surface,
+    },
+    coverPreview: {
+        ...StyleSheet.absoluteFillObject,
+        width: '100%',
+        height: '100%',
+    },
+    coverPlaceholder: {
+        flex: 1,
+        minHeight: 218,
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: Spacing.sm,
+        paddingHorizontal: Spacing.lg,
+        backgroundColor: Colors.bg.surface,
+    },
+    coverPlaceholderTitle: {
+        color: Colors.text.primary,
+        fontSize: Typography.sizes.md,
+        fontWeight: '800',
+    },
+    coverPlaceholderText: {
         ...TextStyles.secondary,
+        textAlign: 'center',
+    },
+    coverOverlay: {
+        position: 'absolute',
+        right: Spacing.md,
+        bottom: Spacing.md,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: Spacing.xs,
+        borderRadius: Radius.pill,
+        paddingHorizontal: Spacing.md,
+        paddingVertical: 9,
+        backgroundColor: 'rgba(0,0,0,0.62)',
+    },
+    coverOverlayText: {
+        color: Colors.textOn.primary,
+        fontSize: Typography.sizes.sm,
+        fontWeight: '800',
+    },
+    coverRemoveButton: {
+        alignSelf: 'flex-start',
+        paddingHorizontal: Spacing.md,
+        paddingVertical: 9,
+        borderRadius: Radius.pill,
+        borderWidth: 1,
+        borderColor: Colors.border.default,
+        backgroundColor: Colors.bg.surface,
+    },
+    coverRemoveText: {
+        ...TextStyles.chip,
     },
     section: {
         gap: Spacing.sm,
         padding: Spacing.md,
-        borderRadius: Radius.xl,
+        borderRadius: Radius.lg,
         borderWidth: 1,
         borderColor: Colors.border.subtle,
         backgroundColor: Colors.bg.surface,
     },
     sectionTitle: {
         ...TextStyles.sectionTitle,
+    },
+    fieldLabel: {
+        ...TextStyles.label,
     },
     wrap: {
         flexDirection: 'row',
@@ -492,6 +796,126 @@ const styles = StyleSheet.create({
     chipTextSelected: {
         color: Colors.primary,
     },
+    eventTypeGrid: {
+        flexDirection: 'row',
+        gap: Spacing.sm,
+    },
+    eventTypeCard: {
+        flex: 1,
+        minHeight: 88,
+        borderRadius: Radius.lg,
+        borderWidth: 1,
+        borderColor: Colors.border.default,
+        backgroundColor: Colors.bg.page,
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: Spacing.sm,
+        padding: Spacing.sm,
+    },
+    eventTypeCardSelected: {
+        borderColor: Colors.primary,
+        backgroundColor: Colors.primarySubtle,
+    },
+    eventTypeIcon: {
+        width: 34,
+        height: 34,
+        borderRadius: Radius.pill,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: Colors.primarySubtle,
+    },
+    eventTypeIconSelected: {
+        backgroundColor: Colors.primary,
+    },
+    eventTypeLabel: {
+        ...TextStyles.caption,
+        textAlign: 'center',
+    },
+    eventTypeLabelSelected: {
+        color: Colors.primary,
+    },
+    multilineField: {
+        minHeight: 110,
+        textAlignVertical: 'top',
+    },
+    row: {
+        flexDirection: 'row',
+        gap: Spacing.md,
+    },
+    half: {
+        flex: 1,
+        gap: Spacing.xs,
+    },
+    pickerButton: {
+        borderRadius: Radius.md,
+        paddingHorizontal: Spacing.md,
+        paddingVertical: 13,
+        minHeight: ControlSizes.inputMinHeight,
+        borderWidth: 0.5,
+        borderColor: Colors.border.default,
+        backgroundColor: Colors.bg.page,
+    },
+    pickerButtonText: {
+        ...TextStyles.input,
+    },
+    inlinePickerWrap: {
+        borderRadius: Radius.lg,
+        backgroundColor: Colors.bg.page,
+        paddingHorizontal: Spacing.sm,
+    },
+    expandable: {
+        borderRadius: Radius.md,
+        borderWidth: 1,
+        borderColor: Colors.border.default,
+        backgroundColor: Colors.bg.page,
+        overflow: 'hidden',
+    },
+    expandableHeader: {
+        minHeight: 58,
+        paddingHorizontal: Spacing.md,
+        paddingVertical: Spacing.sm,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: Spacing.md,
+    },
+    expandableCopy: {
+        flex: 1,
+        gap: 2,
+    },
+    expandableTitle: {
+        ...TextStyles.bodyEmphasis,
+    },
+    expandableSummary: {
+        ...TextStyles.caption,
+        color: Colors.text.secondary,
+    },
+    expandableBody: {
+        gap: Spacing.sm,
+        padding: Spacing.md,
+        borderTopWidth: 1,
+        borderTopColor: Colors.border.subtle,
+    },
+    switchRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        gap: Spacing.md,
+        paddingVertical: Spacing.xs,
+    },
+    switchCopy: {
+        flex: 1,
+        gap: 3,
+    },
+    switchTitle: {
+        ...TextStyles.bodyEmphasis,
+    },
+    switchSubtitle: {
+        ...TextStyles.secondary,
+    },
+    coHostHint: {
+        ...TextStyles.caption,
+        color: Colors.text.secondary,
+    },
     selectedHostChip: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -512,119 +936,47 @@ const styles = StyleSheet.create({
         fontWeight: '700',
         opacity: 0.84,
     },
-    emptyHostsText: {
+    emptyText: {
         ...TextStyles.secondary,
     },
-    multilineField: {
-        minHeight: 110,
-        textAlignVertical: 'top',
+    footer: {
+        borderTopWidth: 1,
+        borderTopColor: Colors.border.default,
+        backgroundColor: Colors.bg.page,
+        paddingHorizontal: Spacing.md,
+        paddingTop: Spacing.sm,
+        gap: Spacing.sm,
     },
-    row: {
+    footerActionRow: {
         flexDirection: 'row',
-        gap: Spacing.md,
+        alignItems: 'center',
+        gap: Spacing.sm,
     },
-    half: {
-        flex: 1,
-        gap: Spacing.xs,
-    },
-    fieldLabel: {
-        ...TextStyles.label,
-    },
-    pickerButton: {
+    backStepButton: {
+        minHeight: ControlSizes.buttonMinHeight,
+        minWidth: 92,
         borderRadius: Radius.md,
-        paddingHorizontal: Spacing.md,
-        paddingVertical: 13,
-        minHeight: ControlSizes.inputMinHeight,
-        borderWidth: 0.5,
-        borderColor: Colors.border.default,
-        backgroundColor: Colors.bg.surface,
-    },
-    pickerButtonText: {
-        ...TextStyles.input,
-    },
-    inlinePickerWrap: {
-        borderRadius: Radius.lg,
-        backgroundColor: Colors.bg.page,
-        paddingHorizontal: Spacing.sm,
-    },
-    switchRow: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        gap: Spacing.md,
-        paddingVertical: Spacing.xs,
-    },
-    switchCopy: {
-        flex: 1,
-        gap: 3,
-    },
-    switchTitle: {
-        ...TextStyles.bodyEmphasis,
-    },
-    switchSubtitle: {
-        ...TextStyles.secondary,
-    },
-    coverSection: {
-        gap: Spacing.sm,
-    },
-    coverPreview: {
-        alignSelf: 'stretch',
-        height: 220,
-        marginHorizontal: -(Spacing.md * 2),
-        backgroundColor: Colors.bg.surface,
-    },
-    coverPlaceholder: {
-        minHeight: 120,
-        borderRadius: Radius.lg,
-        borderWidth: 1,
-        borderColor: Colors.border.default,
-        borderStyle: 'dashed',
-        backgroundColor: Colors.bg.page,
-        alignItems: 'center',
-        justifyContent: 'center',
-        paddingHorizontal: Spacing.lg,
-    },
-    coverPlaceholderText: {
-        ...TextStyles.secondary,
-        textAlign: 'center',
-    },
-    coverActions: {
-        flexDirection: 'row',
-        gap: Spacing.sm,
-        alignItems: 'center',
-    },
-    coverActionButton: {
-        paddingHorizontal: Spacing.md,
-        paddingVertical: 10,
-        borderRadius: Radius.pill,
-        backgroundColor: Colors.primarySubtle,
         borderWidth: 1,
         borderColor: Colors.primary,
-    },
-    coverActionText: {
-        color: Colors.primary,
-        fontSize: TextStyles.chip.fontSize,
-        fontWeight: TextStyles.label.fontWeight,
-    },
-    coverSecondaryAction: {
+        backgroundColor: Colors.primarySubtle,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: Spacing.xs,
         paddingHorizontal: Spacing.md,
-        paddingVertical: 10,
-        borderRadius: Radius.pill,
-        backgroundColor: Colors.bg.page,
-        borderWidth: 1,
-        borderColor: Colors.border.default,
     },
-    coverSecondaryActionText: {
-        ...TextStyles.chip,
+    backStepText: {
+        color: Colors.primary,
+        fontSize: Typography.sizes.sm,
+        fontWeight: '800',
     },
-    footerActions: {
+    footerSecondaryRow: {
         gap: Spacing.sm,
-        paddingBottom: Spacing.xl,
     },
     secondaryAction: {
         alignItems: 'center',
         justifyContent: 'center',
-        minHeight: ControlSizes.fabMinHeight,
+        minHeight: ControlSizes.buttonMinHeight,
         borderRadius: Radius.md,
         borderWidth: 1,
         borderColor: Colors.primary,
@@ -637,12 +989,12 @@ const styles = StyleSheet.create({
         fontWeight: TextStyles.button.fontWeight,
     },
     primaryAction: {
-        width: '100%',
+        flex: 1,
     },
     destructiveAction: {
         alignItems: 'center',
         justifyContent: 'center',
-        minHeight: ControlSizes.fabMinHeight,
+        minHeight: ControlSizes.buttonMinHeight,
         borderRadius: Radius.md,
         borderWidth: 1,
         borderColor: Colors.danger,

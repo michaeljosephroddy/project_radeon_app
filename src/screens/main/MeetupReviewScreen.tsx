@@ -115,7 +115,7 @@ export function MeetupReviewScreen({
     const coordinateSummary = values.lat.trim() && values.lng.trim()
         ? `${values.lat.trim()}, ${values.lng.trim()}`
         : '';
-    const bottomSafePadding = Math.max(insets.bottom, Spacing.md) + Spacing.xl;
+    const bottomSafePadding = Spacing.xl;
 
     return (
         <View style={styles.container}>
@@ -160,25 +160,26 @@ export function MeetupReviewScreen({
                 <SummaryItem label="Co-hosts" value={coHostSummary} />
                 {coordinateSummary ? <SummaryItem label="Coordinates" value={coordinateSummary} /> : null}
 
-                <View style={styles.actionStack}>
-                    {secondaryActionLabel && onSecondaryAction ? (
-                        <TouchableOpacity style={styles.secondaryAction} onPress={onSecondaryAction} activeOpacity={0.82} disabled={loading}>
-                            <Text style={styles.secondaryActionText}>{secondaryActionLabel}</Text>
-                        </TouchableOpacity>
-                    ) : null}
-                    <PrimaryButton
-                        label={primaryActionLabel}
-                        onPress={onPrimaryAction}
-                        loading={loading}
-                        variant={primaryActionVariant}
-                    />
-                    {destructiveActionLabel && onDestructiveAction ? (
-                        <TouchableOpacity style={styles.destructiveAction} onPress={onDestructiveAction} activeOpacity={0.82} disabled={loading}>
-                            <Text style={styles.destructiveActionText}>{destructiveActionLabel}</Text>
-                        </TouchableOpacity>
-                    ) : null}
-                </View>
             </ScrollView>
+
+            <View style={[styles.actionStack, { paddingBottom: Math.max(insets.bottom, Spacing.sm) + Spacing.sm }]}>
+                {secondaryActionLabel && onSecondaryAction ? (
+                    <TouchableOpacity style={styles.secondaryAction} onPress={onSecondaryAction} activeOpacity={0.82} disabled={loading}>
+                        <Text style={styles.secondaryActionText}>{secondaryActionLabel}</Text>
+                    </TouchableOpacity>
+                ) : null}
+                <PrimaryButton
+                    label={primaryActionLabel}
+                    onPress={onPrimaryAction}
+                    loading={loading}
+                    variant={primaryActionVariant}
+                />
+                {destructiveActionLabel && onDestructiveAction ? (
+                    <TouchableOpacity style={styles.destructiveAction} onPress={onDestructiveAction} activeOpacity={0.82} disabled={loading}>
+                        <Text style={styles.destructiveActionText}>{destructiveActionLabel}</Text>
+                    </TouchableOpacity>
+                ) : null}
+            </View>
         </View>
     );
 }
@@ -295,8 +296,12 @@ const styles = StyleSheet.create({
         lineHeight: 20,
     },
     actionStack: {
+        borderTopWidth: 1,
+        borderTopColor: Colors.border.default,
+        backgroundColor: Colors.bg.page,
         gap: Spacing.sm,
-        paddingBottom: Spacing.xl,
+        paddingHorizontal: Spacing.md,
+        paddingTop: Spacing.sm,
     },
     secondaryAction: {
         alignItems: 'center',

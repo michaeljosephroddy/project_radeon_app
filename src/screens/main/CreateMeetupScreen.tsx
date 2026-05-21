@@ -5,7 +5,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as api from '../../api/client';
-import { MeetupForm } from '../../components/events/MeetupForm';
+import { MeetupForm, type MeetupFormStep } from '../../components/events/MeetupForm';
 import { MeetupFormValues } from '../../components/events/MeetupFormState';
 import { CREATE_SURFACE_HEADER_HEIGHT, CreateSurfaceHeader } from '../../components/ui/CreateSurfaceHeader';
 import { useAuth } from '../../hooks/useAuth';
@@ -23,6 +23,27 @@ interface CreateMeetupScreenProps {
 
 type CreateStage = 'form' | 'review';
 type MeetupFormMode = 'create' | 'published';
+const MEETUP_FORM_STEPS: MeetupFormStep[] = ['essentials', 'when_where', 'attendance'];
+
+function getStepForValidationError(error: string): MeetupFormStep {
+    if (
+        error.includes('Title')
+        || error.includes('category')
+    ) {
+        return 'essentials';
+    }
+    if (
+        error.includes('City')
+        || error.includes('start')
+        || error.includes('End')
+        || error.includes('Online')
+        || error.includes('Latitude')
+        || error.includes('Longitude')
+    ) {
+        return 'when_where';
+    }
+    return 'attendance';
+}
 
 function formatDateInput(date: Date): string {
     const year = date.getFullYear();
@@ -130,30 +151,30 @@ function parseOptionalCoordinate(
     return { value: parsed };
 }
 
-function validateMeetupForm(form: MeetupFormValues, status: Extract<api.MeetupStatus, 'published'>): { error: string } | { values: api.MeetupUpsertInput } {
+function validateMeetupForm(form: MeetupFormValues, status: Extract<api.MeetupStatus, 'published'>): { error: string; step: MeetupFormStep } | { values: api.MeetupUpsertInput } {
     const starts_at = buildStartsAt(form.starts_on, form.starts_at);
     const ends_at = buildStartsAt(form.ends_on, form.ends_at);
-    if (!form.title.trim()) return { error: 'Title is required.' };
-    if (!form.category_slug) return { error: 'Choose a category.' };
-    if (!form.city.trim()) return { error: 'City is required.' };
-    if (!starts_at) return { error: 'Enter a valid start date and time.' };
+    if (!form.title.trim()) return { error: 'Title is required.', step: 'essentials' };
+    if (!form.category_slug) return { error: 'Choose a category.', step: 'essentials' };
+    if (!form.city.trim()) return { error: 'City is required.', step: 'when_where' };
+    if (!starts_at) return { error: 'Enter a valid start date and time.', step: 'when_where' };
     if (form.ends_on.trim() || form.ends_at.trim()) {
-        if (!ends_at) return { error: 'Enter a valid end date and time.' };
-        if (new Date(ends_at) <= new Date(starts_at)) return { error: 'End time must be after the start time.' };
+        if (!ends_at) return { error: 'Enter a valid end date and time.', step: 'when_where' };
+        if (new Date(ends_at) <= new Date(starts_at)) return { error: 'End time must be after the start time.', step: 'when_where' };
     }
-    if (form.event_type === 'online' && !form.online_url.trim()) return { error: 'Online events need a link.' };
+    if (form.event_type === 'online' && !form.online_url.trim()) return { error: 'Online events need a link.', step: 'when_where' };
     if (form.capacity.trim()) {
         const capacity = Number(form.capacity);
         if (!Number.isFinite(capacity) || capacity < 1) {
-            return { error: 'Capacity must be empty or greater than 0.' };
+            return { error: 'Capacity must be empty or greater than 0.', step: 'attendance' };
         }
     }
     const parsedLat = parseOptionalCoordinate(form.lat, 'Latitude', -90, 90);
-    if ('error' in parsedLat) return { error: parsedLat.error };
+    if ('error' in parsedLat) return { error: parsedLat.error, step: getStepForValidationError(parsedLat.error) };
     const parsedLng = parseOptionalCoordinate(form.lng, 'Longitude', -180, 180);
-    if ('error' in parsedLng) return { error: parsedLng.error };
+    if ('error' in parsedLng) return { error: parsedLng.error, step: getStepForValidationError(parsedLng.error) };
     if ((parsedLat.value === null) !== (parsedLng.value === null)) {
-        return { error: 'Latitude and longitude must be provided together.' };
+        return { error: 'Latitude and longitude must be provided together.', step: 'when_where' };
     }
 
     return {
@@ -197,6 +218,7 @@ export function CreateMeetupScreen({
     const coverUploadTokenRef = useRef(0);
     const [formValues, setFormValues] = useState<MeetupFormValues>(() => meetup ? meetupToFormValues(meetup) : defaultFormValues(user));
     const [createStage, setCreateStage] = useState<CreateStage>('form');
+    const [currentStepIndex, setCurrentStepIndex] = useState(0);
     const [submitting, setSubmitting] = useState(false);
     const [uploadingCover, setUploadingCover] = useState(false);
     const [localCoverPreviewUri, setLocalCoverPreviewUri] = useState<string | null>(null);
@@ -218,10 +240,34 @@ export function CreateMeetupScreen({
         ? 'Your changes will apply directly to the live event.'
         : 'Review everything before this event goes live.';
     const bottomSafePadding = Math.max(insets.bottom, Spacing.md) + Spacing.xl;
+    const currentStep = MEETUP_FORM_STEPS[currentStepIndex] ?? 'essentials';
+    const isFinalStep = currentStepIndex === MEETUP_FORM_STEPS.length - 1;
+    const formActionLabel = isFinalStep ? formReviewActionLabel : 'Next';
 
     const handleChangeFormValue = (key: keyof MeetupFormValues, value: string | boolean | string[]) => {
         setFormValues((current) => ({ ...current, [key]: value } as MeetupFormValues));
         if (formError) setFormError('');
+    };
+
+    const goToValidationError = (error: string, step: MeetupFormStep): void => {
+        setFormError(error);
+        setCurrentStepIndex(Math.max(0, MEETUP_FORM_STEPS.indexOf(step)));
+        setCreateStage('form');
+    };
+
+    const handleFormPrimaryAction = (): void => {
+        if (!isFinalStep) {
+            setCurrentStepIndex((index) => Math.min(MEETUP_FORM_STEPS.length - 1, index + 1));
+            return;
+        }
+
+        const validated = validateMeetupForm(formValues, 'published');
+        if ('error' in validated) {
+            goToValidationError(validated.error, validated.step);
+            return;
+        }
+        setFormError('');
+        setCreateStage('review');
     };
 
     const handlePickCoverImage = async () => {
@@ -302,7 +348,7 @@ export function CreateMeetupScreen({
 
         const validated = validateMeetupForm(formValues, 'published');
         if ('error' in validated) {
-            setFormError(validated.error);
+            goToValidationError(validated.error, validated.step);
             return;
         }
 
@@ -354,16 +400,20 @@ export function CreateMeetupScreen({
                         categories={categories}
                         friends={friends}
                         mode={formMode}
+                        step={currentStep}
+                        stepIndex={currentStepIndex}
+                        stepTotal={MEETUP_FORM_STEPS.length}
                         loading={submitting}
                         coverUploading={uploadingCover}
                         coverPreviewUri={activeCoverPreviewUri}
                         error={formError}
-                        primaryActionLabel={formReviewActionLabel}
+                        primaryActionLabel={formActionLabel}
                         primaryActionVariant={formMode === 'published' ? 'primary' : 'success'}
                         onChange={handleChangeFormValue}
                         onPickCover={handlePickCoverImage}
                         onRemoveCover={handleRemoveCoverImage}
-                        onPrimaryAction={() => setCreateStage('review')}
+                        onPrimaryAction={handleFormPrimaryAction}
+                        onBackStep={currentStepIndex > 0 ? () => setCurrentStepIndex((index) => Math.max(0, index - 1)) : undefined}
                         contentStyle={[styles.formContent, { paddingBottom: bottomSafePadding }]}
                     />
                 </>
