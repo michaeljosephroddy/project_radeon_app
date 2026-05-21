@@ -29,7 +29,6 @@ interface GroupsScreenProps {
     isActive: boolean;
     onOpenGroup: (groupId: string) => void;
     onGroupJoined?: (group: api.Group) => void;
-    guidedHighlightJoinAction?: boolean;
 }
 
 type GroupScope = 'discover' | 'joined';
@@ -124,7 +123,7 @@ const GroupSearchRow = React.memo(function GroupSearchRow({
     );
 });
 
-export function GroupsScreen({ isActive, onOpenGroup, onGroupJoined, guidedHighlightJoinAction = false }: GroupsScreenProps): React.ReactElement {
+export function GroupsScreen({ isActive, onOpenGroup, onGroupJoined }: GroupsScreenProps): React.ReactElement {
     const listRef = useRef<FlatList<api.Group> | null>(null);
     const scrollToTop = useScrollToTopButton({ threshold: 520 });
     const [query, setQuery] = useState('');
@@ -222,7 +221,6 @@ export function GroupsScreen({ isActive, onOpenGroup, onGroupJoined, guidedHighl
         <GroupCard
             group={item}
             isJoining={joinMutation.isPending}
-            guidedHighlightJoinAction={guidedHighlightJoinAction}
             onJoin={() => handleJoin(item)}
             onOpen={() => onOpenGroup(item.id)}
         />
@@ -405,12 +403,11 @@ export function GroupsScreen({ isActive, onOpenGroup, onGroupJoined, guidedHighl
 interface GroupCardProps {
     group: api.Group;
     isJoining: boolean;
-    guidedHighlightJoinAction: boolean;
     onJoin: () => void;
     onOpen: () => void;
 }
 
-function GroupCard({ group, isJoining, guidedHighlightJoinAction, onJoin, onOpen }: GroupCardProps): React.ReactElement {
+function GroupCard({ group, isJoining, onJoin, onOpen }: GroupCardProps): React.ReactElement {
     const colors = getAvatarColors(group.name);
     const isCommunitySupport = group.system_key === COMMUNITY_SUPPORT_KEY;
     const isMember = isCommunitySupport || group.viewer_status === 'active';
@@ -445,7 +442,6 @@ function GroupCard({ group, isJoining, guidedHighlightJoinAction, onJoin, onOpen
                             isMember={isMember}
                             canRequest={canRequest}
                             isJoining={isJoining}
-                            guidedHighlightJoinAction={guidedHighlightJoinAction}
                             onJoin={onJoin}
                         />
                     </View>
@@ -479,7 +475,6 @@ interface GroupStatusActionProps {
     isMember: boolean;
     canRequest: boolean;
     isJoining: boolean;
-    guidedHighlightJoinAction: boolean;
     onJoin: () => void;
 }
 
@@ -488,7 +483,6 @@ function GroupStatusAction({
     isMember,
     canRequest,
     isJoining,
-    guidedHighlightJoinAction,
     onJoin,
 }: GroupStatusActionProps): React.ReactElement {
     if (isMember) {
@@ -512,7 +506,6 @@ function GroupStatusAction({
         <TouchableOpacity
             style={[
                 styles.joinButton,
-                guidedHighlightJoinAction && canRequest && styles.guidedActionHighlight,
                 !canRequest && styles.joinButtonDisabled,
             ]}
             onPress={(event) => {
@@ -765,15 +758,6 @@ const styles = StyleSheet.create({
         borderRadius: Radius.pill,
         paddingHorizontal: Spacing.md,
         backgroundColor: Colors.primary,
-    },
-    guidedActionHighlight: {
-        borderWidth: 1,
-        borderColor: Colors.info,
-        shadowColor: Colors.primary,
-        shadowOffset: { width: 0, height: 0 },
-        shadowOpacity: 0.45,
-        shadowRadius: 12,
-        elevation: 8,
     },
     joinButtonDisabled: {
         opacity: 0.5,

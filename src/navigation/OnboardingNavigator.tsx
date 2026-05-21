@@ -8,7 +8,6 @@ import { SobrietyStep } from '../screens/onboarding/SobrietyStep';
 import { LocationStep } from '../screens/onboarding/LocationStep';
 import { InterestsStep } from '../screens/onboarding/InterestsStep';
 import { IntentStep } from '../screens/onboarding/IntentStep';
-import { GuidedOnboardingApp } from './GuidedOnboardingApp';
 
 export interface OnboardingStepProps {
     onNext: () => void;
@@ -26,6 +25,9 @@ export function OnboardingNavigator() {
 
     const next = () => setStep(s => s + 1);
     const back = () => setStep(s => Math.max(0, s - 1));
+    const finish = () => {
+        void completeOnboarding();
+    };
 
     const dotProps = (stepIndex: number): Omit<OnboardingStepProps, 'onNext' | 'onSkip'> => ({
         dotIndex: stepIndex - 1,
@@ -40,8 +42,7 @@ export function OnboardingNavigator() {
         case 4: return <SobrietyStep onNext={next} onBack={back} {...dotProps(4)} />;
         case 5: return <LocationStep onNext={next} onBack={back} {...dotProps(5)} />;
         case 6: return <InterestsStep onNext={next} onBack={back} {...dotProps(6)} />;
-        case 7: return <IntentStep onNext={next} onBack={back} {...dotProps(7)} />;
-        case 8: return <GuidedOnboardingApp onBack={back} />;
-        default: completeOnboarding(); return null;
+        case 7: return <IntentStep onNext={finish} onBack={back} {...dotProps(7)} />;
+        default: return null;
     }
 }
