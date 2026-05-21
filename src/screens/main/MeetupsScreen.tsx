@@ -17,7 +17,7 @@ import { Swipeable } from 'react-native-gesture-handler';
 import * as api from '../../api/client';
 import { MeetupCard } from '../../components/events/MeetupCard';
 import { MeetupFilterSheet } from '../../components/events/MeetupFilterSheet';
-import { MeetupForm } from '../../components/events/MeetupForm';
+import { MeetupForm, type MeetupFormStep } from '../../components/events/MeetupForm';
 import { MeetupFormValues } from '../../components/events/MeetupFormState';
 import { EmptyState } from '../../components/ui/EmptyState';
 import type { CardActionMenuAction } from '../../components/ui/CardActionMenu';
@@ -50,6 +50,7 @@ import { screenStandards } from '../../styles/screenStandards';
 type MeetupPrimaryView = 'discover' | 'hosting' | 'going' | 'create';
 type HostingScope = Extract<api.MyMeetupScope, 'upcoming' | 'cancelled' | 'past'>;
 type CreateStage = 'form' | 'review';
+const MEETUP_FORM_STEPS: MeetupFormStep[] = ['essentials', 'when_where', 'attendance'];
 
 interface MeetupsScreenProps {
     isActive: boolean;
@@ -182,30 +183,30 @@ function meetupToFormValues(meetup: api.Meetup): MeetupFormValues {
     };
 }
 
-function validateMeetupForm(form: MeetupFormValues, status: Extract<api.MeetupStatus, 'published'>): { error: string } | { values: api.MeetupUpsertInput } {
+function validateMeetupForm(form: MeetupFormValues, status: Extract<api.MeetupStatus, 'published'>): { error: string; step: MeetupFormStep } | { values: api.MeetupUpsertInput } {
     const starts_at = buildStartsAt(form.starts_on, form.starts_at);
     const ends_at = buildStartsAt(form.ends_on, form.ends_at);
-    if (!form.title.trim()) return { error: 'Title is required.' };
-    if (!form.category_slug) return { error: 'Choose a category.' };
-    if (!form.city.trim()) return { error: 'City is required.' };
-    if (!starts_at) return { error: 'Enter a valid start date and time.' };
+    if (!form.title.trim()) return { error: 'Title is required.', step: 'essentials' };
+    if (!form.category_slug) return { error: 'Choose a category.', step: 'essentials' };
+    if (!form.city.trim()) return { error: 'City is required.', step: 'when_where' };
+    if (!starts_at) return { error: 'Enter a valid start date and time.', step: 'when_where' };
     if (form.ends_on.trim() || form.ends_at.trim()) {
-        if (!ends_at) return { error: 'Enter a valid end date and time.' };
-        if (new Date(ends_at) <= new Date(starts_at)) return { error: 'End time must be after the start time.' };
+        if (!ends_at) return { error: 'Enter a valid end date and time.', step: 'when_where' };
+        if (new Date(ends_at) <= new Date(starts_at)) return { error: 'End time must be after the start time.', step: 'when_where' };
     }
-    if (form.event_type === 'online' && !form.online_url.trim()) return { error: 'Online events need a link.' };
+    if (form.event_type === 'online' && !form.online_url.trim()) return { error: 'Online events need a link.', step: 'when_where' };
     if (form.capacity.trim()) {
         const capacity = Number(form.capacity);
         if (!Number.isFinite(capacity) || capacity < 1) {
-            return { error: 'Capacity must be empty or greater than 0.' };
+            return { error: 'Capacity must be empty or greater than 0.', step: 'attendance' };
         }
     }
     const parsedLat = parseOptionalCoordinate(form.lat, 'Latitude', -90, 90);
-    if ('error' in parsedLat) return { error: parsedLat.error };
+    if ('error' in parsedLat) return { error: parsedLat.error, step: 'when_where' };
     const parsedLng = parseOptionalCoordinate(form.lng, 'Longitude', -180, 180);
-    if ('error' in parsedLng) return { error: parsedLng.error };
+    if ('error' in parsedLng) return { error: parsedLng.error, step: 'when_where' };
     if ((parsedLat.value === null) !== (parsedLng.value === null)) {
-        return { error: 'Latitude and longitude must be provided together.' };
+        return { error: 'Latitude and longitude must be provided together.', step: 'when_where' };
     }
 
     return {
@@ -363,6 +364,7 @@ export function MeetupsScreen({
     const [editingMeetup, setEditingMeetup] = useState<api.Meetup | null>(null);
     const [formValues, setFormValues] = useState<MeetupFormValues>(() => defaultFormValues(user));
     const [createStage, setCreateStage] = useState<CreateStage>('form');
+    const [currentStepIndex, setCurrentStepIndex] = useState(0);
     const [submitting, setSubmitting] = useState(false);
     const [uploadingCover, setUploadingCover] = useState(false);
     const [localCoverPreviewUri, setLocalCoverPreviewUri] = useState<string | null>(null);
@@ -604,6 +606,7 @@ export function MeetupsScreen({
     const handlePrimaryTabChange = (key: string) => {
         if (key === 'create') {
             setCreateStage('form');
+            setCurrentStepIndex(0);
         }
         setActiveView(key as MeetupPrimaryView);
     };
@@ -611,6 +614,28 @@ export function MeetupsScreen({
     const handleChangeFormValue = (key: keyof MeetupFormValues, value: string | boolean | string[]) => {
         setFormValues((current) => ({ ...current, [key]: value } as MeetupFormValues));
         if (formError) setFormError('');
+    };
+
+    const goToValidationError = (error: string, step: MeetupFormStep): void => {
+        setFormError(error);
+        setCurrentStepIndex(Math.max(0, MEETUP_FORM_STEPS.indexOf(step)));
+        setCreateStage('form');
+    };
+
+    const handleFormPrimaryAction = (): void => {
+        if (currentStepIndex < MEETUP_FORM_STEPS.length - 1) {
+            setCurrentStepIndex((index) => Math.min(MEETUP_FORM_STEPS.length - 1, index + 1));
+            return;
+        }
+
+        const nextStatus = editingMeetup?.status === 'published' ? 'published' : 'published';
+        const validated = validateMeetupForm(formValues, nextStatus);
+        if ('error' in validated) {
+            goToValidationError(validated.error, validated.step);
+            return;
+        }
+        setFormError('');
+        setCreateStage('review');
     };
 
     const handlePickCoverImage = async () => {
@@ -692,7 +717,7 @@ export function MeetupsScreen({
         const nextStatus = editingMeetup?.status === 'published' ? 'published' : status;
         const validated = validateMeetupForm(formValues, nextStatus);
         if ('error' in validated) {
-            setFormError(validated.error);
+            goToValidationError(validated.error, validated.step);
             return;
         }
 
@@ -723,6 +748,7 @@ export function MeetupsScreen({
         setLocalCoverPreviewUri(null);
         setFormError('');
         setCreateStage('form');
+        setCurrentStepIndex(0);
         setHostingScope(targetScope);
         setActiveView('hosting');
 
@@ -758,6 +784,7 @@ export function MeetupsScreen({
         setLocalCoverPreviewUri(null);
         setFormError('');
         setCreateStage('form');
+        setCurrentStepIndex(0);
     };
 
     const closeCreateEditor = () => {
@@ -1060,6 +1087,10 @@ export function MeetupsScreen({
     const formDestructiveActionLabel = formMode === 'published'
         ? 'Cancel event'
         : undefined;
+    const currentStep = MEETUP_FORM_STEPS[currentStepIndex] ?? 'essentials';
+    const formActionLabel = currentStepIndex === MEETUP_FORM_STEPS.length - 1
+        ? formReviewActionLabel
+        : 'Next';
     const canSwipeManageList = activeView === 'hosting' && hostingScope === 'upcoming';
     const getPrimaryAction = (meetup: api.Meetup) => {
         if (meetup.can_manage) return undefined;
@@ -1135,18 +1166,22 @@ export function MeetupsScreen({
                                 categories={categories}
                                 friends={friends}
                                 mode={formMode}
+                                step={currentStep}
+                                stepIndex={currentStepIndex}
+                                stepTotal={MEETUP_FORM_STEPS.length}
                                 loading={submitting}
                                 coverUploading={uploadingCover}
                                 coverPreviewUri={activeCoverPreviewUri}
                                 error={formError}
-                                primaryActionLabel={formReviewActionLabel}
+                                primaryActionLabel={formActionLabel}
                                 primaryActionVariant={formMode === 'published' ? 'primary' : 'success'}
                                 secondaryActionLabel={formSecondaryActionLabel}
                                 destructiveActionLabel={formDestructiveActionLabel}
                                 onChange={handleChangeFormValue}
                                 onPickCover={handlePickCoverImage}
                                 onRemoveCover={handleRemoveCoverImage}
-                                onPrimaryAction={() => setCreateStage('review')}
+                                onPrimaryAction={handleFormPrimaryAction}
+                                onBackStep={currentStepIndex > 0 ? () => setCurrentStepIndex((index) => Math.max(0, index - 1)) : undefined}
                                 onSecondaryAction={undefined}
                                 onDestructiveAction={formMode === 'published' ? handleCancelPublishedEdit : undefined}
                                 onCancelEdit={editingMeetup ? closeCreateEditor : undefined}
@@ -1197,6 +1232,8 @@ export function MeetupsScreen({
                             const swipeLabel = canDeleteMeetup(item) ? 'Delete' : 'Cancel';
                             return (
                                 <Swipeable
+                                    containerStyle={styles.swipeableMeetupRow}
+                                    childrenContainerStyle={styles.swipeableMeetupContent}
                                     overshootRight={false}
                                     renderRightActions={() => (
                                         <TouchableOpacity
@@ -1274,6 +1311,12 @@ const styles = StyleSheet.create({
         color: Colors.textOn.primary,
         fontSize: Typography.sizes.sm,
         fontWeight: '700',
+    },
+    swipeableMeetupRow: {
+        marginHorizontal: -ContentInsets.screenHorizontal,
+    },
+    swipeableMeetupContent: {
+        paddingHorizontal: ContentInsets.screenHorizontal,
     },
     createPane: {
         flex: 1,
