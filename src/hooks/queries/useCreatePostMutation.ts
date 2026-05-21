@@ -15,13 +15,13 @@ export function useCreatePostMutation() {
 
     return useMutation({
         mutationFn: (input: CreatePostMutationInput) => api.createPost(input),
-        onSuccess: async () => {
-            await Promise.all([
+        onSuccess: () => {
+            void Promise.all([
                 queryClient.invalidateQueries({ queryKey: queryKeys.homeFeed() }),
                 user?.id
                     ? queryClient.invalidateQueries({ queryKey: queryKeys.userPosts(user.id) })
                     : Promise.resolve(),
-            ]);
+            ]).catch(() => undefined);
         },
     });
 }

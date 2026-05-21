@@ -1,5 +1,5 @@
 import React from 'react';
-import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Image, StyleProp, StyleSheet, Text, TouchableOpacity, View, ViewStyle } from 'react-native';
 import * as api from '../../api/client';
 import { Avatar } from '../Avatar';
 import { MeetupEventTypeBadge } from './MeetupEventTypeBadge';
@@ -12,6 +12,7 @@ interface MeetupCardProps {
     onPrimaryAction?: (meetup: api.Meetup) => void;
     primaryLabel?: string;
     actionDisabled?: boolean;
+    actionStyle?: StyleProp<ViewStyle>;
     actions?: CardActionMenuAction[];
 }
 
@@ -36,6 +37,7 @@ export const MeetupCard = React.memo(function MeetupCard({
     onPrimaryAction,
     primaryLabel,
     actionDisabled = false,
+    actionStyle,
     actions,
 }: MeetupCardProps) {
     const date = formatEventDate(meetup.starts_at);
@@ -119,6 +121,7 @@ export const MeetupCard = React.memo(function MeetupCard({
                                 meetup.is_attending && styles.actionButtonActive,
                                 meetup.is_waitlisted && styles.actionButtonWaitlist,
                                 meetup.can_manage && styles.actionButtonManage,
+                                actionStyle,
                                 actionDisabled && styles.actionButtonDisabled,
                             ]}
                             onPress={() => onPrimaryAction(meetup)}

@@ -24,6 +24,8 @@ interface MeetupDetailScreenProps {
     meetup: api.Meetup;
     onBack: () => void;
     onOpenUserProfile: (profile: { userId: string; username: string; avatarUrl?: string }) => void;
+    onRsvpComplete?: (meetup: api.Meetup, result: api.MeetupRsvpResult) => void;
+    guidedHighlightPrimaryAction?: boolean;
 }
 
 function formatRange(startsAt: string, endsAt?: string | null): string {
@@ -50,6 +52,8 @@ export function MeetupDetailScreen({
     meetup,
     onBack,
     onOpenUserProfile,
+    onRsvpComplete,
+    guidedHighlightPrimaryAction = false,
 }: MeetupDetailScreenProps) {
     const queryClient = useQueryClient();
     const insets = useSafeAreaInsets();
@@ -133,6 +137,7 @@ export function MeetupDetailScreen({
                     attendee_count: result.attendee_count,
                     waitlist_count: result.waitlist_count,
                 }));
+                onRsvpComplete?.(detail, result);
             }
             void queryClient.invalidateQueries({ queryKey: ['meetups'] });
             void queryClient.invalidateQueries({ queryKey: ['my-meetups'] });
@@ -199,6 +204,7 @@ export function MeetupDetailScreen({
                         loading={updating}
                         disabled={detail.can_manage && detail.status !== 'published'}
                         variant={detail.can_manage && detail.status === 'published' ? 'warning' : 'primary'}
+                        style={guidedHighlightPrimaryAction ? styles.guidedActionHighlight : undefined}
                     />
 
                     {!!detail.description && (
@@ -309,6 +315,13 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
         paddingHorizontal: Spacing.lg,
+    },
+    guidedActionHighlight: {
+        shadowColor: Colors.primary,
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.45,
+        shadowRadius: 12,
+        elevation: 8,
     },
     loadingText: {
         ...TextStyles.bodyEmphasis,
