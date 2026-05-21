@@ -1132,6 +1132,7 @@ export function MeetupsScreen({
         }
         return actions;
     };
+    const renderMeetupSeparator = (): React.ReactElement => <View style={styles.meetupSeparator} />;
 
     return (
         <View style={styles.container}>
@@ -1251,6 +1252,7 @@ export function MeetupsScreen({
                         }}
                         ListHeaderComponent={listHeader}
                         ListEmptyComponent={!currentQuery.isLoading ? emptyState : null}
+                        ItemSeparatorComponent={renderMeetupSeparator}
                         ListFooterComponent={currentQuery.isFetchingNextPage ? <Text style={styles.loadingMore}>Loading more events…</Text> : null}
                         refreshControl={
                             <RefreshControl
@@ -1317,6 +1319,11 @@ const styles = StyleSheet.create({
     },
     swipeableMeetupContent: {
         paddingHorizontal: ContentInsets.screenHorizontal,
+    },
+    meetupSeparator: {
+        height: 1,
+        marginHorizontal: -ContentInsets.screenHorizontal,
+        backgroundColor: Colors.border.emphasis,
     },
     createPane: {
         flex: 1,

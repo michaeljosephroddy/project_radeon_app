@@ -70,7 +70,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
     borderTopWidth: 1,
-    borderTopColor: Colors.border.default,
+    borderTopColor: Colors.border.emphasis,
     backgroundColor: Colors.bg.page,
   },
   iconButton: {

@@ -54,9 +54,9 @@ export function ProfileContentTabs({
 const styles = StyleSheet.create({
     container: {
         flexDirection: 'row',
-        borderTopWidth: 0.5,
-        borderBottomWidth: 0.5,
-        borderColor: Colors.border.default,
+        borderTopWidth: 1,
+        borderBottomWidth: 1,
+        borderColor: Colors.border.emphasis,
         backgroundColor: Colors.bg.page,
     },
     tab: {

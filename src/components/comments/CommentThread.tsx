@@ -492,7 +492,7 @@ const styles = StyleSheet.create({
     },
     separator: {
         height: 1,
-        backgroundColor: Colors.border.default,
+        backgroundColor: Colors.border.emphasis,
         marginLeft: Spacing.md + 34 + Spacing.sm,
     },
     empty: {
@@ -505,10 +505,10 @@ const styles = StyleSheet.create({
         paddingVertical: Spacing.md,
     },
     mentionPanel: {
-        borderTopWidth: 0.5,
-        borderTopColor: Colors.border.default,
-        borderBottomWidth: 0.5,
-        borderBottomColor: Colors.border.default,
+        borderTopWidth: 1,
+        borderTopColor: Colors.border.emphasis,
+        borderBottomWidth: 1,
+        borderBottomColor: Colors.border.emphasis,
         backgroundColor: Colors.bg.page,
         paddingVertical: 4,
     },

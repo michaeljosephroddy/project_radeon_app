@@ -254,7 +254,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: Spacing.md,
         paddingVertical: Spacing.sm,
         borderBottomWidth: 1,
-        borderBottomColor: Colors.border.subtle,
+        borderBottomColor: Colors.border.emphasis,
     },
     suggestionTitle: {
         ...TextStyles.bodyEmphasis,
@@ -299,7 +299,7 @@ const styles = StyleSheet.create({
         paddingTop: Spacing.md,
         paddingBottom: Spacing.md,
         borderTopWidth: 1,
-        borderTopColor: Colors.border.subtle,
+        borderTopColor: Colors.border.emphasis,
     },
     resetButton: {
         paddingVertical: 12,

@@ -9,8 +9,8 @@ export const composerStandards = StyleSheet.create({
         paddingHorizontal: Composer.rowHorizontal,
         paddingTop: Composer.rowVertical,
         paddingBottom: Composer.rowVertical,
-        borderTopWidth: 0.5,
-        borderTopColor: Colors.border.default,
+        borderTopWidth: 1,
+        borderTopColor: Colors.border.emphasis,
         backgroundColor: Colors.bg.page,
     },
     input: {

@@ -349,7 +349,7 @@ const styles = StyleSheet.create({
         backgroundColor: Colors.bg.page,
     },
     header: {
-        borderBottomColor: Colors.border.default,
+        borderBottomColor: Colors.border.emphasis,
     },
     headerAction: {
         width: Header.iconSize + Spacing.sm,
@@ -428,7 +428,7 @@ const styles = StyleSheet.create({
     },
     separator: {
         height: 1,
-        backgroundColor: Colors.border.default,
+        backgroundColor: Colors.border.emphasis,
     },
     footerLoader: {
         paddingVertical: Spacing.md,

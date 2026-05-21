@@ -274,7 +274,7 @@ const styles = StyleSheet.create({
         paddingTop: Spacing.md,
         paddingBottom: Spacing.md,
         borderTopWidth: 1,
-        borderTopColor: Colors.border.subtle,
+        borderTopColor: Colors.border.emphasis,
     },
     resetButton: {
         paddingVertical: 12,

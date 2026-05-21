@@ -320,7 +320,7 @@ const styles = StyleSheet.create({
     heroCard: {
         backgroundColor: Colors.bg.page,
         borderBottomWidth: 1,
-        borderBottomColor: Colors.border.default,
+        borderBottomColor: Colors.border.emphasis,
         marginHorizontal: -ContentInsets.screenHorizontal,
         marginBottom: Spacing.md,
     },
@@ -394,7 +394,7 @@ const styles = StyleSheet.create({
         marginTop: Spacing.md,
         backgroundColor: Colors.bg.page,
         borderBottomWidth: 1,
-        borderBottomColor: Colors.border.default,
+        borderBottomColor: Colors.border.emphasis,
         paddingHorizontal: ContentInsets.screenHorizontal,
         paddingVertical: Spacing.lg,
         marginHorizontal: -ContentInsets.screenHorizontal,

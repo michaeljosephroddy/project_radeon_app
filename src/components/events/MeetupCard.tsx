@@ -144,8 +144,6 @@ export const MeetupCard = React.memo(function MeetupCard({
 const styles = StyleSheet.create({
     card: {
         backgroundColor: Colors.bg.page,
-        borderBottomWidth: 1,
-        borderBottomColor: Colors.border.default,
         marginHorizontal: -ContentInsets.screenHorizontal,
     },
     coverImage: {

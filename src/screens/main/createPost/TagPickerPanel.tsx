@@ -239,7 +239,7 @@ const styles = StyleSheet.create({
     maxHeight: 360,
     backgroundColor: Colors.bg.page,
     borderTopWidth: 1,
-    borderTopColor: Colors.border.default,
+    borderTopColor: Colors.border.emphasis,
   },
   header: {
     flexDirection: "row",

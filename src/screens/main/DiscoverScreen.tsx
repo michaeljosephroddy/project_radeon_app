@@ -1402,7 +1402,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: Spacing.md,
         paddingVertical: Spacing.md,
         borderBottomWidth: 1,
-        borderBottomColor: Colors.border.subtle,
+        borderBottomColor: Colors.border.emphasis,
     },
     resultInfo: {
         flex: 1,

@@ -28,7 +28,7 @@ const styles = StyleSheet.create({
     container: {
         backgroundColor: Colors.bg.page,
         borderBottomWidth: 1,
-        borderBottomColor: Colors.border.default,
+        borderBottomColor: Colors.border.emphasis,
         paddingHorizontal: Spacing.md,
         paddingVertical: Spacing.md,
         gap: 3,

@@ -3,7 +3,7 @@ import { Colors, Spacing } from '../theme';
 
 const dataCardSeparator = {
     borderBottomWidth: 1,
-    borderBottomColor: Colors.border.default,
+    borderBottomColor: Colors.border.emphasis,
 };
 
 export const commonStyles = StyleSheet.create({
@@ -17,7 +17,7 @@ export const commonStyles = StyleSheet.create({
     },
     dataSeparator: {
         height: 1,
-        backgroundColor: Colors.border.default,
+        backgroundColor: Colors.border.emphasis,
     },
     emptyState: {
         alignItems: 'center',

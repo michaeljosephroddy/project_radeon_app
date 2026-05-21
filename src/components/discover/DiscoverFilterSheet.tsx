@@ -408,7 +408,7 @@ const styles = StyleSheet.create({
         paddingTop: Spacing.md,
         paddingBottom: Spacing.sm,
         borderTopWidth: 1,
-        borderTopColor: Colors.border.default,
+        borderTopColor: Colors.border.emphasis,
         gap: Spacing.sm,
     },
     resetButton: {
