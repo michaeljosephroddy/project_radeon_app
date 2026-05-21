@@ -37,6 +37,8 @@ interface UserProfileScreenProps {
     onOpenChat: (chat: api.Chat) => void;
     onOpenComments: (thread: CommentThreadTarget, focusComposer: boolean, onCommentCreated?: (comment: api.Comment) => void) => void;
     onComposeDM: (info: { recipientId: string; username: string; avatarUrl?: string }) => void;
+    onFriendActionComplete?: (user: api.User) => void;
+    guidedHighlightFriendAction?: boolean;
 }
 
 function formatCount(value: number): string {
@@ -64,7 +66,7 @@ const REPORT_OPTIONS: ReportOption[] = [
 export function UserProfileScreen({
     userId, username, avatarUrl,
     isActive = true,
-    onBack, onOpenComments, onComposeDM,
+    onBack, onOpenComments, onComposeDM, onFriendActionComplete, guidedHighlightFriendAction = false,
 }: UserProfileScreenProps) {
     const flatListRef = useRef<FlatList<api.Post> | null>(null);
     const scrollOffsetRef = useRef(0);
@@ -122,7 +124,10 @@ export function UserProfileScreen({
             } else {
                 await api.sendFriendRequest(userId);
             }
-            await profileQuery.refetch();
+            const updatedProfile = await profileQuery.refetch();
+            if (updatedProfile.data) {
+                onFriendActionComplete?.(updatedProfile.data);
+            }
         } catch (error: unknown) {
             appAlert.alert('Profile action failed', error instanceof Error ? error.message : 'Something went wrong.');
         } finally {
@@ -313,6 +318,7 @@ export function UserProfileScreen({
                     style={[
                         styles.followBtn,
                         friendshipStatus === 'friends' && styles.followingBtn,
+                        guidedHighlightFriendAction && friendshipStatus === 'none' && styles.guidedActionHighlight,
                         friendActionLoading && styles.disabledButton,
                     ]}
                     onPress={handleFriendAction}
@@ -518,6 +524,8 @@ const styles = StyleSheet.create({
         flex: 1,
         minHeight: ControlSizes.buttonMinHeight,
         backgroundColor: Colors.primary,
+        borderWidth: 1,
+        borderColor: Colors.primary,
         borderRadius: Radius.sm,
         alignItems: 'center',
         justifyContent: 'center',
@@ -529,6 +537,14 @@ const styles = StyleSheet.create({
     },
     disabledButton: {
         opacity: 0.6,
+    },
+    guidedActionHighlight: {
+        borderColor: Colors.info,
+        shadowColor: Colors.primary,
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.45,
+        shadowRadius: 12,
+        elevation: 8,
     },
     followBtnText: {
         ...TextStyles.button,

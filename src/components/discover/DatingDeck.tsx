@@ -43,6 +43,7 @@ interface DatingDeckProps {
     fetchingNext: boolean;
     emptyTitle: string;
     emptyDescription: string;
+    guidedHighlightConnectAction?: boolean;
     onLike: (user: api.User) => void;
     onPass: (user: api.User) => void;
     onOpenProfile: (user: api.User) => void;
@@ -56,6 +57,7 @@ function DatingProfileCard({
     onConnectPress,
     likeLabelStyle,
     passLabelStyle,
+    guidedHighlightConnectAction,
 }: {
     user: api.User;
     onPress: () => void;
@@ -63,6 +65,7 @@ function DatingProfileCard({
     onConnectPress: () => void;
     likeLabelStyle: AnimatedStyle<object>;
     passLabelStyle: AnimatedStyle<object>;
+    guidedHighlightConnectAction: boolean;
 }) {
     const avatarColors = getAvatarColors(user.username);
     const milestone = getRecoveryMilestone(user.sober_since);
@@ -142,7 +145,7 @@ function DatingProfileCard({
                     <Ionicons name="close" size={28} color={Colors.danger} />
                 </TouchableOpacity>
                 <TouchableOpacity
-                    style={styles.cardActionButton}
+                    style={[styles.cardActionButton, guidedHighlightConnectAction && styles.guidedActionHighlight]}
                     onPress={handleConnectPress}
                     activeOpacity={0.84}
                     accessibilityRole="button"
@@ -161,6 +164,7 @@ export function DatingDeck({
     fetchingNext,
     emptyTitle,
     emptyDescription,
+    guidedHighlightConnectAction = false,
     onLike,
     onPass,
     onOpenProfile,
@@ -335,6 +339,7 @@ export function DatingDeck({
                         onConnectPress={animateLike}
                         likeLabelStyle={likeLabelStyle}
                         passLabelStyle={passLabelStyle}
+                        guidedHighlightConnectAction={guidedHighlightConnectAction}
                     />
                 </Animated.View>
             </GestureDetector>
@@ -456,6 +461,14 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.18,
         shadowRadius: 14,
         elevation: 4,
+    },
+    guidedActionHighlight: {
+        borderColor: Colors.info,
+        shadowColor: Colors.primary,
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.5,
+        shadowRadius: 14,
+        elevation: 9,
     },
     name: {
         flex: 1,

@@ -33,6 +33,8 @@ interface PostComposerProps {
   title?: string;
   isSubmitting: boolean;
   tagsEnabled?: boolean;
+  closeOnSubmit?: boolean;
+  guidedHighlightSubmit?: boolean;
   onBack: () => void;
   onSubmit: (input: PostComposerSubmitInput) => Promise<void>;
 }
@@ -70,6 +72,8 @@ export function PostComposer({
   title,
   isSubmitting,
   tagsEnabled = true,
+  closeOnSubmit = true,
+  guidedHighlightSubmit = false,
   onBack,
   onSubmit,
 }: PostComposerProps): React.ReactElement | null {
@@ -255,7 +259,7 @@ export function PostComposer({
           images,
           tags: activeTags,
         });
-        onBack();
+        if (closeOnSubmit) onBack();
       } catch (e: unknown) {
         appAlert.alert(
           "Error",
@@ -268,6 +272,7 @@ export function PostComposer({
     beginImageUpload,
     body,
     canSubmit,
+    closeOnSubmit,
     onBack,
     onSubmit,
     selectedImage,
@@ -335,6 +340,7 @@ export function PostComposer({
         maxLength={MAX_BODY_LENGTH}
         postType={selectedImage ? "photo" : "text"}
         title={title}
+        guidedHighlightSubmit={guidedHighlightSubmit}
         onBack={handleBack}
         onSubmit={handleSubmit}
       />

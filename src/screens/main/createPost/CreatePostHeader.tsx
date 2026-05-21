@@ -23,6 +23,7 @@ interface CreatePostHeaderProps {
   maxLength: number;
   postType: "text" | "photo";
   title?: string;
+  guidedHighlightSubmit?: boolean;
   onBack: () => void;
   onSubmit: () => void;
 }
@@ -34,6 +35,7 @@ export function CreatePostHeader({
   maxLength,
   postType,
   title,
+  guidedHighlightSubmit = false,
   onBack,
   onSubmit,
 }: CreatePostHeaderProps): React.ReactElement {
@@ -52,7 +54,11 @@ export function CreatePostHeader({
         <View style={styles.right}>
           <CharacterCounterRing count={bodyLength} max={maxLength} />
           <TouchableOpacity
-            style={[styles.postButton, !canSubmit && styles.postButtonDisabled]}
+            style={[
+              styles.postButton,
+              guidedHighlightSubmit && canSubmit && styles.guidedActionHighlight,
+              !canSubmit && styles.postButtonDisabled,
+            ]}
             onPress={onSubmit}
             disabled={!canSubmit}
             accessibilityRole="button"
@@ -92,6 +98,15 @@ const styles = StyleSheet.create({
   },
   postButtonDisabled: {
     opacity: 0.5,
+  },
+  guidedActionHighlight: {
+    borderWidth: 1,
+    borderColor: Colors.info,
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.45,
+    shadowRadius: 12,
+    elevation: 8,
   },
   postButtonText: {
     ...TextStyles.button,

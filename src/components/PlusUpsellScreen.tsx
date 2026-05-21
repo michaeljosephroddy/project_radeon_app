@@ -15,6 +15,12 @@ interface SubscriptionPlan {
     badge?: string;
 }
 
+export interface PlusActivitySummaryItem {
+    key: string;
+    label: string;
+    completed: boolean;
+}
+
 const PLANS: SubscriptionPlan[] = [
     {
         id: 'yearly',
@@ -61,6 +67,7 @@ interface PlusUpsellScreenProps {
     onBack?: () => void;
     primaryLabel?: string;
     dismissLabel?: string;
+    activitySummary?: PlusActivitySummaryItem[];
     dotIndex?: number;
     dotTotal?: number;
 }
@@ -71,6 +78,7 @@ export function PlusUpsellScreen({
     onBack,
     primaryLabel = 'Continue',
     dismissLabel = 'Not now',
+    activitySummary,
     dotIndex,
     dotTotal,
 }: PlusUpsellScreenProps) {
@@ -103,10 +111,27 @@ export function PlusUpsellScreen({
                     <Ionicons name="sparkles" size={32} color={Colors.warning} />
                 </View>
                 <Text style={styles.kicker}>SoberSpace Plus</Text>
-                <Text style={styles.title}>Join the community</Text>
+                <Text style={styles.title}>{activitySummary?.length ? 'Your SoberSpace is ready' : 'Join the community'}</Text>
                 <Text style={styles.subtitle}>
-                    Membership is required to keep SoberSpace focused, safer, and free from bots. Cancel anytime.
+                    {activitySummary?.length
+                        ? 'Subscribe to view your activity, keep connecting, and continue using the community.'
+                        : 'Membership is required to keep SoberSpace focused, safer, and free from bots. Cancel anytime.'}
                 </Text>
+
+                {activitySummary?.length ? (
+                    <View style={styles.summaryCard}>
+                        {activitySummary.map((item) => (
+                            <View key={item.key} style={styles.summaryRow}>
+                                <Ionicons
+                                    name={item.completed ? 'checkmark-circle' : 'ellipse-outline'}
+                                    size={18}
+                                    color={item.completed ? Colors.success : Colors.text.muted}
+                                />
+                                <Text style={styles.summaryText}>{item.label}</Text>
+                            </View>
+                        ))}
+                    </View>
+                ) : null}
 
                 <View style={styles.planList}>
                     {PLANS.map((plan) => {
@@ -224,6 +249,26 @@ const styles = StyleSheet.create({
         color: Colors.text.secondary,
         lineHeight: 21,
         marginBottom: Spacing.lg,
+    },
+    summaryCard: {
+        gap: Spacing.sm,
+        borderWidth: 1,
+        borderColor: Colors.border.default,
+        backgroundColor: Colors.bg.surface,
+        borderRadius: Radius.md,
+        padding: Spacing.md,
+        marginBottom: Spacing.lg,
+    },
+    summaryRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: Spacing.sm,
+    },
+    summaryText: {
+        flex: 1,
+        fontSize: Typography.sizes.sm,
+        lineHeight: 19,
+        color: Colors.text.primary,
     },
     planList: {
         gap: Spacing.sm,
