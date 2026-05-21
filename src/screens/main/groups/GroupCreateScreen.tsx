@@ -2,7 +2,6 @@ import { appAlert } from '@/components/ui/appAlert';
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import {
     ActivityIndicator,
-    Alert,
     Image,
     ScrollView,
     StyleSheet,
@@ -45,6 +44,14 @@ interface GroupImageState {
     uploadedAvatarUrl?: string;
 }
 
+type GroupCreateStep = 'identity' | 'setup' | 'guidelines' | 'review';
+
+interface GroupCreateStepMeta {
+    key: GroupCreateStep;
+    label: string;
+    icon: keyof typeof Ionicons.glyphMap;
+}
+
 const FOCUS_OPTIONS: GroupFocusOption[] = [
     { label: 'Alcohol-free', tag: 'alcohol-free' },
     { label: 'Early recovery', recoveryPathway: 'early-recovery' },
@@ -54,6 +61,35 @@ const FOCUS_OPTIONS: GroupFocusOption[] = [
     { label: 'Women', tag: 'women' },
     { label: 'Local', tag: 'local' },
 ];
+
+const GROUP_CREATE_STEPS: GroupCreateStepMeta[] = [
+    { key: 'identity', label: 'Identity', icon: 'image-outline' },
+    { key: 'setup', label: 'Setup', icon: 'options-outline' },
+    { key: 'guidelines', label: 'Guidelines', icon: 'document-text-outline' },
+    { key: 'review', label: 'Review', icon: 'checkmark-circle-outline' },
+];
+
+function getStepSubtitle(step: GroupCreateStep): string {
+    if (step === 'identity') return 'Name the group and shape its first impression.';
+    if (step === 'setup') return 'Choose who can find, join, and post in the group.';
+    if (step === 'guidelines') return 'Add optional location and expectations.';
+    return 'Confirm the details before the group goes live.';
+}
+
+function getVisibilityLabel(visibility: api.GroupVisibility): string {
+    if (visibility === 'approval_required') return 'Approval required';
+    if (visibility === 'invite_only') return 'Invite only';
+    return 'Public';
+}
+
+function getPostingPermissionLabel(permission: api.GroupPostingPermission): string {
+    return permission === 'admins' ? 'Admins only' : 'Members can post';
+}
+
+function getFocusSummary(selectedFocus: GroupFocusOption[]): string {
+    if (!selectedFocus.length) return 'No focus selected';
+    return selectedFocus.map((item) => item.label).join(', ');
+}
 
 export function GroupCreateScreen({
     onBack,
@@ -69,6 +105,8 @@ export function GroupCreateScreen({
     const [postingPermission, setPostingPermission] = useState<api.GroupPostingPermission>('members');
     const [selectedFocus, setSelectedFocus] = useState<GroupFocusOption[]>([]);
     const [selectedImage, setSelectedImage] = useState<GroupImageState | null>(null);
+    const [currentStepIndex, setCurrentStepIndex] = useState(0);
+    const [formError, setFormError] = useState<string | null>(null);
     const [submitting, setSubmitting] = useState(false);
     const uploadPromiseRef = useRef<Promise<api.GroupImageUploadResult> | null>(null);
     const { height: keyboardInsetHeight } = useGradualKeyboardInset({
@@ -80,6 +118,7 @@ export function GroupCreateScreen({
     }));
 
     const trimmedName = name.trim();
+    const currentStep = GROUP_CREATE_STEPS[currentStepIndex]?.key ?? 'identity';
     const isCreating = createGroupMutation.isPending || submitting;
     const canSubmit = trimmedName.length >= 3 && !isCreating;
 
@@ -166,8 +205,13 @@ export function GroupCreateScreen({
     }, []);
 
     const handleCreate = async (): Promise<void> => {
-        if (!canSubmit) return;
+        if (!canSubmit) {
+            setFormError('Group name must be at least 3 characters.');
+            setCurrentStepIndex(0);
+            return;
+        }
 
+        setFormError(null);
         setSubmitting(true);
         try {
             let avatarURL: string | null = null;
@@ -211,24 +255,220 @@ export function GroupCreateScreen({
         }
     };
 
+    const validateCurrentStep = (): boolean => {
+        if (currentStep === 'identity' && trimmedName.length < 3) {
+            setFormError('Group name must be at least 3 characters.');
+            return false;
+        }
+        setFormError(null);
+        return true;
+    };
+
+    const handlePrimaryAction = (): void => {
+        if (currentStep === 'review') {
+            void handleCreate();
+            return;
+        }
+        if (!validateCurrentStep()) return;
+        setCurrentStepIndex((index) => Math.min(index + 1, GROUP_CREATE_STEPS.length - 1));
+    };
+
+    const handleBackStep = (): void => {
+        setFormError(null);
+        setCurrentStepIndex((index) => Math.max(index - 1, 0));
+    };
+
+    const renderImagePicker = (): React.ReactElement => (
+        <View style={styles.imagePanel}>
+            <TouchableOpacity style={styles.imageHero} onPress={handlePickImage} activeOpacity={0.9}>
+                {selectedImage ? (
+                    <Image source={{ uri: selectedImage.localImage.uri }} style={styles.imagePreview} />
+                ) : (
+                    <View style={styles.imagePlaceholder}>
+                        <Ionicons name="image-outline" size={30} color={Colors.primary} />
+                        <Text style={styles.imagePlaceholderTitle}>Add group image</Text>
+                        <Text style={styles.imagePlaceholderText}>Use a photo or graphic that members will recognize.</Text>
+                    </View>
+                )}
+                <View style={styles.imageOverlayButton}>
+                    <Ionicons name={selectedImage ? 'camera-outline' : 'add'} size={17} color={Colors.textOn.primary} />
+                    <Text style={styles.imageOverlayText}>{selectedImage ? 'Replace' : 'Upload'}</Text>
+                </View>
+            </TouchableOpacity>
+            {selectedImage?.status === 'uploading' ? (
+                <View style={styles.imageStatusRow}>
+                    <ActivityIndicator size="small" color={Colors.primary} />
+                    <Text style={styles.imageStatusText}>Uploading image...</Text>
+                </View>
+            ) : null}
+            {selectedImage?.status === 'failed' ? (
+                <View style={styles.imageFailureActions}>
+                    <TouchableOpacity style={styles.imageSecondaryButton} onPress={handleRetryImageUpload} activeOpacity={0.84}>
+                        <Text style={styles.imageSecondaryButtonText}>Retry upload</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.imageSecondaryButton} onPress={handleRemoveImage} activeOpacity={0.84}>
+                        <Text style={styles.imageSecondaryButtonText}>Remove</Text>
+                    </TouchableOpacity>
+                </View>
+            ) : null}
+            {selectedImage?.status === 'uploaded' ? (
+                <TouchableOpacity style={[styles.imageSecondaryButton, styles.imageRemoveButton]} onPress={handleRemoveImage} activeOpacity={0.84}>
+                    <Text style={styles.imageSecondaryButtonText}>Remove image</Text>
+                </TouchableOpacity>
+            ) : null}
+        </View>
+    );
+
+    const renderStepContent = (): React.ReactNode => {
+        if (currentStep === 'identity') {
+            return (
+                <>
+                    {renderImagePicker()}
+                    <View style={styles.section}>
+                        <Text style={styles.sectionTitle}>Basics</Text>
+                        <TextField
+                            value={name}
+                            onChangeText={(value) => {
+                                setName(value);
+                                if (formError) setFormError(null);
+                            }}
+                            placeholder="Group name"
+                            autoCapitalize="words"
+                            returnKeyType="next"
+                        />
+                        <TextField
+                            value={description}
+                            onChangeText={setDescription}
+                            placeholder="What is this group for?"
+                            multiline
+                            style={styles.descriptionInput}
+                        />
+                    </View>
+                </>
+            );
+        }
+
+        if (currentStep === 'setup') {
+            return (
+                <>
+                    <View style={styles.section}>
+                        <Text style={styles.sectionTitle}>Access</Text>
+                        <SegmentedControl
+                            items={[
+                                { key: 'public', label: 'Public' },
+                                { key: 'approval_required', label: 'Approval' },
+                                { key: 'invite_only', label: 'Invite' },
+                            ]}
+                            activeKey={visibility}
+                            onChange={(next) => setVisibility(next as api.GroupVisibility)}
+                            layer="form"
+                            tone="secondary"
+                        />
+                        <SegmentedControl
+                            items={[
+                                { key: 'members', label: 'Members can post' },
+                                { key: 'admins', label: 'Admins only' },
+                            ]}
+                            activeKey={postingPermission}
+                            onChange={(next) => setPostingPermission(next as api.GroupPostingPermission)}
+                            layer="form"
+                            tone="secondary"
+                        />
+                    </View>
+
+                    <View style={styles.section}>
+                        <Text style={styles.sectionTitle}>Focus</Text>
+                        <View style={styles.focusGrid}>
+                            {FOCUS_OPTIONS.map((option) => {
+                                const selected = selectedFocus.some((item) => item.label === option.label);
+                                return (
+                                    <TouchableOpacity
+                                        key={option.label}
+                                        style={[styles.focusChip, selected && styles.focusChipSelected]}
+                                        onPress={() => toggleFocus(option)}
+                                        activeOpacity={0.86}
+                                    >
+                                        <Text style={[styles.focusChipText, selected && styles.focusChipTextSelected]}>
+                                            {option.label}
+                                        </Text>
+                                    </TouchableOpacity>
+                                );
+                            })}
+                        </View>
+                    </View>
+                </>
+            );
+        }
+
+        if (currentStep === 'guidelines') {
+            return (
+                <>
+                    <View style={styles.section}>
+                        <Text style={styles.sectionTitle}>Location</Text>
+                        <View style={styles.locationRow}>
+                            <TextField
+                                value={city}
+                                onChangeText={setCity}
+                                placeholder="City (optional)"
+                                style={styles.locationInput}
+                            />
+                            <TextField
+                                value={country}
+                                onChangeText={setCountry}
+                                placeholder="Country (optional)"
+                                style={styles.locationInput}
+                            />
+                        </View>
+                    </View>
+
+                    <View style={styles.section}>
+                        <Text style={styles.sectionTitle}>Rules</Text>
+                        <TextField
+                            value={rules}
+                            onChangeText={setRules}
+                            placeholder="Optional group rules"
+                            multiline
+                            style={styles.rulesInput}
+                        />
+                    </View>
+                </>
+            );
+        }
+
+        return (
+            <>
+                <View style={styles.reviewHero}>
+                    {selectedImage ? (
+                        <Image source={{ uri: selectedImage.localImage.uri }} style={styles.reviewImage} />
+                    ) : (
+                        <View style={styles.reviewImageFallback}>
+                            <Ionicons name="people-outline" size={30} color={Colors.primary} />
+                        </View>
+                    )}
+                    <View style={styles.reviewHeroBody}>
+                        <Text style={styles.reviewTitle}>{trimmedName || 'Untitled group'}</Text>
+                        <Text style={styles.reviewDescription} numberOfLines={3}>
+                            {description.trim() || 'No description added.'}
+                        </Text>
+                    </View>
+                </View>
+
+                <View style={styles.reviewSection}>
+                    <ReviewRow label="Access" value={getVisibilityLabel(visibility)} />
+                    <ReviewRow label="Posting" value={getPostingPermissionLabel(postingPermission)} />
+                    <ReviewRow label="Focus" value={getFocusSummary(selectedFocus)} />
+                    <ReviewRow label="Location" value={[city.trim(), country.trim()].filter(Boolean).join(', ') || 'No location set'} />
+                    <ReviewRow label="Rules" value={rules.trim() || 'No rules added'} last />
+                </View>
+            </>
+        );
+    };
+
     return (
         <SafeAreaView style={styles.container} edges={['bottom']}>
             <CreateSurfaceHeader
                 title="Create group"
                 onBack={onBack}
-                trailing={(
-                    <TouchableOpacity
-                        style={[styles.headerAction, !canSubmit && styles.disabled]}
-                        onPress={handleCreate}
-                        disabled={!canSubmit}
-                    >
-                        {isCreating ? (
-                            <ActivityIndicator size="small" color={Colors.primary} />
-                        ) : (
-                            <Text style={styles.headerActionText}>Create</Text>
-                        )}
-                    </TouchableOpacity>
-                )}
             />
             <ScrollView
                 style={styles.scroll}
@@ -237,150 +477,77 @@ export function GroupCreateScreen({
                 keyboardDismissMode="interactive"
                 automaticallyAdjustKeyboardInsets={false}
             >
-                <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Group photo</Text>
-                    <View style={styles.imageRow}>
-                        <TouchableOpacity style={styles.imagePicker} onPress={handlePickImage} activeOpacity={0.9}>
-                            {selectedImage ? (
-                                <Image source={{ uri: selectedImage.localImage.uri }} style={styles.imagePreview} />
-                            ) : (
-                                <Ionicons name="image-outline" size={24} color={Colors.text.muted} />
-                            )}
-                        </TouchableOpacity>
-                        <View style={styles.imageActions}>
-                            <TouchableOpacity style={styles.imageButton} onPress={handlePickImage}>
-                                <Text style={styles.imageButtonText}>{selectedImage ? 'Replace image' : 'Add image'}</Text>
-                            </TouchableOpacity>
-                            {selectedImage?.status === 'uploading' ? (
-                                <View style={styles.imageUploadStatus}>
-                                    <ActivityIndicator size="small" color={Colors.primary} />
-                                    <Text style={styles.imageUploadText}>Uploading…</Text>
-                                </View>
-                            ) : null}
-                            {selectedImage?.status === 'failed' ? (
-                                <View style={styles.imageFailureActions}>
-                                    <TouchableOpacity style={styles.imageSecondaryButton} onPress={handleRetryImageUpload}>
-                                        <Text style={styles.imageSecondaryButtonText}>Retry</Text>
-                                    </TouchableOpacity>
-                                    <TouchableOpacity style={styles.imageSecondaryButton} onPress={handleRemoveImage}>
-                                        <Text style={styles.imageSecondaryButtonText}>Remove</Text>
-                                    </TouchableOpacity>
-                                </View>
-                            ) : null}
+                <View style={styles.progressBlock}>
+                    <Text style={styles.progressText}>{`${GROUP_CREATE_STEPS[currentStepIndex]?.label ?? 'Step'} ${currentStepIndex + 1} of ${GROUP_CREATE_STEPS.length}`}</Text>
+                    <View style={styles.progressTrack}>
+                        {GROUP_CREATE_STEPS.map((item, index) => (
+                            <View
+                                key={item.key}
+                                style={[
+                                    styles.progressSegment,
+                                    index <= currentStepIndex && styles.progressSegmentActive,
+                                ]}
+                            />
+                        ))}
+                    </View>
+                    <View style={styles.stepTitleRow}>
+                        <View style={styles.stepIcon}>
+                            <Ionicons name={GROUP_CREATE_STEPS[currentStepIndex]?.icon ?? 'people-outline'} size={18} color={Colors.primary} />
+                        </View>
+                        <View style={styles.stepCopy}>
+                            <Text style={styles.stepTitle}>{GROUP_CREATE_STEPS[currentStepIndex]?.label ?? 'Group'}</Text>
+                            <Text style={styles.stepSubtitle}>{getStepSubtitle(currentStep)}</Text>
                         </View>
                     </View>
                 </View>
 
-                <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Basics</Text>
-                    <TextField
-                        value={name}
-                        onChangeText={setName}
-                        placeholder="Group name"
-                        autoCapitalize="words"
-                        returnKeyType="next"
-                    />
-                    <TextField
-                        value={description}
-                        onChangeText={setDescription}
-                        placeholder="What is this group for?"
-                        multiline
-                        style={styles.descriptionInput}
-                    />
-                </View>
-
-                <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Access</Text>
-                    <SegmentedControl
-                        items={[
-                            { key: 'public', label: 'Public' },
-                            { key: 'approval_required', label: 'Approval' },
-                            { key: 'invite_only', label: 'Invite' },
-                        ]}
-                        activeKey={visibility}
-                        onChange={(next) => setVisibility(next as api.GroupVisibility)}
-                        layer="form"
-                        tone="secondary"
-                    />
-                    <SegmentedControl
-                        items={[
-                            { key: 'members', label: 'Members can post' },
-                            { key: 'admins', label: 'Admins only' },
-                        ]}
-                        activeKey={postingPermission}
-                        onChange={(next) => setPostingPermission(next as api.GroupPostingPermission)}
-                        layer="form"
-                        tone="secondary"
-                    />
-                </View>
-
-                <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Focus</Text>
-                    <View style={styles.focusGrid}>
-                        {FOCUS_OPTIONS.map(option => {
-                            const selected = selectedFocus.some(item => item.label === option.label);
-                            return (
-                                <TouchableOpacity
-                                    key={option.label}
-                                    style={[styles.focusChip, selected && styles.focusChipSelected]}
-                                    onPress={() => toggleFocus(option)}
-                                    activeOpacity={0.86}
-                                >
-                                    <Text style={[styles.focusChipText, selected && styles.focusChipTextSelected]}>
-                                        {option.label}
-                                    </Text>
-                                </TouchableOpacity>
-                            );
-                        })}
+                {formError ? (
+                    <View style={styles.errorCard}>
+                        <Text style={styles.errorText}>{formError}</Text>
                     </View>
-                </View>
+                ) : null}
 
-                <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Location</Text>
-                    <View style={styles.locationRow}>
-                        <TextField
-                            value={city}
-                            onChangeText={setCity}
-                            placeholder="City"
-                            style={styles.locationInput}
-                        />
-                        <TextField
-                            value={country}
-                            onChangeText={setCountry}
-                            placeholder="Country"
-                            style={styles.locationInput}
-                        />
-                    </View>
-                </View>
-
-                <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Rules</Text>
-                    <TextField
-                        value={rules}
-                        onChangeText={setRules}
-                        placeholder="Optional group rules"
-                        multiline
-                        style={styles.rulesInput}
-                    />
-                </View>
-
-                <TouchableOpacity
-                    style={[styles.primaryButton, !canSubmit && styles.disabled]}
-                    onPress={handleCreate}
-                    disabled={!canSubmit}
-                >
-                    {isCreating ? (
-                        <ActivityIndicator color={Colors.textOn.primary} />
-                    ) : (
-                        <>
-                            <Ionicons name="people-outline" size={18} color={Colors.textOn.primary} />
-                            <Text style={styles.primaryButtonText}>Create group</Text>
-                        </>
-                    )}
-                </TouchableOpacity>
+                {renderStepContent()}
             </ScrollView>
+            <View style={styles.footer}>
+                <View style={styles.footerActionRow}>
+                    <TouchableOpacity
+                        style={styles.backButton}
+                        onPress={currentStepIndex > 0 ? handleBackStep : onBack}
+                        activeOpacity={0.84}
+                        disabled={isCreating}
+                    >
+                        {currentStepIndex > 0 ? <Ionicons name="chevron-back" size={18} color={Colors.primary} /> : null}
+                        <Text style={styles.backButtonText}>{currentStepIndex > 0 ? 'Back' : 'Cancel'}</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                        style={[styles.primaryButton, isCreating && styles.disabled]}
+                        onPress={handlePrimaryAction}
+                        activeOpacity={0.86}
+                        disabled={isCreating}
+                    >
+                        {isCreating ? (
+                            <ActivityIndicator color={Colors.textOn.primary} />
+                        ) : (
+                            <>
+                                <Text style={styles.primaryButtonText}>{currentStep === 'review' ? 'Create group' : 'Next'}</Text>
+                                <Ionicons name="chevron-forward" size={18} color={Colors.textOn.primary} />
+                            </>
+                        )}
+                    </TouchableOpacity>
+                </View>
+            </View>
             <Animated.View style={[styles.keyboardSpacer, keyboardSpacerStyle]} />
         </SafeAreaView>
+    );
+}
+
+function ReviewRow({ label, value, last = false }: { label: string; value: string; last?: boolean }): React.ReactElement {
+    return (
+        <View style={[styles.reviewRow, last && styles.reviewRowLast]}>
+            <Text style={styles.reviewLabel}>{label}</Text>
+            <Text style={styles.reviewValue}>{value}</Text>
+        </View>
     );
 }
 
@@ -388,16 +555,6 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: Colors.bg.page,
-    },
-    headerAction: {
-        minHeight: ControlSizes.iconButton,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    headerActionText: {
-        ...TextStyles.chip,
-        color: Colors.primary,
-        fontWeight: '800',
     },
     scroll: {
         flex: 1,
@@ -409,63 +566,136 @@ const styles = StyleSheet.create({
     content: {
         paddingHorizontal: ContentInsets.screenHorizontal,
         paddingTop: CREATE_SURFACE_HEADER_HEIGHT + Spacing.md,
-        paddingBottom: Spacing.lg,
+        paddingBottom: Spacing.xl,
         gap: Spacing.lg,
     },
-    section: {
+    progressBlock: {
         gap: Spacing.sm,
     },
-    imageRow: {
+    progressText: {
+        ...TextStyles.caption,
+        color: Colors.primary,
+    },
+    progressTrack: {
+        flexDirection: 'row',
+        gap: Spacing.xs,
+    },
+    progressSegment: {
+        flex: 1,
+        height: 4,
+        borderRadius: Radius.pill,
+        backgroundColor: Colors.border.default,
+    },
+    progressSegmentActive: {
+        backgroundColor: Colors.primary,
+    },
+    stepTitleRow: {
         flexDirection: 'row',
         alignItems: 'center',
         gap: Spacing.md,
     },
-    imagePicker: {
-        width: 76,
-        height: 76,
+    stepIcon: {
+        width: 38,
+        height: 38,
         borderRadius: Radius.pill,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: Colors.primarySubtle,
+    },
+    stepCopy: {
+        flex: 1,
+        gap: 2,
+    },
+    stepTitle: {
+        ...TextStyles.sectionTitle,
+    },
+    stepSubtitle: {
+        ...TextStyles.secondary,
+    },
+    errorCard: {
+        borderRadius: Radius.lg,
+        backgroundColor: Colors.dangerSubtle,
+        borderWidth: 1,
+        borderColor: Colors.danger,
+        padding: Spacing.md,
+    },
+    errorText: {
+        color: Colors.danger,
+        fontSize: TextStyles.caption.fontSize,
+        fontWeight: '700',
+    },
+    section: {
+        gap: Spacing.sm,
+        padding: Spacing.md,
+        borderRadius: Radius.lg,
         borderWidth: 1,
         borderColor: Colors.border.default,
         backgroundColor: Colors.bg.surface,
-        alignItems: 'center',
-        justifyContent: 'center',
+    },
+    imagePanel: {
+        gap: Spacing.sm,
+    },
+    imageHero: {
+        minHeight: 218,
+        borderRadius: Radius.lg,
+        borderWidth: 1,
+        borderColor: Colors.border.default,
+        backgroundColor: Colors.bg.surface,
         overflow: 'hidden',
     },
     imagePreview: {
+        ...StyleSheet.absoluteFillObject,
         width: '100%',
         height: '100%',
     },
-    imageActions: {
+    imagePlaceholder: {
         flex: 1,
-        gap: Spacing.xs,
-    },
-    imageButton: {
-        alignSelf: 'flex-start',
-        minHeight: ControlSizes.iconButton,
-        borderRadius: Radius.pill,
-        backgroundColor: Colors.primarySubtle,
-        borderWidth: 1,
-        borderColor: Colors.primary,
+        minHeight: 218,
+        alignItems: 'center',
         justifyContent: 'center',
+        gap: Spacing.sm,
+        paddingHorizontal: Spacing.lg,
+    },
+    imagePlaceholderTitle: {
+        ...TextStyles.cardTitle,
+    },
+    imagePlaceholderText: {
+        ...TextStyles.secondary,
+        textAlign: 'center',
+    },
+    imageOverlayButton: {
+        position: 'absolute',
+        right: Spacing.md,
+        bottom: Spacing.md,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: Spacing.xs,
+        borderRadius: Radius.pill,
         paddingHorizontal: Spacing.md,
+        paddingVertical: 9,
+        backgroundColor: 'rgba(0,0,0,0.62)',
     },
-    imageButtonText: {
-        ...TextStyles.button,
-        color: Colors.primary,
-        fontSize: TextStyles.chip.fontSize,
+    imageOverlayText: {
+        color: Colors.textOn.primary,
+        fontSize: TextStyles.caption.fontSize,
+        fontWeight: '800',
     },
-    imageUploadStatus: {
+    imageStatusRow: {
         flexDirection: 'row',
         alignItems: 'center',
         gap: Spacing.xs,
     },
-    imageUploadText: {
+    imageStatusText: {
         ...TextStyles.caption,
+        color: Colors.text.secondary,
     },
     imageFailureActions: {
         flexDirection: 'row',
         alignItems: 'center',
         gap: Spacing.xs,
+    },
+    imageRemoveButton: {
+        alignSelf: 'flex-start',
     },
     imageSecondaryButton: {
         minHeight: ControlSizes.chipMinHeight,
@@ -477,7 +707,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: Spacing.sm,
     },
     imageSecondaryButtonText: {
-        ...TextStyles.badge,
+        ...TextStyles.chip,
     },
     sectionTitle: {
         ...TextStyles.label,
@@ -523,9 +753,100 @@ const styles = StyleSheet.create({
     locationInput: {
         flex: 1,
     },
+    reviewHero: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: Spacing.md,
+        padding: Spacing.md,
+        borderRadius: Radius.lg,
+        borderWidth: 1,
+        borderColor: Colors.border.default,
+        backgroundColor: Colors.bg.surface,
+    },
+    reviewImage: {
+        width: 72,
+        height: 72,
+        borderRadius: Radius.lg,
+        backgroundColor: Colors.bg.page,
+    },
+    reviewImageFallback: {
+        width: 72,
+        height: 72,
+        borderRadius: Radius.lg,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: Colors.primarySubtle,
+    },
+    reviewHeroBody: {
+        flex: 1,
+        gap: Spacing.xs,
+    },
+    reviewTitle: {
+        ...TextStyles.cardTitle,
+    },
+    reviewDescription: {
+        ...TextStyles.secondary,
+    },
+    reviewSection: {
+        borderRadius: Radius.lg,
+        borderWidth: 1,
+        borderColor: Colors.border.default,
+        backgroundColor: Colors.bg.surface,
+        overflow: 'hidden',
+    },
+    reviewRow: {
+        gap: Spacing.xs,
+        padding: Spacing.md,
+        borderBottomWidth: 1,
+        borderBottomColor: Colors.border.emphasis,
+    },
+    reviewRowLast: {
+        borderBottomWidth: 0,
+    },
+    reviewLabel: {
+        ...TextStyles.caption,
+        color: Colors.text.muted,
+        textTransform: 'uppercase',
+    },
+    reviewValue: {
+        ...TextStyles.body,
+        color: Colors.text.primary,
+    },
+    footer: {
+        borderTopWidth: 1,
+        borderTopColor: Colors.border.emphasis,
+        backgroundColor: Colors.bg.page,
+        paddingHorizontal: ContentInsets.screenHorizontal,
+        paddingTop: Spacing.sm,
+        paddingBottom: Spacing.sm,
+    },
+    footerActionRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: Spacing.sm,
+    },
+    backButton: {
+        minHeight: ControlSizes.buttonMinHeight,
+        minWidth: 92,
+        borderRadius: Radius.md,
+        borderWidth: 1,
+        borderColor: Colors.primary,
+        backgroundColor: Colors.primarySubtle,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: Spacing.xs,
+        paddingHorizontal: Spacing.md,
+    },
+    backButtonText: {
+        color: Colors.primary,
+        fontSize: TextStyles.chip.fontSize,
+        fontWeight: '800',
+    },
     primaryButton: {
-        minHeight: ControlSizes.fabMinHeight,
-        borderRadius: Radius.pill,
+        flex: 1,
+        minHeight: ControlSizes.buttonMinHeight,
+        borderRadius: Radius.md,
         backgroundColor: Colors.primary,
         alignItems: 'center',
         justifyContent: 'center',
