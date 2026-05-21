@@ -18,8 +18,6 @@ interface CommunityHubScreenProps {
     onOpenManageMeetup: (meetup: api.Meetup) => void;
     onGroupJoined?: (group: api.Group) => void;
     onRsvpComplete?: (meetup: api.Meetup, result: api.MeetupRsvpResult) => void;
-    guidedHighlightGroupJoinAction?: boolean;
-    guidedHighlightMeetupRsvpAction?: boolean;
 }
 
 export function CommunityHubScreen({
@@ -32,8 +30,6 @@ export function CommunityHubScreen({
     onOpenManageMeetup,
     onGroupJoined,
     onRsvpComplete,
-    guidedHighlightGroupJoinAction = false,
-    guidedHighlightMeetupRsvpAction = false,
 }: CommunityHubScreenProps): React.ReactElement {
     const groupsActive = isActive && activeSurface === 'groups';
     const meetupsActive = isActive && activeSurface === 'meetups';
@@ -64,7 +60,6 @@ export function CommunityHubScreen({
                     onOpenMeetup={onOpenMeetup}
                     onOpenManageMeetup={onOpenManageMeetup}
                     onRsvpComplete={onRsvpComplete}
-                    guidedHighlightRsvpAction={guidedHighlightMeetupRsvpAction}
                 />
             </View>
         );
@@ -77,7 +72,6 @@ export function CommunityHubScreen({
                 isActive={groupsActive}
                 onOpenGroup={onOpenGroup}
                 onGroupJoined={onGroupJoined}
-                guidedHighlightJoinAction={guidedHighlightGroupJoinAction}
             />
         </View>
     );

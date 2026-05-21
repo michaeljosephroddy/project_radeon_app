@@ -106,11 +106,6 @@ export interface User {
     identity_verification_status?: IdentityVerificationStatus;
     identity_verified_at?: string | null;
     identity_verification_last_error?: string | null;
-    onboarding_first_friend_user_id?: string | null;
-    onboarding_first_group_id?: string | null;
-    onboarding_first_post_id?: string | null;
-    onboarding_first_meetup_id?: string | null;
-    onboarding_first_dating_like_user_id?: string | null;
     city?: string;
     country?: string;
     bio?: string | null;
@@ -750,11 +745,6 @@ export interface UpdateMeInput {
     lat?: number;
     lng?: number;
     onboarding_completed?: boolean;
-    onboarding_first_friend_user_id?: string;
-    onboarding_first_group_id?: string;
-    onboarding_first_post_id?: string;
-    onboarding_first_meetup_id?: string;
-    onboarding_first_dating_like_user_id?: string;
 }
 
 export type GroupVisibility = 'public' | 'approval_required' | 'invite_only' | 'private_hidden';

@@ -38,7 +38,6 @@ interface UserProfileScreenProps {
     onOpenComments: (thread: CommentThreadTarget, focusComposer: boolean, onCommentCreated?: (comment: api.Comment) => void) => void;
     onComposeDM: (info: { recipientId: string; username: string; avatarUrl?: string }) => void;
     onFriendActionComplete?: (user: api.User) => void;
-    guidedHighlightFriendAction?: boolean;
 }
 
 function formatCount(value: number): string {
@@ -66,7 +65,7 @@ const REPORT_OPTIONS: ReportOption[] = [
 export function UserProfileScreen({
     userId, username, avatarUrl,
     isActive = true,
-    onBack, onOpenComments, onComposeDM, onFriendActionComplete, guidedHighlightFriendAction = false,
+    onBack, onOpenComments, onComposeDM, onFriendActionComplete,
 }: UserProfileScreenProps) {
     const flatListRef = useRef<FlatList<api.Post> | null>(null);
     const scrollOffsetRef = useRef(0);
@@ -318,7 +317,6 @@ export function UserProfileScreen({
                     style={[
                         styles.followBtn,
                         friendshipStatus === 'friends' && styles.followingBtn,
-                        guidedHighlightFriendAction && friendshipStatus === 'none' && styles.guidedActionHighlight,
                         friendActionLoading && styles.disabledButton,
                     ]}
                     onPress={handleFriendAction}
@@ -537,14 +535,6 @@ const styles = StyleSheet.create({
     },
     disabledButton: {
         opacity: 0.6,
-    },
-    guidedActionHighlight: {
-        borderColor: Colors.info,
-        shadowColor: Colors.primary,
-        shadowOffset: { width: 0, height: 0 },
-        shadowOpacity: 0.45,
-        shadowRadius: 12,
-        elevation: 8,
     },
     followBtnText: {
         ...TextStyles.button,

@@ -5,14 +5,12 @@ import { PostComposer, PostComposerSubmitInput } from "./createPost/PostComposer
 interface CreatePostScreenProps {
   onBack: () => void;
   closeOnSubmit?: boolean;
-  guidedHighlightSubmit?: boolean;
   onPostCreated?: (post: { id: string }) => void | Promise<void>;
 }
 
 export function CreatePostScreen({
   onBack,
   closeOnSubmit = true,
-  guidedHighlightSubmit = false,
   onPostCreated,
 }: CreatePostScreenProps): React.ReactElement {
   const createPostMutation = useCreatePostMutation();
@@ -33,7 +31,6 @@ export function CreatePostScreen({
     <PostComposer
       isSubmitting={createPostMutation.isPending}
       closeOnSubmit={closeOnSubmit}
-      guidedHighlightSubmit={guidedHighlightSubmit}
       onBack={onBack}
       onSubmit={handleSubmit}
     />

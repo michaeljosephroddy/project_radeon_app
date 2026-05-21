@@ -57,7 +57,6 @@ interface MeetupsScreenProps {
     onOpenMeetup: (meetup: api.Meetup) => void;
     onOpenManageMeetup: (meetup: api.Meetup) => void;
     onRsvpComplete?: (meetup: api.Meetup, result: api.MeetupRsvpResult) => void;
-    guidedHighlightRsvpAction?: boolean;
 }
 
 function useDebounce<T>(value: T, delayMs: number): T {
@@ -349,7 +348,6 @@ export function MeetupsScreen({
     onOpenMeetup,
     onOpenManageMeetup,
     onRsvpComplete,
-    guidedHighlightRsvpAction = false,
 }: MeetupsScreenProps) {
     const { user } = useAuth();
     const queryClient = useQueryClient();
@@ -1190,7 +1188,6 @@ export function MeetupsScreen({
                                     onPrimaryAction={getPrimaryAction(item)}
                                     primaryLabel={getPrimaryLabel(item)}
                                     actionDisabled={pendingMeetupIds.has(item.id)}
-                                    actionStyle={guidedHighlightRsvpAction ? styles.guidedActionHighlight : undefined}
                                     actions={getMeetupCardActions(item)}
                                 />
                             );
@@ -1260,13 +1257,6 @@ const styles = StyleSheet.create({
     },
     list: {
         marginTop: 0,
-    },
-    guidedActionHighlight: {
-        shadowColor: Colors.primary,
-        shadowOffset: { width: 0, height: 0 },
-        shadowOpacity: 0.45,
-        shadowRadius: 12,
-        elevation: 8,
     },
     deleteAction: {
         width: 92,

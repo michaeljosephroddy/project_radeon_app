@@ -11,8 +11,6 @@ import { OnboardingNavigator } from './src/navigation/OnboardingNavigator';
 import { ChatRealtimeProvider } from './src/hooks/chat/ChatRealtimeProvider';
 import { NotificationProvider } from './src/notifications/NotificationProvider';
 import { AppPopupProvider } from './src/components/ui/AppPopupProvider';
-import { appAlert } from './src/components/ui/appAlert';
-import { PlusUpsellScreen } from './src/components/PlusUpsellScreen';
 import { asyncStoragePersister } from './src/query/asyncStoragePersister';
 import { queryClient } from './src/query/queryClient';
 import { Colors } from './src/theme';
@@ -20,7 +18,7 @@ import { StatusBar } from 'expo-status-bar';
 
 // Chooses between the authenticated app shell and the auth flow once session state is resolved.
 function RootNavigator() {
-    const { user, isAuthenticated, isLoading, isNewUser } = useAuth();
+    const { isAuthenticated, isLoading, isNewUser } = useAuth();
 
     if (isLoading) {
         return (
@@ -32,14 +30,6 @@ function RootNavigator() {
 
     if (!isAuthenticated) return <AuthNavigator />;
     if (isNewUser) return <OnboardingNavigator />;
-    if (!user?.is_plus) {
-        return (
-            <PlusUpsellScreen
-                primaryLabel="Choose membership"
-                onPrimary={() => appAlert.alert('Subscription checkout', 'Membership checkout is not connected yet.')}
-            />
-        );
-    }
 
     return (
         <ChatRealtimeProvider>
