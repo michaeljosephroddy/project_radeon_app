@@ -1,8 +1,9 @@
 import { appAlert } from '@/components/ui/appAlert';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-    Alert,
+    ActivityIndicator,
     FlatList,
+    RefreshControl,
     ScrollView,
     StyleSheet,
     Text,
@@ -16,6 +17,8 @@ import { EmptyState } from '../../../components/ui/EmptyState';
 import { InfoNoticeCard } from '../../../components/ui/InfoNoticeCard';
 import { SearchBar } from '../../../components/ui/SearchBar';
 import { ScrollToTopButton } from '../../../components/ui/ScrollToTopButton';
+import { useGuardedEndReached } from '../../../hooks/useGuardedEndReached';
+import { useRecoveryMeetings } from '../../../hooks/queries/useRecoveryMeetings';
 import { useScrollToTopButton } from '../../../hooks/useScrollToTopButton';
 import { screenStandards } from '../../../styles/screenStandards';
 import { Colors, Radius, Spacing, Typography } from '../../../theme';
@@ -23,12 +26,16 @@ import { getListPerformanceProps } from '../../../utils/listPerformance';
 import {
     ActiveFilterChip,
     DEFAULT_MEETING_FILTERS,
-    RECOVERY_MEETINGS,
     RecoveryMeeting,
     RecoveryMeetingFilters,
-    applyMeetingFilters,
+    cloneMeetingFilters,
+    filtersToApiParams,
+    formatAddressLine,
+    formatLocationLine,
+    formatOccurrence,
     getActiveFilterChips,
-} from './recoveryMeetingsMock';
+    getPrimaryOccurrence,
+} from './recoveryMeetings';
 
 interface MeetingsViewProps {
     isActive: boolean;
@@ -45,24 +52,20 @@ function useDebounce<T>(value: T, delayMs: number): T {
     return debounced;
 }
 
-function cloneMeetingFilters(filters: RecoveryMeetingFilters): RecoveryMeetingFilters {
-    return {
-        ...filters,
-        fellowships: [...filters.fellowships],
-        daysOfWeek: [...filters.daysOfWeek],
-        timeBuckets: [...filters.timeBuckets],
-        meetingTypes: [...filters.meetingTypes],
-    };
-}
-
 function resetMeetingFilters(): RecoveryMeetingFilters {
     return cloneMeetingFilters(DEFAULT_MEETING_FILTERS);
 }
 
-function showMeetingPlaceholder(meeting: RecoveryMeeting): void {
+function showMeetingDetails(meeting: RecoveryMeeting): void {
+    const schedule = formatOccurrence(getPrimaryOccurrence(meeting));
+    const location = formatLocationLine(meeting);
+    const address = formatAddressLine(meeting);
+    const online = meeting.online_url ? `\n\nOnline link:\n${meeting.online_url}` : '';
+    const phone = meeting.phone_join_info ? `\n\nCredentials:\n${meeting.phone_join_info}` : '';
+    const source = meeting.source_url ? `\n\nSource:\n${meeting.source_url}` : '';
     appAlert.alert(
-        'Coming soon',
-        `${meeting.name} details will be available here soon.`,
+        meeting.name,
+        `${schedule}\n${location}${address ? `\n${address}` : ''}${online}${phone}${source}`,
     );
 }
 
@@ -75,6 +78,8 @@ export function MeetingsView({ isActive }: MeetingsViewProps) {
     const debouncedQuery = useDebounce(draftFilters.query, 300);
     const listProps = getListPerformanceProps('detailList');
     const scrollToTop = useScrollToTopButton({ threshold: 320 });
+    const apiFilters = useMemo(() => filtersToApiParams(appliedFilters), [appliedFilters]);
+    const recoveryMeetingsQuery = useRecoveryMeetings({ ...apiFilters, limit: 20 }, isActive);
 
     useEffect(() => {
         setAppliedFilters((current) => (
@@ -82,15 +87,23 @@ export function MeetingsView({ isActive }: MeetingsViewProps) {
         ));
     }, [debouncedQuery]);
 
-    const meetings = useMemo(
-        () => applyMeetingFilters(RECOVERY_MEETINGS, appliedFilters),
-        [appliedFilters],
-    );
+    const meetings = useMemo(() => (
+        recoveryMeetingsQuery.data?.pages.flatMap((page) => page.items) ?? []
+    ), [recoveryMeetingsQuery.data]);
 
     const activeFilterChips = useMemo(
         () => getActiveFilterChips(appliedFilters),
         [appliedFilters],
     );
+
+    const loadNextPage = useCallback(async (): Promise<void> => {
+        if (!recoveryMeetingsQuery.hasNextPage || recoveryMeetingsQuery.isFetchingNextPage) {
+            return;
+        }
+        await recoveryMeetingsQuery.fetchNextPage();
+    }, [recoveryMeetingsQuery]);
+
+    const pagination = useGuardedEndReached(loadNextPage);
 
     const handleApplyFilters = (): void => {
         setAppliedFilters(cloneMeetingFilters(draftFilters));
@@ -109,12 +122,23 @@ export function MeetingsView({ isActive }: MeetingsViewProps) {
         setDraftFilters(next);
     };
 
+    const emptyTitle = recoveryMeetingsQuery.isLoading
+        ? 'Loading recovery meetings'
+        : recoveryMeetingsQuery.isError
+            ? 'Could not load recovery meetings'
+            : 'No meetings match those filters';
+    const emptyDescription = recoveryMeetingsQuery.isLoading
+        ? 'Real meeting data is loading from SoberSpace.'
+        : recoveryMeetingsQuery.isError
+            ? 'Check your connection, then pull to refresh.'
+            : 'Try a wider location, another day, or clearing fellowship and mode filters.';
+
     const renderHeader = (): React.ReactElement => (
         <View style={styles.header}>
             {showHeaderNotice ? (
                 <InfoNoticeCard
                     title="Find recovery meetings"
-                    description="Browse peer support meetings by fellowship, country, city, day, time, and format."
+                    description="Browse imported peer support meetings by fellowship, location, day, and mode."
                     onDismiss={() => setShowHeaderNotice(false)}
                 />
             ) : null}
@@ -163,20 +187,38 @@ export function MeetingsView({ isActive }: MeetingsViewProps) {
                 data={meetings}
                 keyExtractor={(item) => item.id}
                 {...listProps}
+                onEndReached={pagination.onEndReached}
+                onEndReachedThreshold={0.4}
+                onMomentumScrollBegin={pagination.onMomentumScrollBegin}
+                onScrollBeginDrag={pagination.onScrollBeginDrag}
                 onScroll={scrollToTop.onScroll}
                 scrollEventThrottle={16}
+                refreshControl={
+                    <RefreshControl
+                        refreshing={recoveryMeetingsQuery.isRefetching && !recoveryMeetingsQuery.isFetchingNextPage}
+                        onRefresh={() => void recoveryMeetingsQuery.refetch()}
+                        tintColor={Colors.primary}
+                    />
+                }
                 contentContainerStyle={screenStandards.listContent}
                 ListHeaderComponent={renderHeader}
                 ListEmptyComponent={
                     <EmptyState
-                        title="No meetings match those filters"
-                        description="Try a wider location, another day, or clearing the fellowship and format filters."
+                        title={emptyTitle}
+                        description={emptyDescription}
                         style={styles.emptyState}
                     />
                 }
+                ListFooterComponent={
+                    recoveryMeetingsQuery.isFetchingNextPage ? (
+                        <View style={styles.footerLoading}>
+                            <ActivityIndicator color={Colors.primary} />
+                        </View>
+                    ) : null
+                }
                 ItemSeparatorComponent={() => <View style={styles.separator} />}
                 renderItem={({ item }) => (
-                    <RecoveryMeetingCard meeting={item} onPress={showMeetingPlaceholder} />
+                    <RecoveryMeetingCard meeting={item} onPress={showMeetingDetails} />
                 )}
             />
 
@@ -264,5 +306,8 @@ const styles = StyleSheet.create({
     },
     emptyState: {
         marginTop: Spacing.xl,
+    },
+    footerLoading: {
+        paddingVertical: Spacing.lg,
     },
 });

@@ -477,6 +477,53 @@ export interface MeetupUpsertInput {
     waitlist_enabled: boolean;
 }
 
+export type RecoveryMeetingType = 'in_person' | 'online' | 'hybrid' | 'phone' | 'unknown';
+
+export interface RecoveryMeetingOccurrence {
+    id: string;
+    day_of_week: number;
+    start_time_local: string;
+    end_time_local?: string | null;
+    timezone: string;
+}
+
+export interface RecoveryMeeting {
+    id: string;
+    fellowship: string;
+    source_id: string;
+    source_record_id: string;
+    source_url: string;
+    name: string;
+    meeting_type: RecoveryMeetingType;
+    venue_name?: string | null;
+    address_line1?: string | null;
+    address_line2?: string | null;
+    city?: string | null;
+    region?: string | null;
+    postal_code?: string | null;
+    country?: string | null;
+    latitude?: number | null;
+    longitude?: number | null;
+    is_approximate_location: boolean;
+    online_url?: string | null;
+    phone_join_info?: string | null;
+    formats: string[];
+    language?: string | null;
+    accessibility_notes?: string | null;
+    occurrences: RecoveryMeetingOccurrence[];
+    last_verified_at?: string | null;
+    updated_at: string;
+}
+
+export interface RecoveryMeetingFilters {
+    q?: string;
+    fellowship?: string;
+    country?: string;
+    city?: string;
+    meeting_type?: RecoveryMeetingType;
+    day_of_week?: number;
+}
+
 export type SupportUrgency = 'low' | 'medium' | 'high';
 export type SupportType = 'chat' | 'call' | 'meetup';
 export type SupportTopic =
@@ -1724,6 +1771,26 @@ export async function getMyMeetups(scope: MyMeetupScope, cursor?: string, limit 
     return {
         ...pageData,
         items: (pageData.items ?? []).map(normalizeMeetup),
+    };
+}
+
+export async function getRecoveryMeetings(
+    params?: RecoveryMeetingFilters & { cursor?: string; limit?: number; signal?: AbortSignal },
+): Promise<CursorResponse<RecoveryMeeting>> {
+    const search = new URLSearchParams();
+    if (params?.q) search.set('q', params.q);
+    if (params?.fellowship) search.set('fellowship', params.fellowship);
+    if (params?.country) search.set('country', params.country);
+    if (params?.city) search.set('city', params.city);
+    if (params?.meeting_type) search.set('meeting_type', params.meeting_type);
+    if (params?.day_of_week !== undefined) search.set('day_of_week', String(params.day_of_week));
+    if (params?.cursor) search.set('cursor', params.cursor);
+    if (params?.limit) search.set('limit', String(params.limit));
+    const suffix = search.toString() ? `?${search.toString()}` : '';
+    const page = await request<CursorResponse<RecoveryMeeting>>(`/recovery-meetings${suffix}`, { signal: params?.signal });
+    return {
+        ...page,
+        items: page.items ?? [],
     };
 }
 
