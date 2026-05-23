@@ -46,6 +46,15 @@ export const queryKeys = {
         sort?: string;
         limit?: number;
     }) => ['meetups', filters ?? {}] as const,
+    recoveryMeetings: (filters?: {
+        q?: string;
+        fellowship?: string;
+        country?: string;
+        city?: string;
+        meeting_type?: string;
+        day_of_week?: number;
+        limit?: number;
+    }) => ['recovery-meetings', filters ?? {}] as const,
     myMeetups: (params?: { scope?: string; limit?: number }) => ['my-meetups', params ?? {}] as const,
     meetup: (meetupId: string) => ['meetup', meetupId] as const,
     meetupAttendees: (meetupId: string) => ['meetup-attendees', meetupId] as const,

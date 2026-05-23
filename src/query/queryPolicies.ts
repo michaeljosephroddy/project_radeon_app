@@ -47,6 +47,11 @@ const INFINITE_QUERY_POLICIES: Record<string, InfiniteQueryPolicy> = {
         persistedPages: 1,
         refetchOnMount: true,
     },
+    'recovery-meetings': {
+        persist: true,
+        persistedPages: 1,
+        refetchOnMount: true,
+    },
     groups: {
         persist: true,
         persistedPages: 1,

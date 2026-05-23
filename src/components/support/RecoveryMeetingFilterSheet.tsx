@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React from 'react';
 import {
     Modal,
     ScrollView,
@@ -12,16 +12,13 @@ import { Colors, ControlSizes, Radius, Spacing, TextStyles, Typography } from '.
 import { screenStandards } from '../../styles/screenStandards';
 import { PrimaryButton } from '../ui/PrimaryButton';
 import { ScreenHeader } from '../ui/ScreenHeader';
+import { TextField } from '../ui/TextField';
 import {
     DAY_OPTIONS,
     FELLOWSHIPS,
-    MEETING_FORMATS,
-    MEETING_TYPES,
+    RECOVERY_MEETING_TYPES,
     RecoveryMeetingFilters,
-    TIME_BUCKETS,
-    listCitiesForCountry,
-    listCountries,
-} from '../../screens/main/support/recoveryMeetingsMock';
+} from '../../screens/main/support/recoveryMeetings';
 
 interface RecoveryMeetingFilterSheetProps {
     visible: boolean;
@@ -58,9 +55,6 @@ export function RecoveryMeetingFilterSheet({
     onReset,
     onApply,
 }: RecoveryMeetingFilterSheetProps) {
-    const countries = useMemo(() => listCountries(), []);
-    const cities = useMemo(() => listCitiesForCountry(draftFilters.country), [draftFilters.country]);
-
     return (
         <Modal visible={visible} animationType="slide" transparent={false} onRequestClose={onClose}>
             <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
@@ -70,83 +64,60 @@ export function RecoveryMeetingFilterSheet({
                     <View style={styles.section}>
                         <Text style={styles.sectionTitle}>Fellowship</Text>
                         <View style={styles.wrap}>
-                            {FELLOWSHIPS.map((fellowship) => {
-                                const selected = draftFilters.fellowships.includes(fellowship);
-                                return (
-                                    <FilterChip
-                                        key={fellowship}
-                                        label={fellowship}
-                                        selected={selected}
-                                        onPress={() => onChangeFilters((current) => ({
-                                            ...current,
-                                            fellowships: selected
-                                                ? current.fellowships.filter((f) => f !== fellowship)
-                                                : [...current.fellowships, fellowship],
-                                        }))}
-                                    />
-                                );
-                            })}
+                            <FilterChip
+                                label="Any fellowship"
+                                selected={!draftFilters.fellowship}
+                                onPress={() => onChangeFilters((current) => ({ ...current, fellowship: '' }))}
+                            />
+                            {FELLOWSHIPS.map((fellowship) => (
+                                <FilterChip
+                                    key={fellowship.value}
+                                    label={fellowship.label}
+                                    selected={draftFilters.fellowship === fellowship.value}
+                                    onPress={() => onChangeFilters((current) => ({ ...current, fellowship: fellowship.value }))}
+                                />
+                            ))}
                         </View>
                     </View>
 
                     <View style={styles.section}>
                         <Text style={styles.sectionTitle}>Country</Text>
-                        <View style={styles.wrap}>
-                            <FilterChip
-                                label="Any country"
-                                selected={!draftFilters.country}
-                                onPress={() => onChangeFilters((current) => ({ ...current, country: '', city: '' }))}
-                            />
-                            {countries.map((country) => (
-                                <FilterChip
-                                    key={country}
-                                    label={country}
-                                    selected={draftFilters.country === country}
-                                    onPress={() => onChangeFilters((current) => ({
-                                        ...current,
-                                        country,
-                                        city: current.country === country ? current.city : '',
-                                    }))}
-                                />
-                            ))}
-                        </View>
+                        <TextField
+                            value={draftFilters.country}
+                            onChangeText={(country) => onChangeFilters((current) => ({ ...current, country }))}
+                            placeholder="Any country"
+                            autoCapitalize="words"
+                            returnKeyType="done"
+                        />
                     </View>
 
                     <View style={styles.section}>
                         <Text style={styles.sectionTitle}>City</Text>
-                        <View style={styles.wrap}>
-                            <FilterChip
-                                label="Any city"
-                                selected={!draftFilters.city}
-                                onPress={() => onChangeFilters((current) => ({ ...current, city: '' }))}
-                            />
-                            {cities.map((city) => (
-                                <FilterChip
-                                    key={city}
-                                    label={city}
-                                    selected={draftFilters.city === city}
-                                    onPress={() => onChangeFilters((current) => ({ ...current, city }))}
-                                />
-                            ))}
-                        </View>
+                        <TextField
+                            value={draftFilters.city}
+                            onChangeText={(city) => onChangeFilters((current) => ({ ...current, city }))}
+                            placeholder="Any city"
+                            autoCapitalize="words"
+                            returnKeyType="done"
+                        />
                     </View>
 
                     <View style={styles.section}>
                         <Text style={styles.sectionTitle}>Day of week</Text>
                         <View style={styles.wrap}>
+                            <FilterChip
+                                label="Any day"
+                                selected={draftFilters.dayOfWeek === null}
+                                onPress={() => onChangeFilters((current) => ({ ...current, dayOfWeek: null }))}
+                            />
                             {DAY_OPTIONS.map((option) => {
-                                const selected = draftFilters.daysOfWeek.includes(option.value);
+                                const selected = draftFilters.dayOfWeek === option.value;
                                 return (
                                     <FilterChip
                                         key={option.value}
                                         label={option.short}
                                         selected={selected}
-                                        onPress={() => onChangeFilters((current) => ({
-                                            ...current,
-                                            daysOfWeek: selected
-                                                ? current.daysOfWeek.filter((d) => d !== option.value)
-                                                : [...current.daysOfWeek, option.value].sort((a, b) => a - b),
-                                        }))}
+                                        onPress={() => onChangeFilters((current) => ({ ...current, dayOfWeek: option.value }))}
                                     />
                                 );
                             })}
@@ -154,65 +125,21 @@ export function RecoveryMeetingFilterSheet({
                     </View>
 
                     <View style={styles.section}>
-                        <Text style={styles.sectionTitle}>Time of day</Text>
-                        <View style={styles.wrap}>
-                            {TIME_BUCKETS.map((option) => {
-                                const selected = draftFilters.timeBuckets.includes(option.value);
-                                return (
-                                    <FilterChip
-                                        key={option.value}
-                                        label={`${option.label} - ${option.range}`}
-                                        selected={selected}
-                                        onPress={() => onChangeFilters((current) => ({
-                                            ...current,
-                                            timeBuckets: selected
-                                                ? current.timeBuckets.filter((t) => t !== option.value)
-                                                : [...current.timeBuckets, option.value],
-                                        }))}
-                                    />
-                                );
-                            })}
-                        </View>
-                    </View>
-
-                    <View style={styles.section}>
-                        <Text style={styles.sectionTitle}>Format</Text>
+                        <Text style={styles.sectionTitle}>Meeting mode</Text>
                         <View style={styles.wrap}>
                             <FilterChip
-                                label="Any format"
-                                selected={!draftFilters.format}
-                                onPress={() => onChangeFilters((current) => ({ ...current, format: '' }))}
+                                label="Any mode"
+                                selected={!draftFilters.meetingType}
+                                onPress={() => onChangeFilters((current) => ({ ...current, meetingType: '' }))}
                             />
-                            {MEETING_FORMATS.map((option) => (
+                            {RECOVERY_MEETING_TYPES.map((option) => (
                                 <FilterChip
                                     key={option.value}
                                     label={option.label}
-                                    selected={draftFilters.format === option.value}
-                                    onPress={() => onChangeFilters((current) => ({ ...current, format: option.value }))}
+                                    selected={draftFilters.meetingType === option.value}
+                                    onPress={() => onChangeFilters((current) => ({ ...current, meetingType: option.value }))}
                                 />
                             ))}
-                        </View>
-                    </View>
-
-                    <View style={styles.section}>
-                        <Text style={styles.sectionTitle}>Meeting type</Text>
-                        <View style={styles.wrap}>
-                            {MEETING_TYPES.map((type) => {
-                                const selected = draftFilters.meetingTypes.includes(type);
-                                return (
-                                    <FilterChip
-                                        key={type}
-                                        label={type}
-                                        selected={selected}
-                                        onPress={() => onChangeFilters((current) => ({
-                                            ...current,
-                                            meetingTypes: selected
-                                                ? current.meetingTypes.filter((t) => t !== type)
-                                                : [...current.meetingTypes, type],
-                                        }))}
-                                    />
-                                );
-                            })}
                         </View>
                     </View>
                 </ScrollView>

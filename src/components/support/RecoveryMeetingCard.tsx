@@ -4,25 +4,28 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors, ContentInsets, Radius, Spacing, TextStyles } from '../../theme';
 import {
     RecoveryMeeting,
-    formatDayTime,
-    MEETING_FORMATS,
-} from '../../screens/main/support/recoveryMeetingsMock';
+    formatAddressLine,
+    formatLocationLine,
+    formatOccurrence,
+    getFellowshipLabel,
+    getMeetingTypeLabel,
+    getPrimaryOccurrence,
+    hasOnlineDetails,
+} from '../../screens/main/support/recoveryMeetings';
 
 interface RecoveryMeetingCardProps {
     meeting: RecoveryMeeting;
     onPress: (meeting: RecoveryMeeting) => void;
 }
 
-function formatLabel(format: RecoveryMeeting['format']): string {
-    return MEETING_FORMATS.find((option) => option.value === format)?.label ?? format;
-}
-
-function formatIcon(format: RecoveryMeeting['format']): keyof typeof Ionicons.glyphMap {
+function formatIcon(format: RecoveryMeeting['meeting_type']): keyof typeof Ionicons.glyphMap {
     switch (format) {
         case 'online':
             return 'videocam-outline';
         case 'hybrid':
             return 'sync-outline';
+        case 'phone':
+            return 'call-outline';
         default:
             return 'location-outline';
     }
@@ -32,12 +35,11 @@ export const RecoveryMeetingCard = React.memo(function RecoveryMeetingCard({
     meeting,
     onPress,
 }: RecoveryMeetingCardProps) {
-    const dayTime = formatDayTime(meeting.day_of_week, meeting.start_time, meeting.duration_minutes);
-    const locationLine = meeting.format === 'online'
-        ? 'Online meeting'
-        : meeting.venue
-            ? `${meeting.venue} - ${meeting.city}`
-            : `${meeting.city}, ${meeting.country}`;
+    const occurrence = getPrimaryOccurrence(meeting);
+    const scheduleLine = formatOccurrence(occurrence);
+    const locationLine = formatLocationLine(meeting);
+    const addressLine = formatAddressLine(meeting);
+    const onlineDetailsVisible = hasOnlineDetails(meeting);
 
     return (
         <TouchableOpacity style={styles.card} onPress={() => onPress(meeting)} activeOpacity={0.88}>
@@ -45,32 +47,47 @@ export const RecoveryMeetingCard = React.memo(function RecoveryMeetingCard({
                 <View style={styles.body}>
                     <View style={styles.metaRow}>
                         <View style={styles.fellowshipPill}>
-                            <Text style={styles.fellowshipPillText}>{meeting.fellowship}</Text>
+                            <Text style={styles.fellowshipPillText}>{getFellowshipLabel(meeting.fellowship)}</Text>
                         </View>
                         <View style={styles.formatBadge}>
                             <Ionicons
-                                name={formatIcon(meeting.format)}
+                                name={formatIcon(meeting.meeting_type)}
                                 size={12}
                                 color={Colors.text.secondary}
                                 style={styles.formatBadgeIcon}
                             />
-                            <Text style={styles.formatBadgeText}>{formatLabel(meeting.format)}</Text>
+                            <Text style={styles.formatBadgeText}>{getMeetingTypeLabel(meeting.meeting_type)}</Text>
                         </View>
                     </View>
 
                     <Text style={styles.title}>{meeting.name}</Text>
-                    <Text style={styles.description} numberOfLines={2}>{meeting.description}</Text>
 
-                    <Text style={styles.detailLine}>{dayTime}</Text>
+                    <Text style={styles.detailLine}>{scheduleLine}</Text>
                     <Text style={styles.detailLine}>{locationLine}</Text>
+                    {addressLine ? <Text style={styles.detailLine}>{addressLine}</Text> : null}
 
                     <View style={styles.tagRow}>
-                        {meeting.meeting_types.slice(0, 4).map((tag) => (
+                        {meeting.formats.slice(0, 4).map((tag) => (
                             <View key={tag} style={styles.tag}>
                                 <Text style={styles.tagText}>{tag}</Text>
                             </View>
                         ))}
                     </View>
+
+                    {onlineDetailsVisible ? (
+                        <View style={styles.connectionBox}>
+                            {meeting.online_url ? (
+                                <Text style={styles.connectionLine} numberOfLines={2}>
+                                    {meeting.online_url}
+                                </Text>
+                            ) : null}
+                            {meeting.phone_join_info ? (
+                                <Text style={styles.connectionLine} numberOfLines={3}>
+                                    {meeting.phone_join_info}
+                                </Text>
+                            ) : null}
+                        </View>
+                    ) : null}
                 </View>
             </View>
         </TouchableOpacity>
@@ -131,9 +148,6 @@ const styles = StyleSheet.create({
     title: {
         ...TextStyles.sectionTitle,
     },
-    description: {
-        ...TextStyles.secondary,
-    },
     detailLine: {
         ...TextStyles.secondary,
     },
@@ -151,5 +165,18 @@ const styles = StyleSheet.create({
     },
     tagText: {
         ...TextStyles.caption,
+    },
+    connectionBox: {
+        gap: 4,
+        marginTop: 4,
+        padding: Spacing.sm,
+        borderRadius: Radius.md,
+        backgroundColor: Colors.primarySubtle,
+        borderWidth: 1,
+        borderColor: Colors.primary,
+    },
+    connectionLine: {
+        ...TextStyles.caption,
+        color: Colors.text.primary,
     },
 });
