@@ -38,8 +38,7 @@ interface MeetingsViewProps {
     onOpenMeeting?: (meeting: RecoveryMeeting) => void;
 }
 
-const SEARCH_DEBOUNCE_MS = 500;
-const MIN_SEARCH_QUERY_LENGTH = 2;
+const SEARCH_DEBOUNCE_MS = 350;
 
 function useDebounce<T>(value: T, delayMs: number): T {
     const [debounced, setDebounced] = useState(value);
@@ -57,11 +56,7 @@ function resetMeetingFilters(): RecoveryMeetingFilters {
 }
 
 function normalizeSearchQuery(value: string): string {
-    const trimmed = value.trim();
-    if (trimmed.length > 0 && trimmed.length < MIN_SEARCH_QUERY_LENGTH) {
-        return '';
-    }
-    return trimmed;
+    return value.trim();
 }
 
 type LocalPlaceStatus = 'idle' | 'loading' | 'resolved' | 'unavailable';
@@ -127,13 +122,8 @@ export function MeetingsView({ isActive, onOpenMeeting }: MeetingsViewProps) {
     const listProps = getListPerformanceProps('detailList');
     const scrollToTop = useScrollToTopButton({ threshold: 320 });
     const localFallbacks = useMemo(() => buildLocalFallbacks(localPlace), [localPlace]);
-    const draftQuery = draftFilters.query.trim();
-    const normalizedDraftQuery = normalizeSearchQuery(draftQuery);
-    const isShortSearchQuery = draftQuery.length > 0 && draftQuery.length < MIN_SEARCH_QUERY_LENGTH;
-    const isSearchDebouncing = normalizedDraftQuery !== appliedFilters.query;
     const hasManualFinderIntent = Boolean(
-        draftQuery
-        || appliedFilters.query.trim()
+        appliedFilters.query.trim()
         || appliedFilters.location.trim()
         || appliedFilters.country.trim()
         || appliedFilters.fellowship
@@ -150,7 +140,7 @@ export function MeetingsView({ isActive, onOpenMeeting }: MeetingsViewProps) {
         && (localPlaceStatus === 'idle' || localPlaceStatus === 'loading');
     const recoveryMeetingsQuery = useRecoveryMeetings(
         { ...apiFilters, limit: 20 },
-        isActive && !shouldWaitForLocalPlace && !canUseLocalMixed && !isShortSearchQuery && !isSearchDebouncing,
+        isActive && !shouldWaitForLocalPlace && !canUseLocalMixed,
     );
     const localMixedQuery = useLocalMixedRecoveryMeetings(localFallbacks, isActive && canUseLocalMixed, 20);
 
@@ -255,25 +245,21 @@ export function MeetingsView({ isActive, onOpenMeeting }: MeetingsViewProps) {
     const isFindingLocalMeetings = isActive && shouldWaitForLocalPlace;
     const isLoadingMeetings = canUseLocalMixed ? localMixedQuery.isLoading : recoveryMeetingsQuery.isLoading;
     const isMeetingsError = canUseLocalMixed ? localMixedQuery.isError : recoveryMeetingsQuery.isError;
-    const emptyTitle = isShortSearchQuery
-        ? 'Keep typing to search'
-        : isFindingLocalMeetings
+    const emptyTitle = isFindingLocalMeetings
         ? 'Finding local meetings'
         : isLoadingMeetings
         ? 'Loading recovery meetings'
         : isMeetingsError
             ? 'Could not load recovery meetings'
             : 'No meetings match those filters';
-    const emptyDescription = isShortSearchQuery
-        ? 'Enter at least two characters to search meetings, places, or fellowships.'
-        : isFindingLocalMeetings
+    const emptyDescription = isFindingLocalMeetings
         ? 'SoberSpace is checking your town, region, and country before loading the first page.'
         : isLoadingMeetings
         ? 'Real meeting data is loading from SoberSpace.'
         : isMeetingsError
             ? 'Check your connection, then pull to refresh.'
             : 'Try a wider location, another day, or clearing fellowship and mode filters.';
-    const showEmptyActions = !isShortSearchQuery && !isFindingLocalMeetings && !isLoadingMeetings && !isMeetingsError;
+    const showEmptyActions = !isFindingLocalMeetings && !isLoadingMeetings && !isMeetingsError;
 
     const renderHeader = (): React.ReactElement => (
         <View style={styles.header}>
@@ -360,6 +346,9 @@ export function MeetingsView({ isActive, onOpenMeeting }: MeetingsViewProps) {
         </View>
     );
 
+    const listHeader = renderHeader();
+    const emptyState = renderEmptyState();
+
     return (
         <View style={styles.container}>
             <FlatList<RecoveryMeeting>
@@ -391,8 +380,8 @@ export function MeetingsView({ isActive, onOpenMeeting }: MeetingsViewProps) {
                     />
                 }
                 contentContainerStyle={screenStandards.listContent}
-                ListHeaderComponent={renderHeader}
-                ListEmptyComponent={renderEmptyState}
+                ListHeaderComponent={listHeader}
+                ListEmptyComponent={emptyState}
                 ListFooterComponent={
                     !canUseLocalMixed && recoveryMeetingsQuery.isFetchingNextPage ? (
                         <View style={styles.footerLoading}>
