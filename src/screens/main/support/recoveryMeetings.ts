@@ -8,7 +8,7 @@ export interface RecoveryMeetingFilters {
     query: string;
     fellowship: string;
     country: string;
-    city: string;
+    location: string;
     dayOfWeek: DayOfWeek | null;
     meetingType: RecoveryMeetingType | '';
 }
@@ -28,7 +28,7 @@ export const DEFAULT_MEETING_FILTERS: RecoveryMeetingFilters = {
     query: '',
     fellowship: '',
     country: '',
-    city: '',
+    location: '',
     dayOfWeek: null,
     meetingType: '',
 };
@@ -37,8 +37,6 @@ export const FELLOWSHIPS: FilterOption<string>[] = [
     { value: 'aa', label: 'AA' },
     { value: 'ca', label: 'CA' },
     { value: 'na', label: 'NA' },
-    { value: 'smart', label: 'SMART' },
-    { value: 'lifering', label: 'LifeRing' },
 ];
 
 export const RECOVERY_MEETING_TYPES: FilterOption<RecoveryMeetingType>[] = [
@@ -67,7 +65,7 @@ export function filtersToApiParams(filters: RecoveryMeetingFilters): api.Recover
         q: filters.query.trim() || undefined,
         fellowship: filters.fellowship || undefined,
         country: filters.country.trim() || undefined,
-        city: filters.city.trim() || undefined,
+        location: filters.location.trim() || undefined,
         day_of_week: filters.dayOfWeek ?? undefined,
         meeting_type: filters.meetingType || undefined,
     };
@@ -89,11 +87,11 @@ export function getActiveFilterChips(filters: RecoveryMeetingFilters): ActiveFil
             remove: (current) => ({ ...current, country: '' }),
         });
     }
-    if (filters.city.trim()) {
+    if (filters.location.trim()) {
         chips.push({
-            key: 'city',
-            label: filters.city.trim(),
-            remove: (current) => ({ ...current, city: '' }),
+            key: 'location',
+            label: `Location: ${filters.location.trim()}`,
+            remove: (current) => ({ ...current, location: '' }),
         });
     }
     if (filters.dayOfWeek !== null) {
@@ -129,11 +127,24 @@ export function formatOccurrence(occurrence: api.RecoveryMeetingOccurrence | nul
     if (!occurrence) {
         return 'Schedule not listed';
     }
-    const day = DAY_OPTIONS.find((option) => option.value === occurrence.day_of_week)?.long ?? 'Scheduled';
+    return `${formatOccurrenceDay(occurrence)} - ${formatOccurrenceTime(occurrence)}`;
+}
+
+export function formatOccurrenceDay(occurrence: api.RecoveryMeetingOccurrence | null): string {
+    if (!occurrence) {
+        return 'Day not listed';
+    }
+    return DAY_OPTIONS.find((option) => option.value === occurrence.day_of_week)?.long ?? 'Scheduled';
+}
+
+export function formatOccurrenceTime(occurrence: api.RecoveryMeetingOccurrence | null): string {
+    if (!occurrence) {
+        return 'Time not listed';
+    }
     const start = formatClockTime(occurrence.start_time_local);
     const end = occurrence.end_time_local ? formatClockTime(occurrence.end_time_local) : null;
     const time = end ? `${start} - ${end}` : start;
-    return `${day}s - ${time} ${occurrence.timezone}`;
+    return `${time} ${occurrence.timezone}`;
 }
 
 export function formatLocationLine(meeting: RecoveryMeeting): string {
@@ -159,8 +170,15 @@ export function formatAddressLine(meeting: RecoveryMeeting): string | null {
     return parts.length ? parts.join(', ') : null;
 }
 
-export function hasOnlineDetails(meeting: RecoveryMeeting): boolean {
-    return Boolean(meeting.online_url?.trim() || meeting.phone_join_info?.trim());
+export function getConnectionSummary(meeting: RecoveryMeeting): string | null {
+    const credentials = meeting.phone_join_info?.trim();
+    if (credentials) {
+        return credentials;
+    }
+    if (meeting.online_url?.trim()) {
+        return 'Online link available';
+    }
+    return null;
 }
 
 function formatClockTime(value: string): string {

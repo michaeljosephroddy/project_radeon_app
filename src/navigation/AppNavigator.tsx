@@ -23,6 +23,7 @@ import { CreateSupportRequestScreen } from '../screens/main/CreateSupportRequest
 import { CreateMeetupScreen } from '../screens/main/CreateMeetupScreen';
 import { UserProfileScreen } from '../screens/main/UserProfileScreen';
 import { MeetupDetailScreen } from '../screens/main/MeetupDetailScreen';
+import { RecoveryMeetingDetailScreen } from '../screens/main/support/RecoveryMeetingDetailScreen';
 import { Avatar } from '../components/Avatar';
 import { CenterCreateButton } from '../components/create/CenterCreateButton';
 import { CreateActionSheet, type GlobalCreateAction } from '../components/create/CreateActionSheet';
@@ -65,11 +66,13 @@ const DiscoverTab = React.memo(function DiscoverTab({
     isActive,
     onOpenUserProfile,
     onOpenChat,
+    onOpenRecoveryMeeting,
     onDatingLikesOpenChange,
 }: {
     isActive: boolean;
     onOpenUserProfile: (p: OpenUserProfile) => void;
     onOpenChat: (chat: Chat) => void;
+    onOpenRecoveryMeeting: (meeting: api.RecoveryMeeting) => void;
     onDatingLikesOpenChange: (open: boolean) => void;
 }) {
     return (
@@ -78,6 +81,7 @@ const DiscoverTab = React.memo(function DiscoverTab({
                 isActive={isActive}
                 onOpenUserProfile={onOpenUserProfile}
                 onOpenChat={onOpenChat}
+                onOpenRecoveryMeeting={onOpenRecoveryMeeting}
                 onDatingLikesOpenChange={onDatingLikesOpenChange}
             />
         </View>
@@ -226,6 +230,7 @@ export function AppNavigator() {
     const [editingMeetup, setEditingMeetup] = useState<api.Meetup | null>(null);
     const [createPostSessionKey, setCreatePostSessionKey] = useState(0);
     const [openMeetup, setOpenMeetup] = useState<api.Meetup | null>(null);
+    const [openRecoveryMeeting, setOpenRecoveryMeeting] = useState<api.RecoveryMeeting | null>(null);
     const [openGroupId, setOpenGroupId] = useState<string | null>(null);
     const [groupAdminInitialTab, setGroupAdminInitialTab] = useState<'requests' | 'inbox' | 'reports' | null>(null);
     const [groupAdminInitialThreadId, setGroupAdminInitialThreadId] = useState<string | null>(null);
@@ -253,6 +258,7 @@ export function AppNavigator() {
     const inCreateSupportRequest = createSupportRequestOpen;
     const inCreateMeetup = createMeetupOpen || editingMeetup !== null;
     const inMeetupDetail = openMeetup !== null;
+    const inRecoveryMeetingDetail = openRecoveryMeeting !== null;
     const inGroupDetail = openGroupId !== null;
     const inNotifications = notificationsOpen;
     const inDatingLikes = activeTab === 'discover' && datingLikesOpen;
@@ -275,10 +281,23 @@ export function AppNavigator() {
         setCreateMeetupOpen(false);
         setEditingMeetup(null);
         setOpenMeetup(meetup);
+        setOpenRecoveryMeeting(null);
     }, []);
 
     const handleCloseMeetup = useCallback(() => {
         setOpenMeetup(null);
+    }, []);
+
+    const handleOpenRecoveryMeeting = useCallback((meeting: api.RecoveryMeeting) => {
+        setCreateMenuOpen(false);
+        setCreateMeetupOpen(false);
+        setEditingMeetup(null);
+        setOpenMeetup(null);
+        setOpenRecoveryMeeting(meeting);
+    }, []);
+
+    const handleCloseRecoveryMeeting = useCallback(() => {
+        setOpenRecoveryMeeting(null);
     }, []);
 
     const openNotifications = useCallback(() => {
@@ -809,7 +828,7 @@ export function AppNavigator() {
             </View>
         );
     }, [
-        activeTab, inChat, inComposeDM, inCreateGroup, inCreateMeetup, inCreatePost, inCreateSupportRequest, inGroupDetail, inMeetupDetail, inNotifications, inDatingLikes,
+        activeTab, inChat, inComposeDM, inCreateGroup, inCreateMeetup, inCreatePost, inCreateSupportRequest, inGroupDetail, inMeetupDetail, inRecoveryMeetingDetail, inNotifications, inDatingLikes,
         inComments, inGroupComments, notificationSummary?.unread_count,
         openNotifications, openOwnProfile, user,
     ]);
@@ -833,6 +852,14 @@ export function AppNavigator() {
                         meetup={openMeetup!}
                         onBack={handleCloseMeetup}
                         onOpenUserProfile={handleOpenUserProfile}
+                    />
+                </View>
+            )}
+            {inRecoveryMeetingDetail && (
+                <View style={StyleSheet.absoluteFill}>
+                    <RecoveryMeetingDetailScreen
+                        meeting={openRecoveryMeeting!}
+                        onBack={handleCloseRecoveryMeeting}
                     />
                 </View>
             )}
@@ -916,7 +943,7 @@ export function AppNavigator() {
         </>
     ), [
         inChat, inComposeDM, inCreatePost, inCreateGroup, inCreateSupportRequest, inCreateMeetup, inMeetupDetail, inGroupDetail, inNotifications,
-        openUserProfile, openChat, pendingDM, openMeetup, openGroupId, groupAdminInitialTab, groupAdminInitialThreadId, groupFocusRequest, groupSupportFocusRequest, createPostSessionKey, editingMeetup,
+        openUserProfile, openChat, pendingDM, openMeetup, openRecoveryMeeting, openGroupId, groupAdminInitialTab, groupAdminInitialThreadId, groupFocusRequest, groupSupportFocusRequest, createPostSessionKey, editingMeetup,
         handleOpenUserProfile, handleOpenGroup, handleOpenGroupReports, handleOpenGroupAdminInbox, handleOpenSupportRequestContext, handleCloseChat, closeUserProfile,
         handleOpenComments, handleOpenGroupComments, closeCreatePost, closeCreateGroup, handleGroupCreated,
         openCreateSupportRequest, closeCreateSupportRequest, closeCreateMeetup, handleSupportRequestCreated, handleMeetupCreated, handleMeetupUpdated,
@@ -924,7 +951,7 @@ export function AppNavigator() {
         closeNotifications, handleOpenNotificationChat, handleOpenNotificationMention,
     ]);
 
-    const isOverlayOpen = inChat || inComposeDM || inCreatePost || inCreateGroup || inCreateSupportRequest || inCreateMeetup || inMeetupDetail || inGroupDetail || inNotifications || inComments || inGroupComments;
+    const isOverlayOpen = inChat || inComposeDM || inCreatePost || inCreateGroup || inCreateSupportRequest || inCreateMeetup || inMeetupDetail || inRecoveryMeetingDetail || inGroupDetail || inNotifications || inComments || inGroupComments;
     const hidesBottomNav = inChat || inComposeDM || inCreatePost || inCreateGroup || inCreateSupportRequest || inCreateMeetup || inMeetupDetail || inGroupDetail || inNotifications || inDatingLikes || inComments || inGroupComments;
     const canShowGlobalCreate = Boolean(user) && !hidesBottomNav && !keyboardVisible;
     const tabBarBottomPadding = Platform.OS === 'android'
@@ -993,6 +1020,7 @@ export function AppNavigator() {
                         isActive={activeTab === 'discover' && !isOverlayOpen}
                         onOpenUserProfile={handleOpenUserProfile}
                         onOpenChat={setOpenChat}
+                        onOpenRecoveryMeeting={handleOpenRecoveryMeeting}
                         onDatingLikesOpenChange={setDatingLikesOpen}
                     />
                     <CommunityTab

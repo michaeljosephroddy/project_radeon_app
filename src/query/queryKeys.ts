@@ -51,10 +51,18 @@ export const queryKeys = {
         fellowship?: string;
         country?: string;
         city?: string;
+        location?: string;
         meeting_type?: string;
         day_of_week?: number;
         limit?: number;
     }) => ['recovery-meetings', filters ?? {}] as const,
+    recoveryMeetingsLocalMixed: (params?: {
+        fallbacks?: Array<{ location?: string; country?: string; label: string }>;
+        limit?: number;
+    }) => ['recovery-meetings-local-mixed', params ?? {}] as const,
+    recoveryMeeting: (meetingId: string) => ['recovery-meeting', meetingId] as const,
+    recoveryMeetingLocationSuggestions: (params?: { query?: string; country?: string; fellowship?: string; limit?: number }) => ['recovery-meeting-location-suggestions', params ?? {}] as const,
+    recoveryMeetingCountrySuggestions: (params?: { query?: string; fellowship?: string; limit?: number }) => ['recovery-meeting-country-suggestions', params ?? {}] as const,
     myMeetups: (params?: { scope?: string; limit?: number }) => ['my-meetups', params ?? {}] as const,
     meetup: (meetupId: string) => ['meetup', meetupId] as const,
     meetupAttendees: (meetupId: string) => ['meetup-attendees', meetupId] as const,

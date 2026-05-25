@@ -73,6 +73,7 @@ interface DiscoverScreenProps {
     isActive: boolean;
     onOpenUserProfile: (profile: { userId: string; username: string; avatarUrl?: string }) => void;
     onOpenChat: (chat: api.Chat) => void;
+    onOpenRecoveryMeeting: (meeting: api.RecoveryMeeting) => void;
     onDatingLikesOpenChange?: (open: boolean) => void;
 }
 
@@ -344,7 +345,7 @@ function formatCompactCount(count: number): string {
     return count > 99 ? '99+' : String(count);
 }
 
-export function DiscoverScreen({ isActive, onOpenUserProfile, onOpenChat, onDatingLikesOpenChange }: DiscoverScreenProps) {
+export function DiscoverScreen({ isActive, onOpenUserProfile, onOpenChat, onOpenRecoveryMeeting, onDatingLikesOpenChange }: DiscoverScreenProps) {
     const { user } = useAuth();
     const queryClient = useQueryClient();
     const hasActivated = useLazyActivation(isActive);
@@ -796,7 +797,7 @@ export function DiscoverScreen({ isActive, onOpenUserProfile, onOpenChat, onDati
         return (
             <View style={styles.container}>
                 {surfaceTabs}
-                <MeetingsView isActive={meetingsActive} />
+                <MeetingsView isActive={meetingsActive} onOpenMeeting={onOpenRecoveryMeeting} />
             </View>
         );
     }

@@ -12,6 +12,12 @@ export interface DeviceLocationResult {
     coords?: Coords;
 }
 
+export interface ReverseGeocodedPlace {
+    city: string | null;
+    region: string | null;
+    country: string | null;
+}
+
 export async function getDeviceCoords(): Promise<DeviceLocationResult> {
     try {
         const servicesEnabled = await Location.hasServicesEnabledAsync();
@@ -30,11 +36,23 @@ export async function getDeviceCoords(): Promise<DeviceLocationResult> {
     }
 }
 
-export async function reverseGeocode(lat: number, lng: number): Promise<string | null> {
+export async function reverseGeocodePlace(lat: number, lng: number): Promise<ReverseGeocodedPlace | null> {
     try {
         const [place] = await Location.reverseGeocodeAsync({ latitude: lat, longitude: lng });
-        return place?.city ?? place?.subregion ?? place?.region ?? null;
+        if (!place) return null;
+
+        const city = place.city ?? place.district ?? null;
+        const region = place.subregion ?? place.region ?? null;
+        const country = place.country ?? place.isoCountryCode ?? null;
+        if (!city && !region && !country) return null;
+
+        return { city, region, country };
     } catch {
         return null;
     }
+}
+
+export async function reverseGeocode(lat: number, lng: number): Promise<string | null> {
+    const place = await reverseGeocodePlace(lat, lng);
+    return place?.city ?? place?.region ?? null;
 }

@@ -1,4 +1,3 @@
-import { appAlert } from '@/components/ui/appAlert';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
     ActivityIndicator,
@@ -14,15 +13,16 @@ import { Ionicons } from '@expo/vector-icons';
 import { RecoveryMeetingCard } from '../../../components/support/RecoveryMeetingCard';
 import { RecoveryMeetingFilterSheet } from '../../../components/support/RecoveryMeetingFilterSheet';
 import { EmptyState } from '../../../components/ui/EmptyState';
-import { InfoNoticeCard } from '../../../components/ui/InfoNoticeCard';
+import { PrimaryButton } from '../../../components/ui/PrimaryButton';
 import { SearchBar } from '../../../components/ui/SearchBar';
 import { ScrollToTopButton } from '../../../components/ui/ScrollToTopButton';
 import { useGuardedEndReached } from '../../../hooks/useGuardedEndReached';
-import { useRecoveryMeetings } from '../../../hooks/queries/useRecoveryMeetings';
+import { useLocalMixedRecoveryMeetings, useRecoveryMeetings } from '../../../hooks/queries/useRecoveryMeetings';
 import { useScrollToTopButton } from '../../../hooks/useScrollToTopButton';
 import { screenStandards } from '../../../styles/screenStandards';
 import { Colors, Radius, Spacing, Typography } from '../../../theme';
 import { getListPerformanceProps } from '../../../utils/listPerformance';
+import { getDeviceCoords, reverseGeocodePlace, type ReverseGeocodedPlace } from '../../../utils/location';
 import {
     ActiveFilterChip,
     DEFAULT_MEETING_FILTERS,
@@ -30,16 +30,16 @@ import {
     RecoveryMeetingFilters,
     cloneMeetingFilters,
     filtersToApiParams,
-    formatAddressLine,
-    formatLocationLine,
-    formatOccurrence,
     getActiveFilterChips,
-    getPrimaryOccurrence,
 } from './recoveryMeetings';
 
 interface MeetingsViewProps {
     isActive: boolean;
+    onOpenMeeting?: (meeting: RecoveryMeeting) => void;
 }
+
+const SEARCH_DEBOUNCE_MS = 500;
+const MIN_SEARCH_QUERY_LENGTH = 2;
 
 function useDebounce<T>(value: T, delayMs: number): T {
     const [debounced, setDebounced] = useState(value);
@@ -56,52 +56,177 @@ function resetMeetingFilters(): RecoveryMeetingFilters {
     return cloneMeetingFilters(DEFAULT_MEETING_FILTERS);
 }
 
-function showMeetingDetails(meeting: RecoveryMeeting): void {
-    const schedule = formatOccurrence(getPrimaryOccurrence(meeting));
-    const location = formatLocationLine(meeting);
-    const address = formatAddressLine(meeting);
-    const online = meeting.online_url ? `\n\nOnline link:\n${meeting.online_url}` : '';
-    const phone = meeting.phone_join_info ? `\n\nCredentials:\n${meeting.phone_join_info}` : '';
-    const source = meeting.source_url ? `\n\nSource:\n${meeting.source_url}` : '';
-    appAlert.alert(
-        meeting.name,
-        `${schedule}\n${location}${address ? `\n${address}` : ''}${online}${phone}${source}`,
-    );
+function normalizeSearchQuery(value: string): string {
+    const trimmed = value.trim();
+    if (trimmed.length > 0 && trimmed.length < MIN_SEARCH_QUERY_LENGTH) {
+        return '';
+    }
+    return trimmed;
 }
 
-export function MeetingsView({ isActive }: MeetingsViewProps) {
+type LocalPlaceStatus = 'idle' | 'loading' | 'resolved' | 'unavailable';
+
+interface LocalMeetingFallback {
+    location?: string;
+    country?: string;
+    label: string;
+}
+
+function normalizePlacePart(value: string | null | undefined): string | null {
+    const trimmed = value?.trim();
+    return trimmed ? trimmed : null;
+}
+
+function samePlace(a: string | null, b: string | null): boolean {
+    return Boolean(a && b && a.toLowerCase() === b.toLowerCase());
+}
+
+function formatLocalPlaceLabel(location?: string, country?: string): string {
+    return [location, country].filter(Boolean).join(', ');
+}
+
+function buildLocalFallbacks(place: ReverseGeocodedPlace | null): LocalMeetingFallback[] {
+    if (!place) return [];
+
+    const city = normalizePlacePart(place.city);
+    const region = normalizePlacePart(place.region);
+    const country = normalizePlacePart(place.country);
+    const fallbacks: LocalMeetingFallback[] = [];
+
+    if (city) {
+        fallbacks.push({
+            location: city,
+            country: country ?? undefined,
+            label: formatLocalPlaceLabel(city, country ?? undefined),
+        });
+    }
+    if (region && !samePlace(region, city)) {
+        fallbacks.push({
+            location: region,
+            country: country ?? undefined,
+            label: formatLocalPlaceLabel(region, country ?? undefined),
+        });
+    }
+    if (country) {
+        fallbacks.push({ country, label: country });
+    }
+
+    fallbacks.push({ label: 'All meetings' });
+    return fallbacks;
+}
+
+export function MeetingsView({ isActive, onOpenMeeting }: MeetingsViewProps) {
     const listRef = useRef<FlatList<RecoveryMeeting> | null>(null);
+    const didRequestLocalPlace = useRef(false);
     const [draftFilters, setDraftFilters] = useState<RecoveryMeetingFilters>(() => resetMeetingFilters());
     const [appliedFilters, setAppliedFilters] = useState<RecoveryMeetingFilters>(() => resetMeetingFilters());
     const [filterOpen, setFilterOpen] = useState(false);
-    const [showHeaderNotice, setShowHeaderNotice] = useState(true);
-    const debouncedQuery = useDebounce(draftFilters.query, 300);
+    const [localPlaceStatus, setLocalPlaceStatus] = useState<LocalPlaceStatus>('idle');
+    const [localPlace, setLocalPlace] = useState<ReverseGeocodedPlace | null>(null);
+    const debouncedQuery = useDebounce(draftFilters.query, SEARCH_DEBOUNCE_MS);
     const listProps = getListPerformanceProps('detailList');
     const scrollToTop = useScrollToTopButton({ threshold: 320 });
-    const apiFilters = useMemo(() => filtersToApiParams(appliedFilters), [appliedFilters]);
-    const recoveryMeetingsQuery = useRecoveryMeetings({ ...apiFilters, limit: 20 }, isActive);
+    const localFallbacks = useMemo(() => buildLocalFallbacks(localPlace), [localPlace]);
+    const draftQuery = draftFilters.query.trim();
+    const normalizedDraftQuery = normalizeSearchQuery(draftQuery);
+    const isShortSearchQuery = draftQuery.length > 0 && draftQuery.length < MIN_SEARCH_QUERY_LENGTH;
+    const isSearchDebouncing = normalizedDraftQuery !== appliedFilters.query;
+    const hasManualFinderIntent = Boolean(
+        draftQuery
+        || appliedFilters.query.trim()
+        || appliedFilters.location.trim()
+        || appliedFilters.country.trim()
+        || appliedFilters.fellowship
+        || appliedFilters.meetingType
+        || appliedFilters.dayOfWeek !== null
+    );
+    const canUseLocalMixed = localPlaceStatus === 'resolved'
+        && !hasManualFinderIntent
+        && localFallbacks.length > 0;
+    const apiFilters = useMemo(() => {
+        return filtersToApiParams(appliedFilters);
+    }, [appliedFilters]);
+    const shouldWaitForLocalPlace = !hasManualFinderIntent
+        && (localPlaceStatus === 'idle' || localPlaceStatus === 'loading');
+    const recoveryMeetingsQuery = useRecoveryMeetings(
+        { ...apiFilters, limit: 20 },
+        isActive && !shouldWaitForLocalPlace && !canUseLocalMixed && !isShortSearchQuery && !isSearchDebouncing,
+    );
+    const localMixedQuery = useLocalMixedRecoveryMeetings(localFallbacks, isActive && canUseLocalMixed, 20);
 
     useEffect(() => {
+        const nextQuery = normalizeSearchQuery(debouncedQuery);
         setAppliedFilters((current) => (
-            current.query === debouncedQuery ? current : { ...current, query: debouncedQuery }
+            current.query === nextQuery ? current : { ...current, query: nextQuery }
         ));
     }, [debouncedQuery]);
 
+    useEffect(() => {
+        if (!isActive || didRequestLocalPlace.current) {
+            return;
+        }
+
+        let cancelled = false;
+        didRequestLocalPlace.current = true;
+        setLocalPlaceStatus('loading');
+
+        async function resolveLocalPlace(): Promise<void> {
+            const location = await getDeviceCoords();
+            if (cancelled) return;
+
+            if (location.status !== 'available' || !location.coords) {
+                setLocalPlaceStatus('unavailable');
+                return;
+            }
+
+            const place = await reverseGeocodePlace(location.coords.latitude, location.coords.longitude);
+            if (cancelled) return;
+
+            if (place) {
+                setLocalPlace(place);
+                setLocalPlaceStatus('resolved');
+            } else {
+                setLocalPlaceStatus('unavailable');
+            }
+        }
+
+        void resolveLocalPlace();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [isActive]);
+
     const meetings = useMemo(() => (
-        recoveryMeetingsQuery.data?.pages.flatMap((page) => page.items) ?? []
-    ), [recoveryMeetingsQuery.data]);
+        canUseLocalMixed
+            ? localMixedQuery.data?.items ?? []
+            : recoveryMeetingsQuery.data?.pages.flatMap((page) => page.items) ?? []
+    ), [canUseLocalMixed, localMixedQuery.data?.items, recoveryMeetingsQuery.data]);
 
     const activeFilterChips = useMemo(
         () => getActiveFilterChips(appliedFilters),
         [appliedFilters],
     );
+    const localStatusText = useMemo(() => {
+        if (hasManualFinderIntent) {
+            return null;
+        }
+        if (localPlaceStatus === 'loading' || localPlaceStatus === 'idle') {
+            return 'Finding meetings in your area';
+        }
+        const localLabel = localFallbacks.find((fallback) => fallback.location || fallback.country)?.label;
+        return localLabel ? `Local AA, CA and NA near ${localLabel}` : null;
+    }, [hasManualFinderIntent, localFallbacks, localPlaceStatus]);
 
     const loadNextPage = useCallback(async (): Promise<void> => {
+        if (canUseLocalMixed) {
+            return;
+        }
         if (!recoveryMeetingsQuery.hasNextPage || recoveryMeetingsQuery.isFetchingNextPage) {
             return;
         }
         await recoveryMeetingsQuery.fetchNextPage();
-    }, [recoveryMeetingsQuery]);
+    }, [canUseLocalMixed, recoveryMeetingsQuery]);
 
     const pagination = useGuardedEndReached(loadNextPage);
 
@@ -116,32 +241,42 @@ export function MeetingsView({ isActive }: MeetingsViewProps) {
         setAppliedFilters(reset);
     };
 
+    const clearAppliedFilter = (patch: Partial<RecoveryMeetingFilters>): void => {
+        setAppliedFilters((current) => ({ ...current, ...patch }));
+        setDraftFilters((current) => ({ ...current, ...patch }));
+    };
+
     const removeActiveFilter = (chip: ActiveFilterChip): void => {
         const next = chip.remove(appliedFilters);
         setAppliedFilters(next);
         setDraftFilters(next);
     };
 
-    const emptyTitle = recoveryMeetingsQuery.isLoading
+    const isFindingLocalMeetings = isActive && shouldWaitForLocalPlace;
+    const isLoadingMeetings = canUseLocalMixed ? localMixedQuery.isLoading : recoveryMeetingsQuery.isLoading;
+    const isMeetingsError = canUseLocalMixed ? localMixedQuery.isError : recoveryMeetingsQuery.isError;
+    const emptyTitle = isShortSearchQuery
+        ? 'Keep typing to search'
+        : isFindingLocalMeetings
+        ? 'Finding local meetings'
+        : isLoadingMeetings
         ? 'Loading recovery meetings'
-        : recoveryMeetingsQuery.isError
+        : isMeetingsError
             ? 'Could not load recovery meetings'
             : 'No meetings match those filters';
-    const emptyDescription = recoveryMeetingsQuery.isLoading
+    const emptyDescription = isShortSearchQuery
+        ? 'Enter at least two characters to search meetings, places, or fellowships.'
+        : isFindingLocalMeetings
+        ? 'SoberSpace is checking your town, region, and country before loading the first page.'
+        : isLoadingMeetings
         ? 'Real meeting data is loading from SoberSpace.'
-        : recoveryMeetingsQuery.isError
+        : isMeetingsError
             ? 'Check your connection, then pull to refresh.'
             : 'Try a wider location, another day, or clearing fellowship and mode filters.';
+    const showEmptyActions = !isShortSearchQuery && !isFindingLocalMeetings && !isLoadingMeetings && !isMeetingsError;
 
     const renderHeader = (): React.ReactElement => (
         <View style={styles.header}>
-            {showHeaderNotice ? (
-                <InfoNoticeCard
-                    title="Find recovery meetings"
-                    description="Browse imported peer support meetings by fellowship, location, day, and mode."
-                    onDismiss={() => setShowHeaderNotice(false)}
-                />
-            ) : null}
             <View style={styles.searchRow}>
                 <SearchBar
                     primaryField={{
@@ -177,6 +312,51 @@ export function MeetingsView({ isActive }: MeetingsViewProps) {
                     ))}
                 </ScrollView>
             ) : null}
+            {localStatusText ? (
+                <View style={styles.localStatusRow}>
+                    <Ionicons name="navigate-outline" size={14} color={Colors.text.muted} />
+                    <Text style={styles.localStatusText}>{localStatusText}</Text>
+                </View>
+            ) : null}
+        </View>
+    );
+
+    const renderEmptyState = (): React.ReactElement => (
+        <View style={styles.emptyState}>
+            <EmptyState
+                title={emptyTitle}
+                description={emptyDescription}
+                compact
+            />
+            {showEmptyActions ? (
+                <View style={styles.emptyActions}>
+                    {appliedFilters.location.trim() ? (
+                        <TouchableOpacity
+                            style={styles.emptyAction}
+                            onPress={() => clearAppliedFilter({ location: '' })}
+                            activeOpacity={0.85}
+                        >
+                            <Text style={styles.emptyActionText}>Clear location</Text>
+                        </TouchableOpacity>
+                    ) : null}
+                    {appliedFilters.meetingType ? (
+                        <TouchableOpacity
+                            style={styles.emptyAction}
+                            onPress={() => clearAppliedFilter({ meetingType: '' })}
+                            activeOpacity={0.85}
+                        >
+                            <Text style={styles.emptyActionText}>Clear mode</Text>
+                        </TouchableOpacity>
+                    ) : null}
+                    <PrimaryButton
+                        label="Reset all filters"
+                        variant="secondary"
+                        onPress={handleResetFilters}
+                        style={styles.emptyResetButton}
+                        textStyle={styles.emptyResetText}
+                    />
+                </View>
+            ) : null}
         </View>
     );
 
@@ -195,22 +375,26 @@ export function MeetingsView({ isActive }: MeetingsViewProps) {
                 scrollEventThrottle={16}
                 refreshControl={
                     <RefreshControl
-                        refreshing={recoveryMeetingsQuery.isRefetching && !recoveryMeetingsQuery.isFetchingNextPage}
-                        onRefresh={() => void recoveryMeetingsQuery.refetch()}
+                        refreshing={
+                            canUseLocalMixed
+                                ? localMixedQuery.isRefetching
+                                : recoveryMeetingsQuery.isRefetching && !recoveryMeetingsQuery.isFetchingNextPage
+                        }
+                        onRefresh={() => {
+                            if (canUseLocalMixed) {
+                                void localMixedQuery.refetch();
+                                return;
+                            }
+                            void recoveryMeetingsQuery.refetch();
+                        }}
                         tintColor={Colors.primary}
                     />
                 }
                 contentContainerStyle={screenStandards.listContent}
                 ListHeaderComponent={renderHeader}
-                ListEmptyComponent={
-                    <EmptyState
-                        title={emptyTitle}
-                        description={emptyDescription}
-                        style={styles.emptyState}
-                    />
-                }
+                ListEmptyComponent={renderEmptyState}
                 ListFooterComponent={
-                    recoveryMeetingsQuery.isFetchingNextPage ? (
+                    !canUseLocalMixed && recoveryMeetingsQuery.isFetchingNextPage ? (
                         <View style={styles.footerLoading}>
                             <ActivityIndicator color={Colors.primary} />
                         </View>
@@ -218,7 +402,7 @@ export function MeetingsView({ isActive }: MeetingsViewProps) {
                 }
                 ItemSeparatorComponent={() => <View style={styles.separator} />}
                 renderItem={({ item }) => (
-                    <RecoveryMeetingCard meeting={item} onPress={showMeetingDetails} />
+                    <RecoveryMeetingCard meeting={item} onPress={onOpenMeeting ?? (() => undefined)} />
                 )}
             />
 
@@ -301,11 +485,49 @@ const styles = StyleSheet.create({
         fontSize: Typography.sizes.sm,
         fontWeight: '700',
     },
+    localStatusRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        paddingHorizontal: Spacing.sm,
+    },
+    localStatusText: {
+        color: Colors.text.secondary,
+        fontSize: Typography.sizes.sm,
+        fontWeight: '600',
+    },
     separator: {
         height: Spacing.md,
     },
     emptyState: {
         marginTop: Spacing.xl,
+        gap: Spacing.lg,
+    },
+    emptyActions: {
+        alignItems: 'center',
+        gap: Spacing.sm,
+    },
+    emptyAction: {
+        minHeight: 38,
+        justifyContent: 'center',
+        paddingHorizontal: Spacing.md,
+        borderRadius: Radius.pill,
+        borderWidth: 1,
+        borderColor: Colors.primary,
+        backgroundColor: Colors.primarySubtle,
+    },
+    emptyActionText: {
+        color: Colors.primary,
+        fontSize: Typography.sizes.sm,
+        fontWeight: '700',
+    },
+    emptyResetButton: {
+        minHeight: 38,
+        paddingHorizontal: Spacing.lg,
+        paddingVertical: 8,
+    },
+    emptyResetText: {
+        fontSize: Typography.sizes.sm,
     },
     footerLoading: {
         paddingVertical: Spacing.lg,

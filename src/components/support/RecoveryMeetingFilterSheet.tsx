@@ -3,13 +3,16 @@ import {
     Modal,
     ScrollView,
     StyleSheet,
+    StyleProp,
     Text,
     TouchableOpacity,
     View,
+    ViewStyle,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors, ControlSizes, Radius, Spacing, TextStyles, Typography } from '../../theme';
 import { screenStandards } from '../../styles/screenStandards';
+import { useRecoveryMeetingCountrySuggestions, useRecoveryMeetingLocationSuggestions } from '../../hooks/queries/useRecoveryMeetings';
 import { PrimaryButton } from '../ui/PrimaryButton';
 import { ScreenHeader } from '../ui/ScreenHeader';
 import { TextField } from '../ui/TextField';
@@ -33,12 +36,24 @@ interface ChipProps {
     label: string;
     selected: boolean;
     onPress: () => void;
+    style?: StyleProp<ViewStyle>;
 }
 
-function FilterChip({ label, selected, onPress }: ChipProps) {
+function useDebouncedValue<T>(value: T, delayMs: number): T {
+    const [debounced, setDebounced] = React.useState(value);
+
+    React.useEffect(() => {
+        const timer = setTimeout(() => setDebounced(value), delayMs);
+        return () => clearTimeout(timer);
+    }, [delayMs, value]);
+
+    return debounced;
+}
+
+function FilterChip({ label, selected, onPress, style }: ChipProps) {
     return (
         <TouchableOpacity
-            style={[styles.chip, selected && styles.chipSelected]}
+            style={[styles.chip, style, selected && styles.chipSelected]}
             onPress={onPress}
             activeOpacity={0.85}
         >
@@ -55,6 +70,31 @@ export function RecoveryMeetingFilterSheet({
     onReset,
     onApply,
 }: RecoveryMeetingFilterSheetProps) {
+    const debouncedLocationQuery = useDebouncedValue(draftFilters.location.trim(), 250);
+    const debouncedCountryQuery = useDebouncedValue(draftFilters.country.trim(), 250);
+    const locationSuggestionsQuery = useRecoveryMeetingLocationSuggestions(
+        debouncedLocationQuery,
+        {
+            country: draftFilters.country.trim() || undefined,
+            fellowship: draftFilters.fellowship || undefined,
+        },
+        visible && debouncedLocationQuery.length >= 2,
+    );
+    const countrySuggestionsQuery = useRecoveryMeetingCountrySuggestions(
+        debouncedCountryQuery,
+        { fellowship: draftFilters.fellowship || undefined },
+        visible && debouncedCountryQuery.length >= 2,
+    );
+    const locationSuggestions = locationSuggestionsQuery.data ?? [];
+    const countrySuggestions = countrySuggestionsQuery.data ?? [];
+    const selectedLocation = locationSuggestions.some((suggestion) => (
+        suggestion.location === draftFilters.location.trim()
+        && (suggestion.country ?? '') === draftFilters.country.trim()
+    ));
+    const selectedCountry = countrySuggestions.some((suggestion) => suggestion.country === draftFilters.country.trim());
+    const showLocationSuggestions = debouncedLocationQuery.length >= 2 && !selectedLocation;
+    const showCountrySuggestions = debouncedCountryQuery.length >= 2 && !selectedCountry;
+
     return (
         <Modal visible={visible} animationType="slide" transparent={false} onRequestClose={onClose}>
             <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
@@ -81,25 +121,78 @@ export function RecoveryMeetingFilterSheet({
                     </View>
 
                     <View style={styles.section}>
+                        <Text style={styles.sectionTitle}>Location</Text>
+                        <TextField
+                            value={draftFilters.location}
+                            onChangeText={(location) => onChangeFilters((current) => ({ ...current, location }))}
+                            placeholder="City, county, venue, or postcode"
+                            autoCapitalize="words"
+                            returnKeyType="search"
+                        />
+                        {showLocationSuggestions ? (
+                            <View style={styles.suggestionList}>
+                                {locationSuggestionsQuery.isFetching ? (
+                                    <Text style={styles.suggestionMeta}>Searching...</Text>
+                                ) : null}
+                                {locationSuggestions.map((location) => (
+                                    <TouchableOpacity
+                                        key={`${location.location}-${location.country ?? ''}`}
+                                        style={styles.suggestionItem}
+                                        onPress={() => onChangeFilters((current) => ({
+                                            ...current,
+                                            location: location.location,
+                                            country: location.country ?? current.country,
+                                        }))}
+                                        activeOpacity={0.82}
+                                    >
+                                        <Text style={styles.suggestionTitle}>{location.label}</Text>
+                                        <Text style={styles.suggestionSubtitle}>
+                                            {location.meeting_count} meeting{location.meeting_count === 1 ? '' : 's'}
+                                        </Text>
+                                    </TouchableOpacity>
+                                ))}
+                                {!locationSuggestionsQuery.isFetching && locationSuggestions.length === 0 ? (
+                                    <Text style={styles.suggestionMeta}>No meeting locations found</Text>
+                                ) : null}
+                            </View>
+                        ) : null}
+                    </View>
+
+                    <View style={styles.section}>
                         <Text style={styles.sectionTitle}>Country</Text>
                         <TextField
                             value={draftFilters.country}
                             onChangeText={(country) => onChangeFilters((current) => ({ ...current, country }))}
                             placeholder="Any country"
                             autoCapitalize="words"
-                            returnKeyType="done"
+                            returnKeyType="search"
                         />
-                    </View>
-
-                    <View style={styles.section}>
-                        <Text style={styles.sectionTitle}>City</Text>
-                        <TextField
-                            value={draftFilters.city}
-                            onChangeText={(city) => onChangeFilters((current) => ({ ...current, city }))}
-                            placeholder="Any city"
-                            autoCapitalize="words"
-                            returnKeyType="done"
-                        />
+                        {showCountrySuggestions ? (
+                            <View style={styles.suggestionList}>
+                                {countrySuggestionsQuery.isFetching ? (
+                                    <Text style={styles.suggestionMeta}>Searching...</Text>
+                                ) : null}
+                                {countrySuggestions.map((country) => (
+                                    <TouchableOpacity
+                                        key={country.country}
+                                        style={styles.suggestionItem}
+                                        onPress={() => onChangeFilters((current) => ({
+                                            ...current,
+                                            country: country.country,
+                                        }))}
+                                        activeOpacity={0.82}
+                                    >
+                                        <Text style={styles.suggestionTitle}>{country.label}</Text>
+                                        <Text style={styles.suggestionSubtitle}>
+                                            {country.meeting_count} meeting{country.meeting_count === 1 ? '' : 's'}
+                                        </Text>
+                                    </TouchableOpacity>
+                                ))}
+                                {!countrySuggestionsQuery.isFetching && countrySuggestions.length === 0 ? (
+                                    <Text style={styles.suggestionMeta}>No meeting countries found</Text>
+                                ) : null}
+                            </View>
+                        ) : null}
                     </View>
 
                     <View style={styles.section}>
@@ -126,11 +219,12 @@ export function RecoveryMeetingFilterSheet({
 
                     <View style={styles.section}>
                         <Text style={styles.sectionTitle}>Meeting mode</Text>
-                        <View style={styles.wrap}>
+                        <View style={styles.modeGrid}>
                             <FilterChip
                                 label="Any mode"
                                 selected={!draftFilters.meetingType}
                                 onPress={() => onChangeFilters((current) => ({ ...current, meetingType: '' }))}
+                                style={styles.modeChipFull}
                             />
                             {RECOVERY_MEETING_TYPES.map((option) => (
                                 <FilterChip
@@ -138,6 +232,7 @@ export function RecoveryMeetingFilterSheet({
                                     label={option.label}
                                     selected={draftFilters.meetingType === option.value}
                                     onPress={() => onChangeFilters((current) => ({ ...current, meetingType: option.value }))}
+                                    style={styles.modeChip}
                                 />
                             ))}
                         </View>
@@ -174,6 +269,20 @@ const styles = StyleSheet.create({
         flexWrap: 'wrap',
         gap: Spacing.sm,
     },
+    modeGrid: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: Spacing.sm,
+    },
+    modeChip: {
+        flexGrow: 1,
+        flexBasis: '47%',
+        alignItems: 'center',
+    },
+    modeChipFull: {
+        flexBasis: '100%',
+        alignItems: 'center',
+    },
     chip: {
         minHeight: ControlSizes.chipMinHeight,
         paddingHorizontal: Spacing.md,
@@ -192,6 +301,33 @@ const styles = StyleSheet.create({
     },
     chipTextSelected: {
         color: Colors.textOn.primary,
+    },
+    suggestionList: {
+        borderRadius: Radius.md,
+        borderWidth: 1,
+        borderColor: Colors.border.subtle,
+        backgroundColor: Colors.bg.surface,
+        overflow: 'hidden',
+    },
+    suggestionItem: {
+        paddingHorizontal: Spacing.md,
+        paddingVertical: Spacing.sm,
+        borderBottomWidth: 1,
+        borderBottomColor: Colors.border.emphasis,
+    },
+    suggestionTitle: {
+        ...TextStyles.bodyEmphasis,
+    },
+    suggestionSubtitle: {
+        ...TextStyles.caption,
+        color: Colors.text.secondary,
+        marginTop: 2,
+    },
+    suggestionMeta: {
+        ...TextStyles.secondary,
+        color: Colors.text.secondary,
+        paddingHorizontal: Spacing.md,
+        paddingVertical: Spacing.sm,
     },
     footer: {
         flexDirection: 'row',

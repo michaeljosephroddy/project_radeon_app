@@ -6,11 +6,12 @@ import {
     RecoveryMeeting,
     formatAddressLine,
     formatLocationLine,
-    formatOccurrence,
+    formatOccurrenceDay,
+    formatOccurrenceTime,
+    getConnectionSummary,
     getFellowshipLabel,
     getMeetingTypeLabel,
     getPrimaryOccurrence,
-    hasOnlineDetails,
 } from '../../screens/main/support/recoveryMeetings';
 
 interface RecoveryMeetingCardProps {
@@ -36,10 +37,11 @@ export const RecoveryMeetingCard = React.memo(function RecoveryMeetingCard({
     onPress,
 }: RecoveryMeetingCardProps) {
     const occurrence = getPrimaryOccurrence(meeting);
-    const scheduleLine = formatOccurrence(occurrence);
+    const dayLine = formatOccurrenceDay(occurrence);
+    const timeLine = formatOccurrenceTime(occurrence);
     const locationLine = formatLocationLine(meeting);
     const addressLine = formatAddressLine(meeting);
-    const onlineDetailsVisible = hasOnlineDetails(meeting);
+    const connectionLine = getConnectionSummary(meeting);
 
     return (
         <TouchableOpacity style={styles.card} onPress={() => onPress(meeting)} activeOpacity={0.88}>
@@ -60,34 +62,47 @@ export const RecoveryMeetingCard = React.memo(function RecoveryMeetingCard({
                         </View>
                     </View>
 
-                    <Text style={styles.title}>{meeting.name}</Text>
+                    <Text style={styles.title} numberOfLines={2}>{meeting.name}</Text>
 
-                    <Text style={styles.detailLine}>{scheduleLine}</Text>
-                    <Text style={styles.detailLine}>{locationLine}</Text>
-                    {addressLine ? <Text style={styles.detailLine}>{addressLine}</Text> : null}
-
-                    <View style={styles.tagRow}>
-                        {meeting.formats.slice(0, 4).map((tag) => (
-                            <View key={tag} style={styles.tag}>
-                                <Text style={styles.tagText}>{tag}</Text>
+                    <View style={styles.detailGrid}>
+                        <View style={styles.detailRow}>
+                            <Ionicons name="calendar-outline" size={15} color={Colors.text.muted} />
+                            <Text style={styles.detailLine} numberOfLines={1}>{dayLine}</Text>
+                        </View>
+                        <View style={styles.detailRow}>
+                            <Ionicons name="time-outline" size={15} color={Colors.text.muted} />
+                            <Text style={styles.detailLine} numberOfLines={1}>{timeLine}</Text>
+                        </View>
+                        <View style={styles.detailRow}>
+                            <Ionicons name={meeting.meeting_type === 'online' ? 'videocam-outline' : 'business-outline'} size={15} color={Colors.text.muted} />
+                            <Text style={styles.detailLine} numberOfLines={1}>{locationLine}</Text>
+                        </View>
+                        {addressLine ? (
+                            <View style={styles.detailRow}>
+                                <Ionicons name="map-outline" size={15} color={Colors.text.muted} />
+                                <Text style={styles.detailLine} numberOfLines={1}>{addressLine}</Text>
                             </View>
-                        ))}
+                        ) : null}
+                        {connectionLine ? (
+                            <View style={styles.detailRow}>
+                                <Ionicons name="key-outline" size={15} color={Colors.text.muted} />
+                                <Text style={styles.detailLine} numberOfLines={2}>{connectionLine}</Text>
+                            </View>
+                        ) : null}
                     </View>
 
-                    {onlineDetailsVisible ? (
-                        <View style={styles.connectionBox}>
-                            {meeting.online_url ? (
-                                <Text style={styles.connectionLine} numberOfLines={2}>
-                                    {meeting.online_url}
-                                </Text>
-                            ) : null}
-                            {meeting.phone_join_info ? (
-                                <Text style={styles.connectionLine} numberOfLines={3}>
-                                    {meeting.phone_join_info}
-                                </Text>
-                            ) : null}
+                    {meeting.formats.length ? (
+                        <View style={styles.tagRow}>
+                            {meeting.formats.slice(0, 3).map((tag) => (
+                                <View key={tag} style={styles.tag}>
+                                    <Text style={styles.tagText}>{tag}</Text>
+                                </View>
+                            ))}
                         </View>
                     ) : null}
+                </View>
+                <View style={styles.actionColumn}>
+                    <Ionicons name="chevron-forward" size={18} color={Colors.text.muted} />
                 </View>
             </View>
         </TouchableOpacity>
@@ -105,6 +120,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         gap: Spacing.md,
         padding: Spacing.md,
+        alignItems: 'center',
     },
     body: {
         flex: 1,
@@ -148,8 +164,17 @@ const styles = StyleSheet.create({
     title: {
         ...TextStyles.sectionTitle,
     },
+    detailGrid: {
+        gap: 5,
+    },
+    detailRow: {
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        gap: Spacing.xs,
+    },
     detailLine: {
         ...TextStyles.secondary,
+        flex: 1,
     },
     tagRow: {
         flexDirection: 'row',
@@ -166,17 +191,9 @@ const styles = StyleSheet.create({
     tagText: {
         ...TextStyles.caption,
     },
-    connectionBox: {
-        gap: 4,
-        marginTop: 4,
-        padding: Spacing.sm,
-        borderRadius: Radius.md,
-        backgroundColor: Colors.primarySubtle,
-        borderWidth: 1,
-        borderColor: Colors.primary,
-    },
-    connectionLine: {
-        ...TextStyles.caption,
-        color: Colors.text.primary,
+    actionColumn: {
+        width: 24,
+        alignItems: 'flex-end',
+        justifyContent: 'center',
     },
 });

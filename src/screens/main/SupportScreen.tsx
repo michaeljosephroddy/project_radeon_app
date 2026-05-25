@@ -42,6 +42,7 @@ interface SupportScreenProps {
     isActive: boolean;
     onOpenChat: (chat: api.Chat) => void;
     onOpenUserProfile: (profile: { userId: string; username: string; avatarUrl?: string }) => void;
+    onOpenRecoveryMeeting?: (meeting: api.RecoveryMeeting) => void;
 }
 
 interface DetailState {
@@ -208,6 +209,7 @@ export function SupportScreen({
     isActive,
     onOpenChat,
     onOpenUserProfile,
+    onOpenRecoveryMeeting,
 }: SupportScreenProps) {
     const queryClient = useQueryClient();
     const flatListRef = useRef<FlatList<api.SupportRequest> | null>(null);
@@ -603,7 +605,7 @@ export function SupportScreen({
         return (
             <View style={styles.container}>
                 {primaryTabs}
-                <MeetingsView isActive={isActive} />
+                <MeetingsView isActive={isActive} onOpenMeeting={onOpenRecoveryMeeting} />
             </View>
         );
     }
