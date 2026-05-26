@@ -76,7 +76,11 @@ async function loadFirstAvailableFellowshipGroups(
     limit: number,
     signal?: AbortSignal,
 ): Promise<Array<{ fellowship: string; items: api.RecoveryMeeting[] }>> {
-    for (const fallback of fallbacks.length ? fallbacks : [{ label: 'All meetings' }]) {
+    if (!fallbacks.length) {
+        return LOCAL_MIX_FELLOWSHIPS.map((fellowship) => ({ fellowship, items: [] as api.RecoveryMeeting[] }));
+    }
+
+    for (const fallback of fallbacks) {
         const groups = await loadFellowshipGroups(fallback, limit, signal);
         if (groups.some((group) => group.items.length > 0)) {
             return groups;

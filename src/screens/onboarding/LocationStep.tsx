@@ -7,13 +7,13 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
-import * as Location from 'expo-location';
 import { PrimaryButton } from '../../components/ui/PrimaryButton';
 import { OnboardingProgressHeader } from '../../components/onboarding/OnboardingProgressHeader';
 import { TextField } from '../../components/ui/TextField';
 import { useAuth } from '../../hooks/useAuth';
 import * as api from '../../api/client';
 import { Colors, Typography, Spacing } from '../../theme';
+import { getDeviceCoords, reverseGeocodePlace } from '../../utils/location';
 import type { OnboardingStepProps } from '../../navigation/OnboardingNavigator';
 
 type LocationStepProps = OnboardingStepProps;
@@ -35,13 +35,12 @@ export function LocationStep({ onNext, onBack, dotIndex, dotTotal }: LocationSte
     const detectLocation = async () => {
         setDetecting(true);
         try {
-            const { status } = await Location.requestForegroundPermissionsAsync();
-            if (status !== 'granted') return;
+            const result = await getDeviceCoords();
+            if (result.status !== 'available' || !result.coords) return;
 
-            const position = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-            const [place] = await Location.reverseGeocodeAsync(position.coords);
+            const place = await reverseGeocodePlace(result.coords.latitude, result.coords.longitude);
 
-            setDetectedCoords({ lat: position.coords.latitude, lng: position.coords.longitude });
+            setDetectedCoords({ lat: result.coords.latitude, lng: result.coords.longitude });
             if (place?.city) setCity(place.city);
             if (place?.country) setCountry(place.country);
         } catch {

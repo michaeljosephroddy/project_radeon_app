@@ -16,6 +16,7 @@ export interface ReverseGeocodedPlace {
     city: string | null;
     region: string | null;
     country: string | null;
+    locationCandidates: string[];
 }
 
 const COUNTRY_CODE_NAMES: Record<string, string> = {
@@ -33,6 +34,10 @@ const COUNTRY_CODE_NAMES: Record<string, string> = {
     US: 'United States',
 };
 
+const PLACE_ALIASES: Record<string, string[]> = {
+    'greater london': ['London'],
+};
+
 function normalizeText(value: string | null | undefined): string | null {
     const trimmed = value?.trim();
     return trimmed ? trimmed : null;
@@ -42,6 +47,42 @@ function normalizeCountry(value: string | null | undefined): string | null {
     const trimmed = normalizeText(value);
     if (!trimmed) return null;
     return COUNTRY_CODE_NAMES[trimmed.toUpperCase()] ?? trimmed;
+}
+
+function appendUnique(values: string[], value: string | null): void {
+    if (!value) return;
+    if (values.some((item) => item.toLowerCase() === value.toLowerCase())) return;
+    values.push(value);
+}
+
+function appendPlaceCandidate(values: string[], value: string | null | undefined): void {
+    const normalized = normalizeText(value);
+    if (!normalized) return;
+
+    for (const alias of PLACE_ALIASES[normalized.toLowerCase()] ?? []) {
+        appendUnique(values, alias);
+    }
+    appendUnique(values, normalized);
+}
+
+export function getPlaceLocationCandidates(...parts: Array<string | null | undefined>): string[] {
+    const candidates: string[] = [];
+    for (const part of parts) {
+        appendPlaceCandidate(candidates, part);
+    }
+    return candidates;
+}
+
+export function normalizeGeocodedPlace(place: Location.LocationGeocodedAddress | null | undefined): ReverseGeocodedPlace | null {
+    if (!place) return null;
+
+    const locationCandidates = getPlaceLocationCandidates(place.city, place.district, place.subregion, place.region);
+    const city = locationCandidates[0] ?? null;
+    const region = normalizeText(place.subregion) ?? normalizeText(place.region);
+    const country = normalizeCountry(place.country) ?? normalizeCountry(place.isoCountryCode);
+    if (!city && !region && !country) return null;
+
+    return { city, region, country, locationCandidates };
 }
 
 export async function getDeviceCoords(): Promise<DeviceLocationResult> {
@@ -65,14 +106,7 @@ export async function getDeviceCoords(): Promise<DeviceLocationResult> {
 export async function reverseGeocodePlace(lat: number, lng: number): Promise<ReverseGeocodedPlace | null> {
     try {
         const [place] = await Location.reverseGeocodeAsync({ latitude: lat, longitude: lng });
-        if (!place) return null;
-
-        const city = normalizeText(place.city) ?? normalizeText(place.district);
-        const region = normalizeText(place.subregion) ?? normalizeText(place.region);
-        const country = normalizeCountry(place.country) ?? normalizeCountry(place.isoCountryCode);
-        if (!city && !region && !country) return null;
-
-        return { city, region, country };
+        return normalizeGeocodedPlace(place);
     } catch {
         return null;
     }

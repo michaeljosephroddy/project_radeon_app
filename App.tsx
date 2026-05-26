@@ -54,7 +54,7 @@ export default function App() {
                         persistOptions={{
                             persister: asyncStoragePersister,
                             maxAge: 1000 * 60 * 60 * 24 * 7,
-                            buster: 'client-cache-v2-chat-cursor',
+                            buster: 'client-cache-v3-location-candidates',
                         }}
                     >
                         <AuthProvider>
