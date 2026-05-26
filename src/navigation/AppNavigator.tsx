@@ -2,7 +2,7 @@ import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react'
 import {
     View, Text, TouchableOpacity, StyleSheet, Keyboard, Platform, AppState,
 } from 'react-native';
-import { getDeviceCoords, reverseGeocode } from '../utils/location';
+import { getDeviceCoords, reverseGeocodePlace } from '../utils/location';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -619,9 +619,14 @@ export function AppNavigator() {
             try {
                 const location = await getDeviceCoords();
                 if (location.status !== 'available' || !location.coords) return;
-                const city = await reverseGeocode(location.coords.latitude, location.coords.longitude);
-                if (!city) return;
-                await api.updateMyCurrentLocation({ lat: location.coords.latitude, lng: location.coords.longitude, city });
+                const place = await reverseGeocodePlace(location.coords.latitude, location.coords.longitude);
+                if (!place?.city || !place.country) return;
+                await api.updateMyCurrentLocation({
+                    lat: location.coords.latitude,
+                    lng: location.coords.longitude,
+                    city: place.city,
+                    country: place.country,
+                });
                 await refreshUser();
             } catch {
                 // background sync — failures are non-critical

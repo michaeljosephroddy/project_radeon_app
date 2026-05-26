@@ -61,11 +61,10 @@ async function loadLocalMixedRecoveryMeetings(
     const perFellowshipLimit = Math.max(6, Math.ceil(limit / LOCAL_MIX_FELLOWSHIPS.length) + 3);
     const localFallbacks = fallbacks.filter((fallback) => Boolean(fallback.location));
     const broadFallbacks = fallbacks.filter((fallback) => !fallback.location);
-    const localGroups = await loadLocalMixedFellowshipGroups(localFallbacks, perFellowshipLimit, signal);
-    const hasAnyLocalItems = localGroups.some((group) => group.items.length > 0);
-    const groups = hasAnyLocalItems
+    const localGroups = await loadFirstAvailableFellowshipGroups(localFallbacks, perFellowshipLimit, signal);
+    const groups = localGroups.some((group) => group.items.length > 0)
         ? localGroups
-        : await loadLocalMixedFellowshipGroups(broadFallbacks, perFellowshipLimit, signal);
+        : await loadFirstAvailableFellowshipGroups(broadFallbacks, perFellowshipLimit, signal);
 
     return {
         items: interleaveRecoveryMeetingGroups(groups, limit),
@@ -73,25 +72,35 @@ async function loadLocalMixedRecoveryMeetings(
     };
 }
 
-async function loadLocalMixedFellowshipGroups(
+async function loadFirstAvailableFellowshipGroups(
     fallbacks: RecoveryMeetingLocalFallback[],
     limit: number,
     signal?: AbortSignal,
 ): Promise<Array<{ fellowship: string; items: api.RecoveryMeeting[] }>> {
-    return Promise.all(LOCAL_MIX_FELLOWSHIPS.map(async (fellowship) => {
-        for (const fallback of fallbacks.length ? fallbacks : [{ label: 'All meetings' }]) {
-            const page = await api.getRecoveryMeetings({
-                fellowship,
-                location: fallback.location,
-                country: fallback.country,
-                limit,
-                signal,
-            });
-            if (page.items.length > 0) {
-                return { fellowship, items: page.items };
-            }
+    for (const fallback of fallbacks.length ? fallbacks : [{ label: 'All meetings' }]) {
+        const groups = await loadFellowshipGroups(fallback, limit, signal);
+        if (groups.some((group) => group.items.length > 0)) {
+            return groups;
         }
-        return { fellowship, items: [] as api.RecoveryMeeting[] };
+    }
+
+    return LOCAL_MIX_FELLOWSHIPS.map((fellowship) => ({ fellowship, items: [] as api.RecoveryMeeting[] }));
+}
+
+async function loadFellowshipGroups(
+    fallback: RecoveryMeetingLocalFallback,
+    limit: number,
+    signal?: AbortSignal,
+): Promise<Array<{ fellowship: string; items: api.RecoveryMeeting[] }>> {
+    return Promise.all(LOCAL_MIX_FELLOWSHIPS.map(async (fellowship) => {
+        const page = await api.getRecoveryMeetings({
+            fellowship,
+            location: fallback.location,
+            country: fallback.country,
+            limit,
+            signal,
+        });
+        return { fellowship, items: page.items };
     }));
 }
 
