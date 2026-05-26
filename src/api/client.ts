@@ -120,6 +120,7 @@ export interface User {
     incoming_friend_request_count: number;
     outgoing_friend_request_count: number;
     current_city?: string | null;
+    current_country?: string | null;
     location_updated_at?: string | null;
 }
 
@@ -1164,8 +1165,8 @@ export async function uploadGroupImage(input: {
     return parseDataResponse<GroupImageUploadResult>(res);
 }
 
-// Silently records the caller's live GPS position and reverse-geocoded city.
-export async function updateMyCurrentLocation(data: { lat: number; lng: number; city: string }): Promise<void> {
+// Silently records the caller's live GPS position and reverse-geocoded place.
+export async function updateMyCurrentLocation(data: { lat: number; lng: number; city: string; country: string }): Promise<void> {
     await request('/users/me/location', { method: 'PATCH', body: JSON.stringify(data) });
 }
 

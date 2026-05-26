@@ -17,6 +17,7 @@ import { PrimaryButton } from '../../../components/ui/PrimaryButton';
 import { SearchBar } from '../../../components/ui/SearchBar';
 import { ScrollToTopButton } from '../../../components/ui/ScrollToTopButton';
 import { useGuardedEndReached } from '../../../hooks/useGuardedEndReached';
+import { useAuth } from '../../../hooks/useAuth';
 import { useLocalMixedRecoveryMeetings, useRecoveryMeetings } from '../../../hooks/queries/useRecoveryMeetings';
 import { useScrollToTopButton } from '../../../hooks/useScrollToTopButton';
 import { screenStandards } from '../../../styles/screenStandards';
@@ -76,8 +77,28 @@ function samePlace(a: string | null, b: string | null): boolean {
     return Boolean(a && b && a.toLowerCase() === b.toLowerCase());
 }
 
+function sameOptionalPlacePart(a: string | null, b: string | null): boolean {
+    if (!a && !b) return true;
+    return samePlace(a, b);
+}
+
 function formatLocalPlaceLabel(location?: string, country?: string): string {
     return [location, country].filter(Boolean).join(', ');
+}
+
+function appendLocationFallback(
+    fallbacks: LocalMeetingFallback[],
+    location: string,
+    country: string | null,
+): void {
+    fallbacks.push({
+        location,
+        country: country ?? undefined,
+        label: formatLocalPlaceLabel(location, country ?? undefined),
+    });
+    if (country) {
+        fallbacks.push({ location, label: location });
+    }
 }
 
 function buildLocalFallbacks(place: ReverseGeocodedPlace | null): LocalMeetingFallback[] {
@@ -89,18 +110,10 @@ function buildLocalFallbacks(place: ReverseGeocodedPlace | null): LocalMeetingFa
     const fallbacks: LocalMeetingFallback[] = [];
 
     if (city) {
-        fallbacks.push({
-            location: city,
-            country: country ?? undefined,
-            label: formatLocalPlaceLabel(city, country ?? undefined),
-        });
+        appendLocationFallback(fallbacks, city, country);
     }
     if (region && !samePlace(region, city)) {
-        fallbacks.push({
-            location: region,
-            country: country ?? undefined,
-            label: formatLocalPlaceLabel(region, country ?? undefined),
-        });
+        appendLocationFallback(fallbacks, region, country);
     }
     if (country) {
         fallbacks.push({ country, label: country });
@@ -111,13 +124,20 @@ function buildLocalFallbacks(place: ReverseGeocodedPlace | null): LocalMeetingFa
 }
 
 export function MeetingsView({ isActive, onOpenMeeting }: MeetingsViewProps) {
+    const { user } = useAuth();
     const listRef = useRef<FlatList<RecoveryMeeting> | null>(null);
     const didRequestLocalPlace = useRef(false);
+    const profilePlace = useMemo<ReverseGeocodedPlace | null>(() => {
+        const city = normalizePlacePart(user?.current_city) ?? normalizePlacePart(user?.city);
+        const country = normalizePlacePart(user?.current_country) ?? normalizePlacePart(user?.country);
+        if (!city && !country) return null;
+        return { city, region: null, country };
+    }, [user?.city, user?.country, user?.current_city, user?.current_country]);
     const [draftFilters, setDraftFilters] = useState<RecoveryMeetingFilters>(() => resetMeetingFilters());
     const [appliedFilters, setAppliedFilters] = useState<RecoveryMeetingFilters>(() => resetMeetingFilters());
     const [filterOpen, setFilterOpen] = useState(false);
-    const [localPlaceStatus, setLocalPlaceStatus] = useState<LocalPlaceStatus>('idle');
-    const [localPlace, setLocalPlace] = useState<ReverseGeocodedPlace | null>(null);
+    const [localPlaceStatus, setLocalPlaceStatus] = useState<LocalPlaceStatus>(() => profilePlace ? 'resolved' : 'idle');
+    const [localPlace, setLocalPlace] = useState<ReverseGeocodedPlace | null>(() => profilePlace);
     const debouncedQuery = useDebounce(draftFilters.query, SEARCH_DEBOUNCE_MS);
     const listProps = getListPerformanceProps('detailList');
     const scrollToTop = useScrollToTopButton({ threshold: 320 });
@@ -152,20 +172,33 @@ export function MeetingsView({ isActive, onOpenMeeting }: MeetingsViewProps) {
     }, [debouncedQuery]);
 
     useEffect(() => {
+        if (!profilePlace) {
+            return;
+        }
+        const sameCity = sameOptionalPlacePart(profilePlace.city, localPlace?.city ?? null);
+        const sameCountry = sameOptionalPlacePart(profilePlace.country, localPlace?.country ?? null);
+        if (sameCity && sameCountry) {
+            return;
+        }
+        setLocalPlace(profilePlace);
+        setLocalPlaceStatus('resolved');
+    }, [localPlace?.city, localPlace?.country, profilePlace]);
+
+    useEffect(() => {
         if (!isActive || didRequestLocalPlace.current) {
             return;
         }
 
         let cancelled = false;
         didRequestLocalPlace.current = true;
-        setLocalPlaceStatus('loading');
+        setLocalPlaceStatus((current) => current === 'resolved' ? current : 'loading');
 
         async function resolveLocalPlace(): Promise<void> {
             const location = await getDeviceCoords();
             if (cancelled) return;
 
             if (location.status !== 'available' || !location.coords) {
-                setLocalPlaceStatus('unavailable');
+                setLocalPlaceStatus((current) => current === 'resolved' ? current : 'unavailable');
                 return;
             }
 
@@ -176,7 +209,7 @@ export function MeetingsView({ isActive, onOpenMeeting }: MeetingsViewProps) {
                 setLocalPlace(place);
                 setLocalPlaceStatus('resolved');
             } else {
-                setLocalPlaceStatus('unavailable');
+                setLocalPlaceStatus((current) => current === 'resolved' ? current : 'unavailable');
             }
         }
 

@@ -13,7 +13,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { useGradualKeyboardInset } from '../../hooks/useGradualKeyboardInset';
 import { screenStandards } from '../../styles/screenStandards';
 import { Colors, Radius, Spacing, TextStyles } from '../../theme';
-import { getDeviceCoords, reverseGeocode } from '../../utils/location';
+import { getDeviceCoords, reverseGeocodePlace } from '../../utils/location';
 
 interface CreateSupportRequestScreenProps {
     onBack: () => void;
@@ -123,8 +123,8 @@ export function CreateSupportRequestScreen({
                 return;
             }
 
-            const detectedCity = await reverseGeocode(result.coords.latitude, result.coords.longitude);
-            if (!detectedCity) {
+            const detectedPlace = await reverseGeocodePlace(result.coords.latitude, result.coords.longitude);
+            if (!detectedPlace?.city || !detectedPlace.country) {
                 appAlert.alert('Location unavailable', 'We could not identify your city from your current location.');
                 return;
             }
@@ -132,12 +132,13 @@ export function CreateSupportRequestScreen({
             await api.updateMyCurrentLocation({
                 lat: result.coords.latitude,
                 lng: result.coords.longitude,
-                city: detectedCity,
+                city: detectedPlace.city,
+                country: detectedPlace.country,
             });
             await refreshUser();
             setForm((current) => ({
                 ...current,
-                location: { city: detectedCity, visibility: 'city' },
+                location: { city: detectedPlace.city, country: detectedPlace.country, visibility: 'city' },
             }));
         } catch (error: unknown) {
             appAlert.alert('Location unavailable', error instanceof Error ? error.message : 'Please try again.');
