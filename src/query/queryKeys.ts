@@ -48,7 +48,7 @@ export const queryKeys = {
     }) => ['meetups', filters ?? {}] as const,
     recoveryMeetings: (filters?: {
         q?: string;
-        fellowship?: string;
+        fellowship?: string | string[];
         country?: string;
         region?: string;
         city?: string;
@@ -57,11 +57,8 @@ export const queryKeys = {
         day_of_week?: number;
         limit?: number;
     }) => ['recovery-meetings', filters ?? {}] as const,
-    recoveryMeetingsLocalMixed: (params?: {
-        fallbacks?: Array<{ location?: string; region?: string; country?: string; label: string }>;
-        limit?: number;
-    }) => ['recovery-meetings-local-mixed', params ?? {}] as const,
     recoveryMeeting: (meetingId: string) => ['recovery-meeting', meetingId] as const,
+    recoveryMeetingFilterOptions: (params?: { level?: string; query?: string; country?: string; region?: string; fellowship?: string | string[]; limit?: number }) => ['recovery-meeting-filter-options', params ?? {}] as const,
     recoveryMeetingLocationSuggestions: (params?: { query?: string; country?: string; region?: string; fellowship?: string; limit?: number }) => ['recovery-meeting-location-suggestions', params ?? {}] as const,
     recoveryMeetingRegionSuggestions: (params?: { query?: string; country?: string; fellowship?: string; limit?: number }) => ['recovery-meeting-region-suggestions', params ?? {}] as const,
     recoveryMeetingCountrySuggestions: (params?: { query?: string; fellowship?: string; limit?: number }) => ['recovery-meeting-country-suggestions', params ?? {}] as const,

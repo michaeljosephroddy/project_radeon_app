@@ -544,9 +544,31 @@ export interface RecoveryMeetingCountrySuggestion {
     meeting_count: number;
 }
 
+export type RecoveryMeetingFilterOptionLevel = 'country' | 'region' | 'locality';
+
+export interface RecoveryMeetingFilterOption {
+    label: string;
+    level: RecoveryMeetingFilterOptionLevel;
+    country?: string | null;
+    country_code?: string | null;
+    region?: string | null;
+    region_code?: string | null;
+    locality?: string | null;
+    meeting_count: number;
+}
+
+export interface RecoveryMeetingFilterOptionParams {
+    level: RecoveryMeetingFilterOptionLevel;
+    q: string;
+    fellowship?: string | string[];
+    country?: string;
+    region?: string;
+    limit?: number;
+}
+
 export interface RecoveryMeetingFilters {
     q?: string;
-    fellowship?: string;
+    fellowship?: string | string[];
     country?: string;
     region?: string;
     city?: string;
@@ -1810,7 +1832,13 @@ export async function getRecoveryMeetings(
 ): Promise<CursorResponse<RecoveryMeeting>> {
     const search = new URLSearchParams();
     if (params?.q) search.set('q', params.q);
-    if (params?.fellowship) search.set('fellowship', params.fellowship);
+    if (Array.isArray(params?.fellowship)) {
+        for (const fellowship of params.fellowship) {
+            if (fellowship) search.append('fellowship', fellowship);
+        }
+    } else if (params?.fellowship) {
+        search.set('fellowship', params.fellowship);
+    }
     if (params?.country) search.set('country', params.country);
     if (params?.region) search.set('region', params.region);
     if (params?.location) search.set('location', params.location);
@@ -1829,6 +1857,29 @@ export async function getRecoveryMeetings(
 
 export async function getRecoveryMeeting(id: string): Promise<RecoveryMeeting> {
     return request<RecoveryMeeting>(`/recovery-meetings/${id}`);
+}
+
+function appendRecoveryMeetingFellowshipParams(search: URLSearchParams, fellowship?: string | string[]): void {
+    if (Array.isArray(fellowship)) {
+        for (const item of fellowship) {
+            if (item) search.append('fellowship', item);
+        }
+        return;
+    }
+    if (fellowship) search.set('fellowship', fellowship);
+}
+
+export async function getRecoveryMeetingFilterOptions(
+    params: RecoveryMeetingFilterOptionParams,
+): Promise<RecoveryMeetingFilterOption[]> {
+    const search = new URLSearchParams();
+    search.set('level', params.level);
+    search.set('q', params.q);
+    search.set('limit', String(params.limit ?? 10));
+    appendRecoveryMeetingFellowshipParams(search, params.fellowship);
+    if (params.country) search.set('country', params.country);
+    if (params.region) search.set('region', params.region);
+    return request<RecoveryMeetingFilterOption[]>(`/recovery-meetings/filter-options?${search.toString()}`);
 }
 
 export async function getRecoveryMeetingLocationSuggestions(

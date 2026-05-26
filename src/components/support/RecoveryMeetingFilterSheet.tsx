@@ -12,7 +12,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors, ControlSizes, Radius, Spacing, TextStyles, Typography } from '../../theme';
 import { screenStandards } from '../../styles/screenStandards';
-import { useRecoveryMeetingCountrySuggestions, useRecoveryMeetingLocationSuggestions, useRecoveryMeetingRegionSuggestions } from '../../hooks/queries/useRecoveryMeetings';
+import { useRecoveryMeetingFilterOptions } from '../../hooks/queries/useRecoveryMeetings';
 import { PrimaryButton } from '../ui/PrimaryButton';
 import { ScreenHeader } from '../ui/ScreenHeader';
 import { TextField } from '../ui/TextField';
@@ -70,6 +70,16 @@ function getRegionFieldLabel(country: string): string {
     return 'Region';
 }
 
+function toggleFellowship(current: RecoveryMeetingFilters, value: string): RecoveryMeetingFilters {
+    const isSelected = current.fellowships.includes(value);
+    return {
+        ...current,
+        fellowships: isSelected
+            ? current.fellowships.filter((item) => item !== value)
+            : [...current.fellowships, value],
+    };
+}
+
 export function RecoveryMeetingFilterSheet({
     visible,
     draftFilters,
@@ -84,33 +94,39 @@ export function RecoveryMeetingFilterSheet({
     const selectedCountryValue = draftFilters.country.trim();
     const selectedRegionValue = draftFilters.region.trim();
     const regionLabel = getRegionFieldLabel(selectedCountryValue);
-    const locationSuggestionsQuery = useRecoveryMeetingLocationSuggestions(
-        debouncedLocationQuery,
+    const suggestionFellowship = draftFilters.fellowships.length ? draftFilters.fellowships : undefined;
+    const locationSuggestionsQuery = useRecoveryMeetingFilterOptions(
         {
+            level: 'locality',
+            q: debouncedLocationQuery,
             country: selectedCountryValue || undefined,
             region: selectedRegionValue || undefined,
-            fellowship: draftFilters.fellowship || undefined,
+            fellowship: suggestionFellowship,
         },
         visible && selectedCountryValue.length > 0 && debouncedLocationQuery.length >= 2,
     );
-    const regionSuggestionsQuery = useRecoveryMeetingRegionSuggestions(
-        debouncedRegionQuery,
+    const regionSuggestionsQuery = useRecoveryMeetingFilterOptions(
         {
+            level: 'region',
+            q: debouncedRegionQuery,
             country: selectedCountryValue || undefined,
-            fellowship: draftFilters.fellowship || undefined,
+            fellowship: suggestionFellowship,
         },
         visible && selectedCountryValue.length > 0 && debouncedRegionQuery.length >= 2,
     );
-    const countrySuggestionsQuery = useRecoveryMeetingCountrySuggestions(
-        debouncedCountryQuery,
-        { fellowship: draftFilters.fellowship || undefined },
+    const countrySuggestionsQuery = useRecoveryMeetingFilterOptions(
+        {
+            level: 'country',
+            q: debouncedCountryQuery,
+            fellowship: suggestionFellowship,
+        },
         visible && debouncedCountryQuery.length >= 2,
     );
     const locationSuggestions = locationSuggestionsQuery.data ?? [];
     const regionSuggestions = regionSuggestionsQuery.data ?? [];
     const countrySuggestions = countrySuggestionsQuery.data ?? [];
     const selectedLocation = locationSuggestions.some((suggestion) => (
-        suggestion.location === draftFilters.location.trim()
+        suggestion.locality === draftFilters.location.trim()
         && (suggestion.region ?? '') === selectedRegionValue
         && (suggestion.country ?? '') === selectedCountryValue
     ));
@@ -118,11 +134,10 @@ export function RecoveryMeetingFilterSheet({
         suggestion.region === selectedRegionValue
         && suggestion.country === selectedCountryValue
     ));
-    const selectedCountry = countrySuggestions.some((suggestion) => suggestion.country === draftFilters.country.trim());
-    const canChooseLocation = selectedCountryValue.length > 0 && selectedRegionValue.length > 0;
+    const canChooseLocation = selectedCountryValue.length > 0;
     const showLocationSuggestions = canChooseLocation && debouncedLocationQuery.length >= 2 && !selectedLocation;
     const showRegionSuggestions = selectedCountryValue.length > 0 && debouncedRegionQuery.length >= 2 && !selectedRegion;
-    const showCountrySuggestions = debouncedCountryQuery.length >= 2 && !selectedCountry;
+    const showCountrySuggestions = debouncedCountryQuery.length >= 2;
 
     return (
         <Modal visible={visible} animationType="slide" transparent={false} onRequestClose={onClose}>
@@ -135,15 +150,15 @@ export function RecoveryMeetingFilterSheet({
                         <View style={styles.wrap}>
                             <FilterChip
                                 label="Any fellowship"
-                                selected={!draftFilters.fellowship}
-                                onPress={() => onChangeFilters((current) => ({ ...current, fellowship: '' }))}
+                                selected={draftFilters.fellowships.length === 0}
+                                onPress={() => onChangeFilters((current) => ({ ...current, fellowships: [] }))}
                             />
                             {FELLOWSHIPS.map((fellowship) => (
                                 <FilterChip
                                     key={fellowship.value}
                                     label={fellowship.label}
-                                    selected={draftFilters.fellowship === fellowship.value}
-                                    onPress={() => onChangeFilters((current) => ({ ...current, fellowship: fellowship.value }))}
+                                    selected={draftFilters.fellowships.includes(fellowship.value)}
+                                    onPress={() => onChangeFilters((current) => toggleFellowship(current, fellowship.value))}
                                 />
                             ))}
                         </View>
@@ -156,7 +171,9 @@ export function RecoveryMeetingFilterSheet({
                             onChangeText={(country) => onChangeFilters((current) => ({
                                 ...current,
                                 country,
+                                countryCode: null,
                                 region: '',
+                                regionCode: null,
                                 location: '',
                             }))}
                             placeholder="Choose country first"
@@ -170,12 +187,14 @@ export function RecoveryMeetingFilterSheet({
                                 ) : null}
                                 {countrySuggestions.map((country) => (
                                     <TouchableOpacity
-                                        key={country.country}
+                                        key={`${country.country ?? ''}-${country.country_code ?? ''}`}
                                         style={styles.suggestionItem}
                                         onPress={() => onChangeFilters((current) => ({
                                             ...current,
-                                            country: country.country,
+                                            country: country.country ?? current.country,
+                                            countryCode: country.country_code ?? null,
                                             region: '',
+                                            regionCode: null,
                                             location: '',
                                         }))}
                                         activeOpacity={0.82}
@@ -197,7 +216,12 @@ export function RecoveryMeetingFilterSheet({
                         <Text style={styles.sectionTitle}>Region / county / state</Text>
                         <TextField
                             value={draftFilters.region}
-                            onChangeText={(region) => onChangeFilters((current) => ({ ...current, region, location: '' }))}
+                            onChangeText={(region) => onChangeFilters((current) => ({
+                                ...current,
+                                region,
+                                regionCode: null,
+                                location: '',
+                            }))}
                             placeholder={selectedCountryValue ? `Choose ${regionLabel.toLowerCase()}` : 'Select a country first'}
                             autoCapitalize="words"
                             returnKeyType="search"
@@ -211,12 +235,14 @@ export function RecoveryMeetingFilterSheet({
                                 ) : null}
                                 {regionSuggestions.map((region) => (
                                     <TouchableOpacity
-                                        key={`${region.region}-${region.country}`}
+                                        key={`${region.region ?? ''}-${region.country ?? ''}`}
                                         style={styles.suggestionItem}
                                         onPress={() => onChangeFilters((current) => ({
                                             ...current,
-                                            region: region.region,
-                                            country: region.country,
+                                            region: region.region ?? current.region,
+                                            regionCode: region.region_code ?? null,
+                                            country: region.country ?? current.country,
+                                            countryCode: region.country_code ?? current.countryCode,
                                             location: '',
                                         }))}
                                         activeOpacity={0.82}
@@ -239,7 +265,7 @@ export function RecoveryMeetingFilterSheet({
                         <TextField
                             value={draftFilters.location}
                             onChangeText={(location) => onChangeFilters((current) => ({ ...current, location }))}
-                            placeholder={canChooseLocation ? 'Choose town or city' : `Select ${regionLabel.toLowerCase()} first`}
+                            placeholder={canChooseLocation ? 'Choose town or city' : 'Select a country first'}
                             autoCapitalize="words"
                             returnKeyType="search"
                             editable={canChooseLocation}
@@ -252,13 +278,15 @@ export function RecoveryMeetingFilterSheet({
                                 ) : null}
                                 {locationSuggestions.map((location) => (
                                     <TouchableOpacity
-                                        key={`${location.location}-${location.region ?? ''}-${location.country ?? ''}`}
+                                        key={`${location.locality ?? ''}-${location.region ?? ''}-${location.country ?? ''}`}
                                         style={styles.suggestionItem}
                                         onPress={() => onChangeFilters((current) => ({
                                             ...current,
-                                            location: location.location,
+                                            location: location.locality ?? current.location,
                                             region: location.region ?? current.region,
+                                            regionCode: location.region_code ?? current.regionCode,
                                             country: location.country ?? current.country,
+                                            countryCode: location.country_code ?? current.countryCode,
                                         }))}
                                         activeOpacity={0.82}
                                     >

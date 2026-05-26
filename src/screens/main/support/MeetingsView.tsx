@@ -18,7 +18,7 @@ import { SearchBar } from '../../../components/ui/SearchBar';
 import { ScrollToTopButton } from '../../../components/ui/ScrollToTopButton';
 import { useGuardedEndReached } from '../../../hooks/useGuardedEndReached';
 import { useAuth } from '../../../hooks/useAuth';
-import { useLocalMixedRecoveryMeetings, useRecoveryMeetings } from '../../../hooks/queries/useRecoveryMeetings';
+import { useRecoveryMeetings } from '../../../hooks/queries/useRecoveryMeetings';
 import { useScrollToTopButton } from '../../../hooks/useScrollToTopButton';
 import * as api from '../../../api/client';
 import { screenStandards } from '../../../styles/screenStandards';
@@ -26,39 +26,14 @@ import { Colors, Radius, Spacing, Typography } from '../../../theme';
 import { getListPerformanceProps } from '../../../utils/listPerformance';
 import { getDeviceCoords, getPlaceLocationCandidates, reverseGeocodePlace, type ReverseGeocodedPlace } from '../../../utils/location';
 import {
-    ActiveFilterChip,
-    DEFAULT_MEETING_FILTERS,
+    DEFAULT_LOCAL_FELLOWSHIPS,
     RecoveryMeeting,
-    RecoveryMeetingFilters,
-    cloneMeetingFilters,
-    filtersToApiParams,
-    getActiveFilterChips,
 } from './recoveryMeetings';
+import { useRecoveryMeetingFilters } from './useRecoveryMeetingFilters';
 
 interface MeetingsViewProps {
     isActive: boolean;
     onOpenMeeting?: (meeting: RecoveryMeeting) => void;
-}
-
-const SEARCH_DEBOUNCE_MS = 350;
-
-function useDebounce<T>(value: T, delayMs: number): T {
-    const [debounced, setDebounced] = useState(value);
-
-    useEffect(() => {
-        const timer = setTimeout(() => setDebounced(value), delayMs);
-        return () => clearTimeout(timer);
-    }, [value, delayMs]);
-
-    return debounced;
-}
-
-function resetMeetingFilters(): RecoveryMeetingFilters {
-    return cloneMeetingFilters(DEFAULT_MEETING_FILTERS);
-}
-
-function normalizeSearchQuery(value: string): string {
-    return value.trim();
 }
 
 type LocalPlaceStatus = 'idle' | 'loading' | 'resolved' | 'unavailable';
@@ -82,6 +57,12 @@ function samePlace(a: string | null, b: string | null): boolean {
 
 function formatLocalPlaceLabel(location?: string, region?: string, country?: string): string {
     return [location, region, country].filter(Boolean).join(', ');
+}
+
+function getFallbackSignature(fallbacks: LocalMeetingFallback[]): string {
+    return fallbacks
+        .map((fallback) => [fallback.location ?? '', fallback.region ?? '', fallback.country ?? ''].join('|'))
+        .join('::');
 }
 
 function appendFallback(fallbacks: LocalMeetingFallback[], fallback: LocalMeetingFallback): void {
@@ -167,46 +148,54 @@ export function MeetingsView({ isActive, onOpenMeeting }: MeetingsViewProps) {
             locationCandidates: getPlaceLocationCandidates(profileCity),
         };
     }, [user?.city, user?.country, user?.current_city, user?.current_country]);
-    const [draftFilters, setDraftFilters] = useState<RecoveryMeetingFilters>(() => resetMeetingFilters());
-    const [appliedFilters, setAppliedFilters] = useState<RecoveryMeetingFilters>(() => resetMeetingFilters());
-    const [filterOpen, setFilterOpen] = useState(false);
+    const {
+        draftFilters,
+        setDraftFilters,
+        appliedFilters,
+        apiFilters,
+        activeFilterChips,
+        filterOpen,
+        setFilterOpen,
+        hasManualFinderIntent,
+        handleApplyFilters,
+        handleResetFilters,
+        clearAppliedFilter,
+        removeActiveFilter,
+    } = useRecoveryMeetingFilters();
     const [localPlaceStatus, setLocalPlaceStatus] = useState<LocalPlaceStatus>('idle');
     const [localPlace, setLocalPlace] = useState<ReverseGeocodedPlace | null>(null);
-    const debouncedQuery = useDebounce(draftFilters.query, SEARCH_DEBOUNCE_MS);
+    const [localFallbackIndex, setLocalFallbackIndex] = useState(0);
     const listProps = getListPerformanceProps('detailList');
     const scrollToTop = useScrollToTopButton({ threshold: 320 });
     const localFallbacks = useMemo(() => buildLocalFallbacks(localPlace), [localPlace]);
-    const hasManualFinderIntent = Boolean(
-        appliedFilters.query.trim()
-        || appliedFilters.location.trim()
-        || appliedFilters.country.trim()
-        || appliedFilters.region.trim()
-        || appliedFilters.fellowship
-        || appliedFilters.meetingType
-        || appliedFilters.dayOfWeek !== null
-    );
-    const canUseLocalMixed = localPlaceStatus === 'resolved'
+    const localFallbackSignature = useMemo(() => getFallbackSignature(localFallbacks), [localFallbacks]);
+    const canUseLocalMeetings = localPlaceStatus === 'resolved'
         && !hasManualFinderIntent
         && localFallbacks.length > 0;
-    const apiFilters = useMemo(() => {
-        return filtersToApiParams(appliedFilters);
-    }, [appliedFilters]);
+    const activeLocalFallback = canUseLocalMeetings ? localFallbacks[localFallbackIndex] : undefined;
+    const activeApiFilters = useMemo((): api.RecoveryMeetingFilters => {
+        if (!canUseLocalMeetings || !activeLocalFallback) {
+            return apiFilters;
+        }
+        return {
+            fellowship: [...DEFAULT_LOCAL_FELLOWSHIPS],
+            country: activeLocalFallback.country,
+            region: activeLocalFallback.region,
+            location: activeLocalFallback.location,
+        };
+    }, [activeLocalFallback, apiFilters, canUseLocalMeetings]);
     const shouldWaitForLocalPlace = !hasManualFinderIntent
         && (localPlaceStatus === 'idle' || localPlaceStatus === 'loading');
     const hasNoLocalPlace = !hasManualFinderIntent
         && (localPlaceStatus === 'unavailable' || (localPlaceStatus === 'resolved' && localFallbacks.length === 0));
     const recoveryMeetingsQuery = useRecoveryMeetings(
-        { ...apiFilters, limit: 20 },
-        isActive && !shouldWaitForLocalPlace && !canUseLocalMixed && !hasNoLocalPlace,
+        { ...activeApiFilters, limit: 20 },
+        isActive && !shouldWaitForLocalPlace && !hasNoLocalPlace && (!canUseLocalMeetings || Boolean(activeLocalFallback)),
     );
-    const localMixedQuery = useLocalMixedRecoveryMeetings(localFallbacks, isActive && canUseLocalMixed, 20);
 
     useEffect(() => {
-        const nextQuery = normalizeSearchQuery(debouncedQuery);
-        setAppliedFilters((current) => (
-            current.query === nextQuery ? current : { ...current, query: nextQuery }
-        ));
-    }, [debouncedQuery]);
+        setLocalFallbackIndex(0);
+    }, [localFallbackSignature]);
 
     const requestLocalPlace = useCallback(async (): Promise<void> => {
         const requestId = localPlaceRequestId.current + 1;
@@ -278,16 +267,27 @@ export function MeetingsView({ isActive, onOpenMeeting }: MeetingsViewProps) {
         };
     }, [isActive, profilePlace, requestLocalPlace]);
 
-    const meetings = useMemo(() => (
-        canUseLocalMixed
-            ? localMixedQuery.data?.items ?? []
-            : recoveryMeetingsQuery.data?.pages.flatMap((page) => page.items) ?? []
-    ), [canUseLocalMixed, localMixedQuery.data?.items, recoveryMeetingsQuery.data]);
+    useEffect(() => {
+        if (!canUseLocalMeetings || recoveryMeetingsQuery.isFetching || recoveryMeetingsQuery.isError) {
+            return;
+        }
+        const firstPageItems = recoveryMeetingsQuery.data?.pages[0]?.items ?? [];
+        if (recoveryMeetingsQuery.data && firstPageItems.length === 0 && localFallbackIndex < localFallbacks.length - 1) {
+            setLocalFallbackIndex((current) => Math.min(current + 1, localFallbacks.length - 1));
+        }
+    }, [
+        canUseLocalMeetings,
+        localFallbackIndex,
+        localFallbacks.length,
+        recoveryMeetingsQuery.data,
+        recoveryMeetingsQuery.isError,
+        recoveryMeetingsQuery.isFetching,
+    ]);
 
-    const activeFilterChips = useMemo(
-        () => getActiveFilterChips(appliedFilters),
-        [appliedFilters],
-    );
+    const meetings = useMemo(() => (
+        recoveryMeetingsQuery.data?.pages.flatMap((page) => page.items) ?? []
+    ), [recoveryMeetingsQuery.data]);
+
     const localStatusText = useMemo(() => {
         if (hasManualFinderIntent) {
             return null;
@@ -303,42 +303,17 @@ export function MeetingsView({ isActive, onOpenMeeting }: MeetingsViewProps) {
     }, [hasManualFinderIntent, localFallbacks, localPlaceStatus]);
 
     const loadNextPage = useCallback(async (): Promise<void> => {
-        if (canUseLocalMixed) {
-            return;
-        }
         if (!recoveryMeetingsQuery.hasNextPage || recoveryMeetingsQuery.isFetchingNextPage) {
             return;
         }
         await recoveryMeetingsQuery.fetchNextPage();
-    }, [canUseLocalMixed, recoveryMeetingsQuery]);
+    }, [recoveryMeetingsQuery]);
 
     const pagination = useGuardedEndReached(loadNextPage);
 
-    const handleApplyFilters = (): void => {
-        setAppliedFilters(cloneMeetingFilters(draftFilters));
-        setFilterOpen(false);
-    };
-
-    const handleResetFilters = (): void => {
-        const reset = resetMeetingFilters();
-        setDraftFilters(reset);
-        setAppliedFilters(reset);
-    };
-
-    const clearAppliedFilter = (patch: Partial<RecoveryMeetingFilters>): void => {
-        setAppliedFilters((current) => ({ ...current, ...patch }));
-        setDraftFilters((current) => ({ ...current, ...patch }));
-    };
-
-    const removeActiveFilter = (chip: ActiveFilterChip): void => {
-        const next = chip.remove(appliedFilters);
-        setAppliedFilters(next);
-        setDraftFilters(next);
-    };
-
     const isFindingLocalMeetings = isActive && shouldWaitForLocalPlace;
-    const isLoadingMeetings = canUseLocalMixed ? localMixedQuery.isLoading : recoveryMeetingsQuery.isLoading;
-    const isMeetingsError = canUseLocalMixed ? localMixedQuery.isError : recoveryMeetingsQuery.isError;
+    const isLoadingMeetings = recoveryMeetingsQuery.isLoading;
+    const isMeetingsError = recoveryMeetingsQuery.isError;
     const emptyTitle = isFindingLocalMeetings
         ? 'Finding local meetings'
         : hasNoLocalPlace
@@ -471,15 +446,9 @@ export function MeetingsView({ isActive, onOpenMeeting }: MeetingsViewProps) {
                 refreshControl={
                     <RefreshControl
                         refreshing={
-                            canUseLocalMixed
-                                ? localMixedQuery.isRefetching
-                                : recoveryMeetingsQuery.isRefetching && !recoveryMeetingsQuery.isFetchingNextPage
+                            recoveryMeetingsQuery.isRefetching && !recoveryMeetingsQuery.isFetchingNextPage
                         }
                         onRefresh={() => {
-                            if (canUseLocalMixed) {
-                                void localMixedQuery.refetch();
-                                return;
-                            }
                             void recoveryMeetingsQuery.refetch();
                         }}
                         tintColor={Colors.primary}
@@ -489,7 +458,7 @@ export function MeetingsView({ isActive, onOpenMeeting }: MeetingsViewProps) {
                 ListHeaderComponent={listHeader}
                 ListEmptyComponent={emptyState}
                 ListFooterComponent={
-                    !canUseLocalMixed && recoveryMeetingsQuery.isFetchingNextPage ? (
+                    recoveryMeetingsQuery.isFetchingNextPage ? (
                         <View style={styles.footerLoading}>
                             <ActivityIndicator color={Colors.primary} />
                         </View>
