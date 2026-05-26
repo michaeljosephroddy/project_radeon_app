@@ -6,9 +6,11 @@ export type DayOfWeek = 0 | 1 | 2 | 3 | 4 | 5 | 6;
 
 export interface RecoveryMeetingFilters {
     query: string;
-    fellowship: string;
+    fellowships: string[];
     country: string;
+    countryCode: string | null;
     region: string;
+    regionCode: string | null;
     location: string;
     dayOfWeek: DayOfWeek | null;
     meetingType: RecoveryMeetingType | '';
@@ -27,9 +29,11 @@ export interface ActiveFilterChip {
 
 export const DEFAULT_MEETING_FILTERS: RecoveryMeetingFilters = {
     query: '',
-    fellowship: '',
+    fellowships: [],
     country: '',
+    countryCode: null,
     region: '',
+    regionCode: null,
     location: '',
     dayOfWeek: null,
     meetingType: '',
@@ -40,6 +44,8 @@ export const FELLOWSHIPS: FilterOption<string>[] = [
     { value: 'ca', label: 'CA' },
     { value: 'na', label: 'NA' },
 ];
+
+export const DEFAULT_LOCAL_FELLOWSHIPS = FELLOWSHIPS.map((option) => option.value);
 
 export const RECOVERY_MEETING_TYPES: FilterOption<RecoveryMeetingType>[] = [
     { value: 'in_person', label: 'In person' },
@@ -59,13 +65,13 @@ export const DAY_OPTIONS: Array<FilterOption<DayOfWeek> & { short: string; long:
 ];
 
 export function cloneMeetingFilters(filters: RecoveryMeetingFilters): RecoveryMeetingFilters {
-    return { ...filters };
+    return { ...filters, fellowships: [...filters.fellowships] };
 }
 
 export function filtersToApiParams(filters: RecoveryMeetingFilters): api.RecoveryMeetingFilters {
     return {
         q: filters.query.trim() || undefined,
-        fellowship: filters.fellowship || undefined,
+        fellowship: filters.fellowships.length ? filters.fellowships : undefined,
         country: filters.country.trim() || undefined,
         region: filters.region.trim() || undefined,
         location: filters.location.trim() || undefined,
@@ -76,25 +82,25 @@ export function filtersToApiParams(filters: RecoveryMeetingFilters): api.Recover
 
 export function getActiveFilterChips(filters: RecoveryMeetingFilters): ActiveFilterChip[] {
     const chips: ActiveFilterChip[] = [];
-    if (filters.fellowship) {
+    if (filters.fellowships.length) {
         chips.push({
-            key: 'fellowship',
-            label: getFellowshipLabel(filters.fellowship),
-            remove: (current) => ({ ...current, fellowship: '' }),
+            key: 'fellowships',
+            label: getFellowshipSummary(filters.fellowships),
+            remove: (current) => ({ ...current, fellowships: [] }),
         });
     }
     if (filters.country.trim()) {
         chips.push({
             key: 'country',
             label: filters.country.trim(),
-            remove: (current) => ({ ...current, country: '', region: '', location: '' }),
+            remove: (current) => ({ ...current, country: '', countryCode: null, region: '', regionCode: null, location: '' }),
         });
     }
     if (filters.region.trim()) {
         chips.push({
             key: 'region',
             label: filters.region.trim(),
-            remove: (current) => ({ ...current, region: '', location: '' }),
+            remove: (current) => ({ ...current, region: '', regionCode: null, location: '' }),
         });
     }
     if (filters.location.trim()) {
@@ -123,6 +129,14 @@ export function getActiveFilterChips(filters: RecoveryMeetingFilters): ActiveFil
 
 export function getFellowshipLabel(value: string): string {
     return FELLOWSHIPS.find((option) => option.value === value.toLowerCase())?.label ?? value.toUpperCase();
+}
+
+export function getFellowshipSummary(values: string[]): string {
+    if (values.length === 1) {
+        return getFellowshipLabel(values[0]);
+    }
+    const labels = values.map((value) => getFellowshipLabel(value));
+    return labels.length <= 3 ? labels.join(' + ') : `${labels.length} fellowships`;
 }
 
 export function getMeetingTypeLabel(value: RecoveryMeetingType): string {
