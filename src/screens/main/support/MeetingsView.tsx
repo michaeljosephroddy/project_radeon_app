@@ -24,7 +24,7 @@ import * as api from '../../../api/client';
 import { screenStandards } from '../../../styles/screenStandards';
 import { Colors, Radius, Spacing, Typography } from '../../../theme';
 import { getListPerformanceProps } from '../../../utils/listPerformance';
-import { getDeviceCoords, reverseGeocodePlace, type ReverseGeocodedPlace } from '../../../utils/location';
+import { getDeviceCoords, getPlaceLocationCandidates, reverseGeocodePlace, type ReverseGeocodedPlace } from '../../../utils/location';
 import {
     ActiveFilterChip,
     DEFAULT_MEETING_FILTERS,
@@ -76,20 +76,23 @@ function normalizePlacePart(value: string | null | undefined): string | null {
 }
 
 function samePlace(a: string | null, b: string | null): boolean {
+    if (!a && !b) return true;
     return Boolean(a && b && a.toLowerCase() === b.toLowerCase());
-}
-
-function localLocationAliases(location: string): string[] {
-    switch (location.trim().toLowerCase()) {
-        case 'greater london':
-            return ['London'];
-        default:
-            return [];
-    }
 }
 
 function formatLocalPlaceLabel(location?: string, region?: string, country?: string): string {
     return [location, region, country].filter(Boolean).join(', ');
+}
+
+function appendFallback(fallbacks: LocalMeetingFallback[], fallback: LocalMeetingFallback): void {
+    const exists = fallbacks.some((item) => (
+        samePlace(item.location ?? null, fallback.location ?? null)
+        && samePlace(item.region ?? null, fallback.region ?? null)
+        && samePlace(item.country ?? null, fallback.country ?? null)
+    ));
+    if (!exists) {
+        fallbacks.push(fallback);
+    }
 }
 
 function appendLocationFallback(
@@ -98,7 +101,7 @@ function appendLocationFallback(
     region: string | null,
     country: string,
 ): void {
-    fallbacks.push({
+    appendFallback(fallbacks, {
         location,
         region: region ?? undefined,
         country,
@@ -118,23 +121,21 @@ function buildLocalFallbacks(place: ReverseGeocodedPlace | null): LocalMeetingFa
         return [];
     }
 
-    if (city) {
-        appendLocationFallback(fallbacks, city, null, country);
-        for (const alias of localLocationAliases(city)) {
-            if (!samePlace(alias, city)) {
-                appendLocationFallback(fallbacks, alias, null, country);
-            }
-        }
+    const locationCandidates = place.locationCandidates?.length
+        ? place.locationCandidates
+        : [city].filter((candidate): candidate is string => Boolean(candidate));
+    for (const location of locationCandidates) {
+        appendLocationFallback(fallbacks, location, null, country);
     }
     if (region) {
-        fallbacks.push({
+        appendFallback(fallbacks, {
             region,
             country,
             label: formatLocalPlaceLabel(undefined, region, country),
         });
     }
     if (country) {
-        fallbacks.push({ country, label: country });
+        appendFallback(fallbacks, { country, label: country });
     }
     return fallbacks;
 }
@@ -148,13 +149,23 @@ export function MeetingsView({ isActive, onOpenMeeting }: MeetingsViewProps) {
         const currentCity = normalizePlacePart(user?.current_city);
         const currentCountry = normalizePlacePart(user?.current_country);
         if (currentCity && currentCountry) {
-            return { city: currentCity, region: null, country: currentCountry };
+            return {
+                city: currentCity,
+                region: null,
+                country: currentCountry,
+                locationCandidates: getPlaceLocationCandidates(currentCity),
+            };
         }
 
         const profileCity = normalizePlacePart(user?.city);
         const profileCountry = normalizePlacePart(user?.country);
         if (!profileCity && !profileCountry) return null;
-        return { city: profileCity, region: null, country: profileCountry };
+        return {
+            city: profileCity,
+            region: null,
+            country: profileCountry,
+            locationCandidates: getPlaceLocationCandidates(profileCity),
+        };
     }, [user?.city, user?.country, user?.current_city, user?.current_country]);
     const [draftFilters, setDraftFilters] = useState<RecoveryMeetingFilters>(() => resetMeetingFilters());
     const [appliedFilters, setAppliedFilters] = useState<RecoveryMeetingFilters>(() => resetMeetingFilters());
