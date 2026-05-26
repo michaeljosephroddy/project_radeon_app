@@ -8,6 +8,7 @@ const LOCAL_MIX_FELLOWSHIPS = ['aa', 'ca', 'na'] as const;
 
 export interface RecoveryMeetingLocalFallback {
     location?: string;
+    region?: string;
     country?: string;
     label: string;
 }
@@ -96,6 +97,7 @@ async function loadFellowshipGroups(
         const page = await api.getRecoveryMeetings({
             fellowship,
             location: fallback.location,
+            region: fallback.region,
             country: fallback.country,
             limit,
             signal,
@@ -138,7 +140,7 @@ export function useRecoveryMeeting(meetingId: string | null | undefined, enabled
 
 export function useRecoveryMeetingLocationSuggestions(
     query: string,
-    params?: { country?: string; fellowship?: string; limit?: number },
+    params?: { country?: string; region?: string; fellowship?: string; limit?: number },
     enabled = true,
 ) {
     const normalizedQuery = query.trim();
@@ -147,12 +149,33 @@ export function useRecoveryMeetingLocationSuggestions(
         queryKey: queryKeys.recoveryMeetingLocationSuggestions({
             query: normalizedQuery,
             country: params?.country,
+            region: params?.region,
             fellowship: params?.fellowship,
             limit,
         }),
         queryFn: () => api.getRecoveryMeetingLocationSuggestions(normalizedQuery, { ...params, limit }),
         staleTime: RECOVERY_MEETINGS_STALE_TIME,
-        enabled: enabled && normalizedQuery.length >= 2,
+        enabled: enabled && normalizedQuery.length >= 2 && Boolean(params?.country?.trim()),
+    });
+}
+
+export function useRecoveryMeetingRegionSuggestions(
+    query: string,
+    params?: { country?: string; fellowship?: string; limit?: number },
+    enabled = true,
+) {
+    const normalizedQuery = query.trim();
+    const limit = params?.limit ?? 8;
+    return useQuery({
+        queryKey: queryKeys.recoveryMeetingRegionSuggestions({
+            query: normalizedQuery,
+            country: params?.country,
+            fellowship: params?.fellowship,
+            limit,
+        }),
+        queryFn: () => api.getRecoveryMeetingRegionSuggestions(normalizedQuery, { ...params, limit }),
+        staleTime: RECOVERY_MEETINGS_STALE_TIME,
+        enabled: enabled && normalizedQuery.length >= 2 && Boolean(params?.country?.trim()),
     });
 }
 
