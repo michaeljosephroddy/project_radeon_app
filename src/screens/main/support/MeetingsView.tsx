@@ -64,6 +64,7 @@ type LocalPlaceStatus = 'idle' | 'loading' | 'resolved' | 'unavailable';
 
 interface LocalMeetingFallback {
     location?: string;
+    region?: string;
     country?: string;
     label: string;
 }
@@ -89,13 +90,22 @@ function formatLocalPlaceLabel(location?: string, country?: string): string {
 function appendLocationFallback(
     fallbacks: LocalMeetingFallback[],
     location: string,
+    region: string | null,
     country: string | null,
 ): void {
     fallbacks.push({
         location,
+        region: region ?? undefined,
         country: country ?? undefined,
         label: formatLocalPlaceLabel(location, country ?? undefined),
     });
+    if (region && country) {
+        fallbacks.push({
+            location,
+            country,
+            label: formatLocalPlaceLabel(location, country),
+        });
+    }
     if (country) {
         fallbacks.push({ location, label: location });
     }
@@ -110,10 +120,10 @@ function buildLocalFallbacks(place: ReverseGeocodedPlace | null): LocalMeetingFa
     const fallbacks: LocalMeetingFallback[] = [];
 
     if (city) {
-        appendLocationFallback(fallbacks, city, country);
+        appendLocationFallback(fallbacks, city, region, country);
     }
     if (region && !samePlace(region, city)) {
-        appendLocationFallback(fallbacks, region, country);
+        appendLocationFallback(fallbacks, region, null, country);
     }
     if (country) {
         fallbacks.push({ country, label: country });
@@ -146,6 +156,7 @@ export function MeetingsView({ isActive, onOpenMeeting }: MeetingsViewProps) {
         appliedFilters.query.trim()
         || appliedFilters.location.trim()
         || appliedFilters.country.trim()
+        || appliedFilters.region.trim()
         || appliedFilters.fellowship
         || appliedFilters.meetingType
         || appliedFilters.dayOfWeek !== null

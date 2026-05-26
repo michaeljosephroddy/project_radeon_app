@@ -12,7 +12,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors, ControlSizes, Radius, Spacing, TextStyles, Typography } from '../../theme';
 import { screenStandards } from '../../styles/screenStandards';
-import { useRecoveryMeetingCountrySuggestions, useRecoveryMeetingLocationSuggestions } from '../../hooks/queries/useRecoveryMeetings';
+import { useRecoveryMeetingCountrySuggestions, useRecoveryMeetingLocationSuggestions, useRecoveryMeetingRegionSuggestions } from '../../hooks/queries/useRecoveryMeetings';
 import { PrimaryButton } from '../ui/PrimaryButton';
 import { ScreenHeader } from '../ui/ScreenHeader';
 import { TextField } from '../ui/TextField';
@@ -62,6 +62,14 @@ function FilterChip({ label, selected, onPress, style }: ChipProps) {
     );
 }
 
+function getRegionFieldLabel(country: string): string {
+    const normalized = country.trim().toLowerCase();
+    if (normalized === 'ireland') return 'County';
+    if (normalized === 'united states' || normalized === 'usa' || normalized === 'us') return 'State';
+    if (normalized === 'canada') return 'Province';
+    return 'Region';
+}
+
 export function RecoveryMeetingFilterSheet({
     visible,
     draftFilters,
@@ -71,14 +79,27 @@ export function RecoveryMeetingFilterSheet({
     onApply,
 }: RecoveryMeetingFilterSheetProps) {
     const debouncedLocationQuery = useDebouncedValue(draftFilters.location.trim(), 250);
+    const debouncedRegionQuery = useDebouncedValue(draftFilters.region.trim(), 250);
     const debouncedCountryQuery = useDebouncedValue(draftFilters.country.trim(), 250);
+    const selectedCountryValue = draftFilters.country.trim();
+    const selectedRegionValue = draftFilters.region.trim();
+    const regionLabel = getRegionFieldLabel(selectedCountryValue);
     const locationSuggestionsQuery = useRecoveryMeetingLocationSuggestions(
         debouncedLocationQuery,
         {
-            country: draftFilters.country.trim() || undefined,
+            country: selectedCountryValue || undefined,
+            region: selectedRegionValue || undefined,
             fellowship: draftFilters.fellowship || undefined,
         },
-        visible && debouncedLocationQuery.length >= 2,
+        visible && selectedCountryValue.length > 0 && debouncedLocationQuery.length >= 2,
+    );
+    const regionSuggestionsQuery = useRecoveryMeetingRegionSuggestions(
+        debouncedRegionQuery,
+        {
+            country: selectedCountryValue || undefined,
+            fellowship: draftFilters.fellowship || undefined,
+        },
+        visible && selectedCountryValue.length > 0 && debouncedRegionQuery.length >= 2,
     );
     const countrySuggestionsQuery = useRecoveryMeetingCountrySuggestions(
         debouncedCountryQuery,
@@ -86,13 +107,21 @@ export function RecoveryMeetingFilterSheet({
         visible && debouncedCountryQuery.length >= 2,
     );
     const locationSuggestions = locationSuggestionsQuery.data ?? [];
+    const regionSuggestions = regionSuggestionsQuery.data ?? [];
     const countrySuggestions = countrySuggestionsQuery.data ?? [];
     const selectedLocation = locationSuggestions.some((suggestion) => (
         suggestion.location === draftFilters.location.trim()
-        && (suggestion.country ?? '') === draftFilters.country.trim()
+        && (suggestion.region ?? '') === selectedRegionValue
+        && (suggestion.country ?? '') === selectedCountryValue
+    ));
+    const selectedRegion = regionSuggestions.some((suggestion) => (
+        suggestion.region === selectedRegionValue
+        && suggestion.country === selectedCountryValue
     ));
     const selectedCountry = countrySuggestions.some((suggestion) => suggestion.country === draftFilters.country.trim());
-    const showLocationSuggestions = debouncedLocationQuery.length >= 2 && !selectedLocation;
+    const canChooseLocation = selectedCountryValue.length > 0 && selectedRegionValue.length > 0;
+    const showLocationSuggestions = canChooseLocation && debouncedLocationQuery.length >= 2 && !selectedLocation;
+    const showRegionSuggestions = selectedCountryValue.length > 0 && debouncedRegionQuery.length >= 2 && !selectedRegion;
     const showCountrySuggestions = debouncedCountryQuery.length >= 2 && !selectedCountry;
 
     return (
@@ -121,49 +150,16 @@ export function RecoveryMeetingFilterSheet({
                     </View>
 
                     <View style={styles.section}>
-                        <Text style={styles.sectionTitle}>Location</Text>
-                        <TextField
-                            value={draftFilters.location}
-                            onChangeText={(location) => onChangeFilters((current) => ({ ...current, location }))}
-                            placeholder="City, county, venue, or postcode"
-                            autoCapitalize="words"
-                            returnKeyType="search"
-                        />
-                        {showLocationSuggestions ? (
-                            <View style={styles.suggestionList}>
-                                {locationSuggestionsQuery.isFetching ? (
-                                    <Text style={styles.suggestionMeta}>Searching...</Text>
-                                ) : null}
-                                {locationSuggestions.map((location) => (
-                                    <TouchableOpacity
-                                        key={`${location.location}-${location.country ?? ''}`}
-                                        style={styles.suggestionItem}
-                                        onPress={() => onChangeFilters((current) => ({
-                                            ...current,
-                                            location: location.location,
-                                            country: location.country ?? current.country,
-                                        }))}
-                                        activeOpacity={0.82}
-                                    >
-                                        <Text style={styles.suggestionTitle}>{location.label}</Text>
-                                        <Text style={styles.suggestionSubtitle}>
-                                            {location.meeting_count} meeting{location.meeting_count === 1 ? '' : 's'}
-                                        </Text>
-                                    </TouchableOpacity>
-                                ))}
-                                {!locationSuggestionsQuery.isFetching && locationSuggestions.length === 0 ? (
-                                    <Text style={styles.suggestionMeta}>No meeting locations found</Text>
-                                ) : null}
-                            </View>
-                        ) : null}
-                    </View>
-
-                    <View style={styles.section}>
                         <Text style={styles.sectionTitle}>Country</Text>
                         <TextField
                             value={draftFilters.country}
-                            onChangeText={(country) => onChangeFilters((current) => ({ ...current, country }))}
-                            placeholder="Any country"
+                            onChangeText={(country) => onChangeFilters((current) => ({
+                                ...current,
+                                country,
+                                region: '',
+                                location: '',
+                            }))}
+                            placeholder="Choose country first"
                             autoCapitalize="words"
                             returnKeyType="search"
                         />
@@ -179,6 +175,8 @@ export function RecoveryMeetingFilterSheet({
                                         onPress={() => onChangeFilters((current) => ({
                                             ...current,
                                             country: country.country,
+                                            region: '',
+                                            location: '',
                                         }))}
                                         activeOpacity={0.82}
                                     >
@@ -190,6 +188,88 @@ export function RecoveryMeetingFilterSheet({
                                 ))}
                                 {!countrySuggestionsQuery.isFetching && countrySuggestions.length === 0 ? (
                                     <Text style={styles.suggestionMeta}>No meeting countries found</Text>
+                                ) : null}
+                            </View>
+                        ) : null}
+                    </View>
+
+                    <View style={styles.section}>
+                        <Text style={styles.sectionTitle}>Region / county / state</Text>
+                        <TextField
+                            value={draftFilters.region}
+                            onChangeText={(region) => onChangeFilters((current) => ({ ...current, region, location: '' }))}
+                            placeholder={selectedCountryValue ? `Choose ${regionLabel.toLowerCase()}` : 'Select a country first'}
+                            autoCapitalize="words"
+                            returnKeyType="search"
+                            editable={selectedCountryValue.length > 0}
+                            style={!selectedCountryValue && styles.disabledField}
+                        />
+                        {showRegionSuggestions ? (
+                            <View style={styles.suggestionList}>
+                                {regionSuggestionsQuery.isFetching ? (
+                                    <Text style={styles.suggestionMeta}>Searching...</Text>
+                                ) : null}
+                                {regionSuggestions.map((region) => (
+                                    <TouchableOpacity
+                                        key={`${region.region}-${region.country}`}
+                                        style={styles.suggestionItem}
+                                        onPress={() => onChangeFilters((current) => ({
+                                            ...current,
+                                            region: region.region,
+                                            country: region.country,
+                                            location: '',
+                                        }))}
+                                        activeOpacity={0.82}
+                                    >
+                                        <Text style={styles.suggestionTitle}>{region.label}</Text>
+                                        <Text style={styles.suggestionSubtitle}>
+                                            {region.meeting_count} meeting{region.meeting_count === 1 ? '' : 's'}
+                                        </Text>
+                                    </TouchableOpacity>
+                                ))}
+                                {!regionSuggestionsQuery.isFetching && regionSuggestions.length === 0 ? (
+                                    <Text style={styles.suggestionMeta}>No meeting {regionLabel.toLowerCase()} found</Text>
+                                ) : null}
+                            </View>
+                        ) : null}
+                    </View>
+
+                    <View style={styles.section}>
+                        <Text style={styles.sectionTitle}>Town / city</Text>
+                        <TextField
+                            value={draftFilters.location}
+                            onChangeText={(location) => onChangeFilters((current) => ({ ...current, location }))}
+                            placeholder={canChooseLocation ? 'Choose town or city' : `Select ${regionLabel.toLowerCase()} first`}
+                            autoCapitalize="words"
+                            returnKeyType="search"
+                            editable={canChooseLocation}
+                            style={!canChooseLocation && styles.disabledField}
+                        />
+                        {showLocationSuggestions ? (
+                            <View style={styles.suggestionList}>
+                                {locationSuggestionsQuery.isFetching ? (
+                                    <Text style={styles.suggestionMeta}>Searching...</Text>
+                                ) : null}
+                                {locationSuggestions.map((location) => (
+                                    <TouchableOpacity
+                                        key={`${location.location}-${location.region ?? ''}-${location.country ?? ''}`}
+                                        style={styles.suggestionItem}
+                                        onPress={() => onChangeFilters((current) => ({
+                                            ...current,
+                                            location: location.location,
+                                            region: location.region ?? current.region,
+                                            country: location.country ?? current.country,
+                                        }))}
+                                        activeOpacity={0.82}
+                                    >
+                                        <Text style={styles.suggestionTitle}>{location.label}</Text>
+                                        <Text style={styles.suggestionSubtitle}>
+                                            {location.meeting_count} meeting{location.meeting_count === 1 ? '' : 's'}
+                                        </Text>
+                                    </TouchableOpacity>
+                                ))}
+                                {!locationSuggestionsQuery.isFetching && locationSuggestions.length === 0 ? (
+                                    <Text style={styles.suggestionMeta}>No meeting towns or cities found</Text>
                                 ) : null}
                             </View>
                         ) : null}
@@ -263,6 +343,9 @@ const styles = StyleSheet.create({
     },
     sectionTitle: {
         ...TextStyles.cardTitle,
+    },
+    disabledField: {
+        opacity: 0.55,
     },
     wrap: {
         flexDirection: 'row',

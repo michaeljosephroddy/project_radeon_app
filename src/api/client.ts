@@ -519,7 +519,15 @@ export interface RecoveryMeeting {
 export interface RecoveryMeetingLocationSuggestion {
     label: string;
     location: string;
+    region?: string | null;
     country?: string | null;
+    meeting_count: number;
+}
+
+export interface RecoveryMeetingRegionSuggestion {
+    label: string;
+    region: string;
+    country: string;
     meeting_count: number;
 }
 
@@ -533,6 +541,7 @@ export interface RecoveryMeetingFilters {
     q?: string;
     fellowship?: string;
     country?: string;
+    region?: string;
     city?: string;
     location?: string;
     meeting_type?: RecoveryMeetingType;
@@ -1796,6 +1805,7 @@ export async function getRecoveryMeetings(
     if (params?.q) search.set('q', params.q);
     if (params?.fellowship) search.set('fellowship', params.fellowship);
     if (params?.country) search.set('country', params.country);
+    if (params?.region) search.set('region', params.region);
     if (params?.location) search.set('location', params.location);
     if (params?.city) search.set('city', params.city);
     if (params?.meeting_type) search.set('meeting_type', params.meeting_type);
@@ -1816,14 +1826,27 @@ export async function getRecoveryMeeting(id: string): Promise<RecoveryMeeting> {
 
 export async function getRecoveryMeetingLocationSuggestions(
     query: string,
-    params?: { country?: string; fellowship?: string; limit?: number },
+    params?: { country?: string; region?: string; fellowship?: string; limit?: number },
 ): Promise<RecoveryMeetingLocationSuggestion[]> {
     const search = new URLSearchParams();
     search.set('q', query);
     search.set('limit', String(params?.limit ?? 8));
     if (params?.country) search.set('country', params.country);
+    if (params?.region) search.set('region', params.region);
     if (params?.fellowship) search.set('fellowship', params.fellowship);
     return request<RecoveryMeetingLocationSuggestion[]>(`/recovery-meetings/locations?${search.toString()}`);
+}
+
+export async function getRecoveryMeetingRegionSuggestions(
+    query: string,
+    params?: { country?: string; fellowship?: string; limit?: number },
+): Promise<RecoveryMeetingRegionSuggestion[]> {
+    const search = new URLSearchParams();
+    search.set('q', query);
+    search.set('limit', String(params?.limit ?? 8));
+    if (params?.country) search.set('country', params.country);
+    if (params?.fellowship) search.set('fellowship', params.fellowship);
+    return request<RecoveryMeetingRegionSuggestion[]>(`/recovery-meetings/regions?${search.toString()}`);
 }
 
 export async function getRecoveryMeetingCountrySuggestions(

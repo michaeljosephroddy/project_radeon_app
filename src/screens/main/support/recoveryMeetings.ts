@@ -8,6 +8,7 @@ export interface RecoveryMeetingFilters {
     query: string;
     fellowship: string;
     country: string;
+    region: string;
     location: string;
     dayOfWeek: DayOfWeek | null;
     meetingType: RecoveryMeetingType | '';
@@ -28,6 +29,7 @@ export const DEFAULT_MEETING_FILTERS: RecoveryMeetingFilters = {
     query: '',
     fellowship: '',
     country: '',
+    region: '',
     location: '',
     dayOfWeek: null,
     meetingType: '',
@@ -65,6 +67,7 @@ export function filtersToApiParams(filters: RecoveryMeetingFilters): api.Recover
         q: filters.query.trim() || undefined,
         fellowship: filters.fellowship || undefined,
         country: filters.country.trim() || undefined,
+        region: filters.region.trim() || undefined,
         location: filters.location.trim() || undefined,
         day_of_week: filters.dayOfWeek ?? undefined,
         meeting_type: filters.meetingType || undefined,
@@ -84,7 +87,14 @@ export function getActiveFilterChips(filters: RecoveryMeetingFilters): ActiveFil
         chips.push({
             key: 'country',
             label: filters.country.trim(),
-            remove: (current) => ({ ...current, country: '' }),
+            remove: (current) => ({ ...current, country: '', region: '', location: '' }),
+        });
+    }
+    if (filters.region.trim()) {
+        chips.push({
+            key: 'region',
+            label: filters.region.trim(),
+            remove: (current) => ({ ...current, region: '', location: '' }),
         });
     }
     if (filters.location.trim()) {
