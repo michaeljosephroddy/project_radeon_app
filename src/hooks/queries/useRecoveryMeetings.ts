@@ -35,7 +35,6 @@ export function useRecoveryMeetings(params: api.RecoveryMeetingFilters & { limit
         getNextPageParam: (lastPage) => lastPage.next_cursor ?? undefined,
         staleTime: RECOVERY_MEETINGS_STALE_TIME,
         refetchOnMount: policy?.refetchOnMount,
-        placeholderData: (previousData) => previousData,
         enabled,
     });
 }
@@ -49,7 +48,6 @@ export function useLocalMixedRecoveryMeetings(
         queryKey: queryKeys.recoveryMeetingsLocalMixed({ fallbacks, limit }),
         queryFn: ({ signal }) => loadLocalMixedRecoveryMeetings(fallbacks, limit, signal),
         staleTime: RECOVERY_MEETINGS_STALE_TIME,
-        placeholderData: (previousData) => previousData,
         enabled: enabled && fallbacks.length > 0,
     });
 }

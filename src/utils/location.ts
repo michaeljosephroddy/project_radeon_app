@@ -18,6 +18,32 @@ export interface ReverseGeocodedPlace {
     country: string | null;
 }
 
+const COUNTRY_CODE_NAMES: Record<string, string> = {
+    AU: 'Australia',
+    CA: 'Canada',
+    DE: 'Germany',
+    ES: 'Spain',
+    FR: 'France',
+    GB: 'United Kingdom',
+    IE: 'Ireland',
+    NL: 'Netherlands',
+    NZ: 'New Zealand',
+    PL: 'Poland',
+    UK: 'United Kingdom',
+    US: 'United States',
+};
+
+function normalizeText(value: string | null | undefined): string | null {
+    const trimmed = value?.trim();
+    return trimmed ? trimmed : null;
+}
+
+function normalizeCountry(value: string | null | undefined): string | null {
+    const trimmed = normalizeText(value);
+    if (!trimmed) return null;
+    return COUNTRY_CODE_NAMES[trimmed.toUpperCase()] ?? trimmed;
+}
+
 export async function getDeviceCoords(): Promise<DeviceLocationResult> {
     try {
         const servicesEnabled = await Location.hasServicesEnabledAsync();
@@ -41,9 +67,9 @@ export async function reverseGeocodePlace(lat: number, lng: number): Promise<Rev
         const [place] = await Location.reverseGeocodeAsync({ latitude: lat, longitude: lng });
         if (!place) return null;
 
-        const city = place.city ?? place.district ?? null;
-        const region = place.subregion ?? place.region ?? null;
-        const country = place.country ?? place.isoCountryCode ?? null;
+        const city = normalizeText(place.city) ?? normalizeText(place.district);
+        const region = normalizeText(place.subregion) ?? normalizeText(place.region);
+        const country = normalizeCountry(place.country) ?? normalizeCountry(place.isoCountryCode);
         if (!city && !region && !country) return null;
 
         return { city, region, country };

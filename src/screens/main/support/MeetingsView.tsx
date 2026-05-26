@@ -20,6 +20,7 @@ import { useGuardedEndReached } from '../../../hooks/useGuardedEndReached';
 import { useAuth } from '../../../hooks/useAuth';
 import { useLocalMixedRecoveryMeetings, useRecoveryMeetings } from '../../../hooks/queries/useRecoveryMeetings';
 import { useScrollToTopButton } from '../../../hooks/useScrollToTopButton';
+import * as api from '../../../api/client';
 import { screenStandards } from '../../../styles/screenStandards';
 import { Colors, Radius, Spacing, Typography } from '../../../theme';
 import { getListPerformanceProps } from '../../../utils/listPerformance';
@@ -78,6 +79,15 @@ function samePlace(a: string | null, b: string | null): boolean {
     return Boolean(a && b && a.toLowerCase() === b.toLowerCase());
 }
 
+function localLocationAliases(location: string): string[] {
+    switch (location.trim().toLowerCase()) {
+        case 'greater london':
+            return ['London'];
+        default:
+            return [];
+    }
+}
+
 function formatLocalPlaceLabel(location?: string, region?: string, country?: string): string {
     return [location, region, country].filter(Boolean).join(', ');
 }
@@ -86,13 +96,13 @@ function appendLocationFallback(
     fallbacks: LocalMeetingFallback[],
     location: string,
     region: string | null,
-    country: string | null,
+    country: string,
 ): void {
     fallbacks.push({
         location,
         region: region ?? undefined,
-        country: country ?? undefined,
-        label: formatLocalPlaceLabel(location, region ?? undefined, country ?? undefined),
+        country,
+        label: formatLocalPlaceLabel(location, region ?? undefined, country),
     });
 }
 
@@ -104,10 +114,19 @@ function buildLocalFallbacks(place: ReverseGeocodedPlace | null): LocalMeetingFa
     const country = normalizePlacePart(place.country);
     const fallbacks: LocalMeetingFallback[] = [];
 
-    if (city) {
-        appendLocationFallback(fallbacks, city, region, country);
+    if (!country) {
+        return [];
     }
-    if (region && country) {
+
+    if (city) {
+        appendLocationFallback(fallbacks, city, null, country);
+        for (const alias of localLocationAliases(city)) {
+            if (!samePlace(alias, city)) {
+                appendLocationFallback(fallbacks, alias, null, country);
+            }
+        }
+    }
+    if (region) {
         fallbacks.push({
             region,
             country,
@@ -121,15 +140,21 @@ function buildLocalFallbacks(place: ReverseGeocodedPlace | null): LocalMeetingFa
 }
 
 export function MeetingsView({ isActive, onOpenMeeting }: MeetingsViewProps) {
-    const { user } = useAuth();
+    const { user, refreshUser } = useAuth();
     const listRef = useRef<FlatList<RecoveryMeeting> | null>(null);
     const didRequestLocalPlace = useRef(false);
     const localPlaceRequestId = useRef(0);
     const profilePlace = useMemo<ReverseGeocodedPlace | null>(() => {
-        const city = normalizePlacePart(user?.current_city) ?? normalizePlacePart(user?.city);
-        const country = normalizePlacePart(user?.current_country) ?? normalizePlacePart(user?.country);
-        if (!city && !country) return null;
-        return { city, region: null, country };
+        const currentCity = normalizePlacePart(user?.current_city);
+        const currentCountry = normalizePlacePart(user?.current_country);
+        if (currentCity && currentCountry) {
+            return { city: currentCity, region: null, country: currentCountry };
+        }
+
+        const profileCity = normalizePlacePart(user?.city);
+        const profileCountry = normalizePlacePart(user?.country);
+        if (!profileCity && !profileCountry) return null;
+        return { city: profileCity, region: null, country: profileCountry };
     }, [user?.city, user?.country, user?.current_city, user?.current_country]);
     const [draftFilters, setDraftFilters] = useState<RecoveryMeetingFilters>(() => resetMeetingFilters());
     const [appliedFilters, setAppliedFilters] = useState<RecoveryMeetingFilters>(() => resetMeetingFilters());
@@ -157,7 +182,8 @@ export function MeetingsView({ isActive, onOpenMeeting }: MeetingsViewProps) {
     }, [appliedFilters]);
     const shouldWaitForLocalPlace = !hasManualFinderIntent
         && (localPlaceStatus === 'idle' || localPlaceStatus === 'loading');
-    const hasNoLocalPlace = !hasManualFinderIntent && localPlaceStatus === 'unavailable';
+    const hasNoLocalPlace = !hasManualFinderIntent
+        && (localPlaceStatus === 'unavailable' || (localPlaceStatus === 'resolved' && localFallbacks.length === 0));
     const recoveryMeetingsQuery = useRecoveryMeetings(
         { ...apiFilters, limit: 20 },
         isActive && !shouldWaitForLocalPlace && !canUseLocalMixed && !hasNoLocalPlace,
@@ -193,6 +219,16 @@ export function MeetingsView({ isActive, onOpenMeeting }: MeetingsViewProps) {
         const place = await reverseGeocodePlace(location.coords.latitude, location.coords.longitude);
         if (!isCurrentRequest()) return;
         if (place) {
+            if (place.city && place.country) {
+                void api.updateMyCurrentLocation({
+                    lat: location.coords.latitude,
+                    lng: location.coords.longitude,
+                    city: place.city,
+                    country: place.country,
+                })
+                    .then(refreshUser)
+                    .catch(() => undefined);
+            }
             setLocalPlace(place);
             setLocalPlaceStatus('resolved');
             return;
@@ -205,7 +241,7 @@ export function MeetingsView({ isActive, onOpenMeeting }: MeetingsViewProps) {
         }
         setLocalPlace(null);
         setLocalPlaceStatus('unavailable');
-    }, [profilePlace]);
+    }, [profilePlace, refreshUser]);
 
     useEffect(() => {
         if (!isActive || didRequestLocalPlace.current) {
