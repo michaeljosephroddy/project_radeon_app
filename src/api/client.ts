@@ -501,8 +501,10 @@ export interface RecoveryMeeting {
     address_line2?: string | null;
     city?: string | null;
     region?: string | null;
+    region_code?: string | null;
     postal_code?: string | null;
     country?: string | null;
+    country_code?: string | null;
     latitude?: number | null;
     longitude?: number | null;
     is_approximate_location: boolean;
@@ -520,20 +522,25 @@ export interface RecoveryMeetingLocationSuggestion {
     label: string;
     location: string;
     region?: string | null;
+    region_code?: string | null;
     country?: string | null;
+    country_code?: string | null;
     meeting_count: number;
 }
 
 export interface RecoveryMeetingRegionSuggestion {
     label: string;
     region: string;
+    region_code?: string | null;
     country: string;
+    country_code?: string | null;
     meeting_count: number;
 }
 
 export interface RecoveryMeetingCountrySuggestion {
     label: string;
     country: string;
+    country_code?: string | null;
     meeting_count: number;
 }
 
