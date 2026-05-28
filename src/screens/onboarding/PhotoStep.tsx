@@ -10,7 +10,7 @@ import { OnboardingProgressHeader } from '../../components/onboarding/Onboarding
 import { PrimaryButton } from '../../components/ui/PrimaryButton';
 import { useAuth } from '../../hooks/useAuth';
 import * as api from '../../api/client';
-import { Colors, Typography, Spacing, Radius } from '../../theme';
+import { Colors, Typography, Spacing } from '../../theme';
 import type { OnboardingStepProps } from '../../navigation/OnboardingNavigator';
 
 type PhotoStepProps = OnboardingStepProps;

@@ -119,7 +119,6 @@ const CommunityTab = React.memo(function CommunityTab({
     activeSurface,
     onChangeSurface,
     onOpenGroup,
-    onOpenUserProfile,
     onOpenMeetup,
     onOpenManageMeetup,
 }: {
@@ -127,7 +126,6 @@ const CommunityTab = React.memo(function CommunityTab({
     activeSurface: CommunityHubSurface;
     onChangeSurface: (surface: CommunityHubSurface) => void;
     onOpenGroup: (groupId: string) => void;
-    onOpenUserProfile: (p: OpenUserProfile) => void;
     onOpenMeetup: (meetup: api.Meetup) => void;
     onOpenManageMeetup: (meetup: api.Meetup) => void;
 }) {
@@ -138,7 +136,6 @@ const CommunityTab = React.memo(function CommunityTab({
                 activeSurface={activeSurface}
                 onChangeSurface={onChangeSurface}
                 onOpenGroup={onOpenGroup}
-                onOpenUserProfile={onOpenUserProfile}
                 onOpenMeetup={onOpenMeetup}
                 onOpenManageMeetup={onOpenManageMeetup}
             />
@@ -1033,7 +1030,6 @@ export function AppNavigator() {
                         activeSurface={communitySurface}
                         onChangeSurface={setCommunitySurface}
                         onOpenGroup={handleOpenGroup}
-                        onOpenUserProfile={handleOpenUserProfile}
                         onOpenMeetup={handleOpenMeetup}
                         onOpenManageMeetup={openManageMeetup}
                     />

@@ -1,7 +1,7 @@
 import { appAlert } from '@/components/ui/appAlert';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-    View, Text, TouchableOpacity, FlatList, StyleSheet, ActivityIndicator, Alert,
+    View, Text, TouchableOpacity, FlatList, StyleSheet, ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Avatar } from '../../components/Avatar';

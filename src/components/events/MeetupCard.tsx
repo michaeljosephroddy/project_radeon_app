@@ -3,7 +3,7 @@ import { Image, StyleProp, StyleSheet, Text, TouchableOpacity, View, ViewStyle }
 import * as api from '../../api/client';
 import { Avatar } from '../Avatar';
 import { MeetupEventTypeBadge } from './MeetupEventTypeBadge';
-import { Colors, ContentInsets, ControlSizes, Radius, Spacing, TextStyles, Typography } from '../../theme';
+import { Colors, ContentInsets, ControlSizes, Radius, Spacing, TextStyles } from '../../theme';
 import { CardActionMenu, type CardActionMenuAction } from '../ui/CardActionMenu';
 
 interface MeetupCardProps {

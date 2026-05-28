@@ -294,7 +294,6 @@ export function PostComposer({
           image={previewImage}
           imageStatus={selectedImage?.status ?? null}
           tags={activeTags}
-          user={user}
           maxBodyLength={MAX_BODY_LENGTH}
           onBodyChange={setBody}
           onRemoveImage={handleRemoveImage}

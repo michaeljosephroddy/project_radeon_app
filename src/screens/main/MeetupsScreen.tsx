@@ -2,7 +2,6 @@ import { appAlert } from '@/components/ui/appAlert';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import * as ImagePicker from 'expo-image-picker';
 import {
-    Alert,
     FlatList,
     RefreshControl,
     ScrollView,
@@ -54,7 +53,6 @@ const MEETUP_FORM_STEPS: MeetupFormStep[] = ['essentials', 'when_where', 'attend
 
 interface MeetupsScreenProps {
     isActive: boolean;
-    onOpenUserProfile: (profile: { userId: string; username: string; avatarUrl?: string }) => void;
     onOpenMeetup: (meetup: api.Meetup) => void;
     onOpenManageMeetup: (meetup: api.Meetup) => void;
     onRsvpComplete?: (meetup: api.Meetup, result: api.MeetupRsvpResult) => void;
@@ -249,7 +247,7 @@ function canDeleteMeetup(meetup: api.Meetup): boolean {
     return meetup.status === 'published' && meetup.attendee_count <= 1;
 }
 
-function getEditingHostingScope(meetup: api.Meetup | null): HostingScope {
+function getEditingHostingScope(_meetup: api.Meetup | null): HostingScope {
     return 'upcoming';
 }
 
@@ -345,7 +343,6 @@ function createOptimisticMeetup(
 
 export function MeetupsScreen({
     isActive,
-    onOpenUserProfile,
     onOpenMeetup,
     onOpenManageMeetup,
     onRsvpComplete,

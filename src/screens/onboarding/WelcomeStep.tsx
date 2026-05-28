@@ -5,7 +5,7 @@ import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { PrimaryButton } from '../../components/ui/PrimaryButton';
 import { useAuth } from '../../hooks/useAuth';
-import { Colors, Typography, Spacing, Radius } from '../../theme';
+import { Colors, Typography, Spacing } from '../../theme';
 
 interface WelcomeStepProps {
     onNext: () => void;

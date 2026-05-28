@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors, Radius, Spacing, Typography } from '../../theme';
+import { Colors, Spacing, Typography } from '../../theme';
 import { ProfileContentTabKey } from './ProfileContentTabs';
 
 export interface ProfileEmptyTabStateProps {
