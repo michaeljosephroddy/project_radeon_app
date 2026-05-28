@@ -2085,6 +2085,18 @@ export interface FriendUser {
     created_at: string;
 }
 
+export interface BlockedUser {
+    id: string;
+    blocked_at: string;
+    user: {
+        id: string;
+        username: string;
+        avatar_url?: string | null;
+        city?: string | null;
+        country?: string | null;
+    };
+}
+
 // Sends a friend request to another user.
 export async function sendFriendRequest(id: string): Promise<void> {
     return request(`/users/${id}/friend-request`, { method: 'POST' });
@@ -2107,6 +2119,16 @@ export async function removeFriend(id: string): Promise<void> {
 
 export async function blockUser(id: string): Promise<void> {
     await request(`/users/${id}/block`, { method: 'POST' });
+}
+
+export async function unblockUser(id: string): Promise<void> {
+    await request(`/users/${id}/block`, { method: 'DELETE' });
+}
+
+export async function getBlockedUsers(cursor?: string, limit = 25): Promise<CursorResponse<BlockedUser>> {
+    const search = new URLSearchParams({ limit: String(limit) });
+    if (cursor) search.set('before', cursor);
+    return request(`/users/me/blocks?${search.toString()}`);
 }
 
 export async function reportUser(id: string, input: {

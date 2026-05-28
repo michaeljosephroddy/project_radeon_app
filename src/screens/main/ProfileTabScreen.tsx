@@ -19,6 +19,7 @@ import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { TextField } from '../../components/ui/TextField';
 import { SettingsScreen } from './SettingsScreen';
 import { HiddenContentScreen } from './HiddenContentScreen';
+import { BlockedUsersScreen } from './BlockedUsersScreen';
 import { ProfileContentTabs, ProfileContentTabKey } from '../../components/profile/ProfileContentTabs';
 import { ProfileEmptyTabState } from '../../components/profile/ProfileEmptyTabState';
 import { ProfilePostCard } from '../../components/profile/ProfilePostCard';
@@ -35,7 +36,7 @@ import { formatSobrietyDate } from '../../utils/date';
 import { screenStandards } from '../../styles/screenStandards';
 import { dedupeById } from '../../utils/list';
 
-type SubView = 'profile' | 'edit-profile' | 'friends' | 'requests' | 'settings' | 'hidden-content';
+type SubView = 'profile' | 'edit-profile' | 'friends' | 'requests' | 'settings' | 'hidden-content' | 'blocked-users';
 type RequestsSubView = 'incoming' | 'outgoing';
 type EditableSection = 'bio' | 'location' | 'identity' | 'interests' | 'intent' | 'sobriety' | null;
 type EditableGender = api.UserGender | '';
@@ -516,11 +517,22 @@ export function ProfileTabScreen({
     if (!user) return null;
 
     if (subView === 'settings') {
-        return <SettingsScreen onBack={() => setSubView('profile')} onLogout={handleLogout} onOpenHiddenContent={() => setSubView('hidden-content')} />;
+        return (
+            <SettingsScreen
+                onBack={() => setSubView('profile')}
+                onLogout={handleLogout}
+                onOpenHiddenContent={() => setSubView('hidden-content')}
+                onOpenBlockedUsers={() => setSubView('blocked-users')}
+            />
+        );
     }
 
     if (subView === 'hidden-content') {
         return <HiddenContentScreen onBack={() => setSubView('settings')} onOpenUserProfile={onOpenUserProfile} />;
+    }
+
+    if (subView === 'blocked-users') {
+        return <BlockedUsersScreen onBack={() => setSubView('settings')} />;
     }
 
     if (subView === 'friends') {
