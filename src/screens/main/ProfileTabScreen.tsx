@@ -21,6 +21,7 @@ import { SettingsScreen } from './SettingsScreen';
 import { HiddenContentScreen } from './HiddenContentScreen';
 import { BlockedUsersScreen } from './BlockedUsersScreen';
 import { NotificationPreferencesScreen } from './NotificationPreferencesScreen';
+import { MutedAuthorsScreen } from './MutedAuthorsScreen';
 import { ProfileContentTabs, ProfileContentTabKey } from '../../components/profile/ProfileContentTabs';
 import { ProfileEmptyTabState } from '../../components/profile/ProfileEmptyTabState';
 import { ProfilePostCard } from '../../components/profile/ProfilePostCard';
@@ -44,6 +45,7 @@ type SubView =
     | 'requests'
     | 'settings'
     | 'hidden-content'
+    | 'muted-authors'
     | 'blocked-users'
     | 'notification-preferences';
 type RequestsSubView = 'incoming' | 'outgoing';
@@ -531,6 +533,7 @@ export function ProfileTabScreen({
                 onBack={() => setSubView('profile')}
                 onLogout={handleLogout}
                 onOpenHiddenContent={() => setSubView('hidden-content')}
+                onOpenMutedAuthors={() => setSubView('muted-authors')}
                 onOpenBlockedUsers={() => setSubView('blocked-users')}
                 onOpenNotificationPreferences={() => setSubView('notification-preferences')}
             />
@@ -539,6 +542,10 @@ export function ProfileTabScreen({
 
     if (subView === 'hidden-content') {
         return <HiddenContentScreen onBack={() => setSubView('settings')} onOpenUserProfile={onOpenUserProfile} />;
+    }
+
+    if (subView === 'muted-authors') {
+        return <MutedAuthorsScreen onBack={() => setSubView('settings')} />;
     }
 
     if (subView === 'blocked-users') {

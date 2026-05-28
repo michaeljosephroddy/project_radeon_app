@@ -23,6 +23,7 @@ interface SettingsScreenProps {
     onBack: () => void;
     onLogout: () => void;
     onOpenHiddenContent: () => void;
+    onOpenMutedAuthors: () => void;
     onOpenBlockedUsers: () => void;
     onOpenNotificationPreferences: () => void;
 }
@@ -32,6 +33,7 @@ export function SettingsScreen({
     onBack,
     onLogout,
     onOpenHiddenContent,
+    onOpenMutedAuthors,
     onOpenBlockedUsers,
     onOpenNotificationPreferences,
 }: SettingsScreenProps) {
@@ -134,6 +136,10 @@ export function SettingsScreen({
                 <View style={styles.group}>
                     <TouchableOpacity style={styles.row} onPress={onOpenHiddenContent}>
                         <Text style={styles.rowText}>Hidden content</Text>
+                    </TouchableOpacity>
+                    <View style={styles.divider} />
+                    <TouchableOpacity style={styles.row} onPress={onOpenMutedAuthors}>
+                        <Text style={styles.rowText}>Muted authors</Text>
                     </TouchableOpacity>
                 </View>
                 <View style={screenStandards.sectionLabelBlockTight}>
