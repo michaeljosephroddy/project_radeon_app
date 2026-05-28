@@ -714,14 +714,13 @@ export interface SupportChatContext {
     requester_id: string;
     requester_username: string;
     latest_offer_type?: SupportOffer['offer_type'];
-    status?: 'pending_requester_acceptance' | 'accepted' | 'declined' | 'closed';
-    awaiting_user_id?: string | null;
+    status?: 'accepted' | 'declined' | 'closed';
 }
 
 export interface Chat {
     id: string;
     is_group: boolean;
-    status?: 'request' | 'active' | 'declined' | 'closed';
+    status?: 'active' | 'declined' | 'closed';
     name?: string;
     username?: string;
     avatar_url?: string;

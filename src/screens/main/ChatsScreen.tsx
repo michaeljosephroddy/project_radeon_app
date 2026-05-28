@@ -18,7 +18,6 @@ import { useLazyActivation } from '../../hooks/useLazyActivation';
 import { useRefetchOnActiveIfStale } from '../../hooks/useRefetchOnActiveIfStale';
 import { useScrollToTopButton } from '../../hooks/useScrollToTopButton';
 import { useChats } from '../../hooks/queries/useChats';
-import { useAuth } from '../../hooks/useAuth';
 import { resetInfiniteQueryToFirstPage } from '../../query/infiniteQueryPolicy';
 import { queryKeys } from '../../query/queryKeys';
 import { dedupeById } from '../../utils/list';
@@ -52,33 +51,28 @@ interface ChatsScreenProps {
 
 interface ChatItemProps {
     item: api.Chat;
-    currentUserId?: string;
     onOpenChat: (chat: api.Chat) => void;
     onDeleteChat: (chat: api.Chat) => void;
     actionPending?: boolean;
 }
 
-function getSupportPendingLabel(chat: api.Chat, currentUserId?: string): string | null {
+function getSupportStatusLabel(chat: api.Chat): string | null {
     const status = chat.support_context?.status;
     if (!status || status === 'accepted') return null;
 
     if (status === 'declined') return 'Declined';
     if (status === 'closed') return 'Closed';
 
-    if (status === 'pending_requester_acceptance') {
-        return chat.support_context?.awaiting_user_id === currentUserId ? 'Waiting' : 'Pending';
-    }
-
     return null;
 }
 
 // Renders a single row in the chats list.
-const ChatItem = React.memo(function ChatItem({ item, currentUserId, onOpenChat, onDeleteChat, actionPending = false }: ChatItemProps) {
+const ChatItem = React.memo(function ChatItem({ item, onOpenChat, onDeleteChat, actionPending = false }: ChatItemProps) {
     const displayName = item.is_group
         ? (item.name ?? 'Group')
         : formatUsername(item.username);
     const actionLabel = item.is_group ? 'Leave' : 'Delete';
-    const pendingLabel = getSupportPendingLabel(item, currentUserId);
+    const pendingLabel = getSupportStatusLabel(item);
     const unreadCount = Math.max(0, item.unread_count ?? 0);
     const hasUnread = unreadCount > 0;
     const handleDelete = useCallback(() => onDeleteChat(item), [item, onDeleteChat]);
@@ -143,7 +137,6 @@ const ChatItem = React.memo(function ChatItem({ item, currentUserId, onOpenChat,
 
 // Renders the chats tab and refreshes chat summaries when needed.
 export function ChatsScreen({ isActive, onOpenChat }: ChatsScreenProps) {
-    const { user } = useAuth();
     const queryClient = useQueryClient();
     const flatListRef = useRef<FlatList<api.Chat> | null>(null);
     const hasActivated = useLazyActivation(isActive);
@@ -231,12 +224,11 @@ export function ChatsScreen({ isActive, onOpenChat }: ChatsScreenProps) {
     const renderItem = useCallback(({ item }: { item: api.Chat }) => (
         <ChatItem
             item={item}
-            currentUserId={user?.id}
             onOpenChat={onOpenChat}
             onDeleteChat={handleDeleteChat}
             actionPending={pendingDeleteIds.has(item.id)}
         />
-    ), [handleDeleteChat, onOpenChat, pendingDeleteIds, user?.id]);
+    ), [handleDeleteChat, onOpenChat, pendingDeleteIds]);
     const ItemSeparator = useCallback(() => <View style={styles.separator} />, []);
 
     if (chatsQuery.isLoading && chats.length === 0 && debouncedQuery.length === 0) {
@@ -312,7 +304,6 @@ export function ChatsScreen({ isActive, onOpenChat }: ChatsScreenProps) {
 
 function areChatItemPropsEqual(prev: ChatItemProps, next: ChatItemProps) {
     return prev.item === next.item
-        && prev.currentUserId === next.currentUserId
         && prev.onOpenChat === next.onOpenChat
         && prev.onDeleteChat === next.onDeleteChat
         && prev.actionPending === next.actionPending;

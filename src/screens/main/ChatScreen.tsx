@@ -165,11 +165,11 @@ export function ChatScreen({ chat, onBack }: ChatScreenProps) {
                             <Ionicons name="close" size={18} color={Colors.success} />
                         </TouchableOpacity>
                         {supportStatus === 'declined' || isSupportClosed ? (
-                            <View style={styles.supportPendingPanel}>
-                                <Text style={styles.supportPendingTitle}>
+                            <View style={styles.supportStatusPanel}>
+                                <Text style={styles.supportStatusTitle}>
                                     {isSupportClosed ? 'Support thread closed' : 'Support request declined'}
                                 </Text>
-                                <Text style={styles.supportPendingBody}>
+                                <Text style={styles.supportStatusBody}>
                                     {isSupportClosed
                                         ? 'This thread stays visible for reference, but new messages are locked.'
                                         : 'This thread stays visible, but messaging is unavailable.'}
@@ -457,16 +457,16 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         borderRadius: Radius.pill,
     },
-    supportPendingPanel: {
+    supportStatusPanel: {
         marginTop: Spacing.md,
         borderTopWidth: 1,
         borderTopColor: Colors.border.emphasis,
         paddingTop: Spacing.md,
     },
-    supportPendingTitle: {
+    supportStatusTitle: {
         ...TextStyles.label,
     },
-    supportPendingBody: {
+    supportStatusBody: {
         ...TextStyles.secondary,
         marginTop: 4,
     },
