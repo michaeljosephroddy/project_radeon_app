@@ -1,6 +1,7 @@
 import { appAlert } from '@/components/ui/appAlert';
 import React, { useState } from 'react';
 import {
+    Modal,
     ScrollView,
     StyleSheet,
     Switch,
@@ -10,8 +11,10 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as api from '../../api/client';
+import { PrimaryButton } from '../../components/ui/PrimaryButton';
 import { ScreenHeader } from '../../components/ui/ScreenHeader';
 import { SectionLabel } from '../../components/ui/SectionLabel';
+import { TextField } from '../../components/ui/TextField';
 import { useAuth } from '../../hooks/useAuth';
 import { screenStandards } from '../../styles/screenStandards';
 import { Colors, Radius, Spacing, Typography } from '../../theme';
@@ -24,9 +27,13 @@ interface SettingsScreenProps {
 
 // Renders the settings screen and exposes account-level actions.
 export function SettingsScreen({ onBack, onLogout, onOpenHiddenContent }: SettingsScreenProps) {
-    const { user, refreshUser } = useAuth();
+    const { user, refreshUser, deleteAccount } = useAuth();
     const [savingDatingMode, setSavingDatingMode] = useState(false);
+    const [deleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
+    const [deleteConfirmText, setDeleteConfirmText] = useState('');
+    const [deletingAccount, setDeletingAccount] = useState(false);
     const datingEnabled = user?.connection_intents?.includes('dating') ?? false;
+    const canSubmitDelete = deleteConfirmText.trim().toLowerCase() === 'delete';
 
     const handleDatingModeChange = async (enabled: boolean): Promise<void> => {
         setSavingDatingMode(true);
@@ -45,10 +52,34 @@ export function SettingsScreen({ onBack, onLogout, onOpenHiddenContent }: Settin
         }
     };
 
+    const handleOpenDeleteConfirm = (): void => {
+        setDeleteConfirmText('');
+        setDeleteConfirmVisible(true);
+    };
+
+    const handleCloseDeleteConfirm = (): void => {
+        if (deletingAccount) return;
+        setDeleteConfirmVisible(false);
+        setDeleteConfirmText('');
+    };
+
+    const handleDeleteAccount = async (): Promise<void> => {
+        if (!canSubmitDelete || deletingAccount) return;
+
+        setDeletingAccount(true);
+        try {
+            await deleteAccount();
+        } catch (error: unknown) {
+            appAlert.alert(
+                'Could not delete account',
+                error instanceof Error ? error.message : 'Please try again.',
+            );
+            setDeletingAccount(false);
+        }
+    };
+
     return (
         <SafeAreaView style={styles.container} edges={['bottom']}>
-            {/* Settings currently exposes a single destructive action, but the grouped
-                layout keeps room for more account/system options later. */}
             <ScreenHeader onBack={onBack} title="Settings" />
 
             <ScrollView style={styles.scroll} contentContainerStyle={screenStandards.detailContent}>
@@ -88,8 +119,56 @@ export function SettingsScreen({ onBack, onLogout, onOpenHiddenContent }: Settin
                     <TouchableOpacity style={styles.row} onPress={onLogout}>
                         <Text style={styles.logoutText}>Log out</Text>
                     </TouchableOpacity>
+                    <View style={styles.divider} />
+                    <TouchableOpacity style={styles.row} onPress={handleOpenDeleteConfirm}>
+                        <Text style={styles.deleteText}>Delete account</Text>
+                    </TouchableOpacity>
                 </View>
             </ScrollView>
+
+            <Modal
+                animationType="fade"
+                transparent
+                visible={deleteConfirmVisible}
+                onRequestClose={handleCloseDeleteConfirm}
+            >
+                <View style={styles.modalOverlay}>
+                    <View style={styles.confirmPanel}>
+                        <Text style={styles.confirmTitle}>Delete account</Text>
+                        <Text style={styles.confirmCopy}>
+                            This will permanently deactivate your account, remove your private profile details, and sign you out.
+                        </Text>
+                        <Text style={styles.confirmPrompt}>Type delete to confirm.</Text>
+                        <TextField
+                            value={deleteConfirmText}
+                            onChangeText={setDeleteConfirmText}
+                            autoCapitalize="none"
+                            autoCorrect={false}
+                            editable={!deletingAccount}
+                            placeholder="delete"
+                            returnKeyType="done"
+                            style={styles.confirmInput}
+                        />
+                        <View style={styles.confirmActions}>
+                            <TouchableOpacity
+                                style={styles.cancelButton}
+                                onPress={handleCloseDeleteConfirm}
+                                disabled={deletingAccount}
+                            >
+                                <Text style={styles.cancelText}>Cancel</Text>
+                            </TouchableOpacity>
+                            <PrimaryButton
+                                label="Delete account"
+                                variant="danger"
+                                onPress={handleDeleteAccount}
+                                disabled={!canSubmitDelete}
+                                loading={deletingAccount}
+                                style={styles.deleteButton}
+                            />
+                        </View>
+                    </View>
+                </View>
+            </Modal>
         </SafeAreaView>
     );
 }
@@ -115,6 +194,11 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     rowText: { fontSize: Typography.sizes.base, color: Colors.text.primary },
+    divider: {
+        height: StyleSheet.hairlineWidth,
+        backgroundColor: Colors.border.default,
+        marginLeft: Spacing.md,
+    },
     rowDescription: {
         marginTop: Spacing.xs,
         fontSize: Typography.sizes.sm,
@@ -122,4 +206,58 @@ const styles = StyleSheet.create({
         color: Colors.text.secondary,
     },
     logoutText: { fontSize: Typography.sizes.base, color: Colors.danger },
+    deleteText: { fontSize: Typography.sizes.base, color: Colors.danger },
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: Colors.overlay,
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: Spacing.lg,
+    },
+    confirmPanel: {
+        width: '100%',
+        maxWidth: 420,
+        backgroundColor: Colors.bg.surface,
+        borderRadius: Radius.lg,
+        padding: Spacing.lg,
+    },
+    confirmTitle: {
+        fontSize: Typography.sizes.xl,
+        fontWeight: Typography.weights.bold,
+        color: Colors.text.primary,
+    },
+    confirmCopy: {
+        marginTop: Spacing.sm,
+        fontSize: Typography.sizes.base,
+        lineHeight: 22,
+        color: Colors.text.secondary,
+    },
+    confirmPrompt: {
+        marginTop: Spacing.lg,
+        marginBottom: Spacing.sm,
+        fontSize: Typography.sizes.sm,
+        color: Colors.text.primary,
+    },
+    confirmInput: {
+        width: '100%',
+    },
+    confirmActions: {
+        marginTop: Spacing.lg,
+        flexDirection: 'row',
+        justifyContent: 'flex-end',
+        gap: Spacing.sm,
+    },
+    cancelButton: {
+        minHeight: 44,
+        paddingHorizontal: Spacing.md,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    cancelText: {
+        fontSize: Typography.sizes.base,
+        color: Colors.text.secondary,
+    },
+    deleteButton: {
+        minWidth: 150,
+    },
 });
