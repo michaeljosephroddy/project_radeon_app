@@ -697,10 +697,6 @@ export interface CreateSupportOfferInput {
     message?: string | null;
 }
 
-export interface CreateSupportReplyInput {
-    body: string;
-}
-
 export interface SupportChatContext {
     support_request_id: string;
     request_type: SupportRequest['support_type'];
@@ -1962,13 +1958,6 @@ export async function getSupportReplies(id: string, cursor?: string, limit = 20)
     const search = new URLSearchParams({ limit: String(limit) });
     if (cursor) search.set('cursor', cursor);
     return request(`/support/requests/${id}/replies?${search.toString()}`);
-}
-
-export async function createSupportReply(id: string, data: CreateSupportReplyInput): Promise<SupportReply> {
-    return request(`/support/requests/${id}/replies`, {
-        method: 'POST',
-        body: JSON.stringify(data),
-    });
 }
 
 // Toggles the current user's RSVP or waitlist state for a meetup.
