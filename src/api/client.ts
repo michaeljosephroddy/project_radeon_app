@@ -1935,11 +1935,11 @@ export async function createSupportOffer(id: string, data: CreateSupportOfferInp
 }
 
 export async function acceptSupportOffer(requestId: string, offerId: string): Promise<SupportRequest> {
-    const result = await request<AcceptSupportOfferResult | SupportRequest>(
+    const result = await request<AcceptSupportOfferResult>(
         `/support/requests/${requestId}/offers/${offerId}/accept`,
         { method: 'POST' },
     );
-    return 'request' in result ? result.request : result;
+    return result.request;
 }
 
 export async function declineSupportOffer(requestId: string, offerId: string): Promise<void> {
