@@ -60,7 +60,6 @@ function getSupportStatusLabel(chat: api.Chat): string | null {
     const status = chat.support_context?.status;
     if (!status || status === 'accepted') return null;
 
-    if (status === 'declined') return 'Declined';
     if (status === 'closed') return 'Closed';
 
     return null;
