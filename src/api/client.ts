@@ -714,13 +714,13 @@ export interface SupportChatContext {
     requester_id: string;
     requester_username: string;
     latest_offer_type?: SupportOffer['offer_type'];
-    status?: 'accepted' | 'declined' | 'closed';
+    status?: 'accepted' | 'closed';
 }
 
 export interface Chat {
     id: string;
     is_group: boolean;
-    status?: 'active' | 'declined' | 'closed';
+    status?: 'active' | 'closed';
     name?: string;
     username?: string;
     avatar_url?: string;
