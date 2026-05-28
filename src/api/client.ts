@@ -843,7 +843,6 @@ export interface DatingActionResponse {
     action: DatingAction;
     matched: boolean;
     match?: DatingMatch | null;
-    chat?: Chat | null;
 }
 
 export interface UpdateMeInput {
