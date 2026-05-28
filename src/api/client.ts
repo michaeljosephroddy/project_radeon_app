@@ -346,6 +346,11 @@ export interface NotificationSummary {
     unread_count: number;
 }
 
+export interface NotificationPreferences {
+    chat_messages: boolean;
+    comment_mentions: boolean;
+}
+
 export interface MeetupCategory {
     slug: string;
     label: string;
@@ -2064,6 +2069,17 @@ export async function getNotifications(params?: { before?: string | null; limit?
 
 export async function getNotificationSummary(): Promise<NotificationSummary> {
     return request<NotificationSummary>('/notifications/summary');
+}
+
+export async function getNotificationPreferences(): Promise<NotificationPreferences> {
+    return request<NotificationPreferences>('/notifications/preferences');
+}
+
+export async function updateNotificationPreferences(input: Partial<NotificationPreferences>): Promise<NotificationPreferences> {
+    return request<NotificationPreferences>('/notifications/preferences', {
+        method: 'PATCH',
+        body: JSON.stringify(input),
+    });
 }
 
 export async function markNotificationRead(id: string): Promise<void> {
