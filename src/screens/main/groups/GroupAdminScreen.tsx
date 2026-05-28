@@ -2,7 +2,6 @@ import { appAlert } from '@/components/ui/appAlert';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
     ActivityIndicator,
-    Alert,
     FlatList,
     StyleSheet,
     Text,

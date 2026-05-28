@@ -2,7 +2,6 @@ import { appAlert } from '@/components/ui/appAlert';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
     ActivityIndicator,
-    Alert,
     FlatList,
     Keyboard,
     StyleSheet,
@@ -36,7 +35,6 @@ interface ActiveMentionState {
 export interface CommentThreadProps {
     adapter: CommentThreadAdapter;
     currentUser: User;
-    initialCommentCount: number;
     focusComposer: boolean;
     onPressUser: (profile: CommentThreadUserProfile) => void;
     onCommentCreated?: (comment: CommentDisplayModel) => void;
@@ -201,7 +199,6 @@ function ComposerPadding({ basePadding, children }: { basePadding: number; child
 export function CommentThread({
     adapter,
     currentUser,
-    initialCommentCount,
     focusComposer,
     onPressUser,
     onCommentCreated,
@@ -218,7 +215,6 @@ export function CommentThread({
     const [hasMore, setHasMore] = useState(false);
     const [isLoadingInitial, setIsLoadingInitial] = useState(true);
     const [isLoadingMore, setIsLoadingMore] = useState(false);
-    const [commentCount, setCommentCount] = useState(initialCommentCount);
     const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE);
     const [draft, setDraft] = useState('');
     const [submitting, setSubmitting] = useState(false);
@@ -231,7 +227,6 @@ export function CommentThread({
         setIsLoadingInitial(true);
         setComments([]);
         setHasMore(false);
-        setCommentCount(initialCommentCount);
         cursorRef.current = undefined;
 
         adapter.loadComments()
@@ -249,7 +244,7 @@ export function CommentThread({
             });
 
         return () => { cancelled = true; };
-    }, [adapter, initialCommentCount]);
+    }, [adapter]);
 
     useEffect(() => () => {
         if (mentionSearchTimerRef.current) clearTimeout(mentionSearchTimerRef.current);
@@ -360,7 +355,6 @@ export function CommentThread({
         selectedMentionUserIdsRef.current = {};
         Keyboard.dismiss();
         setComments(prev => [...prev, optimisticComment]);
-        setCommentCount(prev => prev + 1);
         setVisibleCount(v => v + 1);
 
         try {
@@ -369,7 +363,6 @@ export function CommentThread({
             onCommentCreated?.(newComment);
         } catch (e) {
             setComments(prev => prev.filter(c => c.id !== optimisticComment.id));
-            setCommentCount(prev => Math.max(0, prev - 1));
             setDraft(body);
             appAlert.alert('Error', e instanceof Error ? e.message : 'Something went wrong.');
         } finally {

@@ -41,7 +41,6 @@ export function GroupCommentsModal({
             title={title}
             adapter={adapter}
             currentUser={currentUser}
-            initialCommentCount={post.comment_count}
             focusComposer={false}
             onClose={onClose}
             onPressUser={onPressUser}

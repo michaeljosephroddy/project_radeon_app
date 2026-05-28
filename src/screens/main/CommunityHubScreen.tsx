@@ -13,7 +13,6 @@ interface CommunityHubScreenProps {
     activeSurface: CommunityHubSurface;
     onChangeSurface: (surface: CommunityHubSurface) => void;
     onOpenGroup: (groupId: string) => void;
-    onOpenUserProfile: (profile: { userId: string; username: string; avatarUrl?: string }) => void;
     onOpenMeetup: (meetup: api.Meetup) => void;
     onOpenManageMeetup: (meetup: api.Meetup) => void;
     onGroupJoined?: (group: api.Group) => void;
@@ -25,7 +24,6 @@ export function CommunityHubScreen({
     activeSurface,
     onChangeSurface,
     onOpenGroup,
-    onOpenUserProfile,
     onOpenMeetup,
     onOpenManageMeetup,
     onGroupJoined,
@@ -56,7 +54,6 @@ export function CommunityHubScreen({
                 {surfaceTabs}
                 <MeetupsScreen
                     isActive={meetupsActive}
-                    onOpenUserProfile={onOpenUserProfile}
                     onOpenMeetup={onOpenMeetup}
                     onOpenManageMeetup={onOpenManageMeetup}
                     onRsvpComplete={onRsvpComplete}

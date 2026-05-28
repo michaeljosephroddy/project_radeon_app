@@ -1,7 +1,7 @@
 import { appAlert } from '@/components/ui/appAlert';
 import React, { useMemo, useRef, useState } from 'react';
 import {
-    View, Text, TouchableOpacity, StyleSheet, FlatList, ActivityIndicator, RefreshControl, Alert,
+    View, Text, TouchableOpacity, StyleSheet, FlatList, ActivityIndicator, RefreshControl,
     NativeScrollEvent, NativeSyntheticEvent,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';

@@ -60,7 +60,6 @@ export function FeedCommentsModal({
             title={title}
             adapter={adapter}
             currentUser={currentUser}
-            initialCommentCount={thread.commentCount}
             focusComposer={focusComposer}
             onClose={onClose}
             onPressUser={onPressUser}

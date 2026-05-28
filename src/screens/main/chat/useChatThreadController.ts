@@ -1,7 +1,6 @@
 import { appAlert } from '@/components/ui/appAlert';
 import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert } from 'react-native';
 import * as api from '../../../api/client';
 import { useChatRealtime } from '../../../hooks/chat/ChatRealtimeProvider';
 import { useChatMessages } from '../../../hooks/queries/useChatMessages';

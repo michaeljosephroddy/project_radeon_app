@@ -8,7 +8,6 @@ import {
   View,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import * as api from "../../../api/client";
 import { Colors, ControlSizes, Radius, Spacing, TextStyles, Typography } from "../../../theme";
 import {
   ImagePreviewCard,
@@ -22,7 +21,6 @@ interface ComposerCanvasProps {
   imageStatus: ImagePreviewStatus | null;
   maxBodyLength: number;
   tags: string[];
-  user: api.User;
   onBodyChange: (body: string) => void;
   onRemoveImage: () => void;
   onRemoveTag: (tag: string) => void;
@@ -35,7 +33,6 @@ export function ComposerCanvas({
   imageStatus,
   maxBodyLength,
   tags,
-  user,
   onBodyChange,
   onRemoveImage,
   onRemoveTag,

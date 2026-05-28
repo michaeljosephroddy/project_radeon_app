@@ -27,7 +27,7 @@ function trimInfiniteQueryData<TData, TPageParam>(
     };
 }
 
-function trimInfiniteQueryCacheEntry(queryKey: QueryKey, data: unknown, maxPages: number | undefined): unknown {
+function trimInfiniteQueryCacheEntry(_queryKey: QueryKey, data: unknown, maxPages: number | undefined): unknown {
     if (!maxPages || !isInfiniteQueryData(data)) return data;
     return trimInfiniteQueryData(data, maxPages);
 }

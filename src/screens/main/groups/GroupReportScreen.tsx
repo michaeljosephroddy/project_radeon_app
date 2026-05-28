@@ -1,7 +1,6 @@
 import { appAlert } from '@/components/ui/appAlert';
 import React, { useState } from 'react';
 import {
-    Alert,
     ScrollView,
     StyleSheet,
     Text,

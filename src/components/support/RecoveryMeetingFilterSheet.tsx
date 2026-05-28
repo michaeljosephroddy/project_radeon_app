@@ -10,7 +10,7 @@ import {
     ViewStyle,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Colors, ControlSizes, Radius, Spacing, TextStyles, Typography } from '../../theme';
+import { Colors, ControlSizes, Radius, Spacing, TextStyles } from '../../theme';
 import { screenStandards } from '../../styles/screenStandards';
 import { useRecoveryMeetingFilterOptions } from '../../hooks/queries/useRecoveryMeetings';
 import { PrimaryButton } from '../ui/PrimaryButton';

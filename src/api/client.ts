@@ -1021,21 +1021,6 @@ export interface GroupInvite {
     created_at: string;
 }
 
-export interface GroupInvitePreview {
-    token: string;
-    group_id: string;
-    group_name: string;
-    group_slug: string;
-    group_avatar_url?: string | null;
-    visibility: GroupVisibility;
-    requires_approval: boolean;
-    expires_at?: string | null;
-    max_uses?: number | null;
-    use_count: number;
-    viewer_status: 'none' | GroupMembershipStatus;
-    created_at: string;
-}
-
 export interface GroupJoinRequest {
     id: string;
     group_id: string;
@@ -1154,18 +1139,6 @@ export async function uploadAvatar(uri: string): Promise<{ avatar_url: string }>
         body: form,
     });
     return parseDataResponse<{ avatar_url: string }>(res);
-}
-
-export async function uploadBanner(uri: string): Promise<{ banner_url: string }> {
-    const token = await getToken();
-    const form = new FormData();
-    form.append('banner', { uri, name: 'banner.jpg', type: 'image/jpeg' } as unknown as Blob);
-    const res = await fetch(`${BASE_URL}/users/me/banner`, {
-        method: 'POST',
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-        body: form,
-    });
-    return parseDataResponse<{ banner_url: string }>(res);
 }
 
 export async function uploadMeetupCoverImage(input: {
@@ -1329,10 +1302,6 @@ export async function createGroupInvite(groupId: string, input: {
     return request(`/groups/${groupId}/invites`, { method: 'POST', body: JSON.stringify(input) });
 }
 
-export async function getGroupInvitePreview(token: string): Promise<GroupInvitePreview> {
-    return request(`/group-invites/${encodeURIComponent(token)}`);
-}
-
 export async function acceptGroupInvite(token: string): Promise<JoinGroupResult> {
     return request(`/group-invites/${encodeURIComponent(token)}/accept`, { method: 'POST' });
 }
@@ -1493,22 +1462,6 @@ export async function recordDatingAction(targetUserId: string, action: DatingAct
     });
 }
 
-export async function listDatingMatches(params?: { cursor?: string; limit?: number }): Promise<CursorResponse<DatingMatch>> {
-    const search = new URLSearchParams();
-    if (params?.cursor) search.set('before', params.cursor);
-    if (params?.limit) search.set('limit', String(params.limit));
-    const suffix = search.toString() ? `?${search.toString()}` : '';
-    return request(`/dating/matches${suffix}`);
-}
-
-export async function getDatingMatch(id: string): Promise<DatingMatch> {
-    return request(`/dating/matches/${id}`);
-}
-
-export async function unmatchDatingMatch(id: string): Promise<DatingMatch> {
-    return request(`/dating/matches/${id}/unmatch`, { method: 'POST' });
-}
-
 function buildDiscoverSearchParams(params?: {
     query?: string;
     city?: string;
@@ -1606,7 +1559,7 @@ function normalizeFeedItem(item: RawFeedItem): FeedItem {
     };
 }
 
-async function getScopedFeed(scope: FeedMode, cursor?: string, limit = 20): Promise<CursorResponse<FeedItem>> {
+async function getScopedFeed(_scope: FeedMode, cursor?: string, limit = 20): Promise<CursorResponse<FeedItem>> {
     const search = new URLSearchParams({ limit: String(limit) });
     if (cursor) search.set('before', cursor);
     // The helper keeps the feed request shape centralized even though home is the only read surface now.
@@ -1975,10 +1928,6 @@ export async function declineSupportOffer(requestId: string, offerId: string): P
     await request(`/support/requests/${requestId}/offers/${offerId}/decline`, { method: 'POST' });
 }
 
-export async function cancelSupportOffer(requestId: string, offerId: string): Promise<void> {
-    await request(`/support/requests/${requestId}/offers/${offerId}/cancel`, { method: 'POST' });
-}
-
 export async function getSupportOffers(id: string, options: GetSupportOffersOptions = {}): Promise<PaginatedResponse<SupportOffer>> {
     const page = options.page ?? 1;
     const limit = options.limit ?? 20;
@@ -2122,13 +2071,6 @@ export async function markNotificationRead(id: string): Promise<void> {
     await request(`/notifications/${id}/read`, { method: 'POST' });
 }
 
-export async function markNotificationsRead(ids: string[]): Promise<{ read: boolean; updated: number }> {
-    return request('/notifications/read', {
-        method: 'POST',
-        body: JSON.stringify({ notification_ids: ids }),
-    });
-}
-
 export async function markAllNotificationsRead(): Promise<{ read: boolean; updated: number }> {
     return request('/notifications/read-all', { method: 'POST' });
 }
@@ -2166,10 +2108,6 @@ export async function removeFriend(id: string): Promise<void> {
 
 export async function blockUser(id: string): Promise<void> {
     await request(`/users/${id}/block`, { method: 'POST' });
-}
-
-export async function unblockUser(id: string): Promise<void> {
-    await request(`/users/${id}/block`, { method: 'DELETE' });
 }
 
 export async function reportUser(id: string, input: {

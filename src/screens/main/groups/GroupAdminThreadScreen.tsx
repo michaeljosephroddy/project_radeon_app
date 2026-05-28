@@ -1,6 +1,6 @@
 import { appAlert } from '@/components/ui/appAlert';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, LayoutChangeEvent, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, LayoutChangeEvent, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';

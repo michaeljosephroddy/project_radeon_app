@@ -2,7 +2,7 @@ import { appAlert } from '@/components/ui/appAlert';
 import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import {
     View, Text, FlatList, TouchableOpacity, TextInput, Image,
-    StyleSheet, RefreshControl, ActivityIndicator, Alert, Modal,
+    StyleSheet, RefreshControl, ActivityIndicator, Modal,
     Platform, KeyboardAvoidingView,
 } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';

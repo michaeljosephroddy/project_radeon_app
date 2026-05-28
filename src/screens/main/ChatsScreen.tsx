@@ -2,7 +2,7 @@ import { appAlert } from '@/components/ui/appAlert';
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import {
     View, Text, FlatList, TouchableOpacity,
-    StyleSheet, RefreshControl, ActivityIndicator, Alert,
+    StyleSheet, RefreshControl, ActivityIndicator,
 } from 'react-native';
 import { InfiniteData, useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
