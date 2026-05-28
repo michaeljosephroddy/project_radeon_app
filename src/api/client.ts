@@ -249,6 +249,18 @@ export interface HiddenFeedItem {
     item: FeedItem;
 }
 
+export interface MutedFeedAuthor {
+    author_id: string;
+    muted_at: string;
+    author: {
+        id: string;
+        username: string;
+        avatar_url?: string | null;
+        city?: string | null;
+        country?: string | null;
+    };
+}
+
 export interface FeedImpressionInput {
     item_id: string;
     item_kind: FeedItemKind;
@@ -1655,6 +1667,16 @@ export async function getHiddenFeedItems(cursor?: string, limit = 20): Promise<C
 
 export async function muteFeedAuthor(authorId: string): Promise<void> {
     return request(`/feed/authors/${authorId}/mute`, { method: 'POST' });
+}
+
+export async function unmuteFeedAuthor(authorId: string): Promise<void> {
+    return request(`/feed/authors/${authorId}/mute`, { method: 'DELETE' });
+}
+
+export async function getMutedFeedAuthors(cursor?: string, limit = 25): Promise<CursorResponse<MutedFeedAuthor>> {
+    const search = new URLSearchParams({ limit: String(limit) });
+    if (cursor) search.set('before', cursor);
+    return request(`/feed/authors/muted?${search.toString()}`);
 }
 
 export async function logFeedImpressions(impressions: FeedImpressionInput[]): Promise<{ logged: number }> {
