@@ -646,7 +646,6 @@ export interface SupportRequest {
     has_offered: boolean;
     has_replied: boolean;
     already_chatting: boolean;
-    existing_chat_id?: string | null;
     is_own_request: boolean;
 }
 
