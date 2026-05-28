@@ -28,6 +28,7 @@ export const queryKeys = {
     chatMessages: (chatId: string) => ['chat-messages', chatId] as const,
     notifications: (params?: { limit?: number }) => ['notifications', params ?? {}] as const,
     notificationSummary: () => ['notification-summary'] as const,
+    notificationPreferences: () => ['notification-preferences'] as const,
     meetupCategories: () => ['meetup-categories'] as const,
     meetupLocationSuggestions: (params?: { query?: string; limit?: number }) => ['meetup-location-suggestions', params ?? {}] as const,
     meetups: (filters?: {

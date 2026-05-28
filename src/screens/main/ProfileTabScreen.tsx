@@ -20,6 +20,7 @@ import { TextField } from '../../components/ui/TextField';
 import { SettingsScreen } from './SettingsScreen';
 import { HiddenContentScreen } from './HiddenContentScreen';
 import { BlockedUsersScreen } from './BlockedUsersScreen';
+import { NotificationPreferencesScreen } from './NotificationPreferencesScreen';
 import { ProfileContentTabs, ProfileContentTabKey } from '../../components/profile/ProfileContentTabs';
 import { ProfileEmptyTabState } from '../../components/profile/ProfileEmptyTabState';
 import { ProfilePostCard } from '../../components/profile/ProfilePostCard';
@@ -36,7 +37,15 @@ import { formatSobrietyDate } from '../../utils/date';
 import { screenStandards } from '../../styles/screenStandards';
 import { dedupeById } from '../../utils/list';
 
-type SubView = 'profile' | 'edit-profile' | 'friends' | 'requests' | 'settings' | 'hidden-content' | 'blocked-users';
+type SubView =
+    | 'profile'
+    | 'edit-profile'
+    | 'friends'
+    | 'requests'
+    | 'settings'
+    | 'hidden-content'
+    | 'blocked-users'
+    | 'notification-preferences';
 type RequestsSubView = 'incoming' | 'outgoing';
 type EditableSection = 'bio' | 'location' | 'identity' | 'interests' | 'intent' | 'sobriety' | null;
 type EditableGender = api.UserGender | '';
@@ -523,6 +532,7 @@ export function ProfileTabScreen({
                 onLogout={handleLogout}
                 onOpenHiddenContent={() => setSubView('hidden-content')}
                 onOpenBlockedUsers={() => setSubView('blocked-users')}
+                onOpenNotificationPreferences={() => setSubView('notification-preferences')}
             />
         );
     }
@@ -533,6 +543,10 @@ export function ProfileTabScreen({
 
     if (subView === 'blocked-users') {
         return <BlockedUsersScreen onBack={() => setSubView('settings')} />;
+    }
+
+    if (subView === 'notification-preferences') {
+        return <NotificationPreferencesScreen onBack={() => setSubView('settings')} />;
     }
 
     if (subView === 'friends') {

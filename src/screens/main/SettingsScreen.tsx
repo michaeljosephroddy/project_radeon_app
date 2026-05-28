@@ -24,10 +24,17 @@ interface SettingsScreenProps {
     onLogout: () => void;
     onOpenHiddenContent: () => void;
     onOpenBlockedUsers: () => void;
+    onOpenNotificationPreferences: () => void;
 }
 
 // Renders the settings screen and exposes account-level actions.
-export function SettingsScreen({ onBack, onLogout, onOpenHiddenContent, onOpenBlockedUsers }: SettingsScreenProps) {
+export function SettingsScreen({
+    onBack,
+    onLogout,
+    onOpenHiddenContent,
+    onOpenBlockedUsers,
+    onOpenNotificationPreferences,
+}: SettingsScreenProps) {
     const { user, refreshUser, deleteAccount } = useAuth();
     const [savingDatingMode, setSavingDatingMode] = useState(false);
     const [deleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
@@ -104,6 +111,14 @@ export function SettingsScreen({ onBack, onLogout, onOpenHiddenContent, onOpenBl
                             ios_backgroundColor={Colors.border.default}
                         />
                     </View>
+                </View>
+                <View style={screenStandards.sectionLabelBlockTight}>
+                    <SectionLabel>NOTIFICATIONS</SectionLabel>
+                </View>
+                <View style={styles.group}>
+                    <TouchableOpacity style={styles.row} onPress={onOpenNotificationPreferences}>
+                        <Text style={styles.rowText}>Notifications</Text>
+                    </TouchableOpacity>
                 </View>
                 <View style={screenStandards.sectionLabelBlockTight}>
                     <SectionLabel>SAFETY</SectionLabel>
