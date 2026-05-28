@@ -662,7 +662,7 @@ export function DiscoverScreen({ isActive, onOpenUserProfile, onOpenChat, onOpen
             if (result.matched && result.match) {
                 setMatchModal({
                     match: result.match,
-                    chatId: result.chat?.id ?? result.match.chat_id,
+                    chatId: result.match.chat_id,
                 });
                 void queryClient.invalidateQueries({ queryKey: ['dating-matches'] });
                 void queryClient.invalidateQueries({ queryKey: ['chats'] });
