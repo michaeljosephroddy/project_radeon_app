@@ -11,6 +11,7 @@ interface AuthContextType {
     login: (email: string, password: string) => Promise<void>;
     register: (data: Parameters<typeof api.register>[0]) => Promise<void>;
     logout: () => Promise<void>;
+    deleteAccount: () => Promise<void>;
     refreshUser: () => Promise<void>;
     completeOnboarding: () => Promise<void>;
 }
@@ -78,6 +79,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(null);
     }, []);
 
+    // Deletes the server account, then clears all local authenticated state.
+    const deleteAccount = useCallback(async () => {
+        await api.deleteAccount();
+        await api.clearToken();
+        queryClient.clear();
+        setUser(null);
+    }, []);
+
     // Refreshes the current user's profile from the API.
     const refreshUser = useCallback(async () => {
         const me = await api.getMe();
@@ -100,6 +109,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             login,
             register,
             logout,
+            deleteAccount,
             refreshUser,
             completeOnboarding,
         }}>

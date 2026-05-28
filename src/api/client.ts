@@ -1138,6 +1138,11 @@ export async function updateMe(data: UpdateMeInput): Promise<User> {
     return request('/users/me', { method: 'PATCH', body: JSON.stringify(data) });
 }
 
+// Permanently deactivates and anonymizes the current user's account server-side.
+export async function deleteAccount(): Promise<void> {
+    await request<null>('/users/me', { method: 'DELETE' });
+}
+
 // Uploads a new avatar image using multipart form data instead of JSON.
 export async function uploadAvatar(uri: string): Promise<{ avatar_url: string }> {
     const token = await getToken();
