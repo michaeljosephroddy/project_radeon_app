@@ -98,7 +98,6 @@ export interface User {
     id: string;
     username: string;
     avatar_url?: string;
-    banner_url?: string | null;
     is_plus?: boolean;
     subscription_tier?: string | null;
     subscription_status?: string | null;
