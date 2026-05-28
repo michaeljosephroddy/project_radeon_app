@@ -641,12 +641,7 @@ export interface SupportRequest {
     is_priority: boolean;
     created_at: string;
     privacy_level?: 'standard' | 'private';
-    accepted_responder_id?: string | null;
-    accepted_at?: string | null;
     closed_at?: string | null;
-    responder_id?: string | null;
-    responder_username?: string | null;
-    responder_avatar_url?: string | null;
     chat_id?: string | null;
     has_offered: boolean;
     has_replied: boolean;
