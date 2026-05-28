@@ -733,7 +733,6 @@ export interface Chat {
 
 export interface CreateSupportOfferResult {
     offer: SupportOffer;
-    chat?: Chat;
 }
 
 export interface AcceptSupportOfferResult {
