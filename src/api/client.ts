@@ -848,6 +848,15 @@ export interface DatingPhoto {
     created_at: string;
 }
 
+export interface DatingPromptAnswer {
+    id?: string;
+    prompt_key: string;
+    answer: string;
+    position?: number;
+    created_at?: string;
+    updated_at?: string;
+}
+
 export interface DatingProfile {
     id: string;
     user_id?: string;
@@ -857,18 +866,23 @@ export interface DatingProfile {
     country?: string | null;
     bio?: string | null;
     relationship_goal: DatingRelationshipGoal;
-    interested_in_genders: UserGender[];
+    interested_in_genders?: UserGender[];
     height_cm?: number | null;
+    job_title?: string | null;
+    company?: string | null;
     work?: string | null;
+    school?: string | null;
+    course?: string | null;
     education?: string | null;
     kids_status: DatingKidsStatus;
     interests: string[];
-    age_min: number;
-    age_max: number;
-    distance_km: number;
-    paused: boolean;
+    age_min?: number;
+    age_max?: number;
+    distance_km?: number;
+    paused?: boolean;
     completed_at?: string | null;
     photos: DatingPhoto[];
+    prompt_answers: DatingPromptAnswer[];
     created_at: string;
     updated_at: string;
 }
@@ -880,6 +894,15 @@ export interface DatingMatch {
     status: 'active' | 'unmatched';
     matched_at: string;
     unmatched_at?: string | null;
+}
+
+export interface DatingMatchesPage extends CursorResponse<DatingMatch> {
+    unseen_count: number;
+}
+
+export interface DatingMatchesSeenResponse {
+    seen_at: string;
+    unseen_count: number;
 }
 
 export interface DatingActionResponse {
@@ -895,6 +918,7 @@ function normalizeDatingProfile(profile: DatingProfile): DatingProfile {
         kids_status: profile.kids_status ?? '',
         interests: profile.interests ?? [],
         photos: profile.photos ?? [],
+        prompt_answers: profile.prompt_answers ?? [],
     };
 }
 
@@ -924,20 +948,61 @@ function normalizeDatingCursorResponse(page: CursorResponse<DatingProfile>): Cur
     };
 }
 
+function normalizeDatingMatchesCursorResponse(page: DatingMatchesPage): DatingMatchesPage {
+    return {
+        limit: page.limit,
+        has_more: page.has_more,
+        next_cursor: page.next_cursor ?? null,
+        unseen_count: page.unseen_count ?? 0,
+        items: (page.items ?? []).map(normalizeDatingMatch),
+    };
+}
+
 export interface UpdateDatingProfileInput {
     bio?: string | null;
     relationship_goal?: DatingRelationshipGoal;
     interested_in_genders?: UserGender[];
     height_cm?: number | null;
+    job_title?: string | null;
+    company?: string | null;
     work?: string | null;
+    school?: string | null;
+    course?: string | null;
     education?: string | null;
     kids_status?: DatingKidsStatus;
     interests?: string[];
+    prompt_answers?: Array<{
+        prompt_key: string;
+        answer: string;
+    }>;
     age_min?: number;
     age_max?: number;
     distance_km?: number;
     paused?: boolean;
     complete?: boolean;
+}
+
+export type DatingEventType =
+    | 'setup_started'
+    | 'setup_completed'
+    | 'profile_opened'
+    | 'like'
+    | 'pass'
+    | 'match_created'
+    | 'chat_opened'
+    | 'first_message_sent'
+    | 'report'
+    | 'block'
+    | 'unmatch'
+    | 'likes_you_gate_viewed';
+
+export interface DatingEventInput {
+    profile_id?: string;
+    match_id?: string;
+    event_type: DatingEventType;
+    position?: number;
+    event_at?: string;
+    payload?: Record<string, unknown>;
 }
 
 export interface UpdateMeInput {
@@ -1567,6 +1632,36 @@ export async function recordDatingAction(targetProfileId: string, action: Dating
         body: JSON.stringify({ target_profile_id: targetProfileId, action }),
     });
     return normalizeDatingActionResponse(response);
+}
+
+export async function listDatingMatches(params?: { cursor?: string; limit?: number; signal?: AbortSignal }): Promise<DatingMatchesPage> {
+    const search = new URLSearchParams();
+    if (params?.cursor) search.set('before', params.cursor);
+    if (params?.limit) search.set('limit', String(params.limit));
+    const suffix = search.toString() ? `?${search.toString()}` : '';
+    const page = await request<DatingMatchesPage>(`/dating/matches${suffix}`, { signal: params?.signal });
+    return normalizeDatingMatchesCursorResponse(page);
+}
+
+export async function markDatingMatchesSeen(): Promise<DatingMatchesSeenResponse> {
+    return request<DatingMatchesSeenResponse>('/dating/matches/seen', { method: 'POST' });
+}
+
+export async function getDatingMatch(matchId: string): Promise<DatingMatch> {
+    const match = await request<DatingMatch>(`/dating/matches/${matchId}`);
+    return normalizeDatingMatch(match);
+}
+
+export async function unmatchDatingMatch(matchId: string): Promise<DatingMatch> {
+    const match = await request<DatingMatch>(`/dating/matches/${matchId}/unmatch`, { method: 'POST' });
+    return normalizeDatingMatch(match);
+}
+
+export async function logDatingEvents(events: DatingEventInput[]): Promise<{ logged: number }> {
+    return request('/dating/events', {
+        method: 'POST',
+        body: JSON.stringify({ events }),
+    });
 }
 
 function buildDiscoverSearchParams(params?: {

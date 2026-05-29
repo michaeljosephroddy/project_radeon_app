@@ -36,7 +36,7 @@ interface DatingLikesScreenProps {
     fetchingNext: boolean;
     hasNextPage: boolean;
     pendingActionIds: Set<string>;
-    onBack: () => void;
+    onBack?: () => void;
     onLike: (profile: api.DatingProfile) => void;
     onPass: (profile: api.DatingProfile) => void;
     onOpenProfile: (profile: api.DatingProfile) => void;
@@ -64,7 +64,7 @@ export function DatingLikesScreen({
 
     return (
         <SafeAreaView style={styles.container} edges={['bottom']}>
-            <ScreenHeader title="Liked you" onBack={onBack} />
+            {onBack ? <ScreenHeader title="Liked you" onBack={onBack} /> : null}
 
             {loading && safeLikes.length === 0 ? (
                 <View style={styles.center}>

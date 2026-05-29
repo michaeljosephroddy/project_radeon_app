@@ -3,7 +3,6 @@ import {
     ActivityIndicator,
     Dimensions,
     type GestureResponderEvent,
-    Image,
     StyleSheet,
     Text,
     TouchableOpacity,
@@ -24,11 +23,11 @@ import Animated, {
     withSpring,
     withTiming,
 } from 'react-native-reanimated';
-import { Avatar } from '../Avatar';
 import { DiscoverEmptyState } from './DiscoverEmptyState';
+import { DatingPhotoCarousel } from './DatingPhotoCarousel';
 import * as api from '../../api/client';
 import { formatUsername } from '../../utils/identity';
-import { Colors, Radius, Spacing, TextStyles, Typography, getAvatarColors } from '../../theme';
+import { Colors, Radius, Spacing, TextStyles, Typography } from '../../theme';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const SWIPE_THRESHOLD = SCREEN_WIDTH * 0.24;
@@ -78,9 +77,7 @@ function DatingProfileCard({
     likeLabelStyle: AnimatedStyle<object>;
     passLabelStyle: AnimatedStyle<object>;
 }) {
-    const avatarColors = getAvatarColors(profile.username);
     const profilePhotos = profile.photos ?? [];
-    const primaryPhoto = profilePhotos[0]?.image_url;
     const locationLabel = profile.city
         ? `${profile.city}${profile.country ? `, ${profile.country}` : ''}`
         : profile.country ?? null;
@@ -110,16 +107,12 @@ function DatingProfileCard({
             accessibilityRole="button"
             accessibilityLabel={`View ${formatUsername(profile.username)} dating profile`}
         >
-            {primaryPhoto ? (
-                <Image source={{ uri: primaryPhoto }} style={StyleSheet.absoluteFill} resizeMode="cover" />
-            ) : (
-                <View style={[StyleSheet.absoluteFill, { backgroundColor: avatarColors.bg }]} />
-            )}
-            {!primaryPhoto ? (
-                <View style={styles.avatarFallback}>
-                    <Avatar username={profile.username} size={112} fontSize={36} />
-                </View>
-            ) : null}
+            <DatingPhotoCarousel
+                username={profile.username}
+                photos={profilePhotos}
+                style={StyleSheet.absoluteFill}
+                onPress={onPress}
+            />
 
             <LinearGradient
                 colors={['rgba(0,0,0,0)', 'rgba(0,0,0,0.42)', 'rgba(0,0,0,0.82)']}
