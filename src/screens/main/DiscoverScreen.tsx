@@ -252,10 +252,11 @@ function MatchModal({
 }
 
 const DATING_GOAL_OPTIONS: { value: api.DatingRelationshipGoal; label: string }[] = [
-    { value: 'long_term', label: 'Long-term' },
+    { value: 'long_term', label: 'Long-term relationship' },
     { value: 'life_partner', label: 'Life partner' },
-    { value: 'casual', label: 'Casual' },
-    { value: 'open_to_explore', label: 'Open to explore' },
+    { value: 'short_term_open_to_long_term', label: 'Short-term, open to long-term' },
+    { value: 'still_figuring_it_out', label: 'Still figuring it out' },
+    { value: 'new_sober_connections', label: 'New sober connections' },
 ];
 
 const DATING_KIDS_OPTIONS: { value: api.DatingKidsStatus; label: string }[] = [

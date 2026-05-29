@@ -18,13 +18,17 @@ import { Colors, ContentInsets, Radius, Spacing, TextStyles, Typography } from '
 function relationshipGoalLabel(goal: api.DatingRelationshipGoal): string | null {
     switch (goal) {
         case 'long_term':
-            return 'Long-term';
+            return 'Long-term relationship';
         case 'life_partner':
             return 'Life partner';
+        case 'short_term_open_to_long_term':
         case 'casual':
-            return 'Casual';
+            return 'Short-term, open to long-term';
+        case 'still_figuring_it_out':
         case 'open_to_explore':
-            return 'Open to explore';
+            return 'Still figuring it out';
+        case 'new_sober_connections':
+            return 'New sober connections';
         default:
             return null;
     }

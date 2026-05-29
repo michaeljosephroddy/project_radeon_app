@@ -836,8 +836,17 @@ export interface DiscoverPreviewResponse {
 }
 
 export type DatingAction = 'like' | 'pass';
-export type DatingRelationshipGoal = '' | 'long_term' | 'life_partner' | 'casual' | 'open_to_explore';
+export type DatingRelationshipGoal = '' | 'long_term' | 'life_partner' | 'short_term_open_to_long_term' | 'still_figuring_it_out' | 'new_sober_connections' | 'casual' | 'open_to_explore';
 export type DatingKidsStatus = '' | 'have_kids' | 'dont_have_kids' | 'prefer_not_to_say';
+export type DatingRelationshipType = '' | 'monogamous' | 'open_relationship' | 'other';
+export type DatingProfileGender = '' | 'woman' | 'man' | 'non_binary' | 'other';
+export type DatingSexuality = '' | 'straight' | 'gay' | 'lesbian' | 'bisexual' | 'other';
+export type DatingPronouns = '' | 'she_her' | 'he_him' | 'they_them' | 'other';
+export type DatingEthnicity = '' | 'asian' | 'black' | 'hispanic_latino' | 'middle_eastern' | 'mixed' | 'native_indigenous' | 'white' | 'other';
+export type DatingChildrenStatus = '' | 'have_children' | 'have_children_want_more' | 'have_children_dont_want_more' | 'want_children' | 'dont_want_children' | 'open_to_children' | 'not_sure';
+export type DatingPetsStatus = '' | 'have_pets' | 'want_pets' | 'like_pets' | 'allergic_to_pets' | 'not_a_pet_person';
+export type DatingReligiousBelief = '' | 'agnostic' | 'atheist' | 'buddhist' | 'christian' | 'hindu' | 'jewish' | 'muslim' | 'sikh' | 'spiritual' | 'other';
+export type DatingPoliticalView = '' | 'liberal' | 'moderate' | 'conservative' | 'not_political' | 'other';
 
 export interface DatingPhoto {
     id: string;
@@ -875,6 +884,16 @@ export interface DatingProfile {
     course?: string | null;
     education?: string | null;
     kids_status: DatingKidsStatus;
+    children_status?: DatingChildrenStatus;
+    relationship_type?: DatingRelationshipType;
+    gender?: DatingProfileGender;
+    sexuality?: DatingSexuality;
+    pronouns?: DatingPronouns;
+    ethnicity?: DatingEthnicity;
+    pets?: DatingPetsStatus;
+    religious_belief?: DatingReligiousBelief;
+    languages_spoken?: string[];
+    political_view?: DatingPoliticalView;
     interests: string[];
     age_min?: number;
     age_max?: number;
@@ -916,6 +935,16 @@ function normalizeDatingProfile(profile: DatingProfile): DatingProfile {
         ...profile,
         interested_in_genders: profile.interested_in_genders ?? [],
         kids_status: profile.kids_status ?? '',
+        children_status: profile.children_status ?? '',
+        relationship_type: profile.relationship_type ?? '',
+        gender: profile.gender ?? '',
+        sexuality: profile.sexuality ?? '',
+        pronouns: profile.pronouns ?? '',
+        ethnicity: profile.ethnicity ?? '',
+        pets: profile.pets ?? '',
+        religious_belief: profile.religious_belief ?? '',
+        languages_spoken: profile.languages_spoken ?? [],
+        political_view: profile.political_view ?? '',
         interests: profile.interests ?? [],
         photos: profile.photos ?? [],
         prompt_answers: profile.prompt_answers ?? [],
@@ -970,6 +999,16 @@ export interface UpdateDatingProfileInput {
     course?: string | null;
     education?: string | null;
     kids_status?: DatingKidsStatus;
+    children_status?: DatingChildrenStatus;
+    relationship_type?: DatingRelationshipType;
+    gender?: DatingProfileGender;
+    sexuality?: DatingSexuality;
+    pronouns?: DatingPronouns;
+    ethnicity?: DatingEthnicity;
+    pets?: DatingPetsStatus;
+    religious_belief?: DatingReligiousBelief;
+    languages_spoken?: string[];
+    political_view?: DatingPoliticalView;
     interests?: string[];
     prompt_answers?: Array<{
         prompt_key: string;

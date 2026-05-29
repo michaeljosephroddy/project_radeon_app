@@ -4,6 +4,8 @@ import {
     Alert,
     type LayoutChangeEvent,
     Modal,
+    type NativeScrollEvent,
+    type NativeSyntheticEvent,
     ScrollView,
     StyleSheet,
     Text,
@@ -44,23 +46,136 @@ interface DatingProfileEditorScreenProps {
 }
 
 const DATING_GOAL_OPTIONS: { value: api.DatingRelationshipGoal; label: string }[] = [
-    { value: 'long_term', label: 'Long-term' },
+    { value: 'long_term', label: 'Long-term relationship' },
     { value: 'life_partner', label: 'Life partner' },
-    { value: 'casual', label: 'Casual' },
-    { value: 'open_to_explore', label: 'Open to explore' },
+    { value: 'short_term_open_to_long_term', label: 'Short-term, open to long-term' },
+    { value: 'still_figuring_it_out', label: 'Still figuring it out' },
+    { value: 'new_sober_connections', label: 'New sober connections' },
 ];
 
 const DATING_GENDER_OPTIONS: { value: api.UserGender; label: string }[] = [
     { value: 'woman', label: 'Women' },
     { value: 'man', label: 'Men' },
-    { value: 'non_binary', label: 'Non-binary' },
 ];
 
-const DATING_KIDS_OPTIONS: { value: api.DatingKidsStatus; label: string }[] = [
-    { value: 'have_kids', label: 'Have kids' },
-    { value: 'dont_have_kids', label: "Don't have kids" },
-    { value: 'prefer_not_to_say', label: 'Prefer not to say' },
+const DATING_INTERESTED_OPTIONS: { value: 'men' | 'women' | 'everyone'; label: string; genders: api.UserGender[] }[] = [
+    { value: 'men', label: 'Men', genders: ['man'] },
+    { value: 'women', label: 'Women', genders: ['woman'] },
+    { value: 'everyone', label: 'Everyone', genders: ['woman', 'man', 'non_binary'] },
 ];
+
+interface DatingOption<T extends string> {
+    value: T;
+    label: string;
+}
+
+const RELATIONSHIP_TYPE_OPTIONS: DatingOption<api.DatingRelationshipType>[] = [
+    { value: 'monogamous', label: 'Monogamous' },
+    { value: 'open_relationship', label: 'Open relationship' },
+    { value: 'other', label: 'Other' },
+];
+
+const PROFILE_GENDER_OPTIONS: DatingOption<api.DatingProfileGender>[] = [
+    { value: 'woman', label: 'Woman' },
+    { value: 'man', label: 'Man' },
+    { value: 'non_binary', label: 'Non-binary' },
+    { value: 'other', label: 'Other' },
+];
+
+const SEXUALITY_OPTIONS: DatingOption<api.DatingSexuality>[] = [
+    { value: 'straight', label: 'Straight' },
+    { value: 'gay', label: 'Gay' },
+    { value: 'lesbian', label: 'Lesbian' },
+    { value: 'bisexual', label: 'Bisexual' },
+    { value: 'other', label: 'Other' },
+];
+
+const PRONOUNS_OPTIONS: DatingOption<api.DatingPronouns>[] = [
+    { value: 'she_her', label: 'She/her' },
+    { value: 'he_him', label: 'He/him' },
+    { value: 'they_them', label: 'They/them' },
+    { value: 'other', label: 'Other' },
+];
+
+const ETHNICITY_OPTIONS: DatingOption<api.DatingEthnicity>[] = [
+    { value: 'asian', label: 'Asian' },
+    { value: 'black', label: 'Black' },
+    { value: 'hispanic_latino', label: 'Hispanic / Latino' },
+    { value: 'middle_eastern', label: 'Middle Eastern' },
+    { value: 'mixed', label: 'Mixed' },
+    { value: 'native_indigenous', label: 'Native / Indigenous' },
+    { value: 'white', label: 'White' },
+    { value: 'other', label: 'Other' },
+];
+
+const CHILDREN_OPTIONS: DatingOption<api.DatingChildrenStatus>[] = [
+    { value: 'have_children', label: 'Have children' },
+    { value: 'have_children_want_more', label: 'Have children and want more' },
+    { value: 'have_children_dont_want_more', label: 'Have children and do not want more' },
+    { value: 'want_children', label: 'Want children' },
+    { value: 'dont_want_children', label: 'Do not want children' },
+    { value: 'open_to_children', label: 'Open to children' },
+    { value: 'not_sure', label: 'Not sure' },
+];
+
+const PETS_OPTIONS: DatingOption<api.DatingPetsStatus>[] = [
+    { value: 'have_pets', label: 'Have pets' },
+    { value: 'want_pets', label: 'Want pets' },
+    { value: 'like_pets', label: 'Like pets' },
+    { value: 'allergic_to_pets', label: 'Allergic to pets' },
+    { value: 'not_a_pet_person', label: 'Not a pet person' },
+];
+
+const RELIGIOUS_BELIEF_OPTIONS: DatingOption<api.DatingReligiousBelief>[] = [
+    { value: 'agnostic', label: 'Agnostic' },
+    { value: 'atheist', label: 'Atheist' },
+    { value: 'buddhist', label: 'Buddhist' },
+    { value: 'christian', label: 'Christian' },
+    { value: 'hindu', label: 'Hindu' },
+    { value: 'jewish', label: 'Jewish' },
+    { value: 'muslim', label: 'Muslim' },
+    { value: 'sikh', label: 'Sikh' },
+    { value: 'spiritual', label: 'Spiritual' },
+    { value: 'other', label: 'Other' },
+];
+
+const POLITICAL_VIEW_OPTIONS: DatingOption<api.DatingPoliticalView>[] = [
+    { value: 'liberal', label: 'Liberal' },
+    { value: 'moderate', label: 'Moderate' },
+    { value: 'conservative', label: 'Conservative' },
+    { value: 'not_political', label: 'Not political' },
+    { value: 'other', label: 'Other' },
+];
+
+const LANGUAGE_OPTIONS: DatingOption<string>[] = [
+    'English', 'Irish', 'Spanish', 'French', 'German', 'Italian', 'Portuguese', 'Dutch',
+    'Polish', 'Romanian', 'Lithuanian', 'Latvian', 'Estonian', 'Russian', 'Ukrainian',
+    'Czech', 'Slovak', 'Hungarian', 'Greek', 'Turkish', 'Arabic', 'Hebrew',
+    'Persian / Farsi', 'Hindi', 'Urdu', 'Punjabi', 'Bengali', 'Gujarati', 'Tamil',
+    'Telugu', 'Malayalam', 'Marathi', 'Nepali', 'Mandarin', 'Cantonese', 'Japanese',
+    'Korean', 'Vietnamese', 'Thai', 'Indonesian', 'Malay', 'Filipino / Tagalog',
+    'Swahili', 'Yoruba', 'Igbo', 'Amharic', 'Somali', 'Afrikaans', 'Other',
+].map((label) => ({ label, value: label.toLowerCase().replace(/ \/ /g, '_').replace(/\s+/g, '_') }));
+
+type DatingEditSection =
+    | 'bio'
+    | 'interests'
+    | 'goal'
+    | 'relationship_type'
+    | 'interested'
+    | 'gender'
+    | 'sexuality'
+    | 'pronouns'
+    | 'ethnicity'
+    | 'children'
+    | 'pets'
+    | 'religion'
+    | 'languages'
+    | 'politics'
+    | 'height'
+    | 'work'
+    | 'education'
+    | 'prompts';
 
 type DatingProfileEditorTab = 'edit' | 'preview';
 type RequiredDatingProfileField = 'photos' | 'bio' | 'interests' | 'goal' | 'interested';
@@ -173,7 +288,10 @@ export function DatingProfileEditorScreen({
 }: DatingProfileEditorScreenProps) {
     const scrollRef = useRef<KeyboardAwareScrollViewRef>(null);
     const requiredSectionY = useRef<Partial<Record<RequiredDatingProfileField, number>>>({});
+    const editScrollY = useRef(0);
+    const shouldRestoreEditScroll = useRef(false);
     const [activeTab, setActiveTab] = useState<DatingProfileEditorTab>('edit');
+    const [editingSection, setEditingSection] = useState<DatingEditSection | null>(null);
     const [validationAttempted, setValidationAttempted] = useState(false);
     const [bio, setBio] = useState(profile?.bio ?? '');
     const [goal, setGoal] = useState<api.DatingRelationshipGoal>(profile?.relationship_goal || 'long_term');
@@ -184,7 +302,16 @@ export function DatingProfileEditorScreen({
     const [company, setCompany] = useState(getInitialCompany(profile));
     const [school, setSchool] = useState(getInitialSchool(profile));
     const [course, setCourse] = useState(getInitialCourse(profile));
-    const [kidsStatus, setKidsStatus] = useState<api.DatingKidsStatus>(profile?.kids_status ?? '');
+    const [childrenStatus, setChildrenStatus] = useState<api.DatingChildrenStatus>(profile?.children_status ?? '');
+    const [relationshipType, setRelationshipType] = useState<api.DatingRelationshipType>(profile?.relationship_type ?? '');
+    const [profileGender, setProfileGender] = useState<api.DatingProfileGender>(profile?.gender ?? '');
+    const [sexuality, setSexuality] = useState<api.DatingSexuality>(profile?.sexuality ?? '');
+    const [pronouns, setPronouns] = useState<api.DatingPronouns>(profile?.pronouns ?? '');
+    const [ethnicity, setEthnicity] = useState<api.DatingEthnicity>(profile?.ethnicity ?? '');
+    const [pets, setPets] = useState<api.DatingPetsStatus>(profile?.pets ?? '');
+    const [religiousBelief, setReligiousBelief] = useState<api.DatingReligiousBelief>(profile?.religious_belief ?? '');
+    const [languagesSpoken, setLanguagesSpoken] = useState<string[]>(profile?.languages_spoken ?? []);
+    const [politicalView, setPoliticalView] = useState<api.DatingPoliticalView>(profile?.political_view ?? '');
     const [selectedPromptKeys, setSelectedPromptKeys] = useState<string[]>(() => createPromptKeyList(profile?.prompt_answers ?? []));
     const [promptAnswers, setPromptAnswers] = useState<Record<string, string>>(() => createPromptAnswerMap(profile?.prompt_answers ?? []));
     const [editingPromptKey, setEditingPromptKey] = useState<string | null>(null);
@@ -220,23 +347,62 @@ export function DatingProfileEditorScreen({
         setCompany(getInitialCompany(profile));
         setSchool(getInitialSchool(profile));
         setCourse(getInitialCourse(profile));
-        setKidsStatus(profile?.kids_status ?? '');
+        setChildrenStatus(profile?.children_status ?? '');
+        setRelationshipType(profile?.relationship_type ?? '');
+        setProfileGender(profile?.gender ?? '');
+        setSexuality(profile?.sexuality ?? '');
+        setPronouns(profile?.pronouns ?? '');
+        setEthnicity(profile?.ethnicity ?? '');
+        setPets(profile?.pets ?? '');
+        setReligiousBelief(profile?.religious_belief ?? '');
+        setLanguagesSpoken(profile?.languages_spoken ?? []);
+        setPoliticalView(profile?.political_view ?? '');
         setSelectedPromptKeys(createPromptKeyList(profile?.prompt_answers ?? []));
         setPromptAnswers(createPromptAnswerMap(profile?.prompt_answers ?? []));
         setEditingPromptKey(null);
     }, [profile]);
-
-    const toggleInterested = (gender: api.UserGender): void => {
-        setInterested((current) => current.includes(gender)
-            ? current.filter((item) => item !== gender)
-            : [...current, gender]);
-    };
 
     const toggleInterest = (interest: string): void => {
         setSelectedInterests((current) => current.includes(interest)
             ? current.filter((item) => item !== interest)
             : [...current, interest].sort((a, b) => a.localeCompare(b)));
     };
+
+    const toggleLanguage = (language: string): void => {
+        setLanguagesSpoken((current) => {
+            if (current.includes(language)) {
+                return current.filter((item) => item !== language);
+            }
+            if (current.length >= 5) {
+                Alert.alert('Language limit', 'Choose up to five languages.');
+                return current;
+            }
+            return [...current, language].sort((a, b) => (labelForOption(LANGUAGE_OPTIONS, a) ?? a).localeCompare(labelForOption(LANGUAGE_OPTIONS, b) ?? b));
+        });
+    };
+
+    const setInterestedOption = (option: typeof DATING_INTERESTED_OPTIONS[number]): void => {
+        setInterested(option.genders);
+    };
+
+    const handleEditScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>): void => {
+        editScrollY.current = event.nativeEvent.contentOffset.y;
+    }, []);
+
+    const closeEditingSection = useCallback((): void => {
+        shouldRestoreEditScroll.current = true;
+        setEditingSection(null);
+    }, []);
+
+    useEffect(() => {
+        if (activeTab !== 'edit' || editingSection !== null || !shouldRestoreEditScroll.current) {
+            return;
+        }
+        shouldRestoreEditScroll.current = false;
+        requestAnimationFrame(() => {
+            scrollRef.current?.scrollTo({ y: editScrollY.current, animated: false });
+        });
+    }, [activeTab, editingSection]);
 
     const ensureFocusedInputVisible = useCallback((): void => {
         requestAnimationFrame(() => {
@@ -311,7 +477,16 @@ export function DatingProfileEditorScreen({
             company: company.trim(),
             school: school.trim(),
             course: course.trim(),
-            kids_status: kidsStatus,
+            children_status: childrenStatus,
+            relationship_type: relationshipType,
+            gender: profileGender,
+            sexuality,
+            pronouns,
+            ethnicity,
+            pets,
+            religious_belief: religiousBelief,
+            languages_spoken: languagesSpoken,
+            political_view: politicalView,
             complete,
         });
     };
@@ -326,14 +501,14 @@ export function DatingProfileEditorScreen({
         save(!isComplete);
     };
 
-    const togglePause = (): void => {
-        if (!profile) return;
-        onSave({ paused: !profile.paused });
-    };
-
     return (
         <SafeAreaView style={styles.container} edges={['bottom']}>
-            {onBack ? <ScreenHeader title={isComplete ? 'Dating profile' : 'Set up Dating'} onBack={onBack} /> : null}
+            {onBack ? (
+                <ScreenHeader
+                    title={editingSection ? sectionTitle(editingSection) : isComplete ? 'Dating profile' : 'Set up Dating'}
+                    onBack={editingSection ? closeEditingSection : onBack}
+                />
+            ) : null}
 
             <View style={styles.keyboardWrap}>
                 {loading ? (
@@ -342,18 +517,76 @@ export function DatingProfileEditorScreen({
                     </View>
                 ) : (
                     <>
-                        <View style={screenStandards.pageTabsWrap}>
-                            <SegmentedControl
-                                items={DATING_PROFILE_TABS}
-                                activeKey={activeTab}
-                                onChange={(next) => setActiveTab(next as DatingProfileEditorTab)}
-                                layer="page"
-                                tone="primary"
-                                style={screenStandards.pageTabsControl}
-                            />
-                        </View>
+                        {editingSection ? null : (
+                            <View style={screenStandards.pageTabsWrap}>
+                                <SegmentedControl
+                                    items={DATING_PROFILE_TABS}
+                                    activeKey={activeTab}
+                                    onChange={(next) => {
+                                        setEditingSection(null);
+                                        setActiveTab(next as DatingProfileEditorTab);
+                                    }}
+                                    layer="page"
+                                    tone="primary"
+                                    style={screenStandards.pageTabsControl}
+                                />
+                            </View>
+                        )}
 
-                        {activeTab === 'edit' ? (
+                        {activeTab === 'edit' ? editingSection ? (
+                            <DatingSectionEditor
+                                section={editingSection}
+                                bio={bio}
+                                setBio={setBio}
+                                interestOptions={interestOptions}
+                                selectedInterests={selectedInterests}
+                                toggleInterest={toggleInterest}
+                                interestsLoading={interestsQuery.isLoading}
+                                goal={goal}
+                                setGoal={setGoal}
+                                relationshipType={relationshipType}
+                                setRelationshipType={setRelationshipType}
+                                interested={interested}
+                                setInterestedOption={setInterestedOption}
+                                profileGender={profileGender}
+                                setProfileGender={setProfileGender}
+                                sexuality={sexuality}
+                                setSexuality={setSexuality}
+                                pronouns={pronouns}
+                                setPronouns={setPronouns}
+                                ethnicity={ethnicity}
+                                setEthnicity={setEthnicity}
+                                childrenStatus={childrenStatus}
+                                setChildrenStatus={setChildrenStatus}
+                                pets={pets}
+                                setPets={setPets}
+                                religiousBelief={religiousBelief}
+                                setReligiousBelief={setReligiousBelief}
+                                languagesSpoken={languagesSpoken}
+                                toggleLanguage={toggleLanguage}
+                                politicalView={politicalView}
+                                setPoliticalView={setPoliticalView}
+                                heightCm={heightCm}
+                                setHeightCm={setHeightCm}
+                                jobTitle={jobTitle}
+                                setJobTitle={setJobTitle}
+                                company={company}
+                                setCompany={setCompany}
+                                school={school}
+                                setSchool={setSchool}
+                                course={course}
+                                setCourse={setCourse}
+                                selectedPromptKeys={selectedPromptKeys}
+                                promptAnswers={promptAnswers}
+                                editingPromptKey={editingPromptKey}
+                                setEditingPromptKey={setEditingPromptKey}
+                                updatePromptAnswer={updatePromptAnswer}
+                                savePromptDraft={savePromptDraft}
+                                removePrompt={removePrompt}
+                                setPromptPickerVisible={setPromptPickerVisible}
+                                ensureFocusedInputVisible={ensureFocusedInputVisible}
+                            />
+                        ) : (
                             <KeyboardAwareScrollView
                                 ref={scrollRef}
                                 bottomOffset={Spacing.xl}
@@ -361,6 +594,8 @@ export function DatingProfileEditorScreen({
                                 extraKeyboardSpace={Spacing.xl}
                                 keyboardDismissMode="interactive"
                                 keyboardShouldPersistTaps="handled"
+                                onScroll={handleEditScroll}
+                                scrollEventThrottle={16}
                                 showsVerticalScrollIndicator={false}
                             >
                             {showProfileNotice ? (
@@ -390,252 +625,47 @@ export function DatingProfileEditorScreen({
                                 {showCompletionErrors && completionErrors.photos ? <Text style={styles.sectionErrorText}>{completionErrors.photos}</Text> : null}
                             </View>
 
-                            <View
-                                style={[styles.section, showCompletionErrors && completionErrors.bio && styles.sectionInvalid]}
-                                onLayout={recordRequiredSectionLayout('bio')}
-                            >
-                                <Text style={[styles.sectionLabel, showCompletionErrors && completionErrors.bio && styles.sectionLabelInvalid]}>Dating bio</Text>
-                                <TextField
-                                    style={styles.bioInput}
-                                    value={bio}
-                                    onChangeText={setBio}
-                                    onFocus={ensureFocusedInputVisible}
-                                    multiline
-                                    textAlignVertical="top"
-                                    placeholder="What should someone know before they say hello?"
-                                    placeholderTextColor={Colors.text.muted}
-                                />
-                                {showCompletionErrors && completionErrors.bio ? <Text style={styles.sectionErrorText}>{completionErrors.bio}</Text> : null}
-                            </View>
-
-                            <View
-                                style={[styles.section, showCompletionErrors && completionErrors.interests && styles.sectionInvalid]}
-                                onLayout={recordRequiredSectionLayout('interests')}
-                            >
-                                <View style={styles.sectionHeaderRow}>
-                                    <Text style={[styles.sectionLabel, showCompletionErrors && completionErrors.interests && styles.sectionLabelInvalid]}>Interests</Text>
-                                    <Text style={styles.sectionCount}>{selectedInterests.length}/{MAX_DATING_INTERESTS}</Text>
-                                </View>
-                                <InterestSelector
-                                    options={interestOptions}
-                                    selected={selectedInterests}
-                                    maxSelected={MAX_DATING_INTERESTS}
-                                    loading={interestsQuery.isLoading}
-                                    onToggle={toggleInterest}
-                                />
-                                {showCompletionErrors && completionErrors.interests ? <Text style={styles.sectionErrorText}>{completionErrors.interests}</Text> : null}
-                            </View>
-
-                            <View
-                                style={[styles.section, showCompletionErrors && completionErrors.goal && styles.sectionInvalid]}
-                                onLayout={recordRequiredSectionLayout('goal')}
-                            >
-                                <Text style={[styles.sectionLabel, showCompletionErrors && completionErrors.goal && styles.sectionLabelInvalid]}>Relationship goal</Text>
-                                <View style={styles.chipWrap}>
-                                    {DATING_GOAL_OPTIONS.map((option) => (
-                                        <TouchableOpacity
-                                            key={option.value}
-                                            style={[styles.chip, goal === option.value && styles.chipActive]}
-                                            onPress={() => setGoal(option.value)}
-                                        >
-                                            <Text style={[styles.chipText, goal === option.value && styles.chipTextActive]}>{option.label}</Text>
-                                        </TouchableOpacity>
-                                    ))}
-                                </View>
-                                {showCompletionErrors && completionErrors.goal ? <Text style={styles.sectionErrorText}>{completionErrors.goal}</Text> : null}
-                            </View>
-
-                            <View style={styles.section}>
-                                <View style={styles.sectionHeaderRow}>
-                                    <Text style={styles.sectionLabel}>Prompts</Text>
-                                    <Text style={styles.sectionCount}>{selectedPromptKeys.length}/{MAX_DATING_PROMPTS}</Text>
-                                </View>
-                                <View style={styles.promptStack}>
-                                    {selectedPromptKeys.length === 0 ? (
-                                        <Text style={styles.promptEmpty}>Add up to three prompts to make your profile easier to start a conversation with.</Text>
-                                    ) : null}
-                                    {selectedPromptKeys.map((promptKey) => {
-                                        const prompt = getDatingPromptOption(promptKey);
-                                        const answer = promptAnswers[prompt.key] ?? '';
-                                        const isEditing = editingPromptKey === prompt.key;
-                                        const canSavePrompt = answer.trim().length > 0;
-                                        return (
-                                            <View key={prompt.key} style={styles.promptField}>
-                                                <View style={styles.promptCardHeader}>
-                                                    <Text style={styles.promptLabel}>{prompt.label}</Text>
-                                                    {isEditing ? (
-                                                        <TouchableOpacity
-                                                            style={[styles.promptSaveButton, !canSavePrompt && styles.promptSaveButtonDisabled]}
-                                                            onPress={() => savePromptDraft(prompt.key)}
-                                                            disabled={!canSavePrompt}
-                                                            activeOpacity={0.85}
-                                                            accessibilityRole="button"
-                                                            accessibilityState={{ disabled: !canSavePrompt }}
-                                                            accessibilityLabel={`Save ${prompt.label}`}
-                                                        >
-                                                            <Text style={[styles.promptSaveText, !canSavePrompt && styles.promptSaveTextDisabled]}>Save</Text>
-                                                        </TouchableOpacity>
-                                                    ) : (
-                                                        <TouchableOpacity
-                                                            style={styles.promptIconButton}
-                                                            onPress={() => setEditingPromptKey(prompt.key)}
-                                                            accessibilityRole="button"
-                                                            accessibilityLabel={`Edit ${prompt.label}`}
-                                                        >
-                                                            <Ionicons name="pencil" size={15} color={Colors.text.secondary} />
-                                                        </TouchableOpacity>
-                                                    )}
-                                                    <TouchableOpacity
-                                                        style={styles.promptIconButton}
-                                                        onPress={() => removePrompt(prompt.key)}
-                                                        accessibilityRole="button"
-                                                        accessibilityLabel={`Remove ${prompt.label}`}
-                                                    >
-                                                        <Ionicons name="close" size={16} color={Colors.text.secondary} />
-                                                    </TouchableOpacity>
-                                                </View>
-                                                {isEditing ? (
-                                                    <TextField
-                                                        value={answer}
-                                                        onChangeText={(value) => updatePromptAnswer(prompt.key, value)}
-                                                        onFocus={ensureFocusedInputVisible}
-                                                        multiline
-                                                        textAlignVertical="top"
-                                                        placeholder="Add a short answer"
-                                                        placeholderTextColor={Colors.text.muted}
-                                                    />
-                                                ) : (
-                                                    <TouchableOpacity
-                                                        style={styles.promptSavedAnswer}
-                                                        onPress={() => setEditingPromptKey(prompt.key)}
-                                                        activeOpacity={0.85}
-                                                        accessibilityRole="button"
-                                                        accessibilityLabel={`Edit answer for ${prompt.label}`}
-                                                    >
-                                                        <Text style={styles.promptSavedAnswerText}>{answer.trim()}</Text>
-                                                    </TouchableOpacity>
-                                                )}
-                                            </View>
-                                        );
-                                    })}
-                                    {selectedPromptKeys.length < MAX_DATING_PROMPTS && editingPromptKey === null ? (
-                                        <TouchableOpacity
-                                            style={styles.addPromptButton}
-                                            onPress={() => setPromptPickerVisible(true)}
-                                            activeOpacity={0.85}
-                                            accessibilityRole="button"
-                                            accessibilityLabel="Add prompt"
-                                        >
-                                            <Ionicons name="add" size={18} color={Colors.primary} />
-                                            <Text style={styles.addPromptText}>Add prompt</Text>
-                                        </TouchableOpacity>
-                                    ) : null}
-                                </View>
-                            </View>
-
-                            <View style={styles.section}>
-                                <Text style={styles.sectionLabel}>Height</Text>
-                                <TextField
-                                    value={heightCm}
-                                    onChangeText={(value) => setHeightCm(value.replace(/[^0-9]/g, '').slice(0, 3))}
-                                    onFocus={ensureFocusedInputVisible}
-                                    keyboardType="number-pad"
-                                    placeholder="Height in cm"
-                                    placeholderTextColor={Colors.text.muted}
-                                />
-                            </View>
-
-                            <View style={styles.section}>
-                                <Text style={styles.sectionLabel}>Work</Text>
-                                <TextField
-                                    value={jobTitle}
-                                    onChangeText={(value) => setJobTitle(value.slice(0, 80))}
-                                    onFocus={ensureFocusedInputVisible}
-                                    placeholder="Software developer"
-                                    placeholderTextColor={Colors.text.muted}
-                                />
-                                <TextField
-                                    value={company}
-                                    onChangeText={(value) => setCompany(value.slice(0, 80))}
-                                    onFocus={ensureFocusedInputVisible}
-                                    placeholder="Company"
-                                    placeholderTextColor={Colors.text.muted}
-                                />
-                            </View>
-
-                            <View style={styles.section}>
-                                <Text style={styles.sectionLabel}>Education</Text>
-                                <TextField
-                                    value={course}
-                                    onChangeText={(value) => setCourse(value.slice(0, 80))}
-                                    onFocus={ensureFocusedInputVisible}
-                                    placeholder="Course"
-                                    placeholderTextColor={Colors.text.muted}
-                                />
-                                <TextField
-                                    value={school}
-                                    onChangeText={(value) => setSchool(value.slice(0, 80))}
-                                    onFocus={ensureFocusedInputVisible}
-                                    placeholder="School"
-                                    placeholderTextColor={Colors.text.muted}
-                                />
-                            </View>
-
-                            <View style={styles.section}>
-                                <Text style={styles.sectionLabel}>Kids</Text>
-                                <View style={styles.chipWrap}>
-                                    {DATING_KIDS_OPTIONS.map((option) => (
-                                        <TouchableOpacity
-                                            key={option.value || 'skip'}
-                                            style={[styles.chip, kidsStatus === option.value && styles.chipActive]}
-                                            onPress={() => setKidsStatus(option.value)}
-                                        >
-                                            <Text style={[styles.chipText, kidsStatus === option.value && styles.chipTextActive]}>{option.label}</Text>
-                                        </TouchableOpacity>
-                                    ))}
-                                </View>
-                            </View>
-
-                            <View
-                                style={[styles.section, showCompletionErrors && completionErrors.interested && styles.sectionInvalid]}
-                                onLayout={recordRequiredSectionLayout('interested')}
-                            >
-                                <Text style={[styles.sectionLabel, showCompletionErrors && completionErrors.interested && styles.sectionLabelInvalid]}>Interested in</Text>
-                                <View style={styles.chipWrap}>
-                                    {DATING_GENDER_OPTIONS.map((option) => {
-                                        const active = interested.includes(option.value);
-                                        return (
-                                            <TouchableOpacity
-                                                key={option.value}
-                                                style={[styles.chip, active && styles.chipActive]}
-                                                onPress={() => toggleInterested(option.value)}
-                                            >
-                                                <Text style={[styles.chipText, active && styles.chipTextActive]}>{option.label}</Text>
-                                            </TouchableOpacity>
-                                        );
-                                    })}
-                                </View>
-                                {showCompletionErrors && completionErrors.interested ? <Text style={styles.sectionErrorText}>{completionErrors.interested}</Text> : null}
-                            </View>
-
-                            <PrimaryButton
-                                label={isComplete ? 'Save profile' : 'Complete profile'}
-                                onPress={handlePrimarySave}
-                                loading={saving}
-                                disabled={saving}
-                                style={styles.primaryAction}
+                            <ProfileEditRows
+                                showCompletionErrors={showCompletionErrors}
+                                completionErrors={completionErrors}
+                                recordRequiredSectionLayout={recordRequiredSectionLayout}
+                                onOpenSection={setEditingSection}
+                                bio={bio}
+                                selectedInterests={selectedInterests}
+                                goal={goal}
+                                relationshipType={relationshipType}
+                                interested={interested}
+                                profileGender={profileGender}
+                                sexuality={sexuality}
+                                pronouns={pronouns}
+                                ethnicity={ethnicity}
+                                childrenStatus={childrenStatus}
+                                pets={pets}
+                                religiousBelief={religiousBelief}
+                                languagesSpoken={languagesSpoken}
+                                politicalView={politicalView}
+                                heightCm={heightCm}
+                                jobTitle={jobTitle}
+                                company={company}
+                                school={school}
+                                course={course}
+                                selectedPromptKeys={selectedPromptKeys}
                             />
-                            {saveSuccessMessage ? (
-                                <View style={styles.saveSuccessCard}>
-                                    <Ionicons name="checkmark-circle" size={18} color={Colors.success} />
-                                    <Text style={styles.saveSuccessText}>{saveSuccessMessage}</Text>
-                                </View>
-                            ) : null}
-                            {isComplete ? (
-                                <TouchableOpacity style={styles.pauseButton} onPress={togglePause} disabled={saving}>
-                                    <Text style={styles.pauseText}>{profile?.paused ? 'Resume dating profile' : 'Pause dating profile'}</Text>
-                                </TouchableOpacity>
-                            ) : null}
+
+                            <View style={styles.saveActions}>
+                                <PrimaryButton
+                                    label={isComplete ? 'Save profile' : 'Complete profile'}
+                                    onPress={handlePrimarySave}
+                                    loading={saving}
+                                    disabled={saving}
+                                />
+                                {saveSuccessMessage ? (
+                                    <View style={styles.saveSuccessCard}>
+                                        <Ionicons name="checkmark-circle" size={18} color={Colors.success} />
+                                        <Text style={styles.saveSuccessText}>{saveSuccessMessage}</Text>
+                                    </View>
+                                ) : null}
+                            </View>
                             </KeyboardAwareScrollView>
                         ) : (
                             <DatingProfilePreview
@@ -650,7 +680,16 @@ export function DatingProfileEditorScreen({
                                 company={company}
                                 school={school}
                                 course={course}
-                                kidsStatus={kidsStatus}
+                                childrenStatus={childrenStatus}
+                                relationshipType={relationshipType}
+                                profileGender={profileGender}
+                                sexuality={sexuality}
+                                pronouns={pronouns}
+                                ethnicity={ethnicity}
+                                pets={pets}
+                                religiousBelief={religiousBelief}
+                                languagesSpoken={languagesSpoken}
+                                politicalView={politicalView}
                             />
                         )}
                     </>
@@ -665,6 +704,445 @@ export function DatingProfileEditorScreen({
                 onClose={() => setPromptPickerVisible(false)}
             />
         </SafeAreaView>
+    );
+}
+
+interface ProfileEditRowsProps {
+    showCompletionErrors: boolean;
+    completionErrors: Record<RequiredDatingProfileField, string | null>;
+    recordRequiredSectionLayout: (field: RequiredDatingProfileField) => (event: LayoutChangeEvent) => void;
+    onOpenSection: (section: DatingEditSection) => void;
+    bio: string;
+    selectedInterests: string[];
+    goal: api.DatingRelationshipGoal;
+    relationshipType: api.DatingRelationshipType;
+    interested: api.UserGender[];
+    profileGender: api.DatingProfileGender;
+    sexuality: api.DatingSexuality;
+    pronouns: api.DatingPronouns;
+    ethnicity: api.DatingEthnicity;
+    childrenStatus: api.DatingChildrenStatus;
+    pets: api.DatingPetsStatus;
+    religiousBelief: api.DatingReligiousBelief;
+    languagesSpoken: string[];
+    politicalView: api.DatingPoliticalView;
+    heightCm: string;
+    jobTitle: string;
+    company: string;
+    school: string;
+    course: string;
+    selectedPromptKeys: string[];
+}
+
+function ProfileEditRows({
+    showCompletionErrors,
+    completionErrors,
+    recordRequiredSectionLayout,
+    onOpenSection,
+    bio,
+    selectedInterests,
+    goal,
+    relationshipType,
+    interested,
+    profileGender,
+    sexuality,
+    pronouns,
+    ethnicity,
+    childrenStatus,
+    pets,
+    religiousBelief,
+    languagesSpoken,
+    politicalView,
+    heightCm,
+    jobTitle,
+    company,
+    school,
+    course,
+    selectedPromptKeys,
+}: ProfileEditRowsProps): React.ReactElement {
+    return (
+        <View style={styles.editRows}>
+            <EditSummaryRow
+                title="Bio"
+                value={bio.trim() || 'Add'}
+                invalid={showCompletionErrors && Boolean(completionErrors.bio)}
+                error={showCompletionErrors ? completionErrors.bio : null}
+                onPress={() => onOpenSection('bio')}
+                onLayout={recordRequiredSectionLayout('bio')}
+            />
+            <EditSummaryRow
+                title="Interests"
+                value={selectedInterests.length > 0 ? `${selectedInterests.length}/${MAX_DATING_INTERESTS} selected` : 'Add'}
+                invalid={showCompletionErrors && Boolean(completionErrors.interests)}
+                error={showCompletionErrors ? completionErrors.interests : null}
+                onPress={() => onOpenSection('interests')}
+                onLayout={recordRequiredSectionLayout('interests')}
+            />
+            <EditSummaryRow
+                title="Dating intentions"
+                value={relationshipGoalLabel(goal) ?? 'Add'}
+                invalid={showCompletionErrors && Boolean(completionErrors.goal)}
+                error={showCompletionErrors ? completionErrors.goal : null}
+                onPress={() => onOpenSection('goal')}
+                onLayout={recordRequiredSectionLayout('goal')}
+            />
+            <EditSummaryRow title="Relationship type" value={labelForOption(RELATIONSHIP_TYPE_OPTIONS, relationshipType) || 'Add'} onPress={() => onOpenSection('relationship_type')} />
+            <EditSummaryRow
+                title="Interested in"
+                value={interestedInLabel(interested) || 'Add'}
+                invalid={showCompletionErrors && Boolean(completionErrors.interested)}
+                error={showCompletionErrors ? completionErrors.interested : null}
+                onPress={() => onOpenSection('interested')}
+                onLayout={recordRequiredSectionLayout('interested')}
+            />
+            <EditSummaryRow title="Gender" value={labelForOption(PROFILE_GENDER_OPTIONS, profileGender) || 'Add'} onPress={() => onOpenSection('gender')} />
+            <EditSummaryRow title="Sexuality" value={labelForOption(SEXUALITY_OPTIONS, sexuality) || 'Add'} onPress={() => onOpenSection('sexuality')} />
+            <EditSummaryRow title="Pronouns" value={labelForOption(PRONOUNS_OPTIONS, pronouns) || 'Add'} onPress={() => onOpenSection('pronouns')} />
+            <EditSummaryRow title="Ethnicity" value={labelForOption(ETHNICITY_OPTIONS, ethnicity) || 'Add'} onPress={() => onOpenSection('ethnicity')} />
+            <EditSummaryRow title="Children" value={labelForOption(CHILDREN_OPTIONS, childrenStatus) || 'Add'} onPress={() => onOpenSection('children')} />
+            <EditSummaryRow title="Pets" value={labelForOption(PETS_OPTIONS, pets) || 'Add'} onPress={() => onOpenSection('pets')} />
+            <EditSummaryRow title="Religious beliefs" value={labelForOption(RELIGIOUS_BELIEF_OPTIONS, religiousBelief) || 'Add'} onPress={() => onOpenSection('religion')} />
+            <EditSummaryRow title="Languages spoken" value={languageListLabel(languagesSpoken) || 'Add'} onPress={() => onOpenSection('languages')} />
+            <EditSummaryRow title="Political view" value={labelForOption(POLITICAL_VIEW_OPTIONS, politicalView) || 'Add'} onPress={() => onOpenSection('politics')} />
+            <EditSummaryRow title="Height" value={formatHeight(heightCm) || 'Add'} onPress={() => onOpenSection('height')} />
+            <EditSummaryRow title="Work" value={formatWork(jobTitle, company) || 'Add'} onPress={() => onOpenSection('work')} />
+            <EditSummaryRow title="Education" value={formatEducation(course, school) || 'Add'} onPress={() => onOpenSection('education')} />
+            <EditSummaryRow title="Prompts" value={selectedPromptKeys.length > 0 ? `${selectedPromptKeys.length}/${MAX_DATING_PROMPTS} added` : 'Add'} onPress={() => onOpenSection('prompts')} />
+        </View>
+    );
+}
+
+function EditSummaryRow({
+    title,
+    value,
+    invalid = false,
+    error,
+    onPress,
+    onLayout,
+}: {
+    title: string;
+    value: string;
+    invalid?: boolean;
+    error?: string | null;
+    onPress: () => void;
+    onLayout?: (event: LayoutChangeEvent) => void;
+}): React.ReactElement {
+    return (
+        <View onLayout={onLayout}>
+            <TouchableOpacity
+                style={[styles.editRow, invalid && styles.editRowInvalid]}
+                onPress={onPress}
+                activeOpacity={0.86}
+                accessibilityRole="button"
+                accessibilityLabel={`Edit ${title}`}
+            >
+                <View style={styles.editRowCopy}>
+                    <Text style={[styles.editRowTitle, invalid && styles.sectionLabelInvalid]}>{title}</Text>
+                    <Text style={styles.editRowValue} numberOfLines={1}>{value}</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={18} color={Colors.text.muted} />
+            </TouchableOpacity>
+            {error ? <Text style={styles.sectionErrorText}>{error}</Text> : null}
+        </View>
+    );
+}
+
+interface DatingSectionEditorProps {
+    section: DatingEditSection;
+    bio: string;
+    setBio: (value: string) => void;
+    interestOptions: string[];
+    selectedInterests: string[];
+    toggleInterest: (interest: string) => void;
+    interestsLoading: boolean;
+    goal: api.DatingRelationshipGoal;
+    setGoal: (value: api.DatingRelationshipGoal) => void;
+    relationshipType: api.DatingRelationshipType;
+    setRelationshipType: (value: api.DatingRelationshipType) => void;
+    interested: api.UserGender[];
+    setInterestedOption: (option: typeof DATING_INTERESTED_OPTIONS[number]) => void;
+    profileGender: api.DatingProfileGender;
+    setProfileGender: (value: api.DatingProfileGender) => void;
+    sexuality: api.DatingSexuality;
+    setSexuality: (value: api.DatingSexuality) => void;
+    pronouns: api.DatingPronouns;
+    setPronouns: (value: api.DatingPronouns) => void;
+    ethnicity: api.DatingEthnicity;
+    setEthnicity: (value: api.DatingEthnicity) => void;
+    childrenStatus: api.DatingChildrenStatus;
+    setChildrenStatus: (value: api.DatingChildrenStatus) => void;
+    pets: api.DatingPetsStatus;
+    setPets: (value: api.DatingPetsStatus) => void;
+    religiousBelief: api.DatingReligiousBelief;
+    setReligiousBelief: (value: api.DatingReligiousBelief) => void;
+    languagesSpoken: string[];
+    toggleLanguage: (value: string) => void;
+    politicalView: api.DatingPoliticalView;
+    setPoliticalView: (value: api.DatingPoliticalView) => void;
+    heightCm: string;
+    setHeightCm: (value: string) => void;
+    jobTitle: string;
+    setJobTitle: (value: string) => void;
+    company: string;
+    setCompany: (value: string) => void;
+    school: string;
+    setSchool: (value: string) => void;
+    course: string;
+    setCourse: (value: string) => void;
+    selectedPromptKeys: string[];
+    promptAnswers: Record<string, string>;
+    editingPromptKey: string | null;
+    setEditingPromptKey: (value: string | null) => void;
+    updatePromptAnswer: (promptKey: string, value: string) => void;
+    savePromptDraft: (promptKey: string) => void;
+    removePrompt: (promptKey: string) => void;
+    setPromptPickerVisible: (value: boolean) => void;
+    ensureFocusedInputVisible: () => void;
+}
+
+function DatingSectionEditor(props: DatingSectionEditorProps): React.ReactElement {
+    return (
+        <KeyboardAwareScrollView
+            bottomOffset={Spacing.xl}
+            contentContainerStyle={styles.focusedContent}
+            extraKeyboardSpace={Spacing.xl}
+            keyboardDismissMode="interactive"
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+        >
+            {renderSectionEditorContent(props)}
+        </KeyboardAwareScrollView>
+    );
+}
+
+function renderSectionEditorContent(props: DatingSectionEditorProps): React.ReactElement {
+    switch (props.section) {
+        case 'bio':
+            return (
+                <View style={styles.section}>
+                    <TextField
+                        style={styles.bioInput}
+                        value={props.bio}
+                        onChangeText={props.setBio}
+                        onFocus={props.ensureFocusedInputVisible}
+                        multiline
+                        textAlignVertical="top"
+                        placeholder="What should someone know before they say hello?"
+                        placeholderTextColor={Colors.text.muted}
+                    />
+                </View>
+            );
+        case 'interests':
+            return (
+                <View style={styles.section}>
+                    <View style={styles.sectionHeaderRow}>
+                        <Text style={styles.sectionCount}>{props.selectedInterests.length}/{MAX_DATING_INTERESTS}</Text>
+                    </View>
+                    <InterestSelector
+                        options={props.interestOptions}
+                        selected={props.selectedInterests}
+                        maxSelected={MAX_DATING_INTERESTS}
+                        loading={props.interestsLoading}
+                        onToggle={props.toggleInterest}
+                    />
+                </View>
+            );
+        case 'goal':
+            return <SingleChoice options={DATING_GOAL_OPTIONS} value={props.goal} onChange={props.setGoal} />;
+        case 'relationship_type':
+            return <SingleChoice options={RELATIONSHIP_TYPE_OPTIONS} value={props.relationshipType} onChange={props.setRelationshipType} allowClear />;
+        case 'interested':
+            return <InterestedChoice interested={props.interested} onChange={props.setInterestedOption} />;
+        case 'gender':
+            return <SingleChoice options={PROFILE_GENDER_OPTIONS} value={props.profileGender} onChange={props.setProfileGender} allowClear />;
+        case 'sexuality':
+            return <SingleChoice options={SEXUALITY_OPTIONS} value={props.sexuality} onChange={props.setSexuality} allowClear />;
+        case 'pronouns':
+            return <SingleChoice options={PRONOUNS_OPTIONS} value={props.pronouns} onChange={props.setPronouns} allowClear />;
+        case 'ethnicity':
+            return <SingleChoice options={ETHNICITY_OPTIONS} value={props.ethnicity} onChange={props.setEthnicity} allowClear />;
+        case 'children':
+            return <SingleChoice options={CHILDREN_OPTIONS} value={props.childrenStatus} onChange={props.setChildrenStatus} allowClear />;
+        case 'pets':
+            return <SingleChoice options={PETS_OPTIONS} value={props.pets} onChange={props.setPets} allowClear />;
+        case 'religion':
+            return <SingleChoice options={RELIGIOUS_BELIEF_OPTIONS} value={props.religiousBelief} onChange={props.setReligiousBelief} allowClear />;
+        case 'languages':
+            return <MultiChoice options={LANGUAGE_OPTIONS} values={props.languagesSpoken} onToggle={props.toggleLanguage} maxSelected={5} />;
+        case 'politics':
+            return <SingleChoice options={POLITICAL_VIEW_OPTIONS} value={props.politicalView} onChange={props.setPoliticalView} allowClear />;
+        case 'height':
+            return (
+                <View style={styles.section}>
+                    <TextField
+                        value={props.heightCm}
+                        onChangeText={(value) => props.setHeightCm(value.replace(/[^0-9]/g, '').slice(0, 3))}
+                        onFocus={props.ensureFocusedInputVisible}
+                        keyboardType="number-pad"
+                        placeholder="Height in cm"
+                        placeholderTextColor={Colors.text.muted}
+                    />
+                </View>
+            );
+        case 'work':
+            return (
+                <View style={styles.section}>
+                    <TextField value={props.jobTitle} onChangeText={(value) => props.setJobTitle(value.slice(0, 80))} onFocus={props.ensureFocusedInputVisible} placeholder="Software developer" placeholderTextColor={Colors.text.muted} />
+                    <TextField value={props.company} onChangeText={(value) => props.setCompany(value.slice(0, 80))} onFocus={props.ensureFocusedInputVisible} placeholder="Company" placeholderTextColor={Colors.text.muted} />
+                </View>
+            );
+        case 'education':
+            return (
+                <View style={styles.section}>
+                    <TextField value={props.course} onChangeText={(value) => props.setCourse(value.slice(0, 80))} onFocus={props.ensureFocusedInputVisible} placeholder="Course" placeholderTextColor={Colors.text.muted} />
+                    <TextField value={props.school} onChangeText={(value) => props.setSchool(value.slice(0, 80))} onFocus={props.ensureFocusedInputVisible} placeholder="School" placeholderTextColor={Colors.text.muted} />
+                </View>
+            );
+        case 'prompts':
+            return (
+                <View style={styles.section}>
+                    <PromptEditor
+                        selectedPromptKeys={props.selectedPromptKeys}
+                        promptAnswers={props.promptAnswers}
+                        editingPromptKey={props.editingPromptKey}
+                        setEditingPromptKey={props.setEditingPromptKey}
+                        updatePromptAnswer={props.updatePromptAnswer}
+                        savePromptDraft={props.savePromptDraft}
+                        removePrompt={props.removePrompt}
+                        setPromptPickerVisible={props.setPromptPickerVisible}
+                        ensureFocusedInputVisible={props.ensureFocusedInputVisible}
+                    />
+                </View>
+            );
+        default:
+            return <View />;
+    }
+}
+
+function SingleChoice<T extends string>({ options, value, onChange, allowClear = false }: { options: DatingOption<T>[]; value: T; onChange: (value: T) => void; allowClear?: boolean }): React.ReactElement {
+    return (
+        <View style={styles.section}>
+            <View style={styles.chipWrap}>
+                {allowClear ? <ChoiceChip label="Skip" active={value === ''} onPress={() => onChange('' as T)} /> : null}
+                {options.map((option) => (
+                    <ChoiceChip key={option.value} label={option.label} active={value === option.value} onPress={() => onChange(option.value)} />
+                ))}
+            </View>
+        </View>
+    );
+}
+
+function InterestedChoice({ interested, onChange }: { interested: api.UserGender[]; onChange: (option: typeof DATING_INTERESTED_OPTIONS[number]) => void }): React.ReactElement {
+    return (
+        <View style={styles.section}>
+            <View style={styles.chipWrap}>
+                {DATING_INTERESTED_OPTIONS.map((option) => (
+                    <ChoiceChip key={option.value} label={option.label} active={arraysEqual(interested, option.genders)} onPress={() => onChange(option)} />
+                ))}
+            </View>
+        </View>
+    );
+}
+
+function MultiChoice({ options, values, onToggle, maxSelected }: { options: DatingOption<string>[]; values: string[]; onToggle: (value: string) => void; maxSelected: number }): React.ReactElement {
+    return (
+        <View style={styles.section}>
+            <Text style={styles.sectionCount}>{values.length}/{maxSelected}</Text>
+            <View style={styles.chipWrap}>
+                {options.map((option) => (
+                    <ChoiceChip key={option.value} label={option.label} active={values.includes(option.value)} onPress={() => onToggle(option.value)} />
+                ))}
+            </View>
+        </View>
+    );
+}
+
+function ChoiceChip({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }): React.ReactElement {
+    return (
+        <TouchableOpacity style={[styles.chip, active && styles.chipActive]} onPress={onPress} activeOpacity={0.84}>
+            <Text style={[styles.chipText, active && styles.chipTextActive]}>{label}</Text>
+        </TouchableOpacity>
+    );
+}
+
+function PromptEditor({
+    selectedPromptKeys,
+    promptAnswers,
+    editingPromptKey,
+    setEditingPromptKey,
+    updatePromptAnswer,
+    savePromptDraft,
+    removePrompt,
+    setPromptPickerVisible,
+    ensureFocusedInputVisible,
+}: {
+    selectedPromptKeys: string[];
+    promptAnswers: Record<string, string>;
+    editingPromptKey: string | null;
+    setEditingPromptKey: (value: string | null) => void;
+    updatePromptAnswer: (promptKey: string, value: string) => void;
+    savePromptDraft: (promptKey: string) => void;
+    removePrompt: (promptKey: string) => void;
+    setPromptPickerVisible: (value: boolean) => void;
+    ensureFocusedInputVisible: () => void;
+}): React.ReactElement {
+    return (
+        <View style={styles.promptStack}>
+            {selectedPromptKeys.length === 0 ? (
+                <Text style={styles.promptEmpty}>Add up to three prompts to make your profile easier to start a conversation with.</Text>
+            ) : null}
+            {selectedPromptKeys.map((promptKey) => {
+                const prompt = getDatingPromptOption(promptKey);
+                const answer = promptAnswers[prompt.key] ?? '';
+                const isEditing = editingPromptKey === prompt.key;
+                const canSavePrompt = answer.trim().length > 0;
+                return (
+                    <View key={prompt.key} style={styles.promptField}>
+                        <View style={styles.promptCardHeader}>
+                            <Text style={styles.promptLabel}>{prompt.label}</Text>
+                            {isEditing ? (
+                                <TouchableOpacity
+                                    style={[styles.promptSaveButton, !canSavePrompt && styles.promptSaveButtonDisabled]}
+                                    onPress={() => savePromptDraft(prompt.key)}
+                                    disabled={!canSavePrompt}
+                                    activeOpacity={0.85}
+                                >
+                                    <Text style={[styles.promptSaveText, !canSavePrompt && styles.promptSaveTextDisabled]}>Save</Text>
+                                </TouchableOpacity>
+                            ) : (
+                                <TouchableOpacity style={styles.promptIconButton} onPress={() => setEditingPromptKey(prompt.key)}>
+                                    <Ionicons name="pencil" size={15} color={Colors.text.secondary} />
+                                </TouchableOpacity>
+                            )}
+                            <TouchableOpacity style={styles.promptIconButton} onPress={() => removePrompt(prompt.key)}>
+                                <Ionicons name="close" size={16} color={Colors.text.secondary} />
+                            </TouchableOpacity>
+                        </View>
+                        {isEditing ? (
+                            <TextField
+                                value={answer}
+                                onChangeText={(value) => updatePromptAnswer(prompt.key, value)}
+                                onFocus={ensureFocusedInputVisible}
+                                multiline
+                                textAlignVertical="top"
+                                placeholder="Add a short answer"
+                                placeholderTextColor={Colors.text.muted}
+                            />
+                        ) : (
+                            <TouchableOpacity style={styles.promptSavedAnswer} onPress={() => setEditingPromptKey(prompt.key)} activeOpacity={0.85}>
+                                <Text style={styles.promptSavedAnswerText}>{answer.trim()}</Text>
+                            </TouchableOpacity>
+                        )}
+                    </View>
+                );
+            })}
+            {selectedPromptKeys.length < MAX_DATING_PROMPTS && editingPromptKey === null ? (
+                <TouchableOpacity style={styles.addPromptButton} onPress={() => setPromptPickerVisible(true)} activeOpacity={0.85}>
+                    <Ionicons name="add" size={18} color={Colors.primary} />
+                    <Text style={styles.addPromptText}>Add prompt</Text>
+                </TouchableOpacity>
+            ) : null}
+        </View>
     );
 }
 
@@ -761,7 +1239,16 @@ interface DatingProfilePreviewProps {
     company: string;
     school: string;
     course: string;
-    kidsStatus: api.DatingKidsStatus;
+    childrenStatus: api.DatingChildrenStatus;
+    relationshipType: api.DatingRelationshipType;
+    profileGender: api.DatingProfileGender;
+    sexuality: api.DatingSexuality;
+    pronouns: api.DatingPronouns;
+    ethnicity: api.DatingEthnicity;
+    pets: api.DatingPetsStatus;
+    religiousBelief: api.DatingReligiousBelief;
+    languagesSpoken: string[];
+    politicalView: api.DatingPoliticalView;
 }
 
 function DatingProfilePreview({
@@ -776,7 +1263,16 @@ function DatingProfilePreview({
     company,
     school,
     course,
-    kidsStatus,
+    childrenStatus,
+    relationshipType,
+    profileGender,
+    sexuality,
+    pronouns,
+    ethnicity,
+    pets,
+    religiousBelief,
+    languagesSpoken,
+    politicalView,
 }: DatingProfilePreviewProps): React.ReactElement {
     const username = profile?.username ?? 'Your profile';
     const displayName = profile?.age ? `${formatUsername(profile.username)}, ${profile.age}` : formatUsername(profile?.username);
@@ -792,12 +1288,22 @@ function DatingProfilePreview({
         })
         .filter((prompt) => prompt.answer.length > 0)
         .slice(0, MAX_DATING_PROMPTS);
-    const detailRows = [
+    const detailRows: Array<{ icon: keyof typeof Ionicons.glyphMap; label: string; value: string | null }> = [
+        { icon: 'heart-outline' as const, label: 'Relationship type', value: labelForOption(RELATIONSHIP_TYPE_OPTIONS, relationshipType) },
+        { icon: 'person-outline' as const, label: 'Gender', value: labelForOption(PROFILE_GENDER_OPTIONS, profileGender) },
+        { icon: 'sparkles-outline' as const, label: 'Sexuality', value: labelForOption(SEXUALITY_OPTIONS, sexuality) },
+        { icon: 'chatbubble-outline' as const, label: 'Pronouns', value: labelForOption(PRONOUNS_OPTIONS, pronouns) },
+        { icon: 'people-circle-outline' as const, label: 'Ethnicity', value: labelForOption(ETHNICITY_OPTIONS, ethnicity) },
+        { icon: 'people-outline' as const, label: 'Children', value: labelForOption(CHILDREN_OPTIONS, childrenStatus) },
+        { icon: 'paw-outline' as const, label: 'Pets', value: labelForOption(PETS_OPTIONS, pets) },
+        { icon: 'leaf-outline' as const, label: 'Religion', value: labelForOption(RELIGIOUS_BELIEF_OPTIONS, religiousBelief) },
+        { icon: 'language-outline' as const, label: 'Languages', value: languageListLabel(languagesSpoken) },
+        { icon: 'newspaper-outline' as const, label: 'Politics', value: labelForOption(POLITICAL_VIEW_OPTIONS, politicalView) },
         { icon: 'resize-outline' as const, label: 'Height', value: formatHeight(heightCm) },
         { icon: 'briefcase-outline' as const, label: 'Work', value: formatWork(jobTitle, company) },
         { icon: 'school-outline' as const, label: 'Education', value: formatEducation(course, school) },
-        { icon: 'people-outline' as const, label: 'Kids', value: kidsStatusLabel(kidsStatus) },
-    ].filter((detail): detail is { icon: 'resize-outline' | 'briefcase-outline' | 'school-outline' | 'people-outline'; label: string; value: string } => Boolean(detail.value));
+    ];
+    const visibleDetailRows = detailRows.filter((detail): detail is { icon: keyof typeof Ionicons.glyphMap; label: string; value: string } => Boolean(detail.value));
 
     return (
         <ScrollView contentContainerStyle={styles.previewContent} showsVerticalScrollIndicator={false}>
@@ -851,11 +1357,11 @@ function DatingProfilePreview({
                         </View>
                     </View>
                 ) : null}
-                {detailRows.length > 0 ? (
+                {visibleDetailRows.length > 0 ? (
                     <View style={styles.previewSection}>
                         <Text style={styles.previewSectionLabel}>Basics</Text>
                         <View style={styles.previewDetails}>
-                            {detailRows.map((detail) => (
+                            {visibleDetailRows.map((detail) => (
                                 <View key={detail.label} style={styles.previewDetailRow}>
                                     <Ionicons name={detail.icon} size={17} color={Colors.text.secondary} />
                                     <Text style={styles.previewDetailText}>{detail.value}</Text>
@@ -886,8 +1392,50 @@ function relationshipGoalLabel(goal: api.DatingRelationshipGoal): string | null 
     return DATING_GOAL_OPTIONS.find((option) => option.value === goal)?.label ?? null;
 }
 
-function kidsStatusLabel(status: api.DatingKidsStatus): string | null {
-    return DATING_KIDS_OPTIONS.find((option) => option.value === status && option.value !== '')?.label ?? null;
+function labelForOption<T extends string>(options: DatingOption<T>[], value: T | string): string | null {
+    if (!value) return null;
+    return options.find((option) => option.value === value)?.label ?? null;
+}
+
+function languageListLabel(values: string[]): string | null {
+    if (values.length === 0) return null;
+    return values.map((value) => labelForOption(LANGUAGE_OPTIONS, value) ?? value).join(', ');
+}
+
+function interestedInLabel(values: api.UserGender[]): string | null {
+    const match = DATING_INTERESTED_OPTIONS.find((option) => arraysEqual(values, option.genders));
+    if (match) return match.label;
+    return values.map((value) => DATING_GENDER_OPTIONS.find((option) => option.value === value)?.label ?? value).join(', ');
+}
+
+function arraysEqual(first: string[], second: string[]): boolean {
+    if (first.length !== second.length) return false;
+    const normalizedFirst = [...first].sort();
+    const normalizedSecond = [...second].sort();
+    return normalizedFirst.every((value, index) => value === normalizedSecond[index]);
+}
+
+function sectionTitle(section: DatingEditSection): string {
+    switch (section) {
+        case 'bio': return 'Bio';
+        case 'interests': return 'Interests';
+        case 'goal': return 'Dating intentions';
+        case 'relationship_type': return 'Relationship type';
+        case 'interested': return 'Interested in';
+        case 'gender': return 'Gender';
+        case 'sexuality': return 'Sexuality';
+        case 'pronouns': return 'Pronouns';
+        case 'ethnicity': return 'Ethnicity';
+        case 'children': return 'Children';
+        case 'pets': return 'Pets';
+        case 'religion': return 'Religious beliefs';
+        case 'languages': return 'Languages spoken';
+        case 'politics': return 'Political view';
+        case 'height': return 'Height';
+        case 'work': return 'Work';
+        case 'education': return 'Education';
+        case 'prompts': return 'Prompts';
+    }
 }
 
 function getInitialJobTitle(profile: api.DatingProfile | null): string {
@@ -1019,13 +1567,15 @@ const styles = StyleSheet.create({
         color: Colors.danger,
         fontWeight: '700',
     },
+    saveActions: {
+        gap: Spacing.sm,
+    },
     saveSuccessCard: {
         minHeight: 44,
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
         gap: Spacing.xs,
-        marginTop: Spacing.md,
         borderRadius: Radius.md,
         borderWidth: 1,
         borderColor: Colors.success,
@@ -1037,8 +1587,44 @@ const styles = StyleSheet.create({
         ...TextStyles.label,
         color: Colors.success,
     },
-    primaryAction: {
-        marginTop: Spacing.lg,
+    editRows: {
+        marginHorizontal: -ContentInsets.screenHorizontal,
+        borderTopWidth: 1,
+        borderTopColor: Colors.border.emphasis,
+    },
+    editRow: {
+        minHeight: 58,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: Spacing.md,
+        paddingHorizontal: ContentInsets.screenHorizontal,
+        paddingVertical: Spacing.sm,
+        borderBottomWidth: 1,
+        borderBottomColor: Colors.border.emphasis,
+        backgroundColor: Colors.bg.page,
+    },
+    editRowInvalid: {
+        borderLeftWidth: 2,
+        borderLeftColor: Colors.danger,
+    },
+    editRowCopy: {
+        flex: 1,
+        minWidth: 0,
+        gap: 2,
+    },
+    editRowTitle: {
+        ...TextStyles.label,
+        color: Colors.text.primary,
+    },
+    editRowValue: {
+        ...TextStyles.secondary,
+        color: Colors.text.secondary,
+    },
+    focusedContent: {
+        paddingHorizontal: ContentInsets.screenHorizontal,
+        paddingTop: Spacing.sm,
+        paddingBottom: ContentInsets.listBottom,
+        gap: Spacing.lg,
     },
     sectionHeaderRow: {
         flexDirection: 'row',
@@ -1154,16 +1740,6 @@ const styles = StyleSheet.create({
     },
     chipTextActive: {
         color: Colors.textOn.primary,
-    },
-    pauseButton: {
-        minHeight: 44,
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginTop: Spacing.sm,
-    },
-    pauseText: {
-        ...TextStyles.label,
-        color: Colors.primary,
     },
     previewContent: {
         paddingTop: Spacing.sm,
