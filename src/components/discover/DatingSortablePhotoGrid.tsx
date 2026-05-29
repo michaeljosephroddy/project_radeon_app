@@ -23,7 +23,7 @@ import { Colors, Radius, Spacing, TextStyles, Typography } from '../../theme';
 
 interface DatingSortablePhotoGridProps {
     photos: api.DatingPhoto[];
-    uploading: boolean;
+    previewUris?: Record<string, string>;
     reordering: boolean;
     deletingPhotoIds: Set<string>;
     onPickPhoto: () => void;
@@ -36,6 +36,9 @@ interface SortablePhotoTileProps {
     index: number;
     total: number;
     disabled: boolean;
+    dimmed: boolean;
+    isUploading: boolean;
+    previewUri?: string;
     isDeleting: boolean;
     cellWidth: number;
     tileHeight: number;
@@ -52,6 +55,7 @@ const MAX_PHOTOS = 6;
 const GRID_COLUMNS = 3;
 const TILE_ASPECT_RATIO = 0.78;
 const GRID_GAP = Spacing.sm;
+const OPTIMISTIC_PHOTO_ID_PREFIX = 'optimistic-dating-photo-';
 const SPRING_CONFIG = {
     damping: 18,
     stiffness: 220,
@@ -60,7 +64,7 @@ const SPRING_CONFIG = {
 
 export function DatingSortablePhotoGrid({
     photos,
-    uploading,
+    previewUris = {},
     reordering,
     deletingPhotoIds,
     onPickPhoto,
@@ -74,7 +78,8 @@ export function DatingSortablePhotoGrid({
     const positions = useSharedValue(createPhotoPositions(sortedPhotos.map((photo) => photo.id)));
     const orderedIds = useSharedValue(sortedPhotos.map((photo) => photo.id));
     const activePhotoId = useSharedValue<string | null>(null);
-    const disabled = uploading || reordering || deletingPhotoIds.size > 0;
+    const hasOptimisticPhotos = sortedPhotos.some(isOptimisticDatingPhoto);
+    const disabled = reordering || deletingPhotoIds.size > 0 || hasOptimisticPhotos;
     const cellWidth = containerWidth > 0
         ? (containerWidth - (GRID_GAP * (GRID_COLUMNS - 1))) / GRID_COLUMNS
         : 0;
@@ -84,6 +89,7 @@ export function DatingSortablePhotoGrid({
     const gridHeight = tileHeight > 0 ? (rowCount * tileHeight) + ((rowCount - 1) * GRID_GAP) : 0;
     const photoById = useMemo(() => new Map(sortedPhotos.map((photo) => [photo.id, photo])), [sortedPhotos]);
     const sortedSignature = sortedPhotos.map((photo) => `${photo.id}:${photo.position}`).join('|');
+    const displayPhotos = draggingPhotoId ? localPhotos : sortedPhotos;
 
     useEffect(() => {
         if (draggingPhotoId) return;
@@ -127,15 +133,19 @@ export function DatingSortablePhotoGrid({
     return (
         <View onLayout={handleLayout}>
             <View style={[styles.grid, gridHeight > 0 && { height: gridHeight }]}>
-                {cellWidth > 0 ? localPhotos.map((photo, index) => {
+                {cellWidth > 0 ? displayPhotos.map((photo, index) => {
                     const isDeleting = deletingPhotoIds.has(photo.id);
+                    const isUploading = isOptimisticDatingPhoto(photo);
                     return (
                         <SortablePhotoTile
                             key={photo.id}
                             photo={photo}
                             index={index}
-                            total={localPhotos.length}
-                            disabled={disabled || isDeleting}
+                            total={displayPhotos.length}
+                            disabled={disabled || isDeleting || isUploading}
+                            dimmed={reordering || isDeleting}
+                            isUploading={isUploading}
+                            previewUri={previewUris[photo.id]}
                             isDeleting={isDeleting}
                             cellWidth={cellWidth}
                             tileHeight={tileHeight}
@@ -171,11 +181,7 @@ export function DatingSortablePhotoGrid({
                             accessibilityRole="button"
                             accessibilityLabel="Add dating profile photo"
                         >
-                            {uploading ? (
-                                <ActivityIndicator color={Colors.primary} />
-                            ) : (
-                                <Ionicons name="add" size={24} color={Colors.primary} />
-                            )}
+                            <Ionicons name="add" size={24} color={Colors.primary} />
                             <Text style={styles.addTileText}>Add</Text>
                         </Pressable>
                     </View>
@@ -190,6 +196,9 @@ function SortablePhotoTile({
     index,
     total,
     disabled,
+    dimmed,
+    isUploading,
+    previewUri,
     isDeleting,
     cellWidth,
     tileHeight,
@@ -259,19 +268,19 @@ function SortablePhotoTile({
             height: tileHeight,
             zIndex: active ? 20 : 1,
             elevation: active ? 8 : 0,
-            opacity: disabled && !active ? 0.55 : 1,
+            opacity: dimmed && !active ? 0.55 : 1,
             transform: [
                 { translateX },
                 { translateY },
                 { scale: active ? withSpring(1.035, SPRING_CONFIG) : withSpring(1, SPRING_CONFIG) },
             ],
         };
-    }, [cellWidth, disabled, index, photo.id, tileHeight]);
+    }, [cellWidth, dimmed, index, photo.id, tileHeight]);
 
     return (
         <Animated.View style={[styles.tileWrap, animatedTileStyle]}>
             <View style={styles.photoTile}>
-                <Image source={{ uri: photo.image_url }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+                <Image source={{ uri: previewUri ?? photo.image_url }} style={StyleSheet.absoluteFill} resizeMode="cover" />
                 <View style={[styles.orderBadge, isMainPhoto && styles.orderBadgeMain]}>
                     <Text style={[styles.orderBadgeText, isMainPhoto && styles.orderBadgeTextMain]}>
                         {isMainPhoto ? 'Main' : String(index + 1)}
@@ -297,9 +306,21 @@ function SortablePhotoTile({
                         <Ionicons name="reorder-three-outline" size={20} color={Colors.textOn.primary} />
                     </Animated.View>
                 </GestureDetector>
+                {isUploading ? (
+                    <View style={styles.uploadingOverlay} pointerEvents="none">
+                        <View style={styles.uploadingPill}>
+                            <ActivityIndicator size="small" color={Colors.textOn.primary} />
+                            <Text style={styles.uploadingText}>Uploading</Text>
+                        </View>
+                    </View>
+                ) : null}
             </View>
         </Animated.View>
     );
+}
+
+function isOptimisticDatingPhoto(photo: api.DatingPhoto): boolean {
+    return photo.id.startsWith(OPTIMISTIC_PHOTO_ID_PREFIX);
 }
 
 function compareDatingPhotos(a: api.DatingPhoto, b: api.DatingPhoto): number {
@@ -416,6 +437,28 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
         backgroundColor: 'rgba(0,0,0,0.58)',
+    },
+    uploadingOverlay: {
+        ...StyleSheet.absoluteFillObject,
+        alignItems: 'center',
+        justifyContent: 'flex-end',
+        padding: Spacing.xs,
+        backgroundColor: 'rgba(0,0,0,0.16)',
+    },
+    uploadingPill: {
+        minHeight: 28,
+        borderRadius: Radius.pill,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: Spacing.xs,
+        paddingHorizontal: Spacing.sm,
+        backgroundColor: 'rgba(0,0,0,0.62)',
+    },
+    uploadingText: {
+        ...TextStyles.caption,
+        fontWeight: '800',
+        color: Colors.textOn.primary,
     },
     addTileWrap: {
         position: 'absolute',

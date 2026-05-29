@@ -552,6 +552,40 @@ function formatCompactCount(count: number): string {
     return count > 99 ? '99+' : String(count);
 }
 
+const OPTIMISTIC_DATING_PHOTO_ID_PREFIX = 'optimistic-dating-photo-';
+const DEFAULT_OPTIMISTIC_DATING_PHOTO_WIDTH = 1080;
+const DEFAULT_OPTIMISTIC_DATING_PHOTO_HEIGHT = 1350;
+
+function createOptimisticDatingPhoto(asset: ImagePicker.ImagePickerAsset, currentPhotos: api.DatingPhoto[]): api.DatingPhoto {
+    return {
+        id: `${OPTIMISTIC_DATING_PHOTO_ID_PREFIX}${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        image_url: asset.uri,
+        width: asset.width ?? DEFAULT_OPTIMISTIC_DATING_PHOTO_WIDTH,
+        height: asset.height ?? DEFAULT_OPTIMISTIC_DATING_PHOTO_HEIGHT,
+        position: currentPhotos.reduce((max, photo) => Math.max(max, photo.position), -1) + 1,
+        created_at: new Date().toISOString(),
+    };
+}
+
+function mergeDatingProfilePhotos(profile: api.DatingProfile | null, pendingPhotos: api.DatingPhoto[]): api.DatingProfile | null {
+    if (!profile || pendingPhotos.length === 0) return profile;
+    const mergedPhotos = [...profile.photos];
+    const mergedIds = new Set(mergedPhotos.map((photo) => photo.id));
+    pendingPhotos.forEach((photo) => {
+        if (!mergedIds.has(photo.id)) {
+            mergedPhotos.push(photo);
+        }
+    });
+    return { ...profile, photos: mergedPhotos };
+}
+
+function findUploadedDatingPhoto(profile: api.DatingProfile, previousPhotoIds: Set<string>, optimisticPhoto: api.DatingPhoto): api.DatingPhoto | null {
+    return profile.photos.find((photo) => !previousPhotoIds.has(photo.id))
+        ?? profile.photos.find((photo) => photo.position === optimisticPhoto.position)
+        ?? profile.photos[profile.photos.length - 1]
+        ?? null;
+}
+
 export function DiscoverScreen({ isActive, onOpenUserProfile, onOpenChat, onOpenRecoveryMeeting, onDatingSurfaceOpenChange }: DiscoverScreenProps) {
     const { user } = useAuth();
     const queryClient = useQueryClient();
@@ -568,6 +602,8 @@ export function DiscoverScreen({ isActive, onOpenUserProfile, onOpenChat, onOpen
     const [pendingDatingActionIds, setPendingDatingActionIds] = useState<Set<string>>(new Set());
     const [unmatchingDatingIds, setUnmatchingDatingIds] = useState<Set<string>>(new Set());
     const [deletingDatingPhotoIds, setDeletingDatingPhotoIds] = useState<Set<string>>(new Set());
+    const [pendingDatingPhotoUploads, setPendingDatingPhotoUploads] = useState<api.DatingPhoto[]>([]);
+    const [datingPhotoPreviewUris, setDatingPhotoPreviewUris] = useState<Record<string, string>>({});
     const [matchModal, setMatchModal] = useState<{ match: api.DatingMatch; chatId?: string | null } | null>(null);
     const [datingLikesOpen, setDatingLikesOpen] = useState(false);
     const [datingMatchesOpen, setDatingMatchesOpen] = useState(false);
@@ -588,6 +624,10 @@ export function DiscoverScreen({ isActive, onOpenUserProfile, onOpenChat, onOpen
     const unmatchDatingMatchMutation = useUnmatchDatingMatch();
     const markDatingMatchesSeenMutation = useMarkDatingMatchesSeen();
     const datingProfile = datingProfileQuery.data ?? null;
+    const datingProfileForEditor = useMemo(
+        () => mergeDatingProfilePhotos(datingProfile, pendingDatingPhotoUploads),
+        [datingProfile, pendingDatingPhotoUploads],
+    );
     const datingProfileReady = Boolean(datingProfile?.completed_at) && !datingProfile?.paused;
     const datingLikesEntitled = user?.is_plus === true;
 
@@ -1105,20 +1145,47 @@ export function DiscoverScreen({ isActive, onOpenUserProfile, onOpenChat, onOpen
         }
         const result = await ImagePicker.launchImageLibraryAsync({
             mediaTypes: ['images'],
-            quality: 0.9,
+            quality: 0.8,
         });
         if (result.canceled || !result.assets[0]) return;
         const asset = result.assets[0];
-        uploadDatingProfilePhotoMutation.mutate({
-            uri: asset.uri,
-            mimeType: asset.mimeType ?? 'image/jpeg',
-            fileName: asset.fileName ?? 'dating-photo.jpg',
-        }, {
-            onError: (error: unknown) => {
-                appAlert.alert('Could not upload photo', error instanceof Error ? error.message : 'Please try again.');
-            },
+        const optimisticPhoto = createOptimisticDatingPhoto(asset, datingProfileForEditor?.photos ?? []);
+        const previousPhotoIds = new Set((datingProfile?.photos ?? []).map((photo) => photo.id));
+        setPendingDatingPhotoUploads((current) => [...current, optimisticPhoto]);
+
+        requestAnimationFrame(() => {
+            uploadDatingProfilePhotoMutation.mutate({
+                uri: asset.uri,
+                mimeType: asset.mimeType ?? 'image/jpeg',
+                fileName: asset.fileName ?? 'dating-photo.jpg',
+                width: asset.width,
+                height: asset.height,
+                optimisticPhotoId: optimisticPhoto.id,
+            }, {
+                onError: (error: unknown) => {
+                    setPendingDatingPhotoUploads((current) => current.filter((photo) => photo.id !== optimisticPhoto.id));
+                    appAlert.alert('Could not upload photo', error instanceof Error ? error.message : 'Please try again.');
+                },
+                onSuccess: (profile) => {
+                    const uploadedPhoto = findUploadedDatingPhoto(profile, previousPhotoIds, optimisticPhoto);
+                    if (uploadedPhoto) {
+                        setDatingPhotoPreviewUris((current) => ({
+                            ...current,
+                            [uploadedPhoto.id]: optimisticPhoto.image_url,
+                        }));
+                        void Image.prefetch(uploadedPhoto.image_url).finally(() => {
+                            setDatingPhotoPreviewUris((current) => {
+                                const next = { ...current };
+                                delete next[uploadedPhoto.id];
+                                return next;
+                            });
+                        });
+                    }
+                    setPendingDatingPhotoUploads((current) => current.filter((photo) => photo.id !== optimisticPhoto.id));
+                },
+            });
         });
-    }, [uploadDatingProfilePhotoMutation]);
+    }, [datingProfile, datingProfileForEditor, uploadDatingProfilePhotoMutation]);
 
     const handleDeleteDatingPhoto = useCallback((photoId: string): void => {
         setDeletingDatingPhotoIds((current) => new Set([...current, photoId]));
@@ -1235,10 +1302,10 @@ export function DiscoverScreen({ isActive, onOpenUserProfile, onOpenChat, onOpen
         return (
             <View style={styles.container}>
                 <DatingProfileEditorScreen
-                    profile={datingProfile}
+                    profile={datingProfileForEditor}
                     loading={datingProfileQuery.isLoading}
                     saving={updateDatingProfileMutation.isPending}
-                    uploading={uploadDatingProfilePhotoMutation.isPending}
+                    photoPreviewUris={datingPhotoPreviewUris}
                     reorderingPhotos={reorderDatingProfilePhotosMutation.isPending}
                     deletingPhotoIds={deletingDatingPhotoIds}
                     saveSuccessMessage={datingProfileSaveSuccess}
@@ -1256,10 +1323,10 @@ export function DiscoverScreen({ isActive, onOpenUserProfile, onOpenChat, onOpen
         return (
             <View style={styles.container}>
                 <DatingProfileEditorScreen
-                    profile={datingProfile}
+                    profile={datingProfileForEditor}
                     loading={datingProfileQuery.isLoading}
                     saving={updateDatingProfileMutation.isPending}
-                    uploading={uploadDatingProfilePhotoMutation.isPending}
+                    photoPreviewUris={datingPhotoPreviewUris}
                     reorderingPhotos={reorderDatingProfilePhotosMutation.isPending}
                     deletingPhotoIds={deletingDatingPhotoIds}
                     saveSuccessMessage={datingProfileSaveSuccess}

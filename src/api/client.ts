@@ -1631,11 +1631,16 @@ export async function updateMyDatingProfile(data: UpdateDatingProfileInput): Pro
     return normalizeDatingProfile(profile);
 }
 
-export async function uploadDatingProfilePhoto(input: {
+export interface UploadDatingProfilePhotoInput {
     uri: string;
     mimeType?: string;
     fileName?: string;
-}): Promise<DatingProfile> {
+    width?: number;
+    height?: number;
+    optimisticPhotoId?: string;
+}
+
+export async function uploadDatingProfilePhoto(input: UploadDatingProfilePhotoInput): Promise<DatingProfile> {
     const token = await getToken();
     const form = new FormData();
     form.append('photo', {
