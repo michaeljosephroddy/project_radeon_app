@@ -22,6 +22,7 @@ import { formatUsername } from '../../utils/identity';
 import { DatingPhotoCarousel } from './DatingPhotoCarousel';
 import { DatingSortablePhotoGrid } from './DatingSortablePhotoGrid';
 import { InterestSelector } from '../InterestSelector';
+import { InfoNoticeCard } from '../ui/InfoNoticeCard';
 import { PrimaryButton } from '../ui/PrimaryButton';
 import { SegmentedControl } from '../ui/SegmentedControl';
 import { ScreenHeader } from '../ui/ScreenHeader';
@@ -189,6 +190,7 @@ export function DatingProfileEditorScreen({
     const [editingPromptKey, setEditingPromptKey] = useState<string | null>(null);
     const [promptPickerVisible, setPromptPickerVisible] = useState(false);
     const [activePromptCategory, setActivePromptCategory] = useState(DATING_PROMPT_CATEGORIES[0].key);
+    const [showProfileNotice, setShowProfileNotice] = useState(true);
     const interestsQuery = useInterests(!loading);
     const interestOptions = Array.from(new Set([...(interestsQuery.data ?? []), ...selectedInterests])).sort((a, b) => a.localeCompare(b));
     const isComplete = Boolean(profile?.completed_at);
@@ -361,14 +363,18 @@ export function DatingProfileEditorScreen({
                                 keyboardShouldPersistTaps="handled"
                                 showsVerticalScrollIndicator={false}
                             >
-                            <View style={styles.header}>
-                                <Text style={styles.subtitle}>
-                                    {isComplete ? 'Edit the profile people see in Dating.' : 'Complete this profile before you appear in Dating.'}
-                                </Text>
-                            </View>
+                            {showProfileNotice ? (
+                                <View style={styles.header}>
+                                    <InfoNoticeCard
+                                        title={isComplete ? 'Dating profile' : 'Set up Dating'}
+                                        description={isComplete ? 'Edit the profile people see in Dating.' : 'Complete this profile before you appear in Dating.'}
+                                        onDismiss={() => setShowProfileNotice(false)}
+                                    />
+                                </View>
+                            ) : null}
 
                             <View
-                                style={[styles.section, showCompletionErrors && completionErrors.photos && styles.sectionInvalid]}
+                                style={[styles.section, styles.firstSection, showCompletionErrors && completionErrors.photos && styles.sectionInvalid]}
                                 onLayout={recordRequiredSectionLayout('photos')}
                             >
                                 <Text style={[styles.sectionLabel, showCompletionErrors && completionErrors.photos && styles.sectionLabelInvalid]}>Photos</Text>
@@ -617,6 +623,7 @@ export function DatingProfileEditorScreen({
                                 onPress={handlePrimarySave}
                                 loading={saving}
                                 disabled={saving}
+                                style={styles.primaryAction}
                             />
                             {saveSuccessMessage ? (
                                 <View style={styles.saveSuccessCard}>
@@ -861,8 +868,8 @@ function DatingProfilePreview({
                     <View style={[styles.previewSection, styles.previewSectionLast]}>
                         <Text style={styles.previewSectionLabel}>Prompts</Text>
                         <View style={styles.previewPrompts}>
-                            {visiblePromptAnswers.map((prompt, index) => (
-                                <View key={prompt.key} style={[styles.previewPrompt, index > 0 && styles.previewPromptWithSeparator]}>
+                            {visiblePromptAnswers.map((prompt) => (
+                                <View key={prompt.key} style={styles.previewPrompt}>
                                     <Text style={styles.previewPromptLabel}>{prompt.label}</Text>
                                     <Text style={styles.previewPromptAnswer}>{prompt.answer}</Text>
                                 </View>
@@ -979,29 +986,31 @@ const styles = StyleSheet.create({
     },
     content: {
         paddingHorizontal: ContentInsets.screenHorizontal,
-        paddingTop: Spacing.sm,
+        paddingTop: 0,
         paddingBottom: ContentInsets.listBottom,
-        gap: Spacing.lg,
+        gap: 0,
     },
     header: {
         gap: Spacing.xs,
-    },
-    subtitle: {
-        ...TextStyles.secondary,
-        color: Colors.text.secondary,
+        paddingBottom: Spacing.xs,
     },
     section: {
+        marginHorizontal: -ContentInsets.screenHorizontal,
+        paddingHorizontal: ContentInsets.screenHorizontal,
+        paddingVertical: Spacing.lg,
         gap: Spacing.sm,
+        borderBottomWidth: 1,
+        borderBottomColor: Colors.border.emphasis,
+    },
+    firstSection: {
+        paddingTop: Spacing.sm,
     },
     sectionInvalid: {
-        borderRadius: Radius.md,
-        borderWidth: 1,
+        borderLeftWidth: 2,
         borderColor: Colors.danger,
-        backgroundColor: Colors.dangerSubtle,
-        padding: Spacing.sm,
     },
     sectionLabel: {
-        ...TextStyles.label,
+        ...TextStyles.cardTitle,
         color: Colors.text.primary,
     },
     sectionLabelInvalid: {
@@ -1018,6 +1027,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
         gap: Spacing.xs,
+        marginTop: Spacing.md,
         borderRadius: Radius.md,
         borderWidth: 1,
         borderColor: Colors.success,
@@ -1028,6 +1038,9 @@ const styles = StyleSheet.create({
     saveSuccessText: {
         ...TextStyles.label,
         color: Colors.success,
+    },
+    primaryAction: {
+        marginTop: Spacing.lg,
     },
     sectionHeaderRow: {
         flexDirection: 'row',
@@ -1047,11 +1060,6 @@ const styles = StyleSheet.create({
     },
     promptField: {
         gap: Spacing.sm,
-        borderRadius: Radius.md,
-        borderWidth: 1,
-        borderColor: Colors.border.subtle,
-        backgroundColor: Colors.bg.surface,
-        padding: Spacing.sm,
     },
     promptCardHeader: {
         flexDirection: 'row',
@@ -1061,9 +1069,9 @@ const styles = StyleSheet.create({
     },
     promptLabel: {
         flex: 1,
-        ...TextStyles.caption,
-        color: Colors.text.secondary,
-        fontWeight: '700',
+        ...TextStyles.cardTitle,
+        color: Colors.text.primary,
+        fontWeight: '800',
     },
     promptIconButton: {
         width: 30,
@@ -1071,7 +1079,9 @@ const styles = StyleSheet.create({
         borderRadius: Radius.pill,
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: Colors.bg.raised,
+        borderWidth: 1,
+        borderColor: Colors.border.emphasis,
+        backgroundColor: Colors.bg.page,
     },
     promptSaveButton: {
         minHeight: 30,
@@ -1082,7 +1092,9 @@ const styles = StyleSheet.create({
         backgroundColor: Colors.primary,
     },
     promptSaveButtonDisabled: {
-        backgroundColor: Colors.bg.raised,
+        borderWidth: 1,
+        borderColor: Colors.border.emphasis,
+        backgroundColor: Colors.bg.page,
     },
     promptSaveText: {
         ...TextStyles.caption,
@@ -1093,13 +1105,11 @@ const styles = StyleSheet.create({
         color: Colors.text.disabled,
     },
     promptSavedAnswer: {
-        borderRadius: Radius.md,
-        backgroundColor: Colors.bg.raised,
-        padding: Spacing.md,
+        paddingTop: Spacing.xs,
     },
     promptSavedAnswerText: {
         ...TextStyles.body,
-        color: Colors.text.primary,
+        color: Colors.text.secondary,
         lineHeight: 21,
     },
     promptEmpty: {
@@ -1114,8 +1124,8 @@ const styles = StyleSheet.create({
         gap: Spacing.xs,
         borderRadius: Radius.md,
         borderWidth: 1,
-        borderColor: Colors.primary,
-        backgroundColor: Colors.primarySubtle,
+        borderColor: Colors.border.emphasis,
+        backgroundColor: Colors.bg.page,
     },
     addPromptText: {
         ...TextStyles.label,
@@ -1130,11 +1140,11 @@ const styles = StyleSheet.create({
         minHeight: 40,
         borderRadius: Radius.pill,
         borderWidth: 1,
-        borderColor: Colors.border.default,
+        borderColor: Colors.border.emphasis,
         paddingHorizontal: Spacing.md,
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: Colors.bg.surface,
+        backgroundColor: Colors.bg.page,
     },
     chipActive: {
         borderColor: Colors.primary,
@@ -1142,7 +1152,7 @@ const styles = StyleSheet.create({
     },
     chipText: {
         ...TextStyles.label,
-        color: Colors.text.primary,
+        color: Colors.text.secondary,
     },
     chipTextActive: {
         color: Colors.textOn.primary,
@@ -1151,6 +1161,7 @@ const styles = StyleSheet.create({
         minHeight: 44,
         alignItems: 'center',
         justifyContent: 'center',
+        marginTop: Spacing.sm,
     },
     pauseText: {
         ...TextStyles.label,
@@ -1175,7 +1186,7 @@ const styles = StyleSheet.create({
         gap: 4,
     },
     previewBody: {
-        paddingHorizontal: ContentInsets.screenHorizontal,
+        paddingHorizontal: 0,
     },
     previewName: {
         fontSize: Typography.sizes.xxl,
@@ -1188,6 +1199,7 @@ const styles = StyleSheet.create({
         opacity: 0.88,
     },
     previewSection: {
+        paddingHorizontal: ContentInsets.screenHorizontal,
         paddingVertical: Spacing.lg,
         gap: Spacing.sm,
         borderBottomWidth: 1,
@@ -1197,7 +1209,7 @@ const styles = StyleSheet.create({
         borderBottomWidth: 0,
     },
     previewSectionLabel: {
-        ...TextStyles.caption,
+        ...TextStyles.label,
         color: Colors.text.primary,
         textTransform: 'uppercase',
         fontWeight: '800',
@@ -1245,13 +1257,8 @@ const styles = StyleSheet.create({
     previewPrompt: {
         gap: Spacing.xs,
     },
-    previewPromptWithSeparator: {
-        borderTopWidth: 1,
-        borderTopColor: Colors.border.emphasis,
-        paddingTop: Spacing.md,
-    },
     previewPromptLabel: {
-        ...TextStyles.caption,
+        ...TextStyles.label,
         color: Colors.text.primary,
         fontWeight: '800',
     },
