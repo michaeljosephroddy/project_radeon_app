@@ -34,7 +34,7 @@ interface DatingProfileEditorScreenProps {
     profile: api.DatingProfile | null;
     loading: boolean;
     saving: boolean;
-    uploading: boolean;
+    photoPreviewUris?: Record<string, string>;
     reorderingPhotos: boolean;
     deletingPhotoIds: Set<string>;
     saveSuccessMessage?: string | null;
@@ -276,7 +276,7 @@ export function DatingProfileEditorScreen({
     profile,
     loading,
     saving,
-    uploading,
+    photoPreviewUris = {},
     reorderingPhotos,
     deletingPhotoIds,
     saveSuccessMessage,
@@ -318,6 +318,7 @@ export function DatingProfileEditorScreen({
     const [promptPickerVisible, setPromptPickerVisible] = useState(false);
     const [activePromptCategory, setActivePromptCategory] = useState(DATING_PROMPT_CATEGORIES[0].key);
     const [showProfileNotice, setShowProfileNotice] = useState(true);
+    const profileFormSignature = createProfileFormSignature(profile);
     const interestsQuery = useInterests(!loading);
     const interestOptions = Array.from(new Set([...(interestsQuery.data ?? []), ...selectedInterests])).sort((a, b) => a.localeCompare(b));
     const isComplete = Boolean(profile?.completed_at);
@@ -360,7 +361,7 @@ export function DatingProfileEditorScreen({
         setSelectedPromptKeys(createPromptKeyList(profile?.prompt_answers ?? []));
         setPromptAnswers(createPromptAnswerMap(profile?.prompt_answers ?? []));
         setEditingPromptKey(null);
-    }, [profile]);
+    }, [profileFormSignature]);
 
     const toggleInterest = (interest: string): void => {
         setSelectedInterests((current) => current.includes(interest)
@@ -615,7 +616,7 @@ export function DatingProfileEditorScreen({
                                 <Text style={[styles.sectionLabel, showCompletionErrors && completionErrors.photos && styles.sectionLabelInvalid]}>Photos</Text>
                                 <DatingSortablePhotoGrid
                                     photos={photos}
-                                    uploading={uploading}
+                                    previewUris={photoPreviewUris}
                                     reordering={reorderingPhotos}
                                     deletingPhotoIds={deletingPhotoIds}
                                     onPickPhoto={onPickPhoto}
@@ -1456,6 +1457,37 @@ function getInitialSchool(profile: api.DatingProfile | null): string {
 function getInitialCourse(profile: api.DatingProfile | null): string {
     if (profile?.course) return profile.course;
     return splitLegacyEducation(profile?.education).course;
+}
+
+function createProfileFormSignature(profile: api.DatingProfile | null): string {
+    if (!profile) return 'empty';
+    return [
+        profile.id,
+        profile.bio ?? '',
+        profile.relationship_goal,
+        (profile.interested_in_genders ?? []).join(','),
+        (profile.interests ?? []).join(','),
+        profile.height_cm ?? '',
+        profile.job_title ?? '',
+        profile.company ?? '',
+        profile.work ?? '',
+        profile.school ?? '',
+        profile.course ?? '',
+        profile.education ?? '',
+        profile.children_status ?? '',
+        profile.relationship_type ?? '',
+        profile.gender ?? '',
+        profile.sexuality ?? '',
+        profile.pronouns ?? '',
+        profile.ethnicity ?? '',
+        profile.pets ?? '',
+        profile.religious_belief ?? '',
+        (profile.languages_spoken ?? []).join(','),
+        profile.political_view ?? '',
+        (profile.prompt_answers ?? [])
+            .map((answer) => `${answer.prompt_key}:${answer.answer}`)
+            .join('|'),
+    ].join('::');
 }
 
 function splitLegacyWork(work?: string | null): { jobTitle: string; company: string } {
