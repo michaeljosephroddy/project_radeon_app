@@ -27,13 +27,13 @@ export function useDatingLikes(params: { limit?: number } = {}, enabled = true) 
         placeholderData: (previousData) => previousData,
     });
 
-    const users = useMemo(
+    const profiles = useMemo(
         () => dedupeById((query.data?.pages ?? []).flatMap((page) => page.items ?? [])),
         [query.data?.pages],
     );
 
     return {
         ...query,
-        users,
+        profiles,
     };
 }

@@ -27,7 +27,6 @@ import Animated, {
 import { Avatar } from '../Avatar';
 import { DiscoverEmptyState } from './DiscoverEmptyState';
 import * as api from '../../api/client';
-import { getRecoveryMilestone } from '../../utils/date';
 import { formatUsername } from '../../utils/identity';
 import { Colors, Radius, Spacing, TextStyles, Typography, getAvatarColors } from '../../theme';
 
@@ -37,39 +36,56 @@ const SWIPE_EXIT_DISTANCE = SCREEN_WIDTH * 1.2;
 const SWIPE_EXIT_DURATION_MS = 240;
 const DECK_CARD_HEIGHT = Math.round(Math.min(680, Math.max(420, SCREEN_HEIGHT * 0.62)));
 
+function relationshipGoalLabel(goal: api.DatingRelationshipGoal): string | null {
+    switch (goal) {
+        case 'long_term':
+            return 'Long-term';
+        case 'life_partner':
+            return 'Life partner';
+        case 'casual':
+            return 'Casual';
+        case 'open_to_explore':
+            return 'Open to explore';
+        default:
+            return null;
+    }
+}
+
 interface DatingDeckProps {
-    users: api.User[];
+    profiles: api.DatingProfile[];
     loading: boolean;
     fetchingNext: boolean;
     emptyTitle: string;
     emptyDescription: string;
-    onLike: (user: api.User) => void;
-    onPass: (user: api.User) => void;
-    onOpenProfile: (user: api.User) => void;
+    onLike: (profile: api.DatingProfile) => void;
+    onPass: (profile: api.DatingProfile) => void;
+    onOpenProfile: (profile: api.DatingProfile) => void;
     onLoadMore: () => void;
 }
 
 function DatingProfileCard({
-    user,
+    profile,
     onPress,
     onPassPress,
     onConnectPress,
     likeLabelStyle,
     passLabelStyle,
 }: {
-    user: api.User;
+    profile: api.DatingProfile;
     onPress: () => void;
     onPassPress: () => void;
     onConnectPress: () => void;
     likeLabelStyle: AnimatedStyle<object>;
     passLabelStyle: AnimatedStyle<object>;
 }) {
-    const avatarColors = getAvatarColors(user.username);
-    const milestone = getRecoveryMilestone(user.sober_since);
-    const locationLabel = user.city
-        ? `${user.city}${user.country ? `, ${user.country}` : ''}`
-        : user.country ?? null;
-    const metaLabel = [milestone?.currentLabel, locationLabel].filter(Boolean).join(' · ');
+    const avatarColors = getAvatarColors(profile.username);
+    const profilePhotos = profile.photos ?? [];
+    const primaryPhoto = profilePhotos[0]?.image_url;
+    const locationLabel = profile.city
+        ? `${profile.city}${profile.country ? `, ${profile.country}` : ''}`
+        : profile.country ?? null;
+    const nameLabel = profile.age ? `${formatUsername(profile.username)}, ${profile.age}` : formatUsername(profile.username);
+    const metaLabel = [relationshipGoalLabel(profile.relationship_goal), locationLabel].filter(Boolean).join(' · ');
 
     const handlePassPress = (event: GestureResponderEvent): void => {
         event.stopPropagation();
@@ -92,16 +108,16 @@ function DatingProfileCard({
             onPress={onPress}
             activeOpacity={0.94}
             accessibilityRole="button"
-            accessibilityLabel={`View ${formatUsername(user.username)} profile`}
+            accessibilityLabel={`View ${formatUsername(profile.username)} dating profile`}
         >
-            {user.avatar_url ? (
-                <Image source={{ uri: user.avatar_url }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+            {primaryPhoto ? (
+                <Image source={{ uri: primaryPhoto }} style={StyleSheet.absoluteFill} resizeMode="cover" />
             ) : (
                 <View style={[StyleSheet.absoluteFill, { backgroundColor: avatarColors.bg }]} />
             )}
-            {!user.avatar_url ? (
+            {!primaryPhoto ? (
                 <View style={styles.avatarFallback}>
-                    <Avatar username={user.username} avatarUrl={user.avatar_url} size={112} fontSize={36} />
+                    <Avatar username={profile.username} size={112} fontSize={36} />
                 </View>
             ) : null}
 
@@ -118,18 +134,19 @@ function DatingProfileCard({
             </Animated.View>
             <View style={styles.cardOverlay}>
                 <View style={styles.nameRow}>
-                    <Text style={styles.name} numberOfLines={1}>{formatUsername(user.username)}</Text>
+                    <Text style={styles.name} numberOfLines={1}>{nameLabel}</Text>
                     <TouchableOpacity
                         style={styles.viewProfileButton}
                         onPress={handleOpenProfilePress}
                         activeOpacity={0.84}
                     accessibilityRole="button"
-                    accessibilityLabel={`View ${formatUsername(user.username)} profile`}
+                    accessibilityLabel={`View ${formatUsername(profile.username)} dating profile`}
                 >
                         <Ionicons name="chevron-up" size={21} color={Colors.textOn.primary} />
                     </TouchableOpacity>
                 </View>
                 {metaLabel ? <Text style={styles.meta} numberOfLines={1}>{metaLabel}</Text> : null}
+                {profile.bio ? <Text style={styles.meta} numberOfLines={2}>{profile.bio}</Text> : null}
             </View>
             <View style={styles.cardActionRow}>
                 <TouchableOpacity
@@ -137,7 +154,7 @@ function DatingProfileCard({
                     onPress={handlePassPress}
                     activeOpacity={0.84}
                     accessibilityRole="button"
-                    accessibilityLabel={`Pass on ${formatUsername(user.username)}`}
+                    accessibilityLabel={`Pass on ${formatUsername(profile.username)}`}
                 >
                     <Ionicons name="close" size={28} color={Colors.danger} />
                 </TouchableOpacity>
@@ -146,7 +163,7 @@ function DatingProfileCard({
                     onPress={handleConnectPress}
                     activeOpacity={0.84}
                     accessibilityRole="button"
-                    accessibilityLabel={`Connect with ${formatUsername(user.username)}`}
+                    accessibilityLabel={`Connect with ${formatUsername(profile.username)}`}
                 >
                     <Ionicons name="heart" size={30} color={Colors.primary} />
                 </TouchableOpacity>
@@ -156,7 +173,7 @@ function DatingProfileCard({
 }
 
 export function DatingDeck({
-    users,
+    profiles,
     loading,
     fetchingNext,
     emptyTitle,
@@ -169,30 +186,31 @@ export function DatingDeck({
     const insets = useSafeAreaInsets();
     const translateX = useSharedValue(0);
     const isDismissing = useSharedValue(false);
-    const activeUser = users[0];
+    const safeProfiles = profiles ?? [];
+    const activeProfile = safeProfiles[0];
     const bottomPadding = Math.max(Math.min(insets.bottom, Spacing.lg), Spacing.md);
 
     useEffect(() => {
-        if (users.length <= 2 && !fetchingNext) {
+        if (safeProfiles.length <= 2 && !fetchingNext) {
             onLoadMore();
         }
-    }, [fetchingNext, onLoadMore, users.length]);
+    }, [fetchingNext, onLoadMore, safeProfiles.length]);
 
     useEffect(() => {
         translateX.value = 0;
         isDismissing.value = false;
-    }, [activeUser?.id, isDismissing, translateX]);
+    }, [activeProfile?.id, isDismissing, translateX]);
 
     const triggerPass = (): void => {
-        if (activeUser) onPass(activeUser);
+        if (activeProfile) onPass(activeProfile);
     };
 
     const triggerLike = (): void => {
-        if (activeUser) onLike(activeUser);
+        if (activeProfile) onLike(activeProfile);
     };
 
     const animatePass = (): void => {
-        if (!activeUser || isDismissing.value) return;
+        if (!activeProfile || isDismissing.value) return;
         isDismissing.value = true;
         translateX.value = withTiming(
             -SWIPE_EXIT_DISTANCE,
@@ -206,7 +224,7 @@ export function DatingDeck({
     };
 
     const animateLike = (): void => {
-        if (!activeUser || isDismissing.value) return;
+        if (!activeProfile || isDismissing.value) return;
         isDismissing.value = true;
         translateX.value = withTiming(
             SWIPE_EXIT_DISTANCE,
@@ -307,7 +325,7 @@ export function DatingDeck({
         ],
     }));
 
-    if (loading && users.length === 0) {
+    if (loading && safeProfiles.length === 0) {
         return (
             <View style={styles.center}>
                 <ActivityIndicator color={Colors.primary} size="large" />
@@ -315,7 +333,7 @@ export function DatingDeck({
         );
     }
 
-    if (!activeUser) {
+    if (!activeProfile) {
         return (
             <DiscoverEmptyState
                 title={emptyTitle}
@@ -329,8 +347,8 @@ export function DatingDeck({
             <GestureDetector gesture={gesture}>
                 <Animated.View style={[styles.cardWrap, cardStyle]}>
                     <DatingProfileCard
-                        user={activeUser}
-                        onPress={() => onOpenProfile(activeUser)}
+                        profile={activeProfile}
+                        onPress={() => onOpenProfile(activeProfile)}
                         onPassPress={animatePass}
                         onConnectPress={animateLike}
                         likeLabelStyle={likeLabelStyle}

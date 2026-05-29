@@ -12,20 +12,34 @@ import { Avatar } from '../Avatar';
 import { DiscoverEmptyState } from './DiscoverEmptyState';
 import { ScreenHeader } from '../ui/ScreenHeader';
 import * as api from '../../api/client';
-import { getRecoveryMilestone } from '../../utils/date';
 import { formatUsername } from '../../utils/identity';
 import { Colors, ContentInsets, Radius, Spacing, TextStyles, Typography } from '../../theme';
 
+function relationshipGoalLabel(goal: api.DatingRelationshipGoal): string | null {
+    switch (goal) {
+        case 'long_term':
+            return 'Long-term';
+        case 'life_partner':
+            return 'Life partner';
+        case 'casual':
+            return 'Casual';
+        case 'open_to_explore':
+            return 'Open to explore';
+        default:
+            return null;
+    }
+}
+
 interface DatingLikesScreenProps {
-    likes: api.User[];
+    likes: api.DatingProfile[];
     loading: boolean;
     fetchingNext: boolean;
     hasNextPage: boolean;
     pendingActionIds: Set<string>;
     onBack: () => void;
-    onLike: (user: api.User) => void;
-    onPass: (user: api.User) => void;
-    onOpenProfile: (user: api.User) => void;
+    onLike: (profile: api.DatingProfile) => void;
+    onPass: (profile: api.DatingProfile) => void;
+    onOpenProfile: (profile: api.DatingProfile) => void;
     onLoadMore: () => void;
 }
 
@@ -41,6 +55,7 @@ export function DatingLikesScreen({
     onOpenProfile,
     onLoadMore,
 }: DatingLikesScreenProps) {
+    const safeLikes = likes ?? [];
     const handleEndReached = useCallback((): void => {
         if (hasNextPage && !fetchingNext) {
             onLoadMore();
@@ -51,23 +66,23 @@ export function DatingLikesScreen({
         <SafeAreaView style={styles.container} edges={['bottom']}>
             <ScreenHeader title="Liked you" onBack={onBack} />
 
-            {loading && likes.length === 0 ? (
+            {loading && safeLikes.length === 0 ? (
                 <View style={styles.center}>
                     <ActivityIndicator color={Colors.primary} size="large" />
                 </View>
-            ) : likes.length === 0 ? (
+            ) : safeLikes.length === 0 ? (
                 <DiscoverEmptyState
                     title="No likes right now"
                     description="When someone likes you in Dating, they will appear here."
                 />
             ) : (
                 <FlatList
-                    data={likes}
+                    data={safeLikes}
                     keyExtractor={(item) => item.id}
                     contentContainerStyle={styles.listContent}
                     renderItem={({ item }) => (
                         <DatingLikeRow
-                            user={item}
+                            profile={item}
                             pending={pendingActionIds.has(item.id)}
                             onLike={() => onLike(item)}
                             onPass={() => onPass(item)}
@@ -86,36 +101,34 @@ export function DatingLikesScreen({
 }
 
 function DatingLikeRow({
-    user,
+    profile,
     pending,
     onLike,
     onPass,
     onOpenProfile,
 }: {
-    user: api.User;
+    profile: api.DatingProfile;
     pending: boolean;
     onLike: () => void;
     onPass: () => void;
     onOpenProfile: () => void;
 }) {
-    const milestone = getRecoveryMilestone(user.sober_since);
-    const locationLabel = user.city
-        ? `${user.city}${user.country ? `, ${user.country}` : ''}`
-        : user.country ?? null;
-    const metaLabel = [milestone?.currentLabel, locationLabel].filter(Boolean).join(' · ');
-    const interestPreview = user.interests.slice(0, 3).join(' · ');
+    const primaryPhoto = (profile.photos ?? [])[0]?.image_url;
+    const locationLabel = profile.city
+        ? `${profile.city}${profile.country ? `, ${profile.country}` : ''}`
+        : profile.country ?? null;
+    const nameLabel = profile.age ? `${formatUsername(profile.username)}, ${profile.age}` : formatUsername(profile.username);
+    const metaLabel = [relationshipGoalLabel(profile.relationship_goal), locationLabel].filter(Boolean).join(' · ');
 
     return (
         <View style={styles.row}>
             <TouchableOpacity style={styles.profileArea} onPress={onOpenProfile} activeOpacity={0.86}>
-                <Avatar username={user.username} avatarUrl={user.avatar_url} size={58} fontSize={20} />
+                <Avatar username={profile.username} avatarUrl={primaryPhoto} size={58} fontSize={20} />
                 <View style={styles.profileText}>
-                    <Text style={styles.username} numberOfLines={1}>{formatUsername(user.username)}</Text>
+                    <Text style={styles.username} numberOfLines={1}>{nameLabel}</Text>
                     {metaLabel ? <Text style={styles.meta} numberOfLines={1}>{metaLabel}</Text> : null}
-                    {user.bio ? (
-                        <Text style={styles.bio} numberOfLines={2}>{user.bio}</Text>
-                    ) : interestPreview ? (
-                        <Text style={styles.bio} numberOfLines={1}>{interestPreview}</Text>
+                    {profile.bio ? (
+                        <Text style={styles.bio} numberOfLines={2}>{profile.bio}</Text>
                     ) : null}
                 </View>
             </TouchableOpacity>
@@ -126,7 +139,7 @@ function DatingLikeRow({
                     onPress={onPass}
                     disabled={pending}
                     activeOpacity={0.84}
-                    accessibilityLabel={`Pass on ${formatUsername(user.username)}`}
+                    accessibilityLabel={`Pass on ${formatUsername(profile.username)}`}
                 >
                     <Text style={[styles.actionText, styles.passText]}>Pass</Text>
                 </TouchableOpacity>
@@ -135,7 +148,7 @@ function DatingLikeRow({
                     onPress={onLike}
                     disabled={pending}
                     activeOpacity={0.84}
-                    accessibilityLabel={`Like back ${formatUsername(user.username)}`}
+                    accessibilityLabel={`Like back ${formatUsername(profile.username)}`}
                 >
                     <Text style={[styles.actionText, styles.likeText]}>Like back</Text>
                 </TouchableOpacity>

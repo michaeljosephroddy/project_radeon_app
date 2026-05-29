@@ -67,13 +67,13 @@ const DiscoverTab = React.memo(function DiscoverTab({
     onOpenUserProfile,
     onOpenChat,
     onOpenRecoveryMeeting,
-    onDatingLikesOpenChange,
+    onDatingSurfaceOpenChange,
 }: {
     isActive: boolean;
     onOpenUserProfile: (p: OpenUserProfile) => void;
     onOpenChat: (chat: Chat) => void;
     onOpenRecoveryMeeting: (meeting: api.RecoveryMeeting) => void;
-    onDatingLikesOpenChange: (open: boolean) => void;
+    onDatingSurfaceOpenChange: (open: boolean) => void;
 }) {
     return (
         <View style={isActive ? styles.tabVisible : styles.tabHidden}>
@@ -82,7 +82,7 @@ const DiscoverTab = React.memo(function DiscoverTab({
                 onOpenUserProfile={onOpenUserProfile}
                 onOpenChat={onOpenChat}
                 onOpenRecoveryMeeting={onOpenRecoveryMeeting}
-                onDatingLikesOpenChange={onDatingLikesOpenChange}
+                onDatingSurfaceOpenChange={onDatingSurfaceOpenChange}
             />
         </View>
     );
@@ -234,7 +234,7 @@ export function AppNavigator() {
     const [groupFocusRequest, setGroupFocusRequest] = useState<{ postId: string; nonce: number } | null>(null);
     const [groupSupportFocusRequest, setGroupSupportFocusRequest] = useState<{ requestId: string; postId?: string; nonce: number } | null>(null);
     const [notificationsOpen, setNotificationsOpen] = useState(false);
-    const [datingLikesOpen, setDatingLikesOpen] = useState(false);
+    const [datingSurfaceOpen, setDatingSurfaceOpen] = useState(false);
     const [ownProfileInitialContentTab, setOwnProfileInitialContentTab] = useState<ProfileContentTabKey>('posts');
     const [ownProfileResetKey, setOwnProfileResetKey] = useState(0);
     const [openComments, setOpenComments] = useState<{
@@ -258,7 +258,7 @@ export function AppNavigator() {
     const inRecoveryMeetingDetail = openRecoveryMeeting !== null;
     const inGroupDetail = openGroupId !== null;
     const inNotifications = notificationsOpen;
-    const inDatingLikes = activeTab === 'discover' && datingLikesOpen;
+    const inDatingSurface = activeTab === 'discover' && datingSurfaceOpen;
     const inComments = openComments !== null;
     const inGroupComments = openGroupComments !== null;
     const handleOpenUserProfile = useCallback((profile: OpenUserProfile) => {
@@ -789,7 +789,7 @@ export function AppNavigator() {
     }, [consumeIntent, intent]);
 
     const header = useMemo(() => {
-        if (activeTab === 'profile' || activeTab === 'userProfile' || inChat || inComposeDM || inCreatePost || inCreateGroup || inCreateSupportRequest || inCreateMeetup || inMeetupDetail || inGroupDetail || inNotifications || inDatingLikes || inComments || inGroupComments) return null;
+        if (activeTab === 'profile' || activeTab === 'userProfile' || inChat || inComposeDM || inCreatePost || inCreateGroup || inCreateSupportRequest || inCreateMeetup || inMeetupDetail || inGroupDetail || inNotifications || inDatingSurface || inComments || inGroupComments) return null;
 
         const titles: Record<MainTab, React.ReactNode> = {
             feed: (
@@ -830,7 +830,7 @@ export function AppNavigator() {
             </View>
         );
     }, [
-        activeTab, inChat, inComposeDM, inCreateGroup, inCreateMeetup, inCreatePost, inCreateSupportRequest, inGroupDetail, inMeetupDetail, inRecoveryMeetingDetail, inNotifications, inDatingLikes,
+        activeTab, inChat, inComposeDM, inCreateGroup, inCreateMeetup, inCreatePost, inCreateSupportRequest, inGroupDetail, inMeetupDetail, inRecoveryMeetingDetail, inNotifications, inDatingSurface,
         inComments, inGroupComments, notificationSummary?.unread_count,
         openNotifications, openOwnProfile, user,
     ]);
@@ -954,7 +954,7 @@ export function AppNavigator() {
     ]);
 
     const isOverlayOpen = inChat || inComposeDM || inCreatePost || inCreateGroup || inCreateSupportRequest || inCreateMeetup || inMeetupDetail || inRecoveryMeetingDetail || inGroupDetail || inNotifications || inComments || inGroupComments;
-    const hidesBottomNav = inChat || inComposeDM || inCreatePost || inCreateGroup || inCreateSupportRequest || inCreateMeetup || inMeetupDetail || inGroupDetail || inNotifications || inDatingLikes || inComments || inGroupComments;
+    const hidesBottomNav = inChat || inComposeDM || inCreatePost || inCreateGroup || inCreateSupportRequest || inCreateMeetup || inMeetupDetail || inGroupDetail || inNotifications || inDatingSurface || inComments || inGroupComments;
     const canShowGlobalCreate = Boolean(user) && !hidesBottomNav && !keyboardVisible;
     const tabBarBottomPadding = Platform.OS === 'android'
         ? Math.max(insets.bottom - 12, Spacing.xs)
@@ -1023,7 +1023,7 @@ export function AppNavigator() {
                         onOpenUserProfile={handleOpenUserProfile}
                         onOpenChat={setOpenChat}
                         onOpenRecoveryMeeting={handleOpenRecoveryMeeting}
-                        onDatingLikesOpenChange={setDatingLikesOpen}
+                        onDatingSurfaceOpenChange={setDatingSurfaceOpen}
                     />
                     <CommunityTab
                         isActive={activeTab === 'community' && !isOverlayOpen}

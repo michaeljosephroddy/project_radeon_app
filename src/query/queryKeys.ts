@@ -134,6 +134,8 @@ export const queryKeys = {
     datingLikes: (params?: { limit?: number }) => ['dating-likes', params ?? {}] as const,
     datingLikesPreview: () => ['dating-likes-preview'] as const,
     datingMatches: (params?: { limit?: number }) => ['dating-matches', params ?? {}] as const,
+    datingProfile: () => ['dating-profile'] as const,
+    datingProfileById: (profileId: string) => ['dating-profile', profileId] as const,
     discover: (params?: {
         query?: string;
         city?: string;

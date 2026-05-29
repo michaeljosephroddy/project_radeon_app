@@ -213,7 +213,7 @@ export function DiscoverFilterSheet({
                         </View>
                         <View style={styles.optionWrap}>
                             {interestOptions.map((interest) => {
-                                const selected = draftFilters.interests.includes(interest);
+                                const selected = (draftFilters.interests ?? []).includes(interest);
                                 return (
                                     <FilterOptionChip
                                         key={interest}
@@ -222,8 +222,8 @@ export function DiscoverFilterSheet({
                                         onPress={() => onChangeFilters((current) => ({
                                             ...current,
                                             interests: selected
-                                                ? current.interests.filter((item) => item !== interest)
-                                                : [...current.interests, interest],
+                                                ? (current.interests ?? []).filter((item) => item !== interest)
+                                                : [...(current.interests ?? []), interest],
                                         }))}
                                     />
                                 );

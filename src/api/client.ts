@@ -836,10 +836,46 @@ export interface DiscoverPreviewResponse {
 }
 
 export type DatingAction = 'like' | 'pass';
+export type DatingRelationshipGoal = '' | 'long_term' | 'life_partner' | 'casual' | 'open_to_explore';
+export type DatingKidsStatus = '' | 'have_kids' | 'dont_have_kids' | 'prefer_not_to_say';
+
+export interface DatingPhoto {
+    id: string;
+    image_url: string;
+    width: number;
+    height: number;
+    position: number;
+    created_at: string;
+}
+
+export interface DatingProfile {
+    id: string;
+    user_id?: string;
+    username: string;
+    age?: number | null;
+    city?: string | null;
+    country?: string | null;
+    bio?: string | null;
+    relationship_goal: DatingRelationshipGoal;
+    interested_in_genders: UserGender[];
+    height_cm?: number | null;
+    work?: string | null;
+    education?: string | null;
+    kids_status: DatingKidsStatus;
+    interests: string[];
+    age_min: number;
+    age_max: number;
+    distance_km: number;
+    paused: boolean;
+    completed_at?: string | null;
+    photos: DatingPhoto[];
+    created_at: string;
+    updated_at: string;
+}
 
 export interface DatingMatch {
     id: string;
-    user: User;
+    profile: DatingProfile;
     chat_id?: string | null;
     status: 'active' | 'unmatched';
     matched_at: string;
@@ -850,6 +886,58 @@ export interface DatingActionResponse {
     action: DatingAction;
     matched: boolean;
     match?: DatingMatch | null;
+}
+
+function normalizeDatingProfile(profile: DatingProfile): DatingProfile {
+    return {
+        ...profile,
+        interested_in_genders: profile.interested_in_genders ?? [],
+        kids_status: profile.kids_status ?? '',
+        interests: profile.interests ?? [],
+        photos: profile.photos ?? [],
+    };
+}
+
+function normalizeDatingMatch(match: DatingMatch): DatingMatch {
+    if (!match.profile) {
+        return match;
+    }
+    return {
+        ...match,
+        profile: normalizeDatingProfile(match.profile),
+    };
+}
+
+function normalizeDatingActionResponse(response: DatingActionResponse): DatingActionResponse {
+    return {
+        ...response,
+        match: response.match ? normalizeDatingMatch(response.match) : response.match ?? null,
+    };
+}
+
+function normalizeDatingCursorResponse(page: CursorResponse<DatingProfile>): CursorResponse<DatingProfile> {
+    return {
+        limit: page.limit,
+        has_more: page.has_more,
+        next_cursor: page.next_cursor ?? null,
+        items: (page.items ?? []).map(normalizeDatingProfile),
+    };
+}
+
+export interface UpdateDatingProfileInput {
+    bio?: string | null;
+    relationship_goal?: DatingRelationshipGoal;
+    interested_in_genders?: UserGender[];
+    height_cm?: number | null;
+    work?: string | null;
+    education?: string | null;
+    kids_status?: DatingKidsStatus;
+    interests?: string[];
+    age_min?: number;
+    age_max?: number;
+    distance_km?: number;
+    paused?: boolean;
+    complete?: boolean;
 }
 
 export interface UpdateMeInput {
@@ -1392,10 +1480,11 @@ export async function discoverDatingUsers(params?: Omit<DiscoverFiltersPayload, 
     cursor?: string;
     limit?: number;
     signal?: AbortSignal;
-}): Promise<CursorResponse<User>> {
+}): Promise<CursorResponse<DatingProfile>> {
     const search = buildDatingDiscoverSearchParams(params);
     const suffix = search.toString() ? `?${search.toString()}` : '';
-    return request(`/dating/discover${suffix}`, { signal: params?.signal });
+    const page = await request<CursorResponse<DatingProfile>>(`/dating/discover${suffix}`, { signal: params?.signal });
+    return normalizeDatingCursorResponse(page);
 }
 
 export async function previewDatingDiscover(params?: Omit<DiscoverFiltersPayload, 'intent'> & {
@@ -1407,23 +1496,77 @@ export async function previewDatingDiscover(params?: Omit<DiscoverFiltersPayload
     return request(`/dating/discover/preview${suffix}`);
 }
 
-export async function listDatingLikes(params?: { cursor?: string; limit?: number; signal?: AbortSignal }): Promise<CursorResponse<User>> {
+export async function listDatingLikes(params?: { cursor?: string; limit?: number; signal?: AbortSignal }): Promise<CursorResponse<DatingProfile>> {
     const search = new URLSearchParams();
     if (params?.cursor) search.set('before', params.cursor);
     if (params?.limit) search.set('limit', String(params.limit));
     const suffix = search.toString() ? `?${search.toString()}` : '';
-    return request(`/dating/likes${suffix}`, { signal: params?.signal });
+    const page = await request<CursorResponse<DatingProfile>>(`/dating/likes${suffix}`, { signal: params?.signal });
+    return normalizeDatingCursorResponse(page);
 }
 
 export async function previewDatingLikes(): Promise<DiscoverPreviewResponse> {
     return request('/dating/likes/preview');
 }
 
-export async function recordDatingAction(targetUserId: string, action: DatingAction): Promise<DatingActionResponse> {
-    return request('/dating/actions', {
-        method: 'POST',
-        body: JSON.stringify({ target_user_id: targetUserId, action }),
+export async function getMyDatingProfile(): Promise<DatingProfile> {
+    const profile = await request<DatingProfile>('/dating/profile');
+    return normalizeDatingProfile(profile);
+}
+
+export async function getDatingProfile(profileId: string): Promise<DatingProfile> {
+    const profile = await request<DatingProfile>(`/dating/profiles/${profileId}`);
+    return normalizeDatingProfile(profile);
+}
+
+export async function updateMyDatingProfile(data: UpdateDatingProfileInput): Promise<DatingProfile> {
+    const profile = await request<DatingProfile>('/dating/profile', {
+        method: 'PATCH',
+        body: JSON.stringify(data),
     });
+    return normalizeDatingProfile(profile);
+}
+
+export async function uploadDatingProfilePhoto(input: {
+    uri: string;
+    mimeType?: string;
+    fileName?: string;
+}): Promise<DatingProfile> {
+    const token = await getToken();
+    const form = new FormData();
+    form.append('photo', {
+        uri: input.uri,
+        name: input.fileName ?? 'dating-photo.jpg',
+        type: input.mimeType ?? 'image/jpeg',
+    } as unknown as Blob);
+    const res = await fetch(`${BASE_URL}/dating/profile/photos`, {
+        method: 'POST',
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        body: form,
+    });
+    const profile = await parseDataResponse<DatingProfile>(res);
+    return normalizeDatingProfile(profile);
+}
+
+export async function deleteDatingProfilePhoto(photoId: string): Promise<DatingProfile> {
+    const profile = await request<DatingProfile>(`/dating/profile/photos/${photoId}`, { method: 'DELETE' });
+    return normalizeDatingProfile(profile);
+}
+
+export async function reorderDatingProfilePhotos(photoIds: string[]): Promise<DatingProfile> {
+    const profile = await request<DatingProfile>('/dating/profile/photos/order', {
+        method: 'PATCH',
+        body: JSON.stringify({ photo_ids: photoIds }),
+    });
+    return normalizeDatingProfile(profile);
+}
+
+export async function recordDatingAction(targetProfileId: string, action: DatingAction): Promise<DatingActionResponse> {
+    const response = await request<DatingActionResponse>('/dating/actions', {
+        method: 'POST',
+        body: JSON.stringify({ target_profile_id: targetProfileId, action }),
+    });
+    return normalizeDatingActionResponse(response);
 }
 
 function buildDiscoverSearchParams(params?: {

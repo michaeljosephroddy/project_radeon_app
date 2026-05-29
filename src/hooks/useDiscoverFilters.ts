@@ -108,7 +108,7 @@ export function hasNonDefaultDiscoverFilters(filters: DiscoverAppliedFilters): b
         || filters.ageMax !== null
         || filters.distanceKm !== DISCOVER_DEFAULT_DISTANCE_KM
         || filters.sobriety !== 'any'
-        || filters.interests.length > 0;
+        || (filters.interests ?? []).length > 0;
 }
 
 export function getDiscoverDistanceLabel(distanceKm: number): string {
@@ -139,7 +139,7 @@ export function getDiscoverFiltersSummary(filters: DiscoverAppliedFilters): stri
             : null,
         filters.distanceKm !== DISCOVER_DEFAULT_DISTANCE_KM ? getDiscoverDistanceLabel(filters.distanceKm) : null,
         filters.sobriety !== 'any' ? getDiscoverSobrietyLabel(filters.sobriety) : null,
-        filters.interests.length > 0 ? `${filters.interests.length} interests` : null,
+        (filters.interests ?? []).length > 0 ? `${(filters.interests ?? []).length} interests` : null,
     ].filter(Boolean);
 
     return parts.join(' · ') || 'Suggestions tuned for you';
@@ -183,7 +183,7 @@ export function getDiscoverActiveChips(filters: DiscoverAppliedFilters): Discove
         });
     }
 
-    for (const interest of filters.interests) {
+    for (const interest of filters.interests ?? []) {
         chips.push({
             key: `interest:${interest}`,
             label: interest,
@@ -201,7 +201,7 @@ export function createDiscoverDraftFromApplied(filters: DiscoverAppliedFilters):
         ageMax: filters.ageMax === null ? '' : String(filters.ageMax),
         distanceKm: filters.distanceKm,
         sobriety: filters.sobriety,
-        interests: [...filters.interests],
+        interests: [...(filters.interests ?? [])],
         broadenIfFewExact: filters.broadenIfFewExact,
     };
 }
@@ -226,7 +226,7 @@ export function validateDiscoverDraft(filters: DiscoverDraftFilters): { normaliz
             ageMax,
             distanceKm: filters.distanceKm,
             sobriety: filters.sobriety,
-            interests: [...filters.interests],
+            interests: [...(filters.interests ?? [])],
             broadenIfFewExact: filters.broadenIfFewExact,
         },
     };
@@ -240,7 +240,7 @@ export function toDiscoverApiFilters(filters: DiscoverAppliedFilters): api.Disco
         ageMax: filters.ageMax ?? undefined,
         distanceKm: filters.distanceKm,
         sobriety: filters.sobriety === 'any' ? undefined : filters.sobriety,
-        interests: filters.interests.length > 0 ? filters.interests : undefined,
+        interests: (filters.interests ?? []).length > 0 ? filters.interests : undefined,
     };
 }
 
@@ -265,15 +265,16 @@ export function applyDiscoverPreviewEffectiveFilters(
         };
     }
 
+    const effectiveFilters = preview.effective_filters ?? {};
     const effective: DiscoverAppliedFilters = {
         ...requested,
-        gender: (preview.effective_filters.gender ?? requested.gender) as DiscoverGenderValue,
-        intent: (preview.effective_filters.intent ?? requested.intent) as DiscoverIntentValue,
-        ageMin: preview.effective_filters.age_min ?? requested.ageMin,
-        ageMax: preview.effective_filters.age_max ?? requested.ageMax,
-        distanceKm: preview.effective_filters.distance_km ?? requested.distanceKm,
-        sobriety: (preview.effective_filters.sobriety ?? requested.sobriety) as DiscoverSobrietyValue,
-        interests: [...(preview.effective_filters.interests ?? requested.interests)],
+        gender: (effectiveFilters.gender ?? requested.gender) as DiscoverGenderValue,
+        intent: (effectiveFilters.intent ?? requested.intent) as DiscoverIntentValue,
+        ageMin: effectiveFilters.age_min ?? requested.ageMin,
+        ageMax: effectiveFilters.age_max ?? requested.ageMax,
+        distanceKm: effectiveFilters.distance_km ?? requested.distanceKm,
+        sobriety: (effectiveFilters.sobriety ?? requested.sobriety) as DiscoverSobrietyValue,
+        interests: [...(effectiveFilters.interests ?? requested.interests ?? [])],
     };
 
     return {
@@ -306,7 +307,7 @@ export function clearDiscoverChip(filters: DiscoverAppliedFilters, chipKey: Disc
         const interest = chipKey.slice('interest:'.length);
         return {
             ...filters,
-            interests: filters.interests.filter((item) => item !== interest),
+            interests: (filters.interests ?? []).filter((item) => item !== interest),
         };
     }
     return filters;
