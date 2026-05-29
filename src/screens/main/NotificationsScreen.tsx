@@ -62,8 +62,6 @@ function getNotificationTitle(item: api.NotificationItem): string {
     if (item.type === 'comment.mention') {
         return `${formatUsername(item.title)} mentioned you`;
     }
-    if (item.type === 'group.join_request') return `New request in ${item.title}`;
-    if (item.type === 'group.join_approved') return `You're in ${item.title}`;
     if (item.type === 'group.post') return `New post in ${item.title}`;
     if (item.type === 'group.comment') return `New comment in ${item.title}`;
     if (item.type === 'group.admin_contact') return `Admin inbox: ${item.title}`;

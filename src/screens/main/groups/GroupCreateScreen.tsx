@@ -71,15 +71,9 @@ const GROUP_CREATE_STEPS: GroupCreateStepMeta[] = [
 
 function getStepSubtitle(step: GroupCreateStep): string {
     if (step === 'identity') return 'Name the group and shape its first impression.';
-    if (step === 'setup') return 'Choose who can find, join, and post in the group.';
+    if (step === 'setup') return 'Choose how members can post and describe the group focus.';
     if (step === 'guidelines') return 'Add optional location and expectations.';
     return 'Confirm the details before the group goes live.';
-}
-
-function getVisibilityLabel(visibility: api.GroupVisibility): string {
-    if (visibility === 'approval_required') return 'Approval required';
-    if (visibility === 'invite_only') return 'Invite only';
-    return 'Public';
 }
 
 function getPostingPermissionLabel(permission: api.GroupPostingPermission): string {
@@ -101,7 +95,6 @@ export function GroupCreateScreen({
     const [rules, setRules] = useState('');
     const [country, setCountry] = useState('');
     const [city, setCity] = useState('');
-    const [visibility, setVisibility] = useState<api.GroupVisibility>('public');
     const [postingPermission, setPostingPermission] = useState<api.GroupPostingPermission>('members');
     const [selectedFocus, setSelectedFocus] = useState<GroupFocusOption[]>([]);
     const [selectedImage, setSelectedImage] = useState<GroupImageState | null>(null);
@@ -237,7 +230,6 @@ export function GroupCreateScreen({
                 description: description.trim() || null,
                 rules: rules.trim() || null,
                 avatar_url: avatarURL,
-                visibility,
                 posting_permission: postingPermission,
                 city: city.trim() || null,
                 country: country.trim() || null,
@@ -352,18 +344,7 @@ export function GroupCreateScreen({
             return (
                 <>
                     <View style={styles.section}>
-                        <Text style={styles.sectionTitle}>Access</Text>
-                        <SegmentedControl
-                            items={[
-                                { key: 'public', label: 'Public' },
-                                { key: 'approval_required', label: 'Approval' },
-                                { key: 'invite_only', label: 'Invite' },
-                            ]}
-                            activeKey={visibility}
-                            onChange={(next) => setVisibility(next as api.GroupVisibility)}
-                            layer="form"
-                            tone="secondary"
-                        />
+                        <Text style={styles.sectionTitle}>Posting</Text>
                         <SegmentedControl
                             items={[
                                 { key: 'members', label: 'Members can post' },
@@ -454,7 +435,6 @@ export function GroupCreateScreen({
                 </View>
 
                 <View style={styles.reviewSection}>
-                    <ReviewRow label="Access" value={getVisibilityLabel(visibility)} />
                     <ReviewRow label="Posting" value={getPostingPermissionLabel(postingPermission)} />
                     <ReviewRow label="Focus" value={getFocusSummary(selectedFocus)} />
                     <ReviewRow label="Location" value={[city.trim(), country.trim()].filter(Boolean).join(', ') || 'No location set'} />

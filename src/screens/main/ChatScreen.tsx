@@ -43,8 +43,6 @@ export function ChatScreen({ chat, onBack }: ChatScreenProps) {
     const { user } = useAuth();
     const insets = useSafeAreaInsets();
     const [headerHeight, setHeaderHeight] = useState(0);
-    const [acceptingInviteToken, setAcceptingInviteToken] = useState<string | null>(null);
-    const [dismissedInviteTokens, setDismissedInviteTokens] = useState<Set<string>>(new Set());
     const [dismissedSupportContextIds, setDismissedSupportContextIds] = useState<Set<string>>(new Set());
     const liveChatQuery = useChat(chat.id, chat);
     const supportChat = liveChatQuery.data ?? chat;
@@ -107,21 +105,6 @@ export function ChatScreen({ chat, onBack }: ChatScreenProps) {
         if (!body || sending) return;
         void sendMessage(body);
     }, [isSupportAccepted, sendMessage, sending]);
-
-    const handleAcceptInvite = useCallback(async (token: string): Promise<void> => {
-        setAcceptingInviteToken(token);
-        try {
-            const result = await api.acceptGroupInvite(token);
-            appAlert.alert(
-                result.state === 'pending' ? 'Request sent' : 'Invite accepted',
-                result.state === 'pending' ? 'An admin will review your request.' : 'You joined the group.',
-            );
-        } catch (e: unknown) {
-            appAlert.alert('Could not accept invite', e instanceof Error ? e.message : 'Please try again.');
-        } finally {
-            setAcceptingInviteToken(null);
-        }
-    }, []);
 
     const handleDismissSupportContext = useCallback((): void => {
         if (!supportContextDismissKey) return;
@@ -271,16 +254,6 @@ export function ChatScreen({ chat, onBack }: ChatScreenProps) {
                         renderBubble={(props) => {
                             const messageUser = props.currentMessage.user;
                             const avatarUrl = typeof messageUser.avatar === 'string' ? messageUser.avatar : undefined;
-                            const parsedInviteToken = parseGroupInviteToken(props.currentMessage.text);
-                            const senderId = typeof messageUser._id === 'string'
-                                ? messageUser._id
-                                : typeof messageUser._id === 'number'
-                                    ? String(messageUser._id)
-                                    : '';
-                            const isOwnInviteMessage = senderId !== '' && senderId === user?.id;
-                            const inviteToken = parsedInviteToken && !dismissedInviteTokens.has(parsedInviteToken)
-                                ? parsedInviteToken
-                                : null;
 
                             return (
                                 <View style={styles.flatMessageRow}>
@@ -291,40 +264,9 @@ export function ChatScreen({ chat, onBack }: ChatScreenProps) {
                                         fontSize={13}
                                     />
                                     <View style={styles.flatBubble}>
-                                        {inviteToken && !isOwnInviteMessage ? (
-                                            <View style={styles.inviteCard}>
-                                                <Text style={styles.inviteTitle}>Group invite</Text>
-                                                <Text style={styles.inviteBody}>{props.currentMessage.text}</Text>
-                                                <View style={styles.inviteActions}>
-                                                    <TouchableOpacity
-                                                        style={[styles.inviteAcceptButton, acceptingInviteToken === inviteToken && styles.inviteDisabled]}
-                                                        onPress={() => { void handleAcceptInvite(inviteToken); }}
-                                                        disabled={acceptingInviteToken === inviteToken}
-                                                    >
-                                                        <Text style={styles.inviteAcceptText}>
-                                                            {acceptingInviteToken === inviteToken ? 'Accepting...' : 'Accept'}
-                                                        </Text>
-                                                    </TouchableOpacity>
-                                                    <TouchableOpacity
-                                                        style={styles.inviteDismissButton}
-                                                        onPress={() => {
-                                                            setDismissedInviteTokens((current) => new Set(current).add(inviteToken));
-                                                        }}
-                                                    >
-                                                        <Text style={styles.inviteDismissText}>Not now</Text>
-                                                    </TouchableOpacity>
-                                                </View>
-                                            </View>
-                                        ) : inviteToken ? (
-                                            <View style={styles.inviteCard}>
-                                                <Text style={styles.inviteTitle}>Group invite</Text>
-                                                <Text style={styles.inviteBody}>{props.currentMessage.text}</Text>
-                                            </View>
-                                        ) : (
-                                            <Text style={styles.flatBubbleText}>
-                                                {props.currentMessage.text}
-                                            </Text>
-                                        )}
+                                        <Text style={styles.flatBubbleText}>
+                                            {props.currentMessage.text}
+                                        </Text>
                                         <Text style={styles.timeLabel}>
                                             {formatMessageTime(props.currentMessage.createdAt)}
                                         </Text>
@@ -418,16 +360,6 @@ function formatMessageTime(value: Date | number): string {
         minute: '2-digit',
         hour12: false,
     });
-}
-
-function parseGroupInviteToken(text: string | undefined): string | null {
-    if (!text) return null;
-    const deepLinkMatch = text.match(/soberspace:\/\/group-invites\/([A-Za-z0-9_-]+)/);
-    if (deepLinkMatch?.[1]) {
-        return decodeURIComponent(deepLinkMatch[1]);
-    }
-    const webLinkMatch = text.match(/https:\/\/soberspace\.app\/group-invites\/([A-Za-z0-9_-]+)/);
-    return webLinkMatch?.[1] ? decodeURIComponent(webLinkMatch[1]) : null;
 }
 
 function formatSupportType(value: api.SupportRequest['support_type']): string {
@@ -578,54 +510,6 @@ const styles = StyleSheet.create({
     flatBubbleText: {
         ...TextStyles.commentBody,
         textAlign: 'left',
-    },
-    inviteCard: {
-        maxWidth: 280,
-        borderWidth: 1,
-        borderColor: Colors.primary,
-        borderRadius: Radius.md,
-        backgroundColor: Colors.primarySubtle,
-        padding: Spacing.md,
-        gap: Spacing.sm,
-    },
-    inviteTitle: {
-        ...TextStyles.bodyEmphasis,
-        fontWeight: '800',
-    },
-    inviteBody: {
-        ...TextStyles.commentBody,
-    },
-    inviteActions: {
-        flexDirection: 'row',
-        gap: Spacing.sm,
-    },
-    inviteAcceptButton: {
-        minHeight: 34,
-        alignItems: 'center',
-        justifyContent: 'center',
-        borderRadius: Radius.pill,
-        backgroundColor: Colors.primary,
-        paddingHorizontal: Spacing.md,
-    },
-    inviteAcceptText: {
-        ...TextStyles.button,
-        fontSize: TextStyles.chip.fontSize,
-    },
-    inviteDismissButton: {
-        minHeight: 34,
-        alignItems: 'center',
-        justifyContent: 'center',
-        borderRadius: Radius.pill,
-        borderWidth: 1,
-        borderColor: Colors.border.emphasis,
-        paddingHorizontal: Spacing.md,
-    },
-    inviteDismissText: {
-        ...TextStyles.chip,
-        color: Colors.text.secondary,
-    },
-    inviteDisabled: {
-        opacity: 0.6,
     },
     timeLabel: {
         ...TextStyles.meta,

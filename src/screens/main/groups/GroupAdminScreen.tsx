@@ -18,10 +18,8 @@ import { ScrollToTopButton } from '../../../components/ui/ScrollToTopButton';
 import { SegmentedControl } from '../../../components/ui/SegmentedControl';
 import {
     useGroupAdminInbox,
-    useGroupJoinRequests,
     useGroupReports,
     useReviewGroupReportMutation,
-    useReviewGroupJoinRequestMutation,
 } from '../../../hooks/queries/useGroups';
 import { useScrollToTopButton } from '../../../hooks/useScrollToTopButton';
 import { screenStandards } from '../../../styles/screenStandards';
@@ -37,7 +35,7 @@ interface GroupAdminScreenProps {
     initialThreadId?: string;
 }
 
-type AdminTab = 'requests' | 'inbox' | 'reports';
+type AdminTab = 'inbox' | 'reports';
 
 export function GroupAdminScreen({
     group,
@@ -45,7 +43,7 @@ export function GroupAdminScreen({
     initialTab,
     initialThreadId,
 }: GroupAdminScreenProps): React.ReactElement {
-    const [activeTab, setActiveTab] = useState<AdminTab>(initialTab ?? 'requests');
+    const [activeTab, setActiveTab] = useState<AdminTab>(initialTab ?? 'inbox');
     const [openThreadId, setOpenThreadId] = useState<string | null>(initialThreadId ?? null);
 
     useEffect(() => {
@@ -74,12 +72,11 @@ export function GroupAdminScreen({
             <ScreenHeader title="Group admin" onBack={onBack} />
             <View style={styles.header}>
                 <Text style={styles.title}>{group.name}</Text>
-                <Text style={styles.subtitle}>{group.pending_request_count} pending requests</Text>
+                <Text style={styles.subtitle}>Moderation and admin messages</Text>
             </View>
             <View style={screenStandards.pageTabsWrap}>
                 <SegmentedControl
                     items={[
-                        { key: 'requests', label: 'Requests' },
                         { key: 'inbox', label: 'Inbox' },
                         { key: 'reports', label: 'Reports' },
                     ]}
@@ -90,63 +87,12 @@ export function GroupAdminScreen({
                     style={screenStandards.pageTabsControl}
                 />
             </View>
-            {activeTab === 'requests' ? (
-                <JoinRequestsPanel group={group} />
-            ) : activeTab === 'inbox' ? (
+            {activeTab === 'inbox' ? (
                 <AdminInboxPanel group={group} onOpenThread={setOpenThreadId} />
             ) : (
                 <ReportsPanel group={group} />
             )}
         </SafeAreaView>
-    );
-}
-
-function JoinRequestsPanel({ group }: { group: api.Group }): React.ReactElement {
-    const requestsQuery = useGroupJoinRequests(group.id, group.can_manage_members);
-    const reviewMutation = useReviewGroupJoinRequestMutation(group.id);
-    const requests = requestsQuery.data?.items ?? [];
-
-    const review = (requestId: string, approve: boolean): void => {
-        reviewMutation.mutate({ requestId, approve }, {
-            onError: (error: unknown) => {
-                appAlert.alert('Could not review request', error instanceof Error ? error.message : 'Please try again.');
-            },
-        });
-    };
-
-    if (requestsQuery.isLoading) {
-        return <ActivityIndicator color={Colors.primary} style={styles.loader} />;
-    }
-
-    return (
-        <FlatList
-            data={requests}
-            keyExtractor={(item) => item.id}
-            contentContainerStyle={requests.length ? styles.listContent : styles.emptyContent}
-            ListEmptyComponent={<EmptyState title="No pending requests" compact />}
-            renderItem={({ item }) => (
-                <View style={styles.card}>
-                    <View style={styles.row}>
-                        <Avatar username={item.username} avatarUrl={item.avatar_url ?? undefined} size={40} fontSize={13} />
-                        <View style={styles.rowCopy}>
-                            <Text style={styles.name}>{item.username}</Text>
-                            <Text style={styles.meta}>{formatReadableTimestamp(item.created_at)}</Text>
-                        </View>
-                    </View>
-                    {item.message ? <Text style={styles.body}>{item.message}</Text> : null}
-                    <View style={styles.actionRow}>
-                        <TouchableOpacity style={styles.acceptButton} onPress={() => review(item.id, true)}>
-                            <Ionicons name="checkmark" size={16} color={Colors.textOn.primary} />
-                            <Text style={styles.primaryButtonText}>Approve</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity style={styles.rejectButton} onPress={() => review(item.id, false)}>
-                            <Ionicons name="close" size={16} color={Colors.danger} />
-                            <Text style={styles.rejectText}>Reject</Text>
-                        </TouchableOpacity>
-                    </View>
-                </View>
-            )}
-        />
     );
 }
 

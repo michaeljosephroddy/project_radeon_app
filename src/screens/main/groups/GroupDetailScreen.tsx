@@ -4,7 +4,6 @@ import {
     ActivityIndicator,
     FlatList,
     Image,
-    Share,
     ScrollView,
     StyleSheet,
     Text,
@@ -29,13 +28,10 @@ import { TextField } from '../../../components/ui/TextField';
 import {
     useContactGroupAdminsMutation,
     useDeleteGroupPostMutation,
-    useCreateGroupInviteMutation,
     useGroup,
-    useGroupJoinRequests,
     useGroupMedia,
     useGroupMembers,
     useGroupPosts,
-    useReviewGroupJoinRequestMutation,
     usePinGroupPostMutation,
     useToggleGroupPostReactionMutation,
 } from '../../../hooks/queries/useGroups';
@@ -63,7 +59,7 @@ interface GroupDetailScreenProps {
     onBack: () => void;
     onOpenComments: (post: api.GroupPost) => void;
     onOpenChat: (chat: api.Chat) => void;
-    initialAdminTab?: 'requests' | 'inbox' | 'reports';
+    initialAdminTab?: 'inbox' | 'reports';
     initialAdminThreadId?: string;
     focusPostRequest: { postId: string; nonce: number } | null;
     onFocusPostConsumed: (nonce: number) => void;
@@ -113,7 +109,7 @@ export function GroupDetailScreen({
 }: GroupDetailScreenProps): React.ReactElement {
     const [activeTab, setActiveTab] = useState<GroupDetailTab>('posts');
     const [surface, setSurface] = useState<GroupDetailSurface>('detail');
-    const [adminStartTab, setAdminStartTab] = useState<'requests' | 'inbox' | 'reports' | undefined>(initialAdminTab);
+    const [adminStartTab, setAdminStartTab] = useState<'inbox' | 'reports' | undefined>(initialAdminTab);
     const [adminStartThreadId, setAdminStartThreadId] = useState<string | undefined>(initialAdminThreadId);
     const [managedSupportTarget, setManagedSupportTarget] = useState<SupportManagementTarget | null>(null);
     const queryClient = useQueryClient();
@@ -525,7 +521,7 @@ function GroupSummaryHeader({ group }: { group: api.Group }): React.ReactElement
                 <Text style={styles.metaDot}>•</Text>
                 <Text style={styles.metaText}>{group.post_count} posts</Text>
                 <Text style={styles.metaDot}>•</Text>
-                <Text style={styles.metaText}>{visibilityLabel(group.visibility)}</Text>
+                <Text style={styles.metaText}>Public</Text>
             </View>
         </View>
     );
@@ -1043,16 +1039,7 @@ function GroupAboutTab({
     onOpenReport: () => void;
 }): React.ReactElement {
     const [contactBody, setContactBody] = useState('');
-    const [invite, setInvite] = useState<api.GroupInvite | null>(null);
-    const [chatShareOpen, setChatShareOpen] = useState(false);
-    const [chatShareLoading, setChatShareLoading] = useState(false);
-    const [chatShareSendingId, setChatShareSendingId] = useState<string | null>(null);
-    const [chatShareQuery, setChatShareQuery] = useState('');
-    const [shareChats, setShareChats] = useState<api.Chat[]>([]);
     const contactMutation = useContactGroupAdminsMutation(group.id);
-    const inviteMutation = useCreateGroupInviteMutation(group.id);
-    const joinRequestsQuery = useGroupJoinRequests(group.id, group.can_manage_members);
-    const reviewMutation = useReviewGroupJoinRequestMutation(group.id);
     const insets = useSafeAreaInsets();
     const bottomSafeSpace = Math.max(insets.bottom, Spacing.sm);
     const { height: keyboardInsetHeight } = useGradualKeyboardInset({
@@ -1062,15 +1049,6 @@ function GroupAboutTab({
     const keyboardSpacerStyle = useAnimatedStyle((): { height: number } => ({
         height: keyboardInsetHeight.value,
     }));
-    const filteredShareChats = useMemo(() => {
-        const query = chatShareQuery.trim().toLowerCase();
-        const openChats = shareChats.filter((chat) => isChatOpenForMessaging(chat));
-        if (!query) return openChats;
-        return openChats.filter((chat) => {
-            const name = chat.is_group ? (chat.name ?? '') : (chat.username ?? '');
-            return name.toLowerCase().includes(query);
-        });
-    }, [chatShareQuery, shareChats]);
 
     const handleContactAdmins = async (): Promise<void> => {
         const body = contactBody.trim();
@@ -1083,70 +1061,6 @@ function GroupAboutTab({
             appAlert.alert('Could not send message', e instanceof Error ? e.message : 'Something went wrong.');
         }
     };
-
-    const handleCreateInvite = async (): Promise<void> => {
-        try {
-            const invite = await inviteMutation.mutateAsync({ requires_approval: group.visibility === 'approval_required' });
-            setInvite(invite);
-        } catch (e: unknown) {
-            appAlert.alert('Could not create invite', e instanceof Error ? e.message : 'Something went wrong.');
-        }
-    };
-
-    const handleShareInvite = async (): Promise<void> => {
-        if (!invite?.token) return;
-        try {
-            await Share.share({
-                message: formatGroupInviteMessage(group, invite),
-            });
-        } catch (e: unknown) {
-            appAlert.alert('Could not share invite', e instanceof Error ? e.message : 'Something went wrong.');
-        }
-    };
-
-    const loadChatShareTargets = useCallback(async (): Promise<void> => {
-        setChatShareLoading(true);
-        try {
-            const page = await api.getChats({ limit: 25 });
-            setShareChats(page.items ?? []);
-        } catch (e: unknown) {
-            appAlert.alert('Could not load chats', e instanceof Error ? e.message : 'Something went wrong.');
-        } finally {
-            setChatShareLoading(false);
-        }
-    }, []);
-
-    const handleOpenChatShare = useCallback((): void => {
-        if (!invite?.token) {
-            appAlert.alert('Create invite first', 'Create an invite link before sending it to chat.');
-            return;
-        }
-        setChatShareOpen((current) => !current);
-        void loadChatShareTargets();
-    }, [invite?.token, loadChatShareTargets]);
-
-    const handleSendInviteToChat = useCallback(async (chat: api.Chat): Promise<void> => {
-        if (!invite?.token) return;
-        if (!isChatOpenForMessaging(chat)) {
-            appAlert.alert('Chat unavailable', 'This chat is not open for messaging yet.');
-            setShareChats((current) => current.filter((item) => item.id !== chat.id));
-            return;
-        }
-        setChatShareSendingId(chat.id);
-        try {
-            await api.sendMessage(chat.id, formatGroupInviteMessage(group, invite));
-            const name = chat.is_group ? (chat.name ?? 'Group') : formatUsername(chat.username);
-            appAlert.alert('Invite sent', `Sent to ${name}.`);
-            setChatShareOpen(false);
-        } catch (e: unknown) {
-            if (e instanceof Error && e.message.toLowerCase().includes('chat is not open for messaging')) {
-                setShareChats((current) => current.filter((item) => item.id !== chat.id));
-            }
-            appAlert.alert('Could not send invite', e instanceof Error ? e.message : 'Something went wrong.');
-        } finally {
-            setChatShareSendingId(null);
-        }
-    }, [group, invite]);
 
     return (
         <ScrollView
@@ -1186,113 +1100,6 @@ function GroupAboutTab({
                             <Ionicons name="shield-checkmark-outline" size={16} color={Colors.textOn.primary} />
                             <Text style={styles.panelButtonText}>Open admin center</Text>
                         </TouchableOpacity>
-                    </View>
-                ) : null}
-
-                {group.can_invite ? (
-                    <View style={styles.aboutPanel}>
-                        <Text style={styles.panelTitle}>Invite</Text>
-                        <TouchableOpacity
-                            style={styles.panelButton}
-                            onPress={handleCreateInvite}
-                            disabled={inviteMutation.isPending}
-                        >
-                            <Text style={styles.panelButtonText}>Create invite link</Text>
-                        </TouchableOpacity>
-                        {invite?.token ? (
-                            <View style={styles.inviteCard}>
-                                <Text style={styles.inviteTitle}>{group.name} invite</Text>
-                                <Text style={styles.inviteBody}>
-                                    {group.visibility === 'approval_required' || invite.requires_approval
-                                        ? 'Recipients can request to join from this invite.'
-                                        : 'Recipients can join from this invite.'}
-                                </Text>
-                                <Text style={styles.inviteLink} selectable>{formatGroupInviteShareUrl(invite.token)}</Text>
-                                <View style={styles.inviteActionRow}>
-                                    <TouchableOpacity style={styles.panelButton} onPress={handleOpenChatShare}>
-                                        <Ionicons name="chatbubble-ellipses-outline" size={16} color={Colors.textOn.primary} />
-                                        <Text style={styles.panelButtonText}>Send in chat</Text>
-                                    </TouchableOpacity>
-                                    <TouchableOpacity style={styles.panelSecondaryButton} onPress={handleShareInvite}>
-                                        <Ionicons name="share-outline" size={16} color={Colors.primary} />
-                                        <Text style={styles.panelSecondaryButtonText}>Share outside</Text>
-                                    </TouchableOpacity>
-                                </View>
-                                {chatShareOpen ? (
-                                    <View style={styles.chatSharePanel}>
-                                        <View style={styles.chatSharePanelHeader}>
-                                            <Text style={styles.chatSharePanelTitle}>Chats</Text>
-                                            <TouchableOpacity style={styles.iconAction} onPress={() => { void loadChatShareTargets(); }}>
-                                                <Ionicons name="refresh" size={16} color={Colors.primary} />
-                                            </TouchableOpacity>
-                                        </View>
-                                        <TextField
-                                            value={chatShareQuery}
-                                            onChangeText={setChatShareQuery}
-                                            placeholder="Search chats"
-                                            autoCapitalize="none"
-                                            autoCorrect={false}
-                                            style={styles.chatShareSearch}
-                                        />
-                                        {chatShareLoading ? (
-                                            <ActivityIndicator color={Colors.primary} />
-                                        ) : filteredShareChats.length === 0 ? (
-                                            <Text style={styles.aboutBody}>No chats open for messaging.</Text>
-                                        ) : filteredShareChats.map((chat) => (
-                                            <TouchableOpacity
-                                                key={chat.id}
-                                                style={[styles.chatShareRow, chatShareSendingId === chat.id && styles.chatShareRowPending]}
-                                                onPress={() => { void handleSendInviteToChat(chat); }}
-                                                disabled={chatShareSendingId === chat.id}
-                                            >
-                                                <Avatar
-                                                    username={chat.is_group ? (chat.name ?? 'group') : (chat.username ?? 'member')}
-                                                    avatarUrl={chat.is_group ? undefined : chat.avatar_url}
-                                                    size={32}
-                                                    fontSize={11}
-                                                />
-                                                <Text style={styles.chatShareName} numberOfLines={1}>
-                                                    {chat.is_group ? (chat.name ?? 'Group') : formatUsername(chat.username)}
-                                                </Text>
-                                                <Text style={styles.chatShareActionLabel}>
-                                                    {chatShareSendingId === chat.id ? 'Sending…' : 'Send'}
-                                                </Text>
-                                            </TouchableOpacity>
-                                        ))}
-                                    </View>
-                                ) : null}
-                            </View>
-                        ) : null}
-                    </View>
-                ) : null}
-
-                {group.can_manage_members ? (
-                    <View style={styles.aboutPanel}>
-                        <Text style={styles.panelTitle}>Join requests</Text>
-                        {(joinRequestsQuery.data?.items ?? []).length === 0 ? (
-                            <Text style={styles.aboutBody}>No pending requests.</Text>
-                        ) : null}
-                        {(joinRequestsQuery.data?.items ?? []).map(request => (
-                            <View key={request.id} style={styles.requestRow}>
-                                <Avatar username={request.username} avatarUrl={request.avatar_url ?? undefined} size={32} fontSize={11} />
-                                <View style={styles.requestCopy}>
-                                    <Text style={styles.memberName}>{request.username}</Text>
-                                    {request.message ? <Text style={styles.aboutBody}>{request.message}</Text> : null}
-                                </View>
-                                <TouchableOpacity
-                                    style={styles.iconAction}
-                                    onPress={() => reviewMutation.mutate({ requestId: request.id, approve: true })}
-                                >
-                                    <Ionicons name="checkmark" size={17} color={Colors.success} />
-                                </TouchableOpacity>
-                                <TouchableOpacity
-                                    style={styles.iconAction}
-                                    onPress={() => reviewMutation.mutate({ requestId: request.id, approve: false })}
-                                >
-                                    <Ionicons name="close" size={17} color={Colors.danger} />
-                                </TouchableOpacity>
-                            </View>
-                        ))}
                     </View>
                 ) : null}
 
@@ -1341,40 +1148,6 @@ function AdminPreviewRow({
             <Text style={styles.roleLabel}>{label}</Text>
         </View>
     );
-}
-
-function isChatOpenForMessaging(chat: api.Chat): boolean {
-    if (chat.status && chat.status !== 'active') return false;
-    const supportStatus = chat.support_context?.status;
-    if (!supportStatus) return true;
-    return supportStatus === 'accepted';
-}
-
-function visibilityLabel(visibility: api.GroupVisibility): string {
-    if (visibility === 'approval_required') return 'Approval required';
-    if (visibility === 'invite_only') return 'Invite only';
-    if (visibility === 'private_hidden') return 'Private';
-    return 'Public';
-}
-
-function formatGroupInviteDeepLink(token: string): string {
-    return `soberspace://group-invites/${encodeURIComponent(token)}`;
-}
-
-function formatGroupInviteShareUrl(token: string): string {
-    return `https://soberspace.app/group-invites/${encodeURIComponent(token)}`;
-}
-
-function formatGroupInviteMessage(group: api.Group, invite: api.GroupInvite): string {
-    const approval = group.visibility === 'approval_required' || invite.requires_approval
-        ? 'This group requires admin approval.'
-        : 'You can accept this invite to join.';
-    return [
-        `Group invite: ${group.name}`,
-        approval,
-        invite.token ? `Open in app: ${formatGroupInviteDeepLink(invite.token)}` : '',
-        invite.token ? `Web preview: ${formatGroupInviteShareUrl(invite.token)}` : '',
-    ].filter(Boolean).join('\n');
 }
 
 function removeSupportRequestFromGroupPostCache(

@@ -133,22 +133,19 @@ export function GroupsScreen({ isActive, onOpenGroup, onGroupJoined }: GroupsScr
     const [draftCountry, setDraftCountry] = useState('');
     const [city, setCity] = useState('');
     const [draftCity, setDraftCity] = useState('');
-    const [visibility, setVisibility] = useState<api.GroupVisibility | null>(null);
-    const [draftVisibility, setDraftVisibility] = useState<api.GroupVisibility | null>(null);
     const [groupType, setGroupType] = useState<GroupTypeFilter>('all');
     const [draftGroupType, setDraftGroupType] = useState<GroupTypeFilter>('all');
     const [filterOpen, setFilterOpen] = useState(false);
     const joinMutation = useJoinGroupMutation();
-    const activeFilterCount = (activeChip ? 1 : 0) + (country ? 1 : 0) + (city ? 1 : 0) + (visibility ? 1 : 0) + (groupType !== 'all' ? 1 : 0);
+    const activeFilterCount = (activeChip ? 1 : 0) + (country ? 1 : 0) + (city ? 1 : 0) + (groupType !== 'all' ? 1 : 0);
 
     const openFilters = useCallback((): void => {
         setDraftChip(activeChip);
         setDraftCountry(country);
         setDraftCity(city);
-        setDraftVisibility(visibility);
         setDraftGroupType(groupType);
         setFilterOpen(true);
-    }, [activeChip, city, country, groupType, visibility]);
+    }, [activeChip, city, country, groupType]);
 
     const handleSearchChange = useCallback((nextQuery: string): void => {
         setQuery(nextQuery);
@@ -158,7 +155,6 @@ export function GroupsScreen({ isActive, onOpenGroup, onGroupJoined }: GroupsScr
         setActiveChip(draftChip);
         setCountry(draftCountry.trim());
         setCity(draftCity.trim());
-        setVisibility(draftVisibility);
         setGroupType(draftGroupType);
         setFilterOpen(false);
     };
@@ -170,8 +166,6 @@ export function GroupsScreen({ isActive, onOpenGroup, onGroupJoined }: GroupsScr
         setCountry('');
         setDraftCity('');
         setCity('');
-        setDraftVisibility(null);
-        setVisibility(null);
         setDraftGroupType('all');
         setGroupType('all');
         setFilterOpen(false);
@@ -184,7 +178,6 @@ export function GroupsScreen({ isActive, onOpenGroup, onGroupJoined }: GroupsScr
         recovery_pathway: activeChip?.recoveryPathway,
         city: city || undefined,
         country: country || undefined,
-        visibility: visibility ?? undefined,
         group_type: groupType === 'all' ? undefined : groupType,
         limit: 20,
     }, isActive);
@@ -203,11 +196,8 @@ export function GroupsScreen({ isActive, onOpenGroup, onGroupJoined }: GroupsScr
 
     const handleJoin = async (group: api.Group): Promise<void> => {
         try {
-            const result = await joinMutation.mutateAsync({ groupId: group.id });
+            await joinMutation.mutateAsync({ groupId: group.id });
             onGroupJoined?.(group);
-            if (result.state === 'pending') {
-                appAlert.alert('Request sent', 'An admin will review your request.');
-            }
         } catch (e: unknown) {
             appAlert.alert(
                 'Could not join group',
@@ -259,7 +249,7 @@ export function GroupsScreen({ isActive, onOpenGroup, onGroupJoined }: GroupsScr
                     <EmptyState
                         title={scope === 'joined' ? 'No groups joined yet' : 'No groups found'}
                         description={scope === 'joined'
-                            ? 'Discover recovery groups and request to join when one fits.'
+                            ? 'Discover recovery groups and join when one fits.'
                             : 'Try a broader search or remove filters.'}
                     />
                 ) : null}
@@ -351,28 +341,6 @@ export function GroupsScreen({ isActive, onOpenGroup, onGroupJoined }: GroupsScr
                             </View>
                         </View>
                         <View style={styles.filterSection}>
-                            <Text style={styles.filterSectionLabel}>Access</Text>
-                            <View style={styles.filterOptions}>
-                                <FilterChip
-                                    label="Any access"
-                                    selected={!draftVisibility}
-                                    onPress={() => setDraftVisibility(null)}
-                                />
-                                {([
-                                    { key: 'public', label: 'Public' },
-                                    { key: 'approval_required', label: 'Approval' },
-                                    { key: 'invite_only', label: 'Invite' },
-                                ] as Array<{ key: api.GroupVisibility; label: string }>).map((item) => (
-                                    <FilterChip
-                                        key={item.key}
-                                        label={item.label}
-                                        selected={draftVisibility === item.key}
-                                        onPress={() => setDraftVisibility(draftVisibility === item.key ? null : item.key)}
-                                    />
-                                ))}
-                            </View>
-                        </View>
-                        <View style={styles.filterSection}>
                             <Text style={styles.filterSectionLabel}>Location</Text>
                             <TextField
                                 value={draftCountry}
@@ -410,7 +378,7 @@ function GroupCard({ group, isJoining, onJoin, onOpen }: GroupCardProps): React.
     const colors = getAvatarColors(group.name);
     const isCommunitySupport = group.system_key === COMMUNITY_SUPPORT_KEY;
     const isMember = isCommunitySupport || group.viewer_status === 'active';
-    const canRequest = !isMember && !group.has_pending_request;
+    const canJoin = !isMember;
     const location = [group.city, group.country].filter(Boolean).join(', ');
 
     return (
@@ -431,15 +399,12 @@ function GroupCard({ group, isJoining, onJoin, onOpen }: GroupCardProps): React.
                                         <PinnedGroupPill />
                                         <SystemGroupPill />
                                     </>
-                                ) : (
-                                    <VisibilityPill visibility={group.visibility} />
-                                )}
+                                ) : null}
                             </View>
                         </View>
                         <GroupStatusAction
-                            group={group}
                             isMember={isMember}
-                            canRequest={canRequest}
+                            canJoin={canJoin}
                             isJoining={isJoining}
                             onJoin={onJoin}
                         />
@@ -470,17 +435,15 @@ function GroupCard({ group, isJoining, onJoin, onOpen }: GroupCardProps): React.
 }
 
 interface GroupStatusActionProps {
-    group: api.Group;
     isMember: boolean;
-    canRequest: boolean;
+    canJoin: boolean;
     isJoining: boolean;
     onJoin: () => void;
 }
 
 function GroupStatusAction({
-    group,
     isMember,
-    canRequest,
+    canJoin,
     isJoining,
     onJoin,
 }: GroupStatusActionProps): React.ReactElement {
@@ -493,46 +456,20 @@ function GroupStatusAction({
         );
     }
 
-    if (group.has_pending_request) {
-        return (
-            <View style={styles.pendingPill}>
-                <Text style={styles.pendingPillText}>Pending</Text>
-            </View>
-        );
-    }
-
     return (
         <TouchableOpacity
             style={[
                 styles.joinButton,
-                !canRequest && styles.joinButtonDisabled,
+                !canJoin && styles.joinButtonDisabled,
             ]}
             onPress={(event) => {
                 event.stopPropagation();
                 onJoin();
             }}
-            disabled={!canRequest || isJoining}
+            disabled={!canJoin || isJoining}
         >
-            <Text style={styles.joinButtonText}>
-                {group.visibility === 'approval_required' ? 'Request' : 'Join'}
-            </Text>
+            <Text style={styles.joinButtonText}>Join</Text>
         </TouchableOpacity>
-    );
-}
-
-function VisibilityPill({ visibility }: { visibility: api.GroupVisibility }): React.ReactElement {
-    const label = visibility === 'approval_required'
-        ? 'Approval'
-        : visibility === 'invite_only'
-            ? 'Invite'
-            : visibility === 'private_hidden'
-                ? 'Private'
-                : 'Public';
-
-    return (
-        <View style={styles.visibilityPill}>
-            <Text style={styles.visibilityPillText}>{label}</Text>
-        </View>
     );
 }
 

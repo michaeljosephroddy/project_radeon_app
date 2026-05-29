@@ -229,7 +229,7 @@ export function AppNavigator() {
     const [openMeetup, setOpenMeetup] = useState<api.Meetup | null>(null);
     const [openRecoveryMeeting, setOpenRecoveryMeeting] = useState<api.RecoveryMeeting | null>(null);
     const [openGroupId, setOpenGroupId] = useState<string | null>(null);
-    const [groupAdminInitialTab, setGroupAdminInitialTab] = useState<'requests' | 'inbox' | 'reports' | null>(null);
+    const [groupAdminInitialTab, setGroupAdminInitialTab] = useState<'inbox' | 'reports' | null>(null);
     const [groupAdminInitialThreadId, setGroupAdminInitialThreadId] = useState<string | null>(null);
     const [groupFocusRequest, setGroupFocusRequest] = useState<{ postId: string; nonce: number } | null>(null);
     const [groupSupportFocusRequest, setGroupSupportFocusRequest] = useState<{ requestId: string; postId?: string; nonce: number } | null>(null);

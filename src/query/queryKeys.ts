@@ -10,7 +10,6 @@ export const queryKeys = {
         country?: string;
         tag?: string;
         recovery_pathway?: string;
-        visibility?: string;
         group_type?: string;
         member_scope?: string;
         limit?: number;
@@ -20,7 +19,6 @@ export const queryKeys = {
     groupPosts: (groupId: string, params?: { limit?: number }) => ['groups', 'posts', groupId, params ?? {}] as const,
     groupMedia: (groupId: string, params?: { limit?: number }) => ['groups', 'media', groupId, params ?? {}] as const,
     groupComments: (groupId: string, postId: string, params?: { limit?: number }) => ['groups', 'comments', groupId, postId, params ?? {}] as const,
-    groupJoinRequests: (groupId: string) => ['groups', 'join-requests', groupId] as const,
     groupAdminInbox: (groupId: string, params?: { limit?: number }) => ['groups', 'admin-inbox', groupId, params ?? {}] as const,
     groupReports: (groupId: string, params?: { limit?: number }) => ['groups', 'reports', groupId, params ?? {}] as const,
     chats: (params?: { query?: string; limit?: number }) => ['chats', params ?? {}] as const,

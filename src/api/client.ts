@@ -867,7 +867,7 @@ export interface UpdateMeInput {
     onboarding_completed?: boolean;
 }
 
-export type GroupVisibility = 'public' | 'approval_required' | 'invite_only' | 'private_hidden';
+export type GroupVisibility = 'public';
 export type GroupPostingPermission = 'members' | 'admins';
 export type GroupRole = 'owner' | 'admin' | 'moderator' | 'member';
 export type GroupMembershipStatus = 'active' | 'banned';
@@ -891,15 +891,12 @@ export interface Group {
     member_count: number;
     post_count: number;
     media_count: number;
-    pending_request_count: number;
     is_system: boolean;
     system_key?: string | null;
     locked_settings: boolean;
     viewer_role?: GroupRole | null;
     viewer_status?: GroupMembershipStatus | null;
-    has_pending_request: boolean;
     can_post: boolean;
-    can_invite: boolean;
     can_manage_members: boolean;
     can_manage_settings: boolean;
     can_moderate_content: boolean;
@@ -1002,7 +999,6 @@ export interface ListGroupsParams {
     country?: string;
     tag?: string;
     recovery_pathway?: string;
-    visibility?: GroupVisibility;
     group_type?: 'support' | 'standard';
     member_scope?: 'joined' | 'discover';
     cursor?: string;
@@ -1015,7 +1011,6 @@ export interface CreateGroupInput {
     rules?: string | null;
     avatar_url?: string | null;
     cover_url?: string | null;
-    visibility?: GroupVisibility;
     posting_permission?: GroupPostingPermission;
     allow_anonymous_posts?: boolean;
     city?: string | null;
@@ -1025,34 +1020,8 @@ export interface CreateGroupInput {
 }
 
 export interface JoinGroupResult {
-    state: 'member' | 'pending';
+    state: 'member';
     group?: Group;
-}
-
-export interface GroupInvite {
-    id: string;
-    group_id: string;
-    token?: string;
-    expires_at?: string | null;
-    max_uses?: number | null;
-    use_count: number;
-    requires_approval: boolean;
-    revoked_at?: string | null;
-    created_at: string;
-}
-
-export interface GroupJoinRequest {
-    id: string;
-    group_id: string;
-    user_id: string;
-    username: string;
-    avatar_url?: string | null;
-    message?: string | null;
-    status: 'pending' | 'approved' | 'rejected' | 'cancelled';
-    reviewed_by?: string | null;
-    reviewed_at?: string | null;
-    created_at: string;
-    updated_at: string;
 }
 
 export interface GroupAdminMessage {
@@ -1221,7 +1190,6 @@ export async function listGroups(params: ListGroupsParams = {}): Promise<CursorR
     if (params.country) search.set('country', params.country);
     if (params.tag) search.set('tag', params.tag);
     if (params.recovery_pathway) search.set('recovery_pathway', params.recovery_pathway);
-    if (params.visibility) search.set('visibility', params.visibility);
     if (params.group_type) search.set('group_type', params.group_type);
     if (params.member_scope) search.set('member_scope', params.member_scope);
     return request(`/groups?${search.toString()}`);
@@ -1312,30 +1280,6 @@ export async function unpinGroupPost(groupId: string, postId: string): Promise<G
 
 export async function deleteGroupPost(groupId: string, postId: string): Promise<void> {
     await request(`/groups/${groupId}/posts/${postId}`, { method: 'DELETE' });
-}
-
-export async function createGroupInvite(groupId: string, input: {
-    expires_at?: string | null;
-    max_uses?: number | null;
-    requires_approval?: boolean;
-} = {}): Promise<GroupInvite> {
-    return request(`/groups/${groupId}/invites`, { method: 'POST', body: JSON.stringify(input) });
-}
-
-export async function acceptGroupInvite(token: string): Promise<JoinGroupResult> {
-    return request(`/group-invites/${encodeURIComponent(token)}/accept`, { method: 'POST' });
-}
-
-export async function listGroupJoinRequests(groupId: string): Promise<{ items: GroupJoinRequest[] }> {
-    return request(`/groups/${groupId}/join-requests`);
-}
-
-export async function approveGroupJoinRequest(groupId: string, requestId: string): Promise<GroupJoinRequest> {
-    return request(`/groups/${groupId}/join-requests/${requestId}/approve`, { method: 'POST' });
-}
-
-export async function rejectGroupJoinRequest(groupId: string, requestId: string): Promise<GroupJoinRequest> {
-    return request(`/groups/${groupId}/join-requests/${requestId}/reject`, { method: 'POST' });
 }
 
 export async function contactGroupAdmins(groupId: string, input: {

@@ -92,15 +92,6 @@ export function useGroupMedia(groupId: string | null, limit = 30, enabled = true
     });
 }
 
-export function useGroupJoinRequests(groupId: string | null, enabled = true) {
-    return useQuery({
-        queryKey: queryKeys.groupJoinRequests(groupId ?? ''),
-        queryFn: () => api.listGroupJoinRequests(groupId ?? ''),
-        staleTime: GROUPS_STALE_TIME,
-        enabled: enabled && Boolean(groupId),
-    });
-}
-
 export function useGroupAdminInbox(groupId: string | null, limit = 20, enabled = true) {
     const queryKey = queryKeys.groupAdminInbox(groupId ?? '', { limit });
     const policy = getInfiniteQueryPolicy(queryKey);
@@ -310,31 +301,6 @@ export function useDeleteGroupPostMutation(groupId: string) {
             await Promise.all([
                 queryClient.invalidateQueries({ queryKey: queryKeys.group(groupId) }),
                 queryClient.invalidateQueries({ queryKey: ['groups', 'media', groupId] }),
-            ]);
-        },
-    });
-}
-
-export function useCreateGroupInviteMutation(groupId: string) {
-    return useMutation({
-        mutationFn: (input: Parameters<typeof api.createGroupInvite>[1]) =>
-            api.createGroupInvite(groupId, input),
-    });
-}
-
-export function useReviewGroupJoinRequestMutation(groupId: string) {
-    const queryClient = useQueryClient();
-
-    return useMutation({
-        mutationFn: ({ requestId, approve }: { requestId: string; approve: boolean }) =>
-            approve
-                ? api.approveGroupJoinRequest(groupId, requestId)
-                : api.rejectGroupJoinRequest(groupId, requestId),
-        onSuccess: async () => {
-            await Promise.all([
-                queryClient.invalidateQueries({ queryKey: queryKeys.groupJoinRequests(groupId) }),
-                queryClient.invalidateQueries({ queryKey: queryKeys.group(groupId) }),
-                queryClient.invalidateQueries({ queryKey: queryKeys.groupMembers(groupId, { limit: 20 }) }),
             ]);
         },
     });
