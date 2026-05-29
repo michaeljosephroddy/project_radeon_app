@@ -110,7 +110,13 @@ function DatingMatchRow({
 
     return (
         <View style={styles.row}>
-            <TouchableOpacity style={styles.rowMain} onPress={onOpenChat} activeOpacity={0.86}>
+            <TouchableOpacity
+                style={styles.rowMain}
+                onPress={onOpenProfile}
+                activeOpacity={0.86}
+                accessibilityRole="button"
+                accessibilityLabel={`View ${formatUsername(profile.username)} profile`}
+            >
                 <Avatar
                     username={profile.username}
                     avatarUrl={(profile.photos ?? [])[0]?.image_url}
@@ -125,12 +131,12 @@ function DatingMatchRow({
             <View style={styles.rowActions}>
                 <TouchableOpacity
                     style={styles.iconButton}
-                    onPress={onOpenProfile}
+                    onPress={onOpenChat}
                     activeOpacity={0.84}
                     accessibilityRole="button"
-                    accessibilityLabel={`View ${formatUsername(profile.username)} profile`}
+                    accessibilityLabel={`Open chat with ${formatUsername(profile.username)}`}
                 >
-                    <Ionicons name="person-outline" size={19} color={Colors.text.primary} />
+                    <Ionicons name="chatbubble-outline" size={19} color={Colors.text.primary} />
                 </TouchableOpacity>
                 <TouchableOpacity
                     style={[styles.iconButton, styles.unmatchButton]}
@@ -177,21 +183,19 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
     },
     listContent: {
-        paddingHorizontal: ContentInsets.screenHorizontal,
-        paddingTop: Spacing.sm,
+        paddingTop: 0,
         paddingBottom: ContentInsets.listBottom,
-        gap: Spacing.sm,
     },
     row: {
         minHeight: 78,
         flexDirection: 'row',
         alignItems: 'center',
         gap: Spacing.sm,
-        padding: Spacing.sm,
-        borderRadius: Radius.lg,
-        backgroundColor: Colors.bg.surface,
-        borderWidth: 1,
-        borderColor: Colors.border.subtle,
+        paddingHorizontal: ContentInsets.screenHorizontal,
+        paddingVertical: Spacing.sm,
+        backgroundColor: Colors.bg.page,
+        borderBottomWidth: 1,
+        borderBottomColor: Colors.border.emphasis,
     },
     rowMain: {
         flex: 1,
@@ -225,9 +229,12 @@ const styles = StyleSheet.create({
         borderRadius: Radius.pill,
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: Colors.bg.raised,
+        borderWidth: 1,
+        borderColor: Colors.border.emphasis,
+        backgroundColor: Colors.bg.page,
     },
     unmatchButton: {
+        borderColor: Colors.dangerSubtle,
         backgroundColor: Colors.dangerSubtle,
     },
     footerLoader: {

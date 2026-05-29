@@ -122,7 +122,13 @@ function DatingLikeRow({
 
     return (
         <View style={styles.row}>
-            <TouchableOpacity style={styles.profileArea} onPress={onOpenProfile} activeOpacity={0.86}>
+            <TouchableOpacity
+                style={styles.profileArea}
+                onPress={onOpenProfile}
+                activeOpacity={0.86}
+                accessibilityRole="button"
+                accessibilityLabel={`View ${formatUsername(profile.username)} profile`}
+            >
                 <Avatar username={profile.username} avatarUrl={primaryPhoto} size={58} fontSize={20} />
                 <View style={styles.profileText}>
                     <Text style={styles.username} numberOfLines={1}>{nameLabel}</Text>
@@ -168,18 +174,17 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
     },
     listContent: {
-        paddingHorizontal: ContentInsets.screenHorizontal,
-        paddingTop: Spacing.sm,
+        paddingTop: 0,
         paddingBottom: ContentInsets.listBottom,
-        gap: Spacing.sm,
     },
     row: {
+        minHeight: 120,
         gap: Spacing.sm,
-        padding: Spacing.sm,
-        borderRadius: Radius.lg,
-        backgroundColor: Colors.bg.surface,
-        borderWidth: 1,
-        borderColor: Colors.border.subtle,
+        paddingHorizontal: ContentInsets.screenHorizontal,
+        paddingVertical: Spacing.sm,
+        backgroundColor: Colors.bg.page,
+        borderBottomWidth: 1,
+        borderBottomColor: Colors.border.emphasis,
     },
     profileArea: {
         flexDirection: 'row',

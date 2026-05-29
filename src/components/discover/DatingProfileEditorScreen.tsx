@@ -865,7 +865,7 @@ function DatingProfilePreview({
                     </View>
                 ) : null}
                 {visiblePromptAnswers.length > 0 ? (
-                    <View style={[styles.previewSection, styles.previewSectionLast]}>
+                    <View style={styles.previewSection}>
                         <Text style={styles.previewSectionLabel}>Prompts</Text>
                         <View style={styles.previewPrompts}>
                             {visiblePromptAnswers.map((prompt) => (
@@ -988,22 +988,20 @@ const styles = StyleSheet.create({
         paddingHorizontal: ContentInsets.screenHorizontal,
         paddingTop: 0,
         paddingBottom: ContentInsets.listBottom,
-        gap: 0,
+        gap: Spacing.lg,
     },
     header: {
         gap: Spacing.xs,
-        paddingBottom: Spacing.xs,
+        paddingBottom: 0,
     },
     section: {
         marginHorizontal: -ContentInsets.screenHorizontal,
         paddingHorizontal: ContentInsets.screenHorizontal,
-        paddingVertical: Spacing.lg,
+        paddingVertical: 0,
         gap: Spacing.sm,
-        borderBottomWidth: 1,
-        borderBottomColor: Colors.border.emphasis,
     },
     firstSection: {
-        paddingTop: Spacing.sm,
+        paddingTop: 0,
     },
     sectionInvalid: {
         borderLeftWidth: 2,
@@ -1187,6 +1185,8 @@ const styles = StyleSheet.create({
     },
     previewBody: {
         paddingHorizontal: 0,
+        paddingTop: Spacing.lg,
+        gap: Spacing.lg,
     },
     previewName: {
         fontSize: Typography.sizes.xxl,
@@ -1200,13 +1200,8 @@ const styles = StyleSheet.create({
     },
     previewSection: {
         paddingHorizontal: ContentInsets.screenHorizontal,
-        paddingVertical: Spacing.lg,
+        paddingVertical: 0,
         gap: Spacing.sm,
-        borderBottomWidth: 1,
-        borderBottomColor: Colors.border.emphasis,
-    },
-    previewSectionLast: {
-        borderBottomWidth: 0,
     },
     previewSectionLabel: {
         ...TextStyles.label,
