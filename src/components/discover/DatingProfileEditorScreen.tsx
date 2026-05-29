@@ -17,7 +17,7 @@ import { KeyboardAwareScrollView, type KeyboardAwareScrollViewRef } from 'react-
 import * as api from '../../api/client';
 import { useInterests } from '../../hooks/queries/useInterests';
 import { screenStandards } from '../../styles/screenStandards';
-import { Colors, ContentInsets, Radius, Spacing, TextStyles, Typography } from '../../theme';
+import { Colors, ContentInsets, ControlSizes, Radius, Spacing, TextStyles, Typography } from '../../theme';
 import { formatUsername } from '../../utils/identity';
 import { DatingPhotoCarousel } from './DatingPhotoCarousel';
 import { DatingSortablePhotoGrid } from './DatingSortablePhotoGrid';
@@ -845,7 +845,7 @@ function DatingProfilePreview({
                         <View style={styles.previewChipWrap}>
                             {interests.map((interest) => (
                                 <View key={interest} style={styles.previewChip}>
-                                    <Text style={styles.previewChipText}>{interest}</Text>
+                                    <Text style={styles.previewChipText} numberOfLines={1}>{interest}</Text>
                                 </View>
                             ))}
                         </View>
@@ -1233,24 +1233,32 @@ const styles = StyleSheet.create({
     previewChip: {
         borderRadius: Radius.pill,
         borderWidth: 1,
-        borderColor: Colors.border.emphasis,
+        borderColor: Colors.border.default,
+        minHeight: ControlSizes.chipMinHeight,
+        alignSelf: 'flex-start',
         paddingHorizontal: Spacing.md,
-        paddingVertical: Spacing.xs,
-        backgroundColor: Colors.bg.page,
+        paddingVertical: Spacing.sm,
+        backgroundColor: Colors.bg.surface,
     },
     previewChipText: {
-        ...TextStyles.caption,
-        color: Colors.text.secondary,
-        fontWeight: '700',
+        ...TextStyles.label,
+        color: Colors.text.primary,
     },
     previewDetails: {
         gap: Spacing.md,
     },
     previewPrompts: {
-        gap: Spacing.md,
+        marginHorizontal: -ContentInsets.screenHorizontal,
+        borderTopWidth: 1,
+        borderTopColor: Colors.border.emphasis,
     },
     previewPrompt: {
         gap: Spacing.xs,
+        paddingHorizontal: ContentInsets.screenHorizontal,
+        paddingVertical: Spacing.md,
+        backgroundColor: Colors.bg.page,
+        borderBottomWidth: 1,
+        borderBottomColor: Colors.border.emphasis,
     },
     previewPromptLabel: {
         ...TextStyles.label,
