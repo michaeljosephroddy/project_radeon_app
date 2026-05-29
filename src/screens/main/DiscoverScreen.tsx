@@ -16,7 +16,6 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import * as ImagePicker from 'expo-image-picker';
 import { useQueryClient } from '@tanstack/react-query';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Avatar } from '../../components/Avatar';
@@ -24,10 +23,7 @@ import { DiscoverActiveFiltersBar } from '../../components/discover/DiscoverActi
 import { DiscoverEmptyState } from '../../components/discover/DiscoverEmptyState';
 import { DiscoverFilterSheet } from '../../components/discover/DiscoverFilterSheet';
 import { DatingDeck } from '../../components/discover/DatingDeck';
-import { DatingLikesScreen } from '../../components/discover/DatingLikesScreen';
-import { DatingMatchesScreen } from '../../components/discover/DatingMatchesScreen';
 import { DatingPhotoCarousel } from '../../components/discover/DatingPhotoCarousel';
-import { DatingProfileEditorScreen } from '../../components/discover/DatingProfileEditorScreen';
 import { InfoNoticeCard } from '../../components/ui/InfoNoticeCard';
 import { PrimaryButton } from '../../components/ui/PrimaryButton';
 import { SearchBar } from '../../components/ui/SearchBar';
@@ -40,10 +36,9 @@ import { useInterests } from '../../hooks/queries/useInterests';
 import { useDiscoverPreview } from '../../hooks/queries/useDiscoverPreview';
 import { useDatingDiscoverPreview } from '../../hooks/queries/useDatingDiscoverPreview';
 import { useDatingDiscoverResults } from '../../hooks/queries/useDatingDiscoverResults';
-import { useDatingLikes } from '../../hooks/queries/useDatingLikes';
 import { useDatingLikesPreview } from '../../hooks/queries/useDatingLikesPreview';
-import { useDatingMatches, useMarkDatingMatchesSeen, useUnmatchDatingMatch } from '../../hooks/queries/useDatingMatches';
-import { useDatingProfile, useUpdateDatingProfile, useUploadDatingProfilePhoto, useDeleteDatingProfilePhoto, useReorderDatingProfilePhotos } from '../../hooks/queries/useDatingProfile';
+import { useDatingMatches } from '../../hooks/queries/useDatingMatches';
+import { useDatingProfile } from '../../hooks/queries/useDatingProfile';
 import { useScrollToTopButton } from '../../hooks/useScrollToTopButton';
 import { useAuth } from '../../hooks/useAuth';
 import {
@@ -82,7 +77,9 @@ interface DiscoverScreenProps {
     onOpenUserProfile: (profile: { userId: string; username: string; avatarUrl?: string }) => void;
     onOpenChat: (chat: api.Chat) => void;
     onOpenRecoveryMeeting: (meeting: api.RecoveryMeeting) => void;
-    onDatingSurfaceOpenChange?: (open: boolean) => void;
+    onOpenDatingLikes?: () => void;
+    onOpenDatingMatches?: () => void;
+    onOpenDatingProfileEditor?: () => void;
 }
 
 type DiscoverLocationState =
@@ -552,41 +549,15 @@ function formatCompactCount(count: number): string {
     return count > 99 ? '99+' : String(count);
 }
 
-const OPTIMISTIC_DATING_PHOTO_ID_PREFIX = 'optimistic-dating-photo-';
-const DEFAULT_OPTIMISTIC_DATING_PHOTO_WIDTH = 1080;
-const DEFAULT_OPTIMISTIC_DATING_PHOTO_HEIGHT = 1350;
-
-function createOptimisticDatingPhoto(asset: ImagePicker.ImagePickerAsset, currentPhotos: api.DatingPhoto[]): api.DatingPhoto {
-    return {
-        id: `${OPTIMISTIC_DATING_PHOTO_ID_PREFIX}${Date.now()}-${Math.random().toString(36).slice(2)}`,
-        image_url: asset.uri,
-        width: asset.width ?? DEFAULT_OPTIMISTIC_DATING_PHOTO_WIDTH,
-        height: asset.height ?? DEFAULT_OPTIMISTIC_DATING_PHOTO_HEIGHT,
-        position: currentPhotos.reduce((max, photo) => Math.max(max, photo.position), -1) + 1,
-        created_at: new Date().toISOString(),
-    };
-}
-
-function mergeDatingProfilePhotos(profile: api.DatingProfile | null, pendingPhotos: api.DatingPhoto[]): api.DatingProfile | null {
-    if (!profile || pendingPhotos.length === 0) return profile;
-    const mergedPhotos = [...profile.photos];
-    const mergedIds = new Set(mergedPhotos.map((photo) => photo.id));
-    pendingPhotos.forEach((photo) => {
-        if (!mergedIds.has(photo.id)) {
-            mergedPhotos.push(photo);
-        }
-    });
-    return { ...profile, photos: mergedPhotos };
-}
-
-function findUploadedDatingPhoto(profile: api.DatingProfile, previousPhotoIds: Set<string>, optimisticPhoto: api.DatingPhoto): api.DatingPhoto | null {
-    return profile.photos.find((photo) => !previousPhotoIds.has(photo.id))
-        ?? profile.photos.find((photo) => photo.position === optimisticPhoto.position)
-        ?? profile.photos[profile.photos.length - 1]
-        ?? null;
-}
-
-export function DiscoverScreen({ isActive, onOpenUserProfile, onOpenChat, onOpenRecoveryMeeting, onDatingSurfaceOpenChange }: DiscoverScreenProps) {
+export function DiscoverScreen({
+    isActive,
+    onOpenUserProfile,
+    onOpenChat,
+    onOpenRecoveryMeeting,
+    onOpenDatingLikes,
+    onOpenDatingMatches,
+    onOpenDatingProfileEditor,
+}: DiscoverScreenProps) {
     const { user } = useAuth();
     const queryClient = useQueryClient();
     const hasActivated = useLazyActivation(isActive);
@@ -600,64 +571,19 @@ export function DiscoverScreen({ isActive, onOpenUserProfile, onOpenChat, onOpen
     const [friendedIds, setFriendedIds] = useState<Set<string>>(new Set());
     const [dismissedDatingIds, setDismissedDatingIds] = useState<Set<string>>(new Set());
     const [pendingDatingActionIds, setPendingDatingActionIds] = useState<Set<string>>(new Set());
-    const [unmatchingDatingIds, setUnmatchingDatingIds] = useState<Set<string>>(new Set());
-    const [deletingDatingPhotoIds, setDeletingDatingPhotoIds] = useState<Set<string>>(new Set());
-    const [pendingDatingPhotoUploads, setPendingDatingPhotoUploads] = useState<api.DatingPhoto[]>([]);
-    const [datingPhotoPreviewUris, setDatingPhotoPreviewUris] = useState<Record<string, string>>({});
     const [matchModal, setMatchModal] = useState<{ match: api.DatingMatch; chatId?: string | null } | null>(null);
-    const [datingLikesOpen, setDatingLikesOpen] = useState(false);
-    const [datingMatchesOpen, setDatingMatchesOpen] = useState(false);
-    const [datingProfileEditorOpen, setDatingProfileEditorOpen] = useState(false);
-    const [datingProfileSaveSuccess, setDatingProfileSaveSuccess] = useState<string | null>(null);
     const [selectedDatingProfile, setSelectedDatingProfile] = useState<api.DatingProfile | null>(null);
     const [openingMatchChat, setOpeningMatchChat] = useState(false);
     const loggedDatingSetupStartedRef = useRef(false);
-    const datingProfileSaveSuccessTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const listRef = useRef<FlatList<api.User>>(null);
     const discoverScrollToTop = useScrollToTopButton({ threshold: 520 });
     const datingEnabled = user?.connection_intents?.includes('dating') ?? false;
     const datingProfileQuery = useDatingProfile(hasActivated && datingEnabled);
-    const updateDatingProfileMutation = useUpdateDatingProfile();
-    const uploadDatingProfilePhotoMutation = useUploadDatingProfilePhoto();
-    const deleteDatingProfilePhotoMutation = useDeleteDatingProfilePhoto();
-    const reorderDatingProfilePhotosMutation = useReorderDatingProfilePhotos();
-    const unmatchDatingMatchMutation = useUnmatchDatingMatch();
-    const markDatingMatchesSeenMutation = useMarkDatingMatchesSeen();
     const datingProfile = datingProfileQuery.data ?? null;
-    const datingProfileForEditor = useMemo(
-        () => mergeDatingProfilePhotos(datingProfile, pendingDatingPhotoUploads),
-        [datingProfile, pendingDatingPhotoUploads],
-    );
     const datingProfileReady = Boolean(datingProfile?.completed_at) && !datingProfile?.paused;
-    const datingLikesEntitled = user?.is_plus === true;
 
     const logDatingEvent = useCallback((event: api.DatingEventInput): void => {
         void api.logDatingEvents([{ ...event, event_at: new Date().toISOString() }]).catch(() => {});
-    }, []);
-
-    const clearDatingProfileSaveSuccess = useCallback((): void => {
-        if (datingProfileSaveSuccessTimerRef.current) {
-            clearTimeout(datingProfileSaveSuccessTimerRef.current);
-            datingProfileSaveSuccessTimerRef.current = null;
-        }
-        setDatingProfileSaveSuccess(null);
-    }, []);
-
-    const showDatingProfileSaveSuccess = useCallback((message: string): void => {
-        if (datingProfileSaveSuccessTimerRef.current) {
-            clearTimeout(datingProfileSaveSuccessTimerRef.current);
-        }
-        setDatingProfileSaveSuccess(message);
-        datingProfileSaveSuccessTimerRef.current = setTimeout(() => {
-            setDatingProfileSaveSuccess(null);
-            datingProfileSaveSuccessTimerRef.current = null;
-        }, 3500);
-    }, []);
-
-    useEffect(() => () => {
-        if (datingProfileSaveSuccessTimerRef.current) {
-            clearTimeout(datingProfileSaveSuccessTimerRef.current);
-        }
     }, []);
 
     const {
@@ -693,22 +619,6 @@ export function DiscoverScreen({ isActive, onOpenUserProfile, onOpenChat, onOpen
     }, [activeTab, datingEnabled]);
 
     useEffect(() => {
-        if (!isActive || activeTab !== 'dating') {
-            setDatingLikesOpen(false);
-            setDatingMatchesOpen(false);
-            setDatingProfileEditorOpen(false);
-        }
-    }, [activeTab, isActive]);
-
-    useEffect(() => {
-        const datingSurfaceOpen = isActive
-            && activeTab === 'dating'
-            && (datingLikesOpen || datingMatchesOpen || datingProfileEditorOpen || !datingProfileReady);
-        onDatingSurfaceOpenChange?.(datingSurfaceOpen);
-        return () => onDatingSurfaceOpenChange?.(false);
-    }, [activeTab, datingLikesOpen, datingMatchesOpen, datingProfileEditorOpen, datingProfileReady, isActive, onDatingSurfaceOpenChange]);
-
-    useEffect(() => {
         if (draftFilters.intent === 'dating') {
             setDraftFilters((current) => current.intent === 'dating'
                 ? { ...current, intent: 'any' }
@@ -737,12 +647,6 @@ export function DiscoverScreen({ isActive, onOpenUserProfile, onOpenChat, onOpen
         setAppliedState,
         setDraftFilters,
     ]);
-
-    useEffect(() => {
-        if (isActive && activeTab === 'dating' && datingLikesOpen && datingProfileReady && !datingLikesEntitled) {
-            logDatingEvent({ event_type: 'likes_you_gate_viewed' });
-        }
-    }, [activeTab, datingLikesEntitled, datingLikesOpen, datingProfileReady, isActive, logDatingEvent]);
 
     useEffect(() => {
         if (isActive && activeTab === 'dating' && !datingProfileReady && !loggedDatingSetupStartedRef.current) {
@@ -851,7 +755,6 @@ export function DiscoverScreen({ isActive, onOpenUserProfile, onOpenChat, onOpen
         (datingEffectiveApiFilters.distanceKm ?? DISCOVER_DEFAULT_DISTANCE_KM) <= 0
         || locationState.status === 'available'
     ));
-    const datingLikesQuery = useDatingLikes({ limit: 20 }, hasActivated && isDatingTab && datingProfileReady && datingLikesEntitled);
     const datingLikesPreviewQuery = useDatingLikesPreview(hasActivated && isDatingTab && datingProfileReady);
     const datingMatchesQuery = useDatingMatches({ limit: 20 }, hasActivated && isDatingTab && datingProfileReady);
     const showSearchLoadingState = isSearchPending || (isSearching && hasCommittedSearch && discoverQuery.isLoading);
@@ -862,12 +765,7 @@ export function DiscoverScreen({ isActive, onOpenUserProfile, onOpenChat, onOpen
         () => (datingQuery.profiles ?? []).filter((profile) => !dismissedDatingIds.has(profile.id)),
         [datingQuery.profiles, dismissedDatingIds],
     );
-    const displayedDatingLikes = useMemo(
-        () => (datingLikesQuery.profiles ?? []).filter((profile) => !dismissedDatingIds.has(profile.id)),
-        [datingLikesQuery.profiles, dismissedDatingIds],
-    );
-    const datingLikesCount = Math.max(datingLikesPreviewQuery.data?.exact_count ?? 0, displayedDatingLikes.length);
-    const displayedDatingMatches = datingMatchesQuery.matches ?? [];
+    const datingLikesCount = datingLikesPreviewQuery.data?.exact_count ?? 0;
     const datingMatchesUnseenCount = datingMatchesQuery.unseenCount;
 
     const handleFriend = useCallback(async (id: string) => {
@@ -1036,38 +934,6 @@ export function DiscoverScreen({ isActive, onOpenUserProfile, onOpenChat, onOpen
         }
     }, [logDatingEvent, matchModal, onOpenChat]);
 
-    const handleOpenDatingMatchChat = useCallback(async (match: api.DatingMatch): Promise<void> => {
-        if (!match.chat_id) {
-            setSelectedDatingProfile(match.profile);
-            return;
-        }
-
-        try {
-            const chat = await api.getChat(match.chat_id);
-            logDatingEvent({ event_type: 'chat_opened', match_id: match.id, profile_id: match.profile.id });
-            onOpenChat(chat);
-        } catch (error: unknown) {
-            appAlert.alert('Could not open chat', error instanceof Error ? error.message : 'Please try again.');
-        }
-    }, [logDatingEvent, onOpenChat]);
-
-    const handleUnmatchDatingMatch = useCallback((match: api.DatingMatch): void => {
-        setUnmatchingDatingIds((current) => new Set([...current, match.id]));
-        logDatingEvent({ event_type: 'unmatch', match_id: match.id, profile_id: match.profile.id });
-        unmatchDatingMatchMutation.mutate(match.id, {
-            onError: (error: unknown) => {
-                appAlert.alert('Could not unmatch', error instanceof Error ? error.message : 'Please try again.');
-            },
-            onSettled: () => {
-                setUnmatchingDatingIds((current) => {
-                    const next = new Set(current);
-                    next.delete(match.id);
-                    return next;
-                });
-            },
-        });
-    }, [logDatingEvent, unmatchDatingMatchMutation]);
-
     const handleReportDatingProfile = useCallback((profile: api.DatingProfile): void => {
         if (!profile.user_id) return;
         appAlert.alert('Report profile', 'Choose the closest reason.', [
@@ -1119,97 +985,6 @@ export function DiscoverScreen({ isActive, onOpenUserProfile, onOpenChat, onOpen
             ],
         );
     }, [logDatingEvent, queryClient]);
-
-    const handleSaveDatingProfile = useCallback((input: api.UpdateDatingProfileInput): void => {
-        clearDatingProfileSaveSuccess();
-        updateDatingProfileMutation.mutate(input, {
-            onSuccess: (profile) => {
-                if (input.complete && profile.completed_at) {
-                    logDatingEvent({ event_type: 'setup_completed' });
-                    showDatingProfileSaveSuccess('Dating profile complete. You are now visible in Dating.');
-                    return;
-                }
-                showDatingProfileSaveSuccess(input.paused === undefined ? 'Dating profile saved.' : 'Dating profile updated.');
-            },
-            onError: (error: unknown) => {
-                appAlert.alert('Could not save Dating profile', error instanceof Error ? error.message : 'Please try again.');
-            },
-        });
-    }, [clearDatingProfileSaveSuccess, logDatingEvent, showDatingProfileSaveSuccess, updateDatingProfileMutation]);
-
-    const handlePickDatingPhoto = useCallback(async (): Promise<void> => {
-        const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-        if (!permission.granted) {
-            appAlert.alert('Permission required', 'Allow photo library access to add a Dating photo.');
-            return;
-        }
-        const result = await ImagePicker.launchImageLibraryAsync({
-            mediaTypes: ['images'],
-            quality: 0.8,
-        });
-        if (result.canceled || !result.assets[0]) return;
-        const asset = result.assets[0];
-        const optimisticPhoto = createOptimisticDatingPhoto(asset, datingProfileForEditor?.photos ?? []);
-        const previousPhotoIds = new Set((datingProfile?.photos ?? []).map((photo) => photo.id));
-        setPendingDatingPhotoUploads((current) => [...current, optimisticPhoto]);
-
-        requestAnimationFrame(() => {
-            uploadDatingProfilePhotoMutation.mutate({
-                uri: asset.uri,
-                mimeType: asset.mimeType ?? 'image/jpeg',
-                fileName: asset.fileName ?? 'dating-photo.jpg',
-                width: asset.width,
-                height: asset.height,
-                optimisticPhotoId: optimisticPhoto.id,
-            }, {
-                onError: (error: unknown) => {
-                    setPendingDatingPhotoUploads((current) => current.filter((photo) => photo.id !== optimisticPhoto.id));
-                    appAlert.alert('Could not upload photo', error instanceof Error ? error.message : 'Please try again.');
-                },
-                onSuccess: (profile) => {
-                    const uploadedPhoto = findUploadedDatingPhoto(profile, previousPhotoIds, optimisticPhoto);
-                    if (uploadedPhoto) {
-                        setDatingPhotoPreviewUris((current) => ({
-                            ...current,
-                            [uploadedPhoto.id]: optimisticPhoto.image_url,
-                        }));
-                        void Image.prefetch(uploadedPhoto.image_url).finally(() => {
-                            setDatingPhotoPreviewUris((current) => {
-                                const next = { ...current };
-                                delete next[uploadedPhoto.id];
-                                return next;
-                            });
-                        });
-                    }
-                    setPendingDatingPhotoUploads((current) => current.filter((photo) => photo.id !== optimisticPhoto.id));
-                },
-            });
-        });
-    }, [datingProfile, datingProfileForEditor, uploadDatingProfilePhotoMutation]);
-
-    const handleDeleteDatingPhoto = useCallback((photoId: string): void => {
-        setDeletingDatingPhotoIds((current) => new Set([...current, photoId]));
-        deleteDatingProfilePhotoMutation.mutate(photoId, {
-            onError: (error: unknown) => {
-                appAlert.alert('Could not remove photo', error instanceof Error ? error.message : 'Please try again.');
-            },
-            onSettled: () => {
-                setDeletingDatingPhotoIds((current) => {
-                    const next = new Set(current);
-                    next.delete(photoId);
-                    return next;
-                });
-            },
-        });
-    }, [deleteDatingProfilePhotoMutation]);
-
-    const handleReorderDatingPhotos = useCallback((photoIds: string[]): void => {
-        reorderDatingProfilePhotosMutation.mutate(photoIds, {
-            onError: (error: unknown) => {
-                appAlert.alert('Could not reorder photos', error instanceof Error ? error.message : 'Please try again.');
-            },
-        });
-    }, [reorderDatingProfilePhotosMutation]);
 
     const resultsHeading = getResultsHeading(isSearching, hasAppliedFilters, appliedState.broadened, isDatingTab);
     const noResultsCopy = getNoResultsCopy(
@@ -1301,121 +1076,14 @@ export function DiscoverScreen({ isActive, onOpenUserProfile, onOpenChat, onOpen
     if (isDatingTab && !datingProfileReady) {
         return (
             <View style={styles.container}>
-                <DatingProfileEditorScreen
-                    profile={datingProfileForEditor}
-                    loading={datingProfileQuery.isLoading}
-                    saving={updateDatingProfileMutation.isPending}
-                    photoPreviewUris={datingPhotoPreviewUris}
-                    reorderingPhotos={reorderDatingProfilePhotosMutation.isPending}
-                    deletingPhotoIds={deletingDatingPhotoIds}
-                    saveSuccessMessage={datingProfileSaveSuccess}
-                    onBack={() => setActiveTab('friends')}
-                    onSave={handleSaveDatingProfile}
-                    onPickPhoto={() => void handlePickDatingPhoto()}
-                    onDeletePhoto={handleDeleteDatingPhoto}
-                    onReorderPhotos={handleReorderDatingPhotos}
-                />
-            </View>
-        );
-    }
-
-    if (isDatingTab && datingProfileEditorOpen) {
-        return (
-            <View style={styles.container}>
-                <DatingProfileEditorScreen
-                    profile={datingProfileForEditor}
-                    loading={datingProfileQuery.isLoading}
-                    saving={updateDatingProfileMutation.isPending}
-                    photoPreviewUris={datingPhotoPreviewUris}
-                    reorderingPhotos={reorderDatingProfilePhotosMutation.isPending}
-                    deletingPhotoIds={deletingDatingPhotoIds}
-                    saveSuccessMessage={datingProfileSaveSuccess}
-                    onBack={() => setDatingProfileEditorOpen(false)}
-                    onSave={handleSaveDatingProfile}
-                    onPickPhoto={() => void handlePickDatingPhoto()}
-                    onDeletePhoto={handleDeleteDatingPhoto}
-                    onReorderPhotos={handleReorderDatingPhotos}
-                />
-            </View>
-        );
-    }
-
-    if (isDatingTab && datingLikesOpen) {
-        return (
-            <View style={styles.container}>
-                {!datingLikesEntitled ? (
-                    <View style={styles.datingGateScreen}>
-                        <DiscoverEmptyState
-                            title={datingLikesCount > 0 ? `${datingLikesCount} liked you` : 'See who likes you'}
-                            description="Likes You is ready for SoberSpace Plus. You can keep discovering matches now, and this list unlocks when Plus is active."
-                            primaryLabel="Back to Dating"
-                            onPrimaryPress={() => setDatingLikesOpen(false)}
-                        />
-                    </View>
-                ) : (
-                    <DatingLikesScreen
-                        likes={displayedDatingLikes}
-                        loading={datingLikesQuery.isLoading}
-                        fetchingNext={datingLikesQuery.isFetchingNextPage}
-                        hasNextPage={Boolean(datingLikesQuery.hasNextPage)}
-                        pendingActionIds={pendingDatingActionIds}
-                        onBack={() => setDatingLikesOpen(false)}
-                        onLike={(profile) => void handleDatingAction(profile, 'like')}
-                        onPass={(profile) => void handleDatingAction(profile, 'pass')}
-                        onOpenProfile={(profile) => {
-                            setDatingLikesOpen(false);
-                            handleOpenDatingProfile(profile);
-                        }}
-                        onLoadMore={() => {
-                            if (datingLikesQuery.hasNextPage && !datingLikesQuery.isFetchingNextPage) {
-                                void datingLikesQuery.fetchNextPage();
-                            }
-                        }}
-                    />
-                )}
-
-                <MatchModal
-                    visible={matchModal !== null}
-                    match={matchModal?.match ?? null}
-                    openingChat={openingMatchChat}
-                    onClose={() => setMatchModal(null)}
-                    onOpenChat={() => void handleOpenMatchChat()}
-                />
-                <DatingProfileDetailModal
-                    profile={selectedDatingProfile}
-                    onClose={() => setSelectedDatingProfile(null)}
-                    onReport={handleReportDatingProfile}
-                    onBlock={handleBlockDatingProfile}
-                />
-            </View>
-        );
-    }
-
-    if (isDatingTab && datingMatchesOpen) {
-        return (
-            <View style={styles.container}>
-                <DatingMatchesScreen
-                    matches={displayedDatingMatches}
-                    loading={datingMatchesQuery.isLoading}
-                    fetchingNext={datingMatchesQuery.isFetchingNextPage}
-                    hasNextPage={Boolean(datingMatchesQuery.hasNextPage)}
-                    unmatchingIds={unmatchingDatingIds}
-                    onBack={() => setDatingMatchesOpen(false)}
-                    onOpenChat={(match) => void handleOpenDatingMatchChat(match)}
-                    onOpenProfile={handleOpenDatingProfile}
-                    onUnmatch={handleUnmatchDatingMatch}
-                    onLoadMore={() => {
-                        if (datingMatchesQuery.hasNextPage && !datingMatchesQuery.isFetchingNextPage) {
-                            void datingMatchesQuery.fetchNextPage();
-                        }
-                    }}
-                />
-
-                <DatingProfileDetailModal
-                    profile={selectedDatingProfile}
-                    onClose={() => setSelectedDatingProfile(null)}
-                    onReport={handleReportDatingProfile}
-                    onBlock={handleBlockDatingProfile}
+                {surfaceTabs}
+                <DiscoverEmptyState
+                    title={datingProfileQuery.isLoading ? 'Loading Dating' : 'Set up Dating'}
+                    description="Complete your Dating profile before people can discover you."
+                    primaryLabel="Complete profile"
+                    onPrimaryPress={() => onOpenDatingProfileEditor?.()}
+                    secondaryLabel="Back to friends"
+                    onSecondaryPress={() => setActiveTab('friends')}
                 />
             </View>
         );
@@ -1428,7 +1096,7 @@ export function DiscoverScreen({ isActive, onOpenUserProfile, onOpenChat, onOpen
                     style={styles.datingCompactButton}
                     onPress={() => {
                         setFilterSheetVisible(false);
-                        setDatingLikesOpen(true);
+                        onOpenDatingLikes?.();
                     }}
                     activeOpacity={0.85}
                     accessibilityRole="button"
@@ -1451,10 +1119,7 @@ export function DiscoverScreen({ isActive, onOpenUserProfile, onOpenChat, onOpen
                     style={styles.datingCompactButton}
                     onPress={() => {
                         setFilterSheetVisible(false);
-                        setDatingLikesOpen(false);
-                        setDatingProfileEditorOpen(false);
-                        markDatingMatchesSeenMutation.mutate();
-                        setDatingMatchesOpen(true);
+                        onOpenDatingMatches?.();
                     }}
                     activeOpacity={0.85}
                     accessibilityRole="button"
@@ -1477,9 +1142,7 @@ export function DiscoverScreen({ isActive, onOpenUserProfile, onOpenChat, onOpen
                     style={styles.datingCompactButton}
                     onPress={() => {
                         setFilterSheetVisible(false);
-                        setDatingLikesOpen(false);
-                        setDatingMatchesOpen(false);
-                        setDatingProfileEditorOpen(true);
+                        onOpenDatingProfileEditor?.();
                     }}
                     activeOpacity={0.85}
                     accessibilityRole="button"

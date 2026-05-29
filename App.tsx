@@ -1,44 +1,14 @@
 import React from 'react';
-import { View, ActivityIndicator } from 'react-native';
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
-import { AuthProvider, useAuth } from './src/hooks/useAuth';
-import { AuthNavigator } from './src/navigation/AuthNavigator';
-import { AppNavigator } from './src/navigation/AppNavigator';
-import { OnboardingNavigator } from './src/navigation/OnboardingNavigator';
-import { ChatRealtimeProvider } from './src/hooks/chat/ChatRealtimeProvider';
-import { NotificationProvider } from './src/notifications/NotificationProvider';
+import { AuthProvider } from './src/hooks/useAuth';
+import { RootNavigation } from './src/navigation/RootNavigation';
 import { AppPopupProvider } from './src/components/ui/AppPopupProvider';
 import { asyncStoragePersister } from './src/query/asyncStoragePersister';
 import { queryClient } from './src/query/queryClient';
-import { Colors } from './src/theme';
 import { StatusBar } from 'expo-status-bar';
-
-// Chooses between the authenticated app shell and the auth flow once session state is resolved.
-function RootNavigator() {
-    const { isAuthenticated, isLoading, isNewUser } = useAuth();
-
-    if (isLoading) {
-        return (
-            <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.bg.page }}>
-                <ActivityIndicator color={Colors.primary} />
-            </View>
-        );
-    }
-
-    if (!isAuthenticated) return <AuthNavigator />;
-    if (isNewUser) return <OnboardingNavigator />;
-
-    return (
-        <ChatRealtimeProvider>
-            <NotificationProvider>
-                <AppNavigator />
-            </NotificationProvider>
-        </ChatRealtimeProvider>
-    );
-}
 
 // Mounts the global providers required by every screen in the app.
 export default function App() {
@@ -59,7 +29,7 @@ export default function App() {
                     >
                         <AuthProvider>
                             <AppPopupProvider>
-                                <RootNavigator />
+                                <RootNavigation />
                             </AppPopupProvider>
                         </AuthProvider>
                     </PersistQueryClientProvider>
