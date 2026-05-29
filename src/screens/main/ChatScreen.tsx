@@ -24,6 +24,7 @@ import {
 } from '../../vendor/giftedChat';
 import { Ionicons } from '@expo/vector-icons';
 import { ChatHeader } from './chat/ChatHeader';
+import type { CardActionMenuAction } from '../../components/ui/CardActionMenu';
 import { composerStandards } from '../../styles/composerStandards';
 import {
     ChatGiftedMessage,
@@ -127,6 +128,54 @@ export function ChatScreen({ chat, onBack }: ChatScreenProps) {
         setDismissedSupportContextIds((current) => new Set(current).add(supportContextDismissKey));
     }, [supportContextDismissKey]);
 
+    const reportChat = useCallback((): void => {
+        appAlert.alert('Report chat?', 'This sends the conversation to the moderation team.', [
+            { text: 'Cancel', style: 'cancel' },
+            {
+                text: 'Report',
+                style: 'destructive',
+                onPress: () => {
+                    void api.reportContent({
+                        target_type: 'chat',
+                        target_id: supportChat.id,
+                        reason: 'safety_concern',
+                    }).then(() => {
+                        appAlert.alert('Report sent', 'Thanks for helping keep SoberSpace safe.');
+                    }).catch((error: unknown) => {
+                        appAlert.alert('Report failed', error instanceof Error ? error.message : 'Please try again.');
+                    });
+                },
+            },
+        ]);
+    }, [supportChat.id]);
+
+    const reportMessage = useCallback((message: ChatGiftedMessage): void => {
+        if (String(message.user._id) === user?.id) return;
+        appAlert.alert('Report message?', 'This sends the message to the moderation team.', [
+            { text: 'Cancel', style: 'cancel' },
+            {
+                text: 'Report',
+                style: 'destructive',
+                onPress: () => {
+                    void api.reportContent({
+                        target_type: 'message',
+                        target_id: String(message._id),
+                        reason: 'safety_concern',
+                        context: { chat_id: supportChat.id },
+                    }).then(() => {
+                        appAlert.alert('Report sent', 'Thanks for helping keep SoberSpace safe.');
+                    }).catch((error: unknown) => {
+                        appAlert.alert('Report failed', error instanceof Error ? error.message : 'Please try again.');
+                    });
+                },
+            },
+        ]);
+    }, [supportChat.id, user?.id]);
+
+    const headerActions = useMemo<CardActionMenuAction[]>(() => ([
+        { label: 'Report chat', destructive: true, onPress: reportChat },
+    ]), [reportChat]);
+
     return (
         <View style={styles.container}>
             <View onLayout={handleHeaderLayout}>
@@ -134,6 +183,7 @@ export function ChatScreen({ chat, onBack }: ChatScreenProps) {
                     chat={supportChat}
                     displayName={displayName}
                     onBack={onBack}
+                    actions={headerActions}
                 />
                 {supportContext && showSupportContext ? (
                     <View style={styles.supportContextCard}>
@@ -217,6 +267,7 @@ export function ChatScreen({ chat, onBack }: ChatScreenProps) {
                             keyboardVerticalOffset,
                         }}
                         renderAvatar={null}
+                        onLongPressMessage={(_context, message) => reportMessage(message)}
                         renderBubble={(props) => {
                             const messageUser = props.currentMessage.user;
                             const avatarUrl = typeof messageUser.avatar === 'string' ? messageUser.avatar : undefined;

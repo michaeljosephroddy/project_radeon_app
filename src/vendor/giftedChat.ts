@@ -128,6 +128,7 @@ export interface GiftedChatProps<TMessage extends GiftedChatMessage> {
     renderDay?: (props: DayProps) => React.ReactNode;
     renderInputToolbar?: (props: InputToolbarProps<TMessage>) => React.ReactNode;
     renderAvatar?: ((props: { currentMessage: TMessage; position?: 'left' | 'right' }) => React.ReactNode) | null;
+    onLongPressMessage?: (context: unknown, message: TMessage) => void;
     renderLoading?: () => React.ReactNode;
     renderChatEmpty?: () => React.ReactNode;
 }

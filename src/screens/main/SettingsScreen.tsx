@@ -2,6 +2,7 @@ import { appAlert } from '@/components/ui/appAlert';
 import React, { useState } from 'react';
 import {
     Modal,
+    Linking,
     ScrollView,
     StyleSheet,
     Switch,
@@ -18,6 +19,7 @@ import { TextField } from '../../components/ui/TextField';
 import { useAuth } from '../../hooks/useAuth';
 import { screenStandards } from '../../styles/screenStandards';
 import { Colors, Radius, Spacing, Typography } from '../../theme';
+import { LEGAL_LINKS, type LegalLink } from '../../utils/legalLinks';
 
 interface SettingsScreenProps {
     onBack: () => void;
@@ -88,6 +90,14 @@ export function SettingsScreen({
         }
     };
 
+    const openLegalLink = async (link: LegalLink): Promise<void> => {
+        try {
+            await Linking.openURL(link.url);
+        } catch {
+            appAlert.alert('Could not open link', link.url);
+        }
+    };
+
     return (
         <SafeAreaView style={styles.container} edges={['bottom']}>
             <ScreenHeader onBack={onBack} title="Settings" />
@@ -131,6 +141,26 @@ export function SettingsScreen({
                     </TouchableOpacity>
                 </View>
                 <View style={screenStandards.sectionLabelBlockTight}>
+                    <SectionLabel>LEGAL & SUPPORT</SectionLabel>
+                </View>
+                <View style={styles.group}>
+                    <TouchableOpacity style={styles.row} onPress={() => { void openLegalLink(LEGAL_LINKS.terms); }}>
+                        <Text style={styles.rowText}>{LEGAL_LINKS.terms.label}</Text>
+                    </TouchableOpacity>
+                    <View style={styles.divider} />
+                    <TouchableOpacity style={styles.row} onPress={() => { void openLegalLink(LEGAL_LINKS.privacy); }}>
+                        <Text style={styles.rowText}>{LEGAL_LINKS.privacy.label}</Text>
+                    </TouchableOpacity>
+                    <View style={styles.divider} />
+                    <TouchableOpacity style={styles.row} onPress={() => { void openLegalLink(LEGAL_LINKS.guidelines); }}>
+                        <Text style={styles.rowText}>{LEGAL_LINKS.guidelines.label}</Text>
+                    </TouchableOpacity>
+                    <View style={styles.divider} />
+                    <TouchableOpacity style={styles.row} onPress={() => { void openLegalLink(LEGAL_LINKS.support); }}>
+                        <Text style={styles.rowText}>{LEGAL_LINKS.support.label}</Text>
+                    </TouchableOpacity>
+                </View>
+                <View style={screenStandards.sectionLabelBlockTight}>
                     <SectionLabel>FEED</SectionLabel>
                 </View>
                 <View style={styles.group}>
@@ -166,7 +196,7 @@ export function SettingsScreen({
                     <View style={styles.confirmPanel}>
                         <Text style={styles.confirmTitle}>Delete account</Text>
                         <Text style={styles.confirmCopy}>
-                            This will permanently deactivate your account, remove your private profile details, and sign you out.
+                            This permanently deletes your account access, removes your private profile details, and signs you out.
                         </Text>
                         <Text style={styles.confirmPrompt}>Type delete to confirm.</Text>
                         <TextField

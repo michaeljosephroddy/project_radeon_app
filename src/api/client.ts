@@ -787,6 +787,23 @@ export interface ChatRealtimeServerEvent {
 export type UserGender = 'woman' | 'man' | 'non_binary';
 export type ConnectionIntent = 'friends' | 'dating';
 export type UserReportReason = 'unwanted_advances' | 'harassment' | 'spam' | 'safety_concern' | 'other';
+export type ContentReportTargetType =
+    | 'feed_post'
+    | 'feed_share'
+    | 'feed_comment'
+    | 'feed_share_comment'
+    | 'chat'
+    | 'message';
+
+export type ContentReportReason =
+    | 'harassment'
+    | 'spam'
+    | 'safety_concern'
+    | 'hate'
+    | 'sexual_content'
+    | 'violence'
+    | 'self_harm'
+    | 'other';
 export type DiscoverSobrietyFilter = 'days_30' | 'days_90' | 'years_1' | 'years_5';
 export type DiscoverRelaxedField = 'distance' | 'age' | 'interests' | 'intent' | 'sobriety';
 export type DiscoverTooNarrowField = DiscoverRelaxedField | 'gender';
@@ -1706,6 +1723,19 @@ export async function getFeedItemComments(itemId: string, itemKind: FeedItemKind
         ...page,
         items: (page.items ?? []).map(normalizeComment),
     };
+}
+
+export async function reportContent(input: {
+    target_type: ContentReportTargetType;
+    target_id: string;
+    reason: ContentReportReason;
+    details?: string;
+    context?: Record<string, unknown>;
+}): Promise<void> {
+    await request('/reports', {
+        method: 'POST',
+        body: JSON.stringify(input),
+    });
 }
 
 // ── Meetups ────────────────────────────────────────────────────────────────

@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Avatar } from '../../../components/Avatar';
 import { ScreenHeader } from '../../../components/ui/ScreenHeader';
+import { CardActionMenu, type CardActionMenuAction } from '../../../components/ui/CardActionMenu';
 import * as api from '../../../api/client';
 import { Colors, Typography, Spacing } from '../../../theme';
 
@@ -9,9 +10,10 @@ interface ChatHeaderProps {
     chat: api.Chat;
     displayName: string;
     onBack: () => void;
+    actions?: CardActionMenuAction[];
 }
 
-export function ChatHeader({ chat, displayName, onBack }: ChatHeaderProps) {
+export function ChatHeader({ chat, displayName, onBack, actions }: ChatHeaderProps) {
     return (
         <ScreenHeader
             onBack={onBack}
@@ -26,6 +28,7 @@ export function ChatHeader({ chat, displayName, onBack }: ChatHeaderProps) {
                     <Text style={styles.headerName} numberOfLines={1}>{displayName}</Text>
                 </View>
             )}
+            trailing={actions?.length ? <CardActionMenu actions={actions} /> : null}
         />
     );
 }

@@ -4,7 +4,9 @@ import {
     View, Text, TouchableOpacity,
     StyleSheet, KeyboardAvoidingView, Platform,
     ScrollView,
+    Linking,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { PrimaryButton } from '../../components/ui/PrimaryButton';
@@ -12,6 +14,8 @@ import { TextField } from '../../components/ui/TextField';
 import { useAuth } from '../../hooks/useAuth';
 import { Colors, Typography, Spacing } from '../../theme';
 import { screenStandards } from '../../styles/screenStandards';
+import { isAtLeastAge, parseBirthDate } from '../../utils/age';
+import { LEGAL_LINKS } from '../../utils/legalLinks';
 
 interface RegisterScreenProps {
     onGoToLogin: () => void;
@@ -24,7 +28,9 @@ export function RegisterScreen({ onGoToLogin }: RegisterScreenProps) {
         username: '',
         email: '',
         password: '',
+        birthDate: '',
     });
+    const [acceptedPolicies, setAcceptedPolicies] = useState(false);
     const [loading, setLoading] = useState(false);
 
     // Build small field setters on demand so each input can stay declarative without
@@ -36,14 +42,28 @@ export function RegisterScreen({ onGoToLogin }: RegisterScreenProps) {
     // Validates and submits the registration form.
     const handleRegister = async () => {
         if (!form.username || !form.email || !form.password) {
-            appAlert.alert('Missing fields', 'Please fill in your username, email and password.');
+            appAlert.alert('Missing fields', 'Please fill in your username, email, password and birth date.');
+            return;
+        }
+        if (!parseBirthDate(form.birthDate)) {
+            appAlert.alert('Invalid birth date', 'Enter your birth date as YYYY-MM-DD.');
+            return;
+        }
+        if (!isAtLeastAge(form.birthDate, 18)) {
+            appAlert.alert('Age requirement', 'You must be 18 or older to create an account.');
+            return;
+        }
+        if (!acceptedPolicies) {
+            appAlert.alert('Terms required', 'Please accept the Terms of Use and Community Guidelines.');
             return;
         }
         setLoading(true);
         try {
             await register({
-                ...form,
+                username: form.username,
                 email: form.email.trim().toLowerCase(),
+                password: form.password,
+                birth_date: form.birthDate.trim(),
             });
         } catch (e: unknown) {
             appAlert.alert('Registration failed', e instanceof Error ? e.message : 'Something went wrong.');
@@ -85,6 +105,32 @@ export function RegisterScreen({ onGoToLogin }: RegisterScreenProps) {
                     <TextField style={styles.input} placeholder="••••••••"
                         placeholderTextColor={Colors.text.muted}
                         secureTextEntry value={form.password} onChangeText={set('password')} />
+
+                    <Text style={styles.label}>Birth date</Text>
+                    <TextField style={styles.input} placeholder="YYYY-MM-DD"
+                        placeholderTextColor={Colors.text.muted}
+                        keyboardType="numbers-and-punctuation"
+                        value={form.birthDate} onChangeText={set('birthDate')} />
+
+                    <TouchableOpacity
+                        style={styles.policyRow}
+                        onPress={() => setAcceptedPolicies((current) => !current)}
+                    >
+                        <View style={[styles.checkbox, acceptedPolicies && styles.checkboxSelected]}>
+                            {acceptedPolicies ? <Ionicons name="checkmark" size={14} color={Colors.textOn.primary} /> : null}
+                        </View>
+                        <Text style={styles.policyText}>
+                            I agree to the{' '}
+                            <Text style={styles.policyLink} onPress={() => { void Linking.openURL(LEGAL_LINKS.terms.url); }}>
+                                Terms of Use
+                            </Text>
+                            {' '}and{' '}
+                            <Text style={styles.policyLink} onPress={() => { void Linking.openURL(LEGAL_LINKS.guidelines.url); }}>
+                                Community Guidelines
+                            </Text>
+                            .
+                        </Text>
+                    </TouchableOpacity>
 
                     <PrimaryButton
                         label="Create account"
@@ -132,6 +178,35 @@ const styles = StyleSheet.create({
         marginTop: Spacing.sm,
     },
     input: { fontSize: Typography.sizes.md },
+    policyRow: {
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        gap: Spacing.sm,
+        marginTop: Spacing.lg,
+    },
+    checkbox: {
+        width: 22,
+        height: 22,
+        borderWidth: 1,
+        borderColor: Colors.border.default,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginTop: 1,
+    },
+    checkboxSelected: {
+        borderColor: Colors.primary,
+        backgroundColor: Colors.primary,
+    },
+    policyText: {
+        flex: 1,
+        fontSize: Typography.sizes.sm,
+        lineHeight: 20,
+        color: Colors.text.secondary,
+    },
+    policyLink: {
+        color: Colors.primary,
+        fontWeight: '700',
+    },
     btn: { marginTop: Spacing.lg },
     switchLink: { alignItems: 'center', marginTop: Spacing.lg },
     switchText: { fontSize: Typography.sizes.base, color: Colors.text.muted },

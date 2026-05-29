@@ -21,6 +21,7 @@ import { formatReadableTimestamp } from '../../utils/date';
 import { formatUsername } from '../../utils/identity';
 import { composerStandards } from '../../styles/composerStandards';
 import { CommentDisplayModel, CommentThreadAdapter, CommentThreadUserProfile } from './commentTypes';
+import { CardActionMenu, type CardActionMenuAction } from '../ui/CardActionMenu';
 
 const INITIAL_VISIBLE = 20;
 const PAGE_VISIBLE = 20;
@@ -38,6 +39,7 @@ export interface CommentThreadProps {
     focusComposer: boolean;
     onPressUser: (profile: CommentThreadUserProfile) => void;
     onCommentCreated?: (comment: CommentDisplayModel) => void;
+    getCommentActions?: (comment: CommentDisplayModel) => CardActionMenuAction[];
 }
 
 function isMentionBodyChar(ch: string): boolean {
@@ -166,9 +168,11 @@ function renderCommentBody(
 const CommentItem = React.memo(function CommentItem({
     comment,
     onPressUser,
+    actions,
 }: {
     comment: CommentDisplayModel;
     onPressUser: (profile: CommentThreadUserProfile) => void;
+    actions?: CardActionMenuAction[];
 }) {
     return (
         <View style={styles.commentRow}>
@@ -176,8 +180,11 @@ const CommentItem = React.memo(function CommentItem({
             <View style={styles.commentBodyWrap}>
                 <View style={styles.commentBubble}>
                     <View style={styles.commentHeader}>
-                        <Text style={styles.commentAuthor}>{formatUsername(comment.username)}</Text>
-                        <Text style={styles.commentMeta}>{formatReadableTimestamp(comment.createdAt)}</Text>
+                        <View style={styles.commentHeaderCopy}>
+                            <Text style={styles.commentAuthor}>{formatUsername(comment.username)}</Text>
+                            <Text style={styles.commentMeta}>{formatReadableTimestamp(comment.createdAt)}</Text>
+                        </View>
+                        {actions?.length ? <CardActionMenu actions={actions} /> : null}
                     </View>
                     <Text style={styles.commentBody}>
                         {renderCommentBody(comment, onPressUser)}
@@ -202,6 +209,7 @@ export function CommentThread({
     focusComposer,
     onPressUser,
     onCommentCreated,
+    getCommentActions,
 }: CommentThreadProps): React.ReactElement {
     const insets = useSafeAreaInsets();
     const inputRef = useRef<TextInput>(null);
@@ -372,9 +380,9 @@ export function CommentThread({
 
     const renderComment = useCallback(
         ({ item }: { item: CommentDisplayModel }) => (
-            <CommentItem comment={item} onPressUser={onPressUser} />
+            <CommentItem comment={item} onPressUser={onPressUser} actions={getCommentActions?.(item)} />
         ),
-        [onPressUser],
+        [getCommentActions, onPressUser],
     );
 
     const keyExtractor = useCallback((item: CommentDisplayModel) => item.id, []);
@@ -551,8 +559,17 @@ const styles = StyleSheet.create({
     commentHeader: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 6,
+        justifyContent: 'space-between',
+        gap: Spacing.sm,
         marginBottom: 2,
+    },
+    commentHeaderCopy: {
+        flex: 1,
+        minWidth: 0,
+        flexDirection: 'row',
+        alignItems: 'baseline',
+        flexWrap: 'wrap',
+        gap: 6,
     },
     commentAuthor: {
         ...TextStyles.commentAuthor,
