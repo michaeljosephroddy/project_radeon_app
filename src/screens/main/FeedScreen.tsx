@@ -556,6 +556,30 @@ export function FeedScreen({
         })();
     }, [logFeedEvent, queryClient]);
 
+    const handleReportItem = useCallback((item: api.FeedItem): void => {
+        appAlert.alert('Report post?', 'This sends the content to the moderation team.', [
+            { text: 'Cancel', style: 'cancel' },
+            {
+                text: 'Report',
+                style: 'destructive',
+                onPress: () => {
+                    void api.reportContent({
+                        target_type: item.kind === 'reshare' ? 'feed_share' : 'feed_post',
+                        target_id: item.id,
+                        reason: 'safety_concern',
+                        context: item.kind === 'reshare' && item.original_post
+                            ? { original_post_id: item.original_post.post_id }
+                            : undefined,
+                    }).then(() => {
+                        appAlert.alert('Report sent', 'Thanks for helping keep SoberSpace safe.');
+                    }).catch((error: unknown) => {
+                        appAlert.alert('Report failed', error instanceof Error ? error.message : 'Please try again.');
+                    });
+                },
+            },
+        ]);
+    }, []);
+
     const getItemActions = useCallback((item: api.FeedItem): CardActionMenuAction[] => {
         const isOwnAuthor = item.author.user_id === currentUserId;
         const actions: CardActionMenuAction[] = [
@@ -563,13 +587,17 @@ export function FeedScreen({
         ];
         if (!isOwnAuthor) {
             actions.push({
+                label: 'Report',
+                destructive: true,
+                onPress: () => handleReportItem(item),
+            }, {
                 label: `Mute ${formatUsername(item.author.username)}`,
                 destructive: true,
                 onPress: () => handleMuteAuthor(item),
             });
         }
         return actions;
-    }, [currentUserId, handleHideItem, handleMuteAuthor]);
+    }, [currentUserId, handleHideItem, handleMuteAuthor, handleReportItem]);
 
     const handleLocalReactionChange = useCallback((item: api.FeedItem, reacted: boolean) => {
         markVisibleItemInteraction(item, { wasLiked: reacted, wasClicked: true });

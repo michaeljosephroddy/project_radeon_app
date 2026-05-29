@@ -684,6 +684,28 @@ function GroupPostsTab({
         );
     }, [deletePostMutation]);
 
+    const handleReportPost = useCallback((post: api.GroupPost): void => {
+        appAlert.alert('Report post?', 'This sends the post to group moderators.', [
+            { text: 'Cancel', style: 'cancel' },
+            {
+                text: 'Report',
+                style: 'destructive',
+                onPress: () => {
+                    void api.reportGroupTarget(groupId, {
+                        target_type: 'post',
+                        target_id: post.id,
+                        reason: 'Safety concern',
+                        details: null,
+                    }).then(() => {
+                        appAlert.alert('Report sent', 'Thanks for helping keep this group safe.');
+                    }).catch((error: unknown) => {
+                        appAlert.alert('Report failed', error instanceof Error ? error.message : 'Please try again.');
+                    });
+                },
+            },
+        ]);
+    }, [groupId]);
+
     const findSupportPost = useCallback((request: api.SupportRequest): api.GroupPost | undefined => (
         posts.find((post) => post.support_request?.id === request.id || post.support_request_id === request.id)
     ), [posts]);
@@ -788,10 +810,15 @@ function GroupPostsTab({
                 post={groupPostToPostDisplayModel(item, user?.id ?? '')}
                 onReact={() => reactionMutation.mutate(item.id)}
                 onOpenComments={() => onOpenComments(item)}
-                actions={group.can_moderate_content ? [
-                    { label: item.pinned_at ? 'Unpin' : 'Pin', onPress: () => { void handlePinPost(item); } },
-                    { label: 'Remove', destructive: true, onPress: () => handleDeletePost(item) },
-                ] : undefined}
+                actions={[
+                    ...(group.can_moderate_content ? [
+                        { label: item.pinned_at ? 'Unpin' : 'Pin', onPress: () => { void handlePinPost(item); } },
+                        { label: 'Remove', destructive: true, onPress: () => handleDeletePost(item) },
+                    ] : []),
+                    ...(item.user_id !== user?.id ? [
+                        { label: 'Report', destructive: true, onPress: () => handleReportPost(item) },
+                    ] : []),
+                ]}
             />
         );
     }, [
@@ -799,6 +826,7 @@ function GroupPostsTab({
         handleCloseSupportRequest,
         handleDeletePost,
         handlePinPost,
+        handleReportPost,
         handleSupportPrimaryAction,
         isCommunitySupport,
         onOpenComments,

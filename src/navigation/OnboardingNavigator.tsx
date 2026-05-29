@@ -3,7 +3,6 @@ import { useAuth } from '../hooks/useAuth';
 import { WelcomeStep } from '../screens/onboarding/WelcomeStep';
 import { PhotoStep } from '../screens/onboarding/PhotoStep';
 import { IdentityStep } from '../screens/onboarding/IdentityStep';
-import { IdentityVerificationStep } from '../screens/onboarding/IdentityVerificationStep';
 import { SobrietyStep } from '../screens/onboarding/SobrietyStep';
 import { LocationStep } from '../screens/onboarding/LocationStep';
 import { InterestsStep } from '../screens/onboarding/InterestsStep';
@@ -17,7 +16,7 @@ export interface OnboardingStepProps {
     dotTotal: number;
 }
 
-const DOT_TOTAL = 7;
+const DOT_TOTAL = 6;
 
 export function OnboardingNavigator() {
     const { completeOnboarding } = useAuth();
@@ -38,11 +37,10 @@ export function OnboardingNavigator() {
         case 0: return <WelcomeStep onNext={next} />;
         case 1: return <PhotoStep onNext={next} onBack={back} {...dotProps(1)} />;
         case 2: return <IdentityStep onNext={next} onBack={back} {...dotProps(2)} />;
-        case 3: return <IdentityVerificationStep onNext={next} onBack={back} {...dotProps(3)} />;
-        case 4: return <SobrietyStep onNext={next} onBack={back} {...dotProps(4)} />;
-        case 5: return <LocationStep onNext={next} onBack={back} {...dotProps(5)} />;
-        case 6: return <InterestsStep onNext={next} onBack={back} {...dotProps(6)} />;
-        case 7: return <IntentStep onNext={finish} onBack={back} {...dotProps(7)} />;
+        case 3: return <SobrietyStep onNext={next} onBack={back} {...dotProps(3)} />;
+        case 4: return <LocationStep onNext={next} onBack={back} {...dotProps(4)} />;
+        case 5: return <InterestsStep onNext={next} onBack={back} {...dotProps(5)} />;
+        case 6: return <IntentStep onNext={finish} onBack={back} {...dotProps(6)} />;
         default: return null;
     }
 }

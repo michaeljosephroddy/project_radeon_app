@@ -11,6 +11,14 @@ npx expo start
 ```
 
 Create a `.env` at the repo root and set `EXPO_PUBLIC_API_URL` to your backend URL (see [API URL](#api-url)).
+For store builds, also set:
+
+```bash
+EXPO_PUBLIC_TERMS_URL=https://soberspace.app/terms
+EXPO_PUBLIC_PRIVACY_URL=https://soberspace.app/privacy
+EXPO_PUBLIC_COMMUNITY_GUIDELINES_URL=https://soberspace.app/community-guidelines
+EXPO_PUBLIC_SUPPORT_URL=https://soberspace.app/support
+```
 
 Then press:
 - `i` — open iOS simulator
