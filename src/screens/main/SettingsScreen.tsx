@@ -18,7 +18,7 @@ import { SectionLabel } from '../../components/ui/SectionLabel';
 import { TextField } from '../../components/ui/TextField';
 import { useAuth } from '../../hooks/useAuth';
 import { screenStandards } from '../../styles/screenStandards';
-import { Colors, Radius, Spacing, Typography } from '../../theme';
+import { Colors, Radius, Spacing, TargetSizes, TextStyles } from '../../theme';
 import { LEGAL_LINKS, type LegalLink } from '../../utils/legalLinks';
 
 interface SettingsScreenProps {
@@ -253,19 +253,17 @@ const styles = StyleSheet.create({
     rowCopy: {
         flex: 1,
     },
-    rowText: { fontSize: Typography.sizes.base, color: Colors.text.primary },
+    rowText: { ...TextStyles.rowTitle },
     divider: {
         height: StyleSheet.hairlineWidth,
         backgroundColor: Colors.border.default,
     },
     rowDescription: {
         marginTop: Spacing.xs,
-        fontSize: Typography.sizes.sm,
-        lineHeight: 18,
-        color: Colors.text.secondary,
+        ...TextStyles.rowDescription,
     },
-    logoutText: { fontSize: Typography.sizes.base, color: Colors.danger },
-    deleteText: { fontSize: Typography.sizes.base, color: Colors.danger },
+    logoutText: { ...TextStyles.rowTitle, color: Colors.danger },
+    deleteText: { ...TextStyles.rowTitle, color: Colors.danger },
     modalOverlay: {
         flex: 1,
         backgroundColor: Colors.overlay,
@@ -281,21 +279,17 @@ const styles = StyleSheet.create({
         padding: Spacing.lg,
     },
     confirmTitle: {
-        fontSize: Typography.sizes.xl,
-        fontWeight: Typography.weights.bold,
+        ...TextStyles.sectionTitle,
         color: Colors.text.primary,
     },
     confirmCopy: {
         marginTop: Spacing.sm,
-        fontSize: Typography.sizes.base,
-        lineHeight: 22,
-        color: Colors.text.secondary,
+        ...TextStyles.body,
     },
     confirmPrompt: {
         marginTop: Spacing.lg,
         marginBottom: Spacing.sm,
-        fontSize: Typography.sizes.sm,
-        color: Colors.text.primary,
+        ...TextStyles.label,
     },
     confirmInput: {
         width: '100%',
@@ -307,13 +301,13 @@ const styles = StyleSheet.create({
         gap: Spacing.sm,
     },
     cancelButton: {
-        minHeight: 44,
+        minHeight: TargetSizes.minimum,
         paddingHorizontal: Spacing.md,
         alignItems: 'center',
         justifyContent: 'center',
     },
     cancelText: {
-        fontSize: Typography.sizes.base,
+        ...TextStyles.button,
         color: Colors.text.secondary,
     },
     deleteButton: {

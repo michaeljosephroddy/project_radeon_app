@@ -23,7 +23,7 @@ import { useRecoveryMeetings } from '../../../hooks/queries/useRecoveryMeetings'
 import { useScrollToTopButton } from '../../../hooks/useScrollToTopButton';
 import * as api from '../../../api/client';
 import { screenStandards } from '../../../styles/screenStandards';
-import { Colors, Radius, Spacing, Typography } from '../../../theme';
+import { Colors, IconSizes, Radius, Spacing, Typography } from '../../../theme';
 import { getListPerformanceProps } from '../../../utils/listPerformance';
 import { getDeviceCoords, getPlaceLocationCandidates, reverseGeocodePlace, type ReverseGeocodedPlace } from '../../../utils/location';
 import { setRecoveryMeetingFiltersRouteState } from '../../../navigation/filterRouteStores';
@@ -381,10 +381,10 @@ export function MeetingsView({ isActive, onOpenMeeting }: MeetingsViewProps) {
                         returnKeyType: 'search',
                     }}
                     style={styles.searchBar}
-                    leading={<Ionicons name="search-outline" size={18} color={Colors.text.muted} />}
+                    leading={<Ionicons name="search-outline" size={IconSizes.row} color={Colors.text.muted} />}
                 />
                 <TouchableOpacity style={styles.filterButton} onPress={handleOpenFilters} activeOpacity={0.86}>
-                    <Ionicons name="options-outline" size={20} color={Colors.text.primary} />
+                    <Ionicons name="options-outline" size={IconSizes.tool} color={Colors.text.primary} />
                     {activeFilterChips.length ? (
                         <View style={styles.filterBadge}>
                             <Text style={styles.filterBadgeText}>{activeFilterChips.length}</Text>
@@ -402,14 +402,14 @@ export function MeetingsView({ isActive, onOpenMeeting }: MeetingsViewProps) {
                             activeOpacity={0.85}
                         >
                             <Text style={styles.activeChipText}>{chip.label}</Text>
-                            <Ionicons name="close" size={14} color={Colors.primary} />
+                            <Ionicons name="close" size={IconSizes.badge} color={Colors.primary} />
                         </TouchableOpacity>
                     ))}
                 </ScrollView>
             ) : null}
             {localStatusText ? (
                 <View style={styles.localStatusRow}>
-                    <Ionicons name="navigate-outline" size={14} color={Colors.text.muted} />
+                    <Ionicons name="navigate-outline" size={IconSizes.badge} color={Colors.text.muted} />
                     <Text style={styles.localStatusText}>{localStatusText}</Text>
                 </View>
             ) : null}

@@ -8,7 +8,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { bindAppAlertHandler, type AppAlertButton, type AppAlertPayload } from './appAlert';
-import { Colors, ControlSizes, Radius, Spacing, TextStyles } from '../../theme';
+import { Colors, ControlSizes, IconSizes, Radius, Spacing, TextStyles } from '../../theme';
 
 interface QueuedAlert extends AppAlertPayload {
     id: number;
@@ -82,7 +82,7 @@ export function AppPopupProvider({ children }: AppPopupProviderProps): React.Rea
                     />
                     <View style={styles.dialog}>
                         <View style={styles.iconWrap}>
-                            <Ionicons name={iconName} size={22} color={iconColor} />
+                            <Ionicons name={iconName} size={IconSizes.tool} color={iconColor} />
                         </View>
                         <Text style={styles.title}>{activeAlert?.title ?? ''}</Text>
                         {activeAlert?.message ? <Text style={styles.message}>{activeAlert.message}</Text> : null}

@@ -4,6 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 import {
   Colors,
   ControlSizes,
+  IconSizes,
   Radius,
   Spacing,
 } from "../../../theme";
@@ -28,7 +29,7 @@ export function ComposerToolbar({
       >
         <Ionicons
           name={hasImage ? "image" : "image-outline"}
-          size={22}
+          size={IconSizes.header}
           color={Colors.primary}
         />
       </TouchableOpacity>

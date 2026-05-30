@@ -12,7 +12,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as api from '../../api/client';
 import { queryKeys } from '../../query/queryKeys';
-import { Colors, ContentInsets, ControlSizes, Radius, Spacing, TextStyles, Typography } from '../../theme';
+import { Colors, ContentInsets, ControlSizes, IconSizes, Radius, Spacing, TextStyles, Typography } from '../../theme';
 
 type CreateActionKey = 'post' | 'support_request' | 'meetup' | 'group';
 
@@ -107,7 +107,7 @@ export function CreateMenuScreen({
                     accessibilityLabel="Close create menu"
                     hitSlop={10}
                 >
-                    <Ionicons name="arrow-back" size={26} color={Colors.primary} />
+                    <Ionicons name="arrow-back" size={IconSizes.header} color={Colors.primary} />
                 </TouchableOpacity>
                 <Text style={styles.title}>Create</Text>
                 <View style={styles.headerButton} />
@@ -128,13 +128,13 @@ export function CreateMenuScreen({
                         onPress={() => handleActionPress(action)}
                     >
                         <View style={styles.iconWrap}>
-                            <Ionicons name={action.icon} size={22} color={Colors.primary} />
+                            <Ionicons name={action.icon} size={IconSizes.tool} color={Colors.primary} />
                         </View>
                         <View style={styles.actionCopy}>
                             <Text style={styles.actionTitle}>{action.title}</Text>
                             <Text style={styles.actionDescription}>{action.description}</Text>
                         </View>
-                        <Ionicons name="chevron-forward" size={18} color={Colors.text.muted} />
+                        <Ionicons name="chevron-forward" size={IconSizes.row} color={Colors.text.muted} />
                     </Pressable>
                 ))}
             </View>

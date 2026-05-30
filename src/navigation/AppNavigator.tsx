@@ -27,7 +27,7 @@ import { Avatar } from '../components/Avatar';
 import { CenterCreateButton } from '../components/create/CenterCreateButton';
 import type { ProfileContentTabKey } from '../components/profile/ProfileContentTabs';
 import * as api from '../api/client';
-import { Colors, ControlSizes, Radius, Spacing, TextStyles, Typography } from '../theme';
+import { AvatarSizes, Colors, ControlSizes, IconSizes, Radius, Spacing, TargetSizes, TextStyles, Typography } from '../theme';
 import { useAuth } from '../hooks/useAuth';
 import { useNotificationSummary } from '../hooks/queries/useNotificationSummary';
 import { useNotificationIntent } from '../notifications/NotificationProvider';
@@ -113,7 +113,7 @@ function MainTabFrame({
                         accessibilityRole="button"
                         accessibilityLabel="Open notifications"
                     >
-                        <Ionicons name="notifications-outline" size={22} color={Colors.text.primary} />
+                        <Ionicons name="notifications-outline" size={IconSizes.tool} color={Colors.text.primary} />
                         {notificationCount > 0 ? (
                             <View style={styles.notificationBadge}>
                                 <Text style={styles.notificationBadgeText}>{badgeLabel(notificationCount)}</Text>
@@ -129,8 +129,8 @@ function MainTabFrame({
                         <Avatar
                             username={user?.username ?? 'me'}
                             avatarUrl={user?.avatar_url}
-                            size={34}
-                            fontSize={12}
+                            size={AvatarSizes.comment}
+                            fontSize={TextStyles.caption.fontSize}
                         />
                     </TouchableOpacity>
                 </View>
@@ -335,7 +335,7 @@ function MainTabBar({
             >
                 <Ionicons
                     name={active ? tab.iconActive : tab.icon}
-                    size={22}
+                    size={IconSizes.tool}
                     color={active ? Colors.primary : Colors.text.muted}
                 />
                 <Text style={[styles.tabLabel, active && styles.tabLabelActive]}>
@@ -759,8 +759,7 @@ const styles = StyleSheet.create({
         backgroundColor: Colors.bg.page,
     },
     wordmark: {
-        fontSize: Typography.sizes.xl,
-        fontWeight: '500',
+        ...TextStyles.sectionTitle,
         color: Colors.text.primary,
     },
     wordmarkAccent: {
@@ -812,17 +811,17 @@ const styles = StyleSheet.create({
     tabItem: {
         flex: 1,
         alignItems: 'center',
-        gap: 4,
-        minHeight: 44,
+        gap: Spacing.xs,
+        minHeight: TargetSizes.minimum,
     },
     createTabSlot: {
         width: 74,
         alignItems: 'center',
-        minHeight: 44,
+        minHeight: TargetSizes.minimum,
         overflow: 'visible',
     },
     tabLabel: {
-        fontSize: Typography.sizes.sm,
+        ...TextStyles.caption,
         color: Colors.text.muted,
     },
     tabLabelActive: {

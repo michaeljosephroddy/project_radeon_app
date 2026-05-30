@@ -26,7 +26,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { resetInfiniteQueryToFirstPage } from '../../query/infiniteQueryPolicy';
 import { queryKeys } from '../../query/queryKeys';
 import { getListPerformanceProps } from '../../utils/listPerformance';
-import { Colors, Typography, Spacing, Radius, ContentInsets, TextStyles } from '../../theme';
+import { AvatarSizes, Colors, IconSizes, Typography, Spacing, Radius, ContentInsets, TextStyles } from '../../theme';
 import { formatUsername } from '../../utils/identity';
 import { dedupeById } from '../../utils/list';
 import { formatReadableTimestamp } from '../../utils/date';
@@ -112,7 +112,7 @@ const ReshareCard = React.memo(function ReshareCard({
         <View style={styles.postCard}>
             <View style={styles.postHead}>
                 <TouchableOpacity onPress={handlePressResharer}>
-                    <Avatar username={item.author.username} avatarUrl={item.author.avatar_url ?? undefined} size={44} />
+                    <Avatar username={item.author.username} avatarUrl={item.author.avatar_url ?? undefined} size={AvatarSizes.list} />
                 </TouchableOpacity>
                 <View style={styles.postHeadBody}>
                     <View style={styles.postTitleRow}>
@@ -131,7 +131,7 @@ const ReshareCard = React.memo(function ReshareCard({
             <View style={styles.reshareEmbed}>
                 <View style={styles.reshareEmbedHead}>
                     <TouchableOpacity onPress={handlePressOriginalAuthor}>
-                        <Avatar username={originalPost.author.username} avatarUrl={originalPost.author.avatar_url ?? undefined} size={36} fontSize={12} />
+                        <Avatar username={originalPost.author.username} avatarUrl={originalPost.author.avatar_url ?? undefined} size={AvatarSizes.compact} fontSize={TextStyles.caption.fontSize} />
                     </TouchableOpacity>
                     <View style={styles.postHeadBody}>
                         <Text style={styles.reshareOriginalName}>{formatUsername(originalPost.author.username)}</Text>
@@ -152,7 +152,7 @@ const ReshareCard = React.memo(function ReshareCard({
                 <TouchableOpacity style={styles.postAction} onPress={handleReact}>
                     <Ionicons
                         name={liked ? 'heart' : 'heart-outline'}
-                        size={16}
+                        size={IconSizes.inline}
                         color={liked ? Colors.danger : Colors.text.muted}
                     />
                     <Text style={[styles.postActionText, liked && styles.liked]}>
@@ -162,7 +162,7 @@ const ReshareCard = React.memo(function ReshareCard({
                 <TouchableOpacity style={styles.postAction} onPress={handleOpenComments}>
                     <Ionicons
                         name="chatbubble-outline"
-                        size={15}
+                        size={IconSizes.inline}
                         color={Colors.text.muted}
                     />
                     <Text style={styles.postActionText}>
@@ -173,7 +173,7 @@ const ReshareCard = React.memo(function ReshareCard({
                     <TouchableOpacity style={styles.postAction} onPress={handleShare}>
                         <Ionicons
                             name="repeat-outline"
-                            size={16}
+                            size={IconSizes.inline}
                             color={Colors.text.muted}
                         />
                         <Text style={styles.postActionText}>Share</Text>
@@ -939,8 +939,8 @@ const styles = StyleSheet.create({
     postName: { ...TextStyles.cardTitle },
     postContent: { paddingHorizontal: Spacing.md, paddingBottom: Spacing.sm },
     postMeta: { ...TextStyles.meta },
-    postSource: { fontSize: Typography.sizes.xs, fontWeight: '600', color: Colors.primary, marginTop: 2 },
-    reshareLabel: { fontSize: Typography.sizes.xs, color: Colors.primary, fontWeight: '600' },
+    postSource: { ...TextStyles.caption, color: Colors.primary, marginTop: 2 },
+    reshareLabel: { ...TextStyles.caption, color: Colors.primary },
     postBody: { ...TextStyles.postBody },
     reshareImage: {
         alignSelf: 'stretch',
@@ -960,13 +960,12 @@ const styles = StyleSheet.create({
         paddingHorizontal: Spacing.sm,
         paddingVertical: 4,
         backgroundColor: Colors.primarySubtle,
+        ...TextStyles.caption,
         color: Colors.primary,
-        fontSize: Typography.sizes.xs,
-        fontWeight: '700',
     },
-    postFoot: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: Spacing.md, paddingVertical: 10 },
-    postAction: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-    postActionText: { fontSize: Typography.sizes.sm, color: Colors.text.muted },
+    postFoot: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md + 2, paddingHorizontal: Spacing.md, paddingVertical: 10 },
+    postAction: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
+    postActionText: { ...TextStyles.secondary, color: Colors.text.muted },
     liked: { color: Colors.danger },
     reshareEmbed: {
         marginHorizontal: Spacing.md,

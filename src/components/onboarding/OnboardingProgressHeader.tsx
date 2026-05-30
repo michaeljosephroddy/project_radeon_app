@@ -1,7 +1,7 @@
 import React from 'react';
 import { StyleSheet, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors, Spacing } from '../../theme';
+import { Colors, IconSizes, Spacing } from '../../theme';
 
 interface OnboardingProgressHeaderProps {
     dotIndex: number;
@@ -15,7 +15,7 @@ export function OnboardingProgressHeader({ dotIndex, dotTotal, onBack }: Onboard
             <View style={styles.side}>
                 {onBack ? (
                     <TouchableOpacity style={styles.backButton} onPress={onBack} accessibilityLabel="Go back">
-                        <Ionicons name="chevron-back" size={22} color={Colors.text.primary} />
+                        <Ionicons name="chevron-back" size={IconSizes.tool} color={Colors.text.primary} />
                     </TouchableOpacity>
                 ) : null}
             </View>

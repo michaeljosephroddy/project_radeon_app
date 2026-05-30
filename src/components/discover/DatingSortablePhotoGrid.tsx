@@ -19,7 +19,7 @@ import Animated, {
     withSpring,
 } from 'react-native-reanimated';
 import * as api from '../../api/client';
-import { Colors, Radius, Spacing, TextStyles, Typography } from '../../theme';
+import { Colors, IconSizes, Radius, Spacing, TextStyles, Typography } from '../../theme';
 
 interface DatingSortablePhotoGridProps {
     photos: api.DatingPhoto[];
@@ -181,7 +181,7 @@ export function DatingSortablePhotoGrid({
                             accessibilityRole="button"
                             accessibilityLabel="Add dating profile photo"
                         >
-                            <Ionicons name="add" size={24} color={Colors.primary} />
+                            <Ionicons name="add" size={IconSizes.header} color={Colors.primary} />
                             <Text style={styles.addTileText}>Add</Text>
                         </Pressable>
                     </View>
@@ -304,7 +304,7 @@ function SortablePhotoTile({
                 >
                     {isDeleting
                         ? <ActivityIndicator size="small" color={Colors.text.secondary} />
-                        : <Ionicons name="trash-outline" size={18} color={Colors.text.secondary} />}
+                        : <Ionicons name="trash-outline" size={IconSizes.row} color={Colors.text.secondary} />}
                 </Pressable>
                 <GestureDetector gesture={gesture}>
                     <Animated.View
@@ -312,7 +312,7 @@ function SortablePhotoTile({
                         accessibilityRole="button"
                         accessibilityLabel={`Drag to reorder ${isMainPhoto ? 'main photo' : `photo ${index + 1}`}`}
                     >
-                        <Ionicons name="reorder-three-outline" size={20} color={Colors.textOn.primary} />
+                        <Ionicons name="reorder-three-outline" size={IconSizes.tool} color={Colors.textOn.primary} />
                     </Animated.View>
                 </GestureDetector>
                 {isUploading ? (

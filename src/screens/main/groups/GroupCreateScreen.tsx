@@ -16,7 +16,7 @@ import { CreateFlowFrame } from '../../../components/ui/CreateFlowFrame';
 import { SegmentedControl } from '../../../components/ui/SegmentedControl';
 import { TextField } from '../../../components/ui/TextField';
 import { useCreateGroupMutation } from '../../../hooks/queries/useGroups';
-import { Colors, ControlSizes, Radius, Spacing, TextStyles } from '../../../theme';
+import { Colors, ControlSizes, IconSizes, Radius, Spacing, TextStyles } from '../../../theme';
 
 interface GroupCreateScreenProps {
     onBack: () => void;
@@ -288,13 +288,13 @@ export function GroupCreateScreen({
                     <Image source={{ uri: selectedImage.localImage.uri }} style={styles.imagePreview} />
                 ) : (
                     <View style={styles.imagePlaceholder}>
-                        <Ionicons name="image-outline" size={30} color={Colors.primary} />
+                        <Ionicons name="image-outline" size={IconSizes.primaryAction} color={Colors.primary} />
                         <Text style={styles.imagePlaceholderTitle}>Add group image</Text>
                         <Text style={styles.imagePlaceholderText}>Use a photo or graphic that members will recognize.</Text>
                     </View>
                 )}
                 <View style={styles.imageOverlayButton}>
-                    <Ionicons name={selectedImage ? 'camera-outline' : 'add'} size={17} color={Colors.textOn.primary} />
+                    <Ionicons name={selectedImage ? 'camera-outline' : 'add'} size={IconSizes.inline} color={Colors.textOn.primary} />
                     <Text style={styles.imageOverlayText}>{selectedImage ? 'Replace' : 'Upload'}</Text>
                 </View>
             </TouchableOpacity>
@@ -435,7 +435,7 @@ export function GroupCreateScreen({
                         <Image source={{ uri: selectedImage.localImage.uri }} style={styles.reviewImage} />
                     ) : (
                         <View style={styles.reviewImageFallback}>
-                            <Ionicons name="people-outline" size={30} color={Colors.primary} />
+                            <Ionicons name="people-outline" size={IconSizes.primaryAction} color={Colors.primary} />
                         </View>
                     )}
                     <View style={styles.reviewHeroBody}>
@@ -468,7 +468,7 @@ export function GroupCreateScreen({
                         activeOpacity={0.84}
                         disabled={isCreating}
                     >
-                        {currentStepIndex > 0 ? <Ionicons name="chevron-back" size={18} color={Colors.primary} /> : null}
+                        {currentStepIndex > 0 ? <Ionicons name="chevron-back" size={IconSizes.row} color={Colors.primary} /> : null}
                         <Text style={styles.backButtonText}>{currentStepIndex > 0 ? 'Back' : 'Cancel'}</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
@@ -482,7 +482,7 @@ export function GroupCreateScreen({
                         ) : (
                             <>
                                 <Text style={styles.primaryButtonText}>{currentStep === 'review' ? 'Create group' : 'Next'}</Text>
-                                <Ionicons name="chevron-forward" size={18} color={Colors.textOn.primary} />
+                                <Ionicons name="chevron-forward" size={IconSizes.row} color={Colors.textOn.primary} />
                             </>
                         )}
                     </TouchableOpacity>
@@ -504,7 +504,7 @@ export function GroupCreateScreen({
                     </View>
                     <View style={styles.stepTitleRow}>
                         <View style={styles.stepIcon}>
-                            <Ionicons name={GROUP_CREATE_STEPS[currentStepIndex]?.icon ?? 'people-outline'} size={18} color={Colors.primary} />
+                            <Ionicons name={GROUP_CREATE_STEPS[currentStepIndex]?.icon ?? 'people-outline'} size={IconSizes.row} color={Colors.primary} />
                         </View>
                         <View style={styles.stepCopy}>
                             <Text style={styles.stepTitle}>{GROUP_CREATE_STEPS[currentStepIndex]?.label ?? 'Group'}</Text>

@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors, Spacing, Typography } from '../../theme';
+import { Colors, IconSizes, Spacing, TextStyles } from '../../theme';
 import { ProfileContentTabKey } from './ProfileContentTabs';
 
 export interface ProfileEmptyTabStateProps {
@@ -45,7 +45,7 @@ export function ProfileEmptyTabState({ tab, username }: ProfileEmptyTabStateProp
     return (
         <View style={styles.container}>
             <View style={styles.iconWrap}>
-                <Ionicons name={copy.icon} size={24} color={Colors.text.muted} />
+                <Ionicons name={copy.icon} size={IconSizes.header} color={Colors.text.muted} />
             </View>
             <Text style={styles.title}>{copy.title}</Text>
             <Text style={styles.body}>{copy.body}</Text>
@@ -71,16 +71,14 @@ const styles = StyleSheet.create({
         marginBottom: Spacing.md,
     },
     title: {
-        fontSize: Typography.sizes.base,
-        fontWeight: '700',
+        ...TextStyles.bodyEmphasis,
         color: Colors.text.primary,
         marginBottom: Spacing.xs,
         textAlign: 'center',
     },
     body: {
-        fontSize: Typography.sizes.sm,
+        ...TextStyles.secondary,
         color: Colors.text.muted,
-        lineHeight: 19,
         textAlign: 'center',
     },
 });

@@ -14,7 +14,7 @@ import { DiscoverEmptyState } from './DiscoverEmptyState';
 import { ScreenHeader } from '../ui/ScreenHeader';
 import * as api from '../../api/client';
 import { formatUsername } from '../../utils/identity';
-import { Colors, ContentInsets, Radius, Spacing, TextStyles, Typography } from '../../theme';
+import { AvatarSizes, Colors, ContentInsets, IconSizes, Radius, Spacing, TextStyles, Typography } from '../../theme';
 
 interface DatingMatchesScreenProps {
     matches: api.DatingMatch[];
@@ -120,8 +120,8 @@ function DatingMatchRow({
                 <Avatar
                     username={profile.username}
                     avatarUrl={(profile.photos ?? [])[0]?.image_url}
-                    size={58}
-                    fontSize={20}
+                    size={AvatarSizes.feature}
+                    fontSize={TextStyles.sectionTitle.fontSize}
                 />
                 <View style={styles.rowText}>
                     <Text style={styles.rowName} numberOfLines={1}>{nameLabel}</Text>
@@ -136,7 +136,7 @@ function DatingMatchRow({
                     accessibilityRole="button"
                     accessibilityLabel={`Open chat with ${formatUsername(profile.username)}`}
                 >
-                    <Ionicons name="chatbubble-outline" size={19} color={Colors.text.primary} />
+                    <Ionicons name="chatbubble-outline" size={IconSizes.tool} color={Colors.text.primary} />
                 </TouchableOpacity>
                 <TouchableOpacity
                     style={[styles.iconButton, styles.unmatchButton]}
@@ -149,7 +149,7 @@ function DatingMatchRow({
                     {unmatching ? (
                         <ActivityIndicator color={Colors.danger} size="small" />
                     ) : (
-                        <Ionicons name="close" size={20} color={Colors.danger} />
+                        <Ionicons name="close" size={IconSizes.tool} color={Colors.danger} />
                     )}
                 </TouchableOpacity>
             </View>

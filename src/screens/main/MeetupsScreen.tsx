@@ -46,7 +46,7 @@ import { queryKeys } from '../../query/queryKeys';
 import { MeetupReviewScreen } from './MeetupReviewScreen';
 import { dedupeById } from '../../utils/list';
 import { getListPerformanceProps } from '../../utils/listPerformance';
-import { Colors, ContentInsets, Radius, Spacing, Typography } from '../../theme';
+import { Colors, ContentInsets, IconSizes, Radius, Spacing, Typography } from '../../theme';
 import { screenStandards } from '../../styles/screenStandards';
 
 type MeetupPrimaryView = 'discover' | 'hosting' | 'going' | 'create';
@@ -930,10 +930,10 @@ export function MeetupsScreen({
                         returnKeyType: 'search',
                     }}
                     style={styles.searchBar}
-                    leading={<Ionicons name="search-outline" size={18} color={Colors.text.muted} />}
+                    leading={<Ionicons name="search-outline" size={IconSizes.row} color={Colors.text.muted} />}
                 />
                 <TouchableOpacity style={styles.filterButton} onPress={handleOpenFilters} activeOpacity={0.86}>
-                    <Ionicons name="options-outline" size={20} color={Colors.text.primary} />
+                    <Ionicons name="options-outline" size={IconSizes.tool} color={Colors.text.primary} />
                     {activeFilterChips.length ? (
                         <View style={styles.filterBadge}>
                             <Text style={styles.filterBadgeText}>{activeFilterChips.length}</Text>
@@ -945,7 +945,7 @@ export function MeetupsScreen({
                 <Text style={styles.quickCategoryLabel}>Categories</Text>
                 <View style={styles.quickCategoryHint}>
                     <Text style={styles.quickCategoryHintText}>Swipe to browse</Text>
-                    <Ionicons name="arrow-forward" size={14} color={Colors.text.muted} />
+                    <Ionicons name="arrow-forward" size={IconSizes.badge} color={Colors.text.muted} />
                 </View>
             </View>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.quickCategoryRow}>
@@ -987,7 +987,7 @@ export function MeetupsScreen({
                             activeOpacity={0.85}
                         >
                             <Text style={styles.activeChipText}>{chip.label}</Text>
-                            <Ionicons name="close" size={14} color={Colors.primary} />
+                            <Ionicons name="close" size={IconSizes.badge} color={Colors.primary} />
                         </TouchableOpacity>
                     ))}
                 </ScrollView>

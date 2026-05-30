@@ -3,7 +3,7 @@ import { Image, StyleProp, StyleSheet, Text, TouchableOpacity, View, ViewStyle }
 import * as api from '../../api/client';
 import { Avatar } from '../Avatar';
 import { MeetupEventTypeBadge } from './MeetupEventTypeBadge';
-import { Colors, ContentInsets, ControlSizes, Radius, Spacing, TextStyles } from '../../theme';
+import { AvatarSizes, Colors, ContentInsets, ControlSizes, Radius, Spacing, TextStyles } from '../../theme';
 import { CardActionMenu, type CardActionMenuAction } from '../ui/CardActionMenu';
 
 interface MeetupCardProps {
@@ -99,8 +99,8 @@ export const MeetupCard = React.memo(function MeetupCard({
                                         <Avatar
                                             username={attendee.username}
                                             avatarUrl={attendee.avatar_url ?? undefined}
-                                            size={22}
-                                            fontSize={9}
+                                            size={AvatarSizes.stack}
+                                            fontSize={TextStyles.avatarBadge.fontSize}
                                         />
                                     </View>
                                 ))}

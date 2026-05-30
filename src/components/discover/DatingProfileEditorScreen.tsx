@@ -19,7 +19,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { useInterests } from '../../hooks/queries/useInterests';
 import { useActivateDatingSpotlight, useDatingSpotlights } from '../../hooks/queries/useDatingSpotlights';
 import { screenStandards } from '../../styles/screenStandards';
-import { Colors, ContentInsets, ControlSizes, Radius, Spacing, TextStyles, Typography } from '../../theme';
+import { AvatarSizes, Colors, ContentInsets, ControlSizes, IconSizes, Radius, Spacing, TextStyles, Typography } from '../../theme';
 import {
     SOBERSPACE_PLUS_DISCLAIMER,
     SOBERSPACE_PLUS_PLANS,
@@ -775,7 +775,7 @@ export function DatingProfileEditorScreen({
                         />
                         {saveSuccessMessage ? (
                             <View style={styles.saveSuccessCard}>
-                                <Ionicons name="checkmark-circle" size={18} color={Colors.success} />
+                                <Ionicons name="checkmark-circle" size={IconSizes.row} color={Colors.success} />
                                 <Text style={styles.saveSuccessText}>{saveSuccessMessage}</Text>
                             </View>
                         ) : null}
@@ -1168,7 +1168,7 @@ function EditSummaryRow({
                     <Text style={[styles.editRowTitle, invalid && styles.sectionLabelInvalid]}>{title}</Text>
                     <Text style={styles.editRowValue} numberOfLines={1}>{value}</Text>
                 </View>
-                <Ionicons name="chevron-forward" size={18} color={Colors.text.muted} />
+                <Ionicons name="chevron-forward" size={IconSizes.row} color={Colors.text.muted} />
             </TouchableOpacity>
             {error ? <Text style={styles.sectionErrorText}>{error}</Text> : null}
         </View>
@@ -1499,11 +1499,11 @@ function PromptEditor({
                                 </TouchableOpacity>
                             ) : (
                                 <TouchableOpacity style={styles.promptIconButton} onPress={() => setEditingPromptKey(prompt.key)}>
-                                    <Ionicons name="pencil" size={15} color={Colors.text.secondary} />
+                                    <Ionicons name="pencil" size={IconSizes.inline} color={Colors.text.secondary} />
                                 </TouchableOpacity>
                             )}
                             <TouchableOpacity style={styles.promptIconButton} onPress={() => removePrompt(prompt.key)}>
-                                <Ionicons name="close" size={16} color={Colors.text.secondary} />
+                                <Ionicons name="close" size={IconSizes.inline} color={Colors.text.secondary} />
                             </TouchableOpacity>
                         </View>
                         {isEditing ? (
@@ -1526,7 +1526,7 @@ function PromptEditor({
             })}
             {selectedPromptKeys.length < MAX_DATING_PROMPTS && editingPromptKey === null ? (
                 <TouchableOpacity style={styles.addPromptButton} onPress={() => setPromptPickerVisible(true)} activeOpacity={0.85}>
-                    <Ionicons name="add" size={18} color={Colors.primary} />
+                    <Ionicons name="add" size={IconSizes.row} color={Colors.primary} />
                     <Text style={styles.addPromptText}>Add prompt</Text>
                 </TouchableOpacity>
             ) : null}
@@ -1560,7 +1560,7 @@ function PromptPickerScreen({
             <View style={[screenStandards.pageTabsWrap, styles.promptCategoryTabsWrap]}>
                 <View style={styles.promptCategoryHintRow}>
                     <Text style={styles.promptCategoryHintText}>Scroll for more</Text>
-                    <Ionicons name="chevron-forward" size={14} color={Colors.text.muted} />
+                    <Ionicons name="chevron-forward" size={IconSizes.badge} color={Colors.text.muted} />
                 </View>
                 <ScrollView
                     horizontal
@@ -1594,9 +1594,9 @@ function PromptPickerScreen({
                         >
                             <Text style={[styles.promptPickerRowText, selected && styles.promptPickerRowTextSelected]}>{prompt.label}</Text>
                             {selected ? (
-                                <Ionicons name="checkmark-circle" size={20} color={Colors.primary} />
+                                <Ionicons name="checkmark-circle" size={IconSizes.tool} color={Colors.primary} />
                             ) : (
-                                <Ionicons name="add-circle-outline" size={20} color={atLimit ? Colors.text.disabled : Colors.primary} />
+                                <Ionicons name="add-circle-outline" size={IconSizes.tool} color={atLimit ? Colors.text.disabled : Colors.primary} />
                             )}
                         </TouchableOpacity>
                     );
@@ -1640,7 +1640,7 @@ function DatingGetMoreTab({
             <View style={styles.getMoreProfileHeader}>
                 <View style={styles.getMoreProfileRow}>
                     <View style={styles.getMoreProfileIcon}>
-                        <Ionicons name="heart" size={24} color={Colors.textOn.primary} />
+                        <Ionicons name="heart" size={IconSizes.header} color={Colors.textOn.primary} />
                     </View>
                     <View style={styles.getMoreProfileCopy}>
                         <Text style={styles.getMoreProfileTitle}>Dating</Text>
@@ -1648,7 +1648,7 @@ function DatingGetMoreTab({
                     </View>
                     {isPlus ? (
                         <View style={styles.currentPlanBadge}>
-                            <Ionicons name="checkmark" size={13} color={Colors.textOn.success} />
+                            <Ionicons name="checkmark" size={IconSizes.badge} color={Colors.textOn.success} />
                             <Text style={styles.currentPlanText}>Plus</Text>
                         </View>
                     ) : null}
@@ -1691,7 +1691,7 @@ function DatingGetMoreTab({
             {hasActiveSpotlight ? (
                 <View style={styles.activeSpotlightRow}>
                     <View style={styles.activeSpotlightIcon}>
-                        <Ionicons name={activeSpotlight?.kind === 'super_spotlight' ? 'flash' : 'radio'} size={18} color={Colors.primary} />
+                        <Ionicons name={activeSpotlight?.kind === 'super_spotlight' ? 'flash' : 'radio'} size={IconSizes.row} color={Colors.primary} />
                     </View>
                     <View style={styles.activeSpotlightCopy}>
                         <Text style={styles.activeSpotlightTitle}>{activeSpotlight ? activeSpotlightLabel(activeSpotlight.kind) : 'Spotlight active'}</Text>
@@ -1703,7 +1703,7 @@ function DatingGetMoreTab({
             <View style={styles.plusCompareCard}>
                 <View style={styles.plusCompareHeader}>
                     <View style={styles.plusBrandRow}>
-                        <Ionicons name="sparkles" size={24} color={Colors.warning} />
+                        <Ionicons name="sparkles" size={IconSizes.header} color={Colors.warning} />
                         <Text style={styles.plusCompareTitle}>SoberSpace Plus</Text>
                     </View>
                     <TouchableOpacity style={styles.upgradeButton} onPress={() => onSelectPlan(featuredPlan)} activeOpacity={0.86}>
@@ -1760,7 +1760,7 @@ function DatingGetMoreTab({
                         return (
                             <View key={product.id} style={styles.spotlightProductRow}>
                                 <View style={styles.spotlightProductIcon}>
-                                    <Ionicons name={kind === 'super_spotlight' ? 'flash' : 'radio'} size={20} color={Colors.primary} />
+                                    <Ionicons name={kind === 'super_spotlight' ? 'flash' : 'radio'} size={IconSizes.tool} color={Colors.primary} />
                                 </View>
                                 <TouchableOpacity style={styles.spotlightProductCopy} onPress={() => onSelectSpotlightProduct(product)} activeOpacity={0.86}>
                                     <Text style={styles.spotlightProductTitle}>{product.title}</Text>
@@ -1811,7 +1811,7 @@ function GetMoreQuickTile({
     return (
         <TouchableOpacity style={styles.quickTile} onPress={onPress} activeOpacity={0.86}>
             <View style={styles.quickTileIcon}>
-                <Ionicons name={iconName} size={24} color={iconColor} />
+                <Ionicons name={iconName} size={IconSizes.header} color={iconColor} />
             </View>
             <Text style={styles.quickTileTitle} numberOfLines={2}>{title}</Text>
             {loading ? (
@@ -1828,10 +1828,10 @@ function PlusComparisonRow({ label, free }: { label: string; free: boolean }): R
         <View style={styles.plusCompareRow}>
             <Text style={styles.plusCompareLabel}>{label}</Text>
             <View style={styles.plusCompareStatus}>
-                <Ionicons name={free ? 'checkmark' : 'lock-closed'} size={18} color={free ? Colors.success : Colors.text.muted} />
+                <Ionicons name={free ? 'checkmark' : 'lock-closed'} size={IconSizes.row} color={free ? Colors.success : Colors.text.muted} />
             </View>
             <View style={styles.plusCompareStatus}>
-                <Ionicons name="checkmark" size={20} color={Colors.success} />
+                <Ionicons name="checkmark" size={IconSizes.tool} color={Colors.success} />
             </View>
         </View>
     );
@@ -1964,7 +1964,7 @@ function DatingProfilePreview({
                 <DatingPhotoCarousel
                     username={username}
                     photos={profile?.photos ?? []}
-                    avatarSize={112}
+                    avatarSize={AvatarSizes.profilePhoto}
                     style={StyleSheet.absoluteFill}
                 />
                 <LinearGradient
@@ -1983,7 +1983,7 @@ function DatingProfilePreview({
                     <Text style={styles.previewSectionLabel}>Looking for</Text>
                     {goalLabel ? (
                         <View style={styles.previewGoalPill}>
-                            <Ionicons name="heart-outline" size={16} color={Colors.primary} />
+                            <Ionicons name="heart-outline" size={IconSizes.inline} color={Colors.primary} />
                             <Text style={styles.previewGoalText}>{goalLabel}</Text>
                         </View>
                     ) : (
@@ -2055,9 +2055,9 @@ function materialCommunityPreviewIcon(name: keyof typeof MaterialCommunityIcons.
 
 function PreviewDetailIconView({ icon }: { icon: PreviewDetailIcon }): React.ReactElement {
     if (icon.family === 'materialCommunity') {
-        return <MaterialCommunityIcons name={icon.name} size={17} color={Colors.text.secondary} />;
+        return <MaterialCommunityIcons name={icon.name} size={IconSizes.inline} color={Colors.text.secondary} />;
     }
-    return <Ionicons name={icon.name} size={17} color={Colors.text.secondary} />;
+    return <Ionicons name={icon.name} size={IconSizes.inline} color={Colors.text.secondary} />;
 }
 
 function labelForOption<T extends string>(options: DatingOption<T>[], value: T | string): string | null {

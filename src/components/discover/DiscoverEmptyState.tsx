@@ -1,7 +1,7 @@
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors, Spacing, Typography } from '../../theme';
+import { Colors, IconSizes, Spacing, TextStyles } from '../../theme';
 import { PrimaryButton } from '../ui/PrimaryButton';
 
 interface DiscoverEmptyStateProps {
@@ -24,7 +24,7 @@ export function DiscoverEmptyState({
     return (
         <View style={styles.container}>
             <View style={styles.iconWrap}>
-                <Ionicons name="people-outline" size={28} color={Colors.primary} />
+                <Ionicons name="people-outline" size={IconSizes.hero} color={Colors.primary} />
             </View>
             <Text style={styles.title}>{title}</Text>
             <Text style={styles.description}>{description}</Text>
@@ -59,16 +59,13 @@ const styles = StyleSheet.create({
         borderColor: Colors.border.default,
     },
     title: {
-        fontSize: Typography.sizes.xl,
-        fontWeight: '700',
+        ...TextStyles.sectionTitle,
         color: Colors.text.primary,
         textAlign: 'center',
     },
     description: {
-        fontSize: Typography.sizes.base,
-        color: Colors.text.secondary,
+        ...TextStyles.body,
         textAlign: 'center',
-        lineHeight: 22,
     },
     primaryButton: {
         alignSelf: 'stretch',
@@ -78,8 +75,7 @@ const styles = StyleSheet.create({
         paddingVertical: Spacing.sm,
     },
     secondaryButtonText: {
-        fontSize: Typography.sizes.sm,
-        fontWeight: '600',
+        ...TextStyles.label,
         color: Colors.text.secondary,
     },
 });

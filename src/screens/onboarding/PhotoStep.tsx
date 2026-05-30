@@ -10,7 +10,7 @@ import { OnboardingProgressHeader } from '../../components/onboarding/Onboarding
 import { PrimaryButton } from '../../components/ui/PrimaryButton';
 import { useAuth } from '../../hooks/useAuth';
 import * as api from '../../api/client';
-import { Colors, Typography, Spacing } from '../../theme';
+import { AvatarSizes, Colors, IconSizes, Typography, Spacing, TextStyles } from '../../theme';
 import type { OnboardingStepProps } from '../../navigation/OnboardingNavigator';
 
 type PhotoStepProps = OnboardingStepProps;
@@ -64,14 +64,14 @@ export function PhotoStep({ onNext, onBack, dotIndex, dotTotal }: PhotoStepProps
                     ) : (
                         <Avatar
                             username={user?.username ?? ''}
-                            size={120}
-                            fontSize={36}
+                            size={AvatarSizes.onboarding}
+                            fontSize={TextStyles.displayTitle.fontSize}
                         />
                     )}
                     <View style={styles.cameraButton}>
                         {uploading
                             ? <ActivityIndicator size="small" color={Colors.textOn.primary} />
-                            : <Ionicons name="camera" size={18} color={Colors.textOn.primary} />
+                            : <Ionicons name="camera" size={IconSizes.row} color={Colors.textOn.primary} />
                         }
                     </View>
                 </TouchableOpacity>

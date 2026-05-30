@@ -14,7 +14,7 @@ import { EmptyState } from '../../../components/ui/EmptyState';
 import { PrimaryButton } from '../../../components/ui/PrimaryButton';
 import { ScreenHeader } from '../../../components/ui/ScreenHeader';
 import { screenStandards } from '../../../styles/screenStandards';
-import { Colors, Radius, Spacing, TextStyles, Typography } from '../../../theme';
+import { Colors, IconSizes, Radius, Spacing, TextStyles, Typography } from '../../../theme';
 import {
     RecoveryMeeting,
     formatAddressLine,
@@ -69,7 +69,7 @@ function DetailRow({ icon, label, value }: DetailRowProps): React.ReactElement {
     return (
         <View style={styles.infoRow}>
             <View style={styles.infoIcon}>
-                <Ionicons name={icon} size={17} color={Colors.primary} />
+                <Ionicons name={icon} size={IconSizes.inline} color={Colors.primary} />
             </View>
             <View style={styles.infoBody}>
                 <Text style={styles.infoLabel}>{label}</Text>
@@ -137,22 +137,22 @@ export function RecoveryMeetingDetailScreen({
                                 <Text style={styles.fellowshipPillText}>{getFellowshipLabel(detail.fellowship)}</Text>
                             </View>
                             <View style={styles.modePill}>
-                                <Ionicons name={modeIcon(detail.meeting_type)} size={13} color={Colors.text.secondary} />
+                                <Ionicons name={modeIcon(detail.meeting_type)} size={IconSizes.badge} color={Colors.text.secondary} />
                                 <Text style={styles.modePillText}>{getMeetingTypeLabel(detail.meeting_type)}</Text>
                             </View>
                         </View>
                         <Text style={styles.heroTitle}>{detail.name}</Text>
                         <View style={styles.heroMetaGrid}>
                             <View style={styles.heroMetaRow}>
-                                <Ionicons name="calendar-outline" size={16} color={Colors.text.muted} />
+                                <Ionicons name="calendar-outline" size={IconSizes.inline} color={Colors.text.muted} />
                                 <Text style={styles.heroMeta}>{formatOccurrenceDay(primaryOccurrence)}</Text>
                             </View>
                             <View style={styles.heroMetaRow}>
-                                <Ionicons name="time-outline" size={16} color={Colors.text.muted} />
+                                <Ionicons name="time-outline" size={IconSizes.inline} color={Colors.text.muted} />
                                 <Text style={styles.heroMeta}>{formatOccurrenceTime(primaryOccurrence)}</Text>
                             </View>
                             <View style={styles.heroMetaRow}>
-                                <Ionicons name={detail.meeting_type === 'online' ? 'videocam-outline' : 'business-outline'} size={16} color={Colors.text.muted} />
+                                <Ionicons name={detail.meeting_type === 'online' ? 'videocam-outline' : 'business-outline'} size={IconSizes.inline} color={Colors.text.muted} />
                                 <Text style={styles.heroMeta}>{locationLine}</Text>
                             </View>
                         </View>
@@ -163,7 +163,7 @@ export function RecoveryMeetingDetailScreen({
                             <PrimaryButton
                                 label="Open online link"
                                 onPress={() => openURL(detail.online_url)}
-                                leftAdornment={<Ionicons name="open-outline" size={18} color={Colors.textOn.primary} />}
+                                leftAdornment={<Ionicons name="open-outline" size={IconSizes.row} color={Colors.textOn.primary} />}
                                 style={styles.actionButton}
                             />
                         ) : null}
@@ -172,7 +172,7 @@ export function RecoveryMeetingDetailScreen({
                                 label="Open maps"
                                 variant="secondary"
                                 onPress={() => openMaps(addressLine)}
-                                leftAdornment={<Ionicons name="map-outline" size={18} color={Colors.primary} />}
+                                leftAdornment={<Ionicons name="map-outline" size={IconSizes.row} color={Colors.primary} />}
                                 style={styles.actionButton}
                             />
                         ) : null}

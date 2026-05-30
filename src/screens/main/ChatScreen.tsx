@@ -11,7 +11,7 @@ import {
 import { Avatar } from '../../components/Avatar';
 import * as api from '../../api/client';
 import { useAuth } from '../../hooks/useAuth';
-import { Colors, ControlSizes, Radius, Spacing, TextStyles, Typography } from '../../theme';
+import { AvatarSizes, Colors, ControlSizes, IconSizes, Radius, Spacing, TextStyles, Typography } from '../../theme';
 import { formatUsername } from '../../utils/identity';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -195,7 +195,7 @@ export function ChatScreen({ chat, onBack }: ChatScreenProps) {
                             onPress={handleDismissSupportContext}
                             activeOpacity={0.72}
                         >
-                            <Ionicons name="close" size={18} color={Colors.success} />
+                            <Ionicons name="close" size={IconSizes.row} color={Colors.success} />
                         </TouchableOpacity>
                         {isSupportClosed ? (
                             <View style={styles.supportStatusPanel}>
@@ -260,8 +260,8 @@ export function ChatScreen({ chat, onBack }: ChatScreenProps) {
                                     <Avatar
                                         username={String(messageUser.name ?? '')}
                                         avatarUrl={avatarUrl}
-                                        size={36}
-                                        fontSize={13}
+                                        size={AvatarSizes.compact}
+                                        fontSize={TextStyles.chip.fontSize}
                                     />
                                     <View style={styles.flatBubble}>
                                         <Text style={styles.flatBubbleText}>
@@ -328,7 +328,7 @@ export function ChatScreen({ chat, onBack }: ChatScreenProps) {
                                         >
                                             <Ionicons
                                                 name="send"
-                                                size={18}
+                                                size={IconSizes.row}
                                                 color={Colors.textOn.primary}
                                             />
                                         </Send>

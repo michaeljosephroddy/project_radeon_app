@@ -23,7 +23,7 @@ import {
 } from '../../../hooks/queries/useGroups';
 import { useScrollToTopButton } from '../../../hooks/useScrollToTopButton';
 import { screenStandards } from '../../../styles/screenStandards';
-import { Colors, ContentInsets, ControlSizes, Radius, Spacing, TextStyles, Typography } from '../../../theme';
+import { AvatarSizes, Colors, ContentInsets, ControlSizes, IconSizes, Radius, Spacing, TextStyles, Typography } from '../../../theme';
 import { formatReadableTimestamp } from '../../../utils/date';
 import { formatUsername } from '../../../utils/identity';
 
@@ -117,7 +117,7 @@ function AdminInboxPanel({
                 ListEmptyComponent={<EmptyState title="No admin messages" compact />}
                 renderItem={({ item }) => (
                     <TouchableOpacity style={styles.inboxItem} onPress={() => onOpenThread(item.id)}>
-                        <Avatar username={item.username} avatarUrl={item.avatar_url ?? undefined} size={44} fontSize={14} />
+                        <Avatar username={item.username} avatarUrl={item.avatar_url ?? undefined} size={AvatarSizes.list} fontSize={TextStyles.rowTitle.fontSize} />
                         <View style={styles.inboxMeta}>
                             <Text style={styles.inboxName} numberOfLines={1}>{formatUsername(item.username)}</Text>
                             {item.last_message || item.subject ? (
@@ -217,7 +217,7 @@ function ReportsPanel({ group }: { group: api.Group }): React.ReactElement {
                 renderItem={({ item }) => (
                     <View style={styles.card}>
                         <View style={styles.row}>
-                            <Avatar username={item.reporter_username ?? 'member'} avatarUrl={item.reporter_avatar_url ?? undefined} size={40} fontSize={13} />
+                            <Avatar username={item.reporter_username ?? 'member'} avatarUrl={item.reporter_avatar_url ?? undefined} size={AvatarSizes.medium} fontSize={TextStyles.chip.fontSize} />
                             <View style={styles.rowCopy}>
                                 <Text style={styles.name}>{item.reason}</Text>
                                 <Text style={styles.meta}>
@@ -240,19 +240,19 @@ function ReportsPanel({ group }: { group: api.Group }): React.ReactElement {
                         <View style={styles.actionRow}>
                             {item.status === 'open' ? (
                                 <TouchableOpacity style={styles.resolveButton} onPress={() => review(item.id, 'reviewing')}>
-                                    <Ionicons name="eye-outline" size={16} color={Colors.primary} />
+                                    <Ionicons name="eye-outline" size={IconSizes.inline} color={Colors.primary} />
                                     <Text style={styles.resolveText}>Start Review</Text>
                                 </TouchableOpacity>
                             ) : null}
                             {item.status === 'reviewing' ? (
                                 <TouchableOpacity style={styles.acceptButton} onPress={() => review(item.id, 'resolved')}>
-                                    <Ionicons name="checkmark-done" size={16} color={Colors.textOn.primary} />
+                                    <Ionicons name="checkmark-done" size={IconSizes.inline} color={Colors.textOn.primary} />
                                     <Text style={styles.primaryButtonText}>Resolve</Text>
                                 </TouchableOpacity>
                             ) : null}
                             {item.status === 'open' || item.status === 'reviewing' ? (
                                 <TouchableOpacity style={styles.rejectButton} onPress={() => review(item.id, 'dismissed')}>
-                                    <Ionicons name="close" size={16} color={Colors.danger} />
+                                    <Ionicons name="close" size={IconSizes.inline} color={Colors.danger} />
                                     <Text style={styles.rejectText}>Dismiss</Text>
                                 </TouchableOpacity>
                             ) : null}

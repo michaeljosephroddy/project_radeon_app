@@ -23,7 +23,7 @@ import {
     DiscoverDraftFilters,
     getDiscoverDistanceLabel,
 } from '../../hooks/useDiscoverFilters';
-import { Colors, ControlSizes, Radius, Spacing, TextStyles, Typography } from '../../theme';
+import { Colors, ControlSizes, IconSizes, Radius, Spacing, TextStyles, Typography } from '../../theme';
 import { screenStandards } from '../../styles/screenStandards';
 import { PrimaryButton } from '../ui/PrimaryButton';
 import { ScreenHeader } from '../ui/ScreenHeader';
@@ -72,7 +72,7 @@ function PlusLockedRow({ title, onPress }: { title: string; onPress: () => void 
                 <Text style={styles.lockedSubtitle}>Included with SoberSpace Plus</Text>
             </View>
             <View style={styles.lockedBadge}>
-                <Ionicons name="lock-closed" size={13} color={Colors.textOn.primary} />
+                <Ionicons name="lock-closed" size={IconSizes.badge} color={Colors.textOn.primary} />
                 <Text style={styles.lockedBadgeText}>Plus</Text>
             </View>
         </TouchableOpacity>
@@ -174,7 +174,7 @@ export function DiscoverFilterSheet({
 
             <ScrollView contentContainerStyle={[screenStandards.sheetContent, styles.content]} showsVerticalScrollIndicator={false}>
                 <View style={styles.previewCard}>
-                    <Ionicons name="sparkles-outline" size={18} color={Colors.primary} />
+                    <Ionicons name="sparkles-outline" size={IconSizes.row} color={Colors.primary} />
                     <Text style={styles.previewText}>{previewCopy}</Text>
                 </View>
 
@@ -290,7 +290,7 @@ export function DiscoverFilterSheet({
                                 <Text style={styles.sectionTitle}>Plus dating filters</Text>
                                 {!isPlus ? (
                                     <View style={styles.plusPill}>
-                                        <Ionicons name="sparkles" size={13} color={Colors.textOn.primary} />
+                                        <Ionicons name="sparkles" size={IconSizes.badge} color={Colors.textOn.primary} />
                                         <Text style={styles.plusPillText}>Plus</Text>
                                     </View>
                                 ) : null}
@@ -359,7 +359,7 @@ export function DiscoverFilterSheet({
                         </View>
                         <View style={[styles.checkbox, draftFilters.broadenIfFewExact && styles.checkboxChecked]}>
                             {draftFilters.broadenIfFewExact ? (
-                                <Ionicons name="checkmark" size={16} color={Colors.textOn.primary} />
+                                <Ionicons name="checkmark" size={IconSizes.inline} color={Colors.textOn.primary} />
                             ) : null}
                         </View>
                     </TouchableOpacity>
@@ -377,7 +377,7 @@ export function DiscoverFilterSheet({
                     leftAdornment={
                         <Ionicons
                             name="options-outline"
-                            size={16}
+                            size={IconSizes.inline}
                             color={Colors.textOn.primary}
                         />
                     }

@@ -1,6 +1,6 @@
 import React from 'react';
 import { StyleProp, StyleSheet, Text, TouchableOpacity, View, ViewStyle } from 'react-native';
-import { Colors, ControlSizes, Radius, Spacing, TextStyles, Typography } from '../../theme';
+import { Colors, ControlSizes, Radius, Spacing, TextStyles } from '../../theme';
 
 export interface SegmentedControlItem {
     key: string;
@@ -206,8 +206,7 @@ const styles = StyleSheet.create({
         borderColor: Colors.warning,
     },
     badgeText: {
-        fontSize: Typography.sizes.xs,
-        fontWeight: '700',
+        ...TextStyles.caption,
         color: Colors.warning,
     },
 });

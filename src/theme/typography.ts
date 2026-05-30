@@ -72,6 +72,18 @@ export const TextStyles = {
     fontWeight: Typography.weights.semibold,
     color: Colors.text.primary,
   },
+  rowTitle: {
+    fontSize: Typography.sizes.base,
+    lineHeight: 20,
+    fontWeight: Typography.weights.medium,
+    color: Colors.text.primary,
+  },
+  rowDescription: {
+    fontSize: Typography.sizes.sm,
+    lineHeight: 19,
+    fontWeight: Typography.weights.regular,
+    color: Colors.text.secondary,
+  },
   body: Typography.body,
   bodyEmphasis: {
     fontSize: Typography.sizes.base,

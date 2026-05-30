@@ -1,24 +1,30 @@
 import { Colors } from './colors';
 import { TextStyles, Typography } from './typography';
 import {
+  AvatarSizes,
   Composer,
   ContentInsets,
   ControlHeights,
   ControlSizes,
   Header,
+  IconSizes,
   Radius,
   Spacing,
+  TargetSizes,
 } from './layout';
 
 export {
+  AvatarSizes,
   Colors,
   Composer,
   ContentInsets,
   ControlHeights,
   ControlSizes,
   Header,
+  IconSizes,
   Radius,
   Spacing,
+  TargetSizes,
   TextStyles,
   Typography,
 };

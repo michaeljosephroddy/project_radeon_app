@@ -2,7 +2,7 @@ import React, { useCallback } from 'react';
 import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Avatar } from '../Avatar';
-import { Colors, Radius, Spacing, TextStyles, Typography } from '../../theme';
+import { AvatarSizes, Colors, IconSizes, Radius, Spacing, TextStyles } from '../../theme';
 import { formatReadableTimestamp } from '../../utils/date';
 import { formatUsername } from '../../utils/identity';
 import { PostDisplayModel } from './postTypes';
@@ -35,7 +35,7 @@ export const PostCard = React.memo(function PostCard({
         <View style={styles.postCard}>
             <View style={styles.postHead}>
                 <TouchableOpacity onPress={handlePressUser} disabled={post.isOwn || !onPressUser}>
-                    <Avatar username={post.username} avatarUrl={post.avatarUrl} size={44} />
+                    <Avatar username={post.username} avatarUrl={post.avatarUrl} size={AvatarSizes.list} />
                 </TouchableOpacity>
                 <View style={styles.postHeadBody}>
                     <View style={styles.postTitleRow}>
@@ -47,7 +47,7 @@ export const PostCard = React.memo(function PostCard({
                         <View style={styles.badgeRow}>
                             {post.isPinned ? (
                                 <View style={styles.badge}>
-                                    <Ionicons name="pin" size={12} color={Colors.primary} />
+                                    <Ionicons name="pin" size={IconSizes.badge} color={Colors.primary} />
                                     <Text style={styles.badgeText}>Pinned</Text>
                                 </View>
                             ) : null}
@@ -78,7 +78,7 @@ export const PostCard = React.memo(function PostCard({
                 <TouchableOpacity style={styles.postAction} onPress={onReact}>
                     <Ionicons
                         name={post.viewerHasReacted ? 'heart' : 'heart-outline'}
-                        size={16}
+                        size={IconSizes.inline}
                         color={post.viewerHasReacted ? Colors.danger : Colors.text.muted}
                     />
                     <Text style={[styles.postActionText, post.viewerHasReacted && styles.liked]}>
@@ -88,7 +88,7 @@ export const PostCard = React.memo(function PostCard({
                 <TouchableOpacity style={styles.postAction} onPress={onOpenComments}>
                     <Ionicons
                         name="chatbubble-outline"
-                        size={15}
+                        size={IconSizes.inline}
                         color={Colors.text.muted}
                     />
                     <Text style={styles.postActionText}>
@@ -99,7 +99,7 @@ export const PostCard = React.memo(function PostCard({
                     <TouchableOpacity style={styles.postAction} onPress={onShare}>
                         <Ionicons
                             name="repeat-outline"
-                            size={16}
+                            size={IconSizes.inline}
                             color={Colors.text.muted}
                         />
                         <Text style={styles.postActionText}>Share</Text>
@@ -162,8 +162,7 @@ const styles = StyleSheet.create({
         ...TextStyles.meta,
     },
     postSource: {
-        fontSize: Typography.sizes.xs,
-        fontWeight: '600',
+        ...TextStyles.caption,
         color: Colors.primary,
         marginTop: 2,
     },

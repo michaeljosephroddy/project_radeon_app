@@ -18,7 +18,7 @@ import { ScreenHeader } from '../../../components/ui/ScreenHeader';
 import { appAlert } from '../../../components/ui/appAlert';
 import * as api from '../../../api/client';
 import { queryKeys } from '../../../query/queryKeys';
-import { Colors, ContentInsets, Radius, Spacing, TextStyles, Typography } from '../../../theme';
+import { AvatarSizes, Colors, ContentInsets, IconSizes, Radius, Spacing, TextStyles, Typography } from '../../../theme';
 import { formatUsername } from '../../../utils/identity';
 import type { RootStackParamList } from '../../../navigation/types';
 
@@ -368,7 +368,7 @@ function DatingProfileDetailContent({
             <DatingPhotoCarousel
                 username={profile.username}
                 photos={profile.photos ?? []}
-                avatarSize={112}
+                avatarSize={AvatarSizes.profilePhoto}
                 style={styles.photo}
             />
 
@@ -378,7 +378,7 @@ function DatingProfileDetailContent({
                     {locationLabel ? <Text style={styles.meta}>{locationLabel}</Text> : null}
                     {goalLabel ? (
                         <View style={styles.goalPill}>
-                            <Ionicons name="heart-outline" size={16} color={Colors.primary} />
+                            <Ionicons name="heart-outline" size={IconSizes.inline} color={Colors.primary} />
                             <Text style={styles.goalText}>{goalLabel}</Text>
                         </View>
                     ) : null}
@@ -407,7 +407,7 @@ function DatingProfileDetailContent({
                         <View style={styles.detailStack}>
                             {detailRows.map((detail, index) => (
                                 <View key={`${detail.label}-${index}`} style={styles.detailRow}>
-                                    <Ionicons name={detail.icon} size={17} color={Colors.text.secondary} />
+                                    <Ionicons name={detail.icon} size={IconSizes.inline} color={Colors.text.secondary} />
                                     <Text style={styles.detailText}>{detail.value}</Text>
                                 </View>
                             ))}
@@ -433,11 +433,11 @@ function DatingProfileDetailContent({
 
                 <View style={styles.safetyRow}>
                     <TouchableOpacity style={styles.safetyButton} onPress={onReport} activeOpacity={0.84}>
-                        <Ionicons name="flag-outline" size={18} color={Colors.danger} />
+                        <Ionicons name="flag-outline" size={IconSizes.row} color={Colors.danger} />
                         <Text style={styles.safetyText}>Report</Text>
                     </TouchableOpacity>
                     <TouchableOpacity style={styles.safetyButton} onPress={onBlock} activeOpacity={0.84}>
-                        <Ionicons name="ban-outline" size={18} color={Colors.danger} />
+                        <Ionicons name="ban-outline" size={IconSizes.row} color={Colors.danger} />
                         <Text style={styles.safetyText}>Block</Text>
                     </TouchableOpacity>
                 </View>

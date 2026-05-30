@@ -3,7 +3,7 @@ import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as api from '../../api/client';
 import { Avatar } from '../Avatar';
-import { Colors, Radius, Spacing, TextStyles, Typography } from '../../theme';
+import { AvatarSizes, Colors, IconSizes, Radius, Spacing, TextStyles, Typography } from '../../theme';
 import { formatReadableTimestamp } from '../../utils/date';
 import { formatUsername } from '../../utils/identity';
 import { CardActionMenu, type CardActionMenuAction } from '../ui/CardActionMenu';
@@ -103,7 +103,7 @@ export const SupportRequestCard = React.memo(function SupportRequestCard({
             <View style={[styles.urgencyRail, urgencyRailStyle]} />
             <View style={styles.head}>
                 <TouchableOpacity onPress={handlePressUser} disabled={!canPressUser}>
-                    <Avatar username={request.username} avatarUrl={request.avatar_url ?? undefined} size={44} />
+                    <Avatar username={request.username} avatarUrl={request.avatar_url ?? undefined} size={AvatarSizes.list} />
                 </TouchableOpacity>
                 <View style={styles.headBody}>
                     <View style={styles.titleRow}>
@@ -112,7 +112,7 @@ export const SupportRequestCard = React.memo(function SupportRequestCard({
                     </View>
                     {intentLine ? (
                         <View style={styles.locationRow}>
-                            <Ionicons name="location-outline" size={13} color={Colors.text.muted} />
+                            <Ionicons name="location-outline" size={IconSizes.badge} color={Colors.text.muted} />
                             <Text style={styles.locationText} numberOfLines={1}>{intentLine}</Text>
                         </View>
                     ) : null}
@@ -153,12 +153,12 @@ export const SupportRequestCard = React.memo(function SupportRequestCard({
                     ) : null}
                     <View style={styles.footActions}>
                         <TouchableOpacity style={styles.footAction} onPress={handleViewReplies}>
-                            <Ionicons name="chatbubble-outline" size={15} color={Colors.text.muted} />
+                            <Ionicons name="chatbubble-outline" size={IconSizes.inline} color={Colors.text.muted} />
                             <Text style={styles.footActionText}>{replyLabel}</Text>
                         </TouchableOpacity>
                         {request.offer_count > 0 ? (
                             <View style={styles.footAction}>
-                                <Ionicons name="people-outline" size={16} color={Colors.text.muted} />
+                                <Ionicons name="people-outline" size={IconSizes.inline} color={Colors.text.muted} />
                                 <Text style={styles.footActionText}>
                                     {request.offer_count} offer{request.offer_count === 1 ? '' : 's'}
                                 </Text>
@@ -166,7 +166,7 @@ export const SupportRequestCard = React.memo(function SupportRequestCard({
                         ) : null}
                         {showAcceptedActivity ? (
                             <View style={styles.footAction}>
-                                <Ionicons name="checkmark-circle-outline" size={16} color={Colors.success} />
+                                <Ionicons name="checkmark-circle-outline" size={IconSizes.inline} color={Colors.success} />
                                 <Text style={styles.acceptedActionText}>1 accepted</Text>
                             </View>
                         ) : null}
@@ -184,7 +184,7 @@ export const SupportRequestCard = React.memo(function SupportRequestCard({
                         disabled={primaryActionDisabled}
                     >
                         {isOfferedByMe ? (
-                            <Ionicons name="checkmark" size={14} color={Colors.textOn.primary} />
+                            <Ionicons name="checkmark" size={IconSizes.badge} color={Colors.textOn.primary} />
                         ) : null}
                         <Text style={styles.primaryActionText}>
                             {pending ? 'Working...' : request.has_offered ? 'Offered' : getSupportPrimaryActionLabel(request)}

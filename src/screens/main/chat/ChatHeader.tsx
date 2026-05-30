@@ -4,7 +4,7 @@ import { Avatar } from '../../../components/Avatar';
 import { ScreenHeader } from '../../../components/ui/ScreenHeader';
 import { CardActionMenu, type CardActionMenuAction } from '../../../components/ui/CardActionMenu';
 import * as api from '../../../api/client';
-import { Colors, Typography, Spacing } from '../../../theme';
+import { AvatarSizes, Colors, Typography, Spacing, TextStyles } from '../../../theme';
 
 interface ChatHeaderProps {
     chat: api.Chat;
@@ -22,8 +22,8 @@ export function ChatHeader({ chat, displayName, onBack, actions }: ChatHeaderPro
                     <Avatar
                         username={chat.is_group ? (chat.name ?? 'Group') : (chat.username ?? 'unknown')}
                         avatarUrl={chat.is_group ? undefined : chat.avatar_url}
-                        size={32}
-                        fontSize={12}
+                        size={AvatarSizes.mini}
+                        fontSize={TextStyles.caption.fontSize}
                     />
                     <Text style={styles.headerName} numberOfLines={1}>{displayName}</Text>
                 </View>

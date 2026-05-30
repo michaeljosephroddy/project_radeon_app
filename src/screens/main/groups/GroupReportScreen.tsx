@@ -13,7 +13,7 @@ import { KEYBOARD_STICKY_FOOTER_SINGLE_ACTION_RESERVE, KeyboardStickyFooter } fr
 import { ScreenHeader } from '../../../components/ui/ScreenHeader';
 import { TextField } from '../../../components/ui/TextField';
 import { useReportGroupTargetMutation } from '../../../hooks/queries/useGroups';
-import { Colors, ControlSizes, Radius, Spacing, TextStyles } from '../../../theme';
+import { Colors, ControlSizes, IconSizes, Radius, Spacing, TextStyles } from '../../../theme';
 
 interface GroupReportScreenProps {
     group: api.Group;
@@ -71,7 +71,7 @@ export function GroupReportScreen({
                 bottomOffset={keyboardBottomOffset}
             >
                 <View style={styles.summary}>
-                    <Ionicons name="shield-checkmark-outline" size={22} color={Colors.primary} />
+                    <Ionicons name="shield-checkmark-outline" size={IconSizes.header} color={Colors.primary} />
                     <View style={styles.summaryCopy}>
                         <Text style={styles.title}>{group.name}</Text>
                         <Text style={styles.body}>Reports go to group admins and moderators for review.</Text>

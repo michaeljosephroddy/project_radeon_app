@@ -16,7 +16,7 @@ import { MeetupEventTypeBadge } from '../../components/events/MeetupEventTypeBad
 import { EmptyState } from '../../components/ui/EmptyState';
 import { PrimaryButton } from '../../components/ui/PrimaryButton';
 import { ScreenHeader } from '../../components/ui/ScreenHeader';
-import { Colors, ContentInsets, Radius, Spacing, TextStyles, Typography } from '../../theme';
+import { AvatarSizes, Colors, ContentInsets, Radius, Spacing, TextStyles, Typography } from '../../theme';
 import { screenStandards } from '../../styles/screenStandards';
 
 interface MeetupDetailScreenProps {
@@ -224,7 +224,7 @@ export function MeetupDetailScreen({
                                     style={styles.personRow}
                                     onPress={() => onOpenUserProfile({ userId: host.id, username: host.username, avatarUrl: host.avatar_url ?? undefined })}
                                 >
-                                    <Avatar username={host.username} avatarUrl={host.avatar_url ?? undefined} size={40} fontSize={14} />
+                                    <Avatar username={host.username} avatarUrl={host.avatar_url ?? undefined} size={AvatarSizes.medium} fontSize={TextStyles.rowTitle.fontSize} />
                                     <View style={styles.personCopy}>
                                         <Text style={styles.personName}>{host.username}</Text>
                                         <Text style={styles.personMeta}>{host.role.replace('_', ' ')}</Text>
@@ -259,7 +259,7 @@ export function MeetupDetailScreen({
                                     style={styles.personRow}
                                     onPress={() => onOpenUserProfile({ userId: attendee.id, username: attendee.username, avatarUrl: attendee.avatar_url ?? undefined })}
                                 >
-                                    <Avatar username={attendee.username} avatarUrl={attendee.avatar_url ?? undefined} size={36} fontSize={12} />
+                                    <Avatar username={attendee.username} avatarUrl={attendee.avatar_url ?? undefined} size={AvatarSizes.compact} fontSize={TextStyles.caption.fontSize} />
                                     <View style={styles.personCopy}>
                                         <Text style={styles.personName}>{attendee.username}</Text>
                                         <Text style={styles.personMeta}>{attendee.city ?? 'Community member'}</Text>
@@ -282,7 +282,7 @@ export function MeetupDetailScreen({
                                             style={styles.personRow}
                                             onPress={() => onOpenUserProfile({ userId: attendee.id, username: attendee.username, avatarUrl: attendee.avatar_url ?? undefined })}
                                         >
-                                            <Avatar username={attendee.username} avatarUrl={attendee.avatar_url ?? undefined} size={36} fontSize={12} />
+                                            <Avatar username={attendee.username} avatarUrl={attendee.avatar_url ?? undefined} size={AvatarSizes.compact} fontSize={TextStyles.caption.fontSize} />
                                             <View style={styles.personCopy}>
                                                 <Text style={styles.personName}>{attendee.username}</Text>
                                                 <Text style={styles.personMeta}>Joined waitlist {new Date(attendee.rsvp_at).toLocaleDateString()}</Text>

@@ -2,7 +2,7 @@ import React from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { DiscoverActiveChip } from '../../hooks/useDiscoverFilters';
-import { Colors, ControlSizes, Radius, Spacing, TextStyles } from '../../theme';
+import { Colors, ControlSizes, IconSizes, Radius, Spacing, TextStyles } from '../../theme';
 
 interface DiscoverActiveFiltersBarProps {
     chips: DiscoverActiveChip[];
@@ -25,7 +25,7 @@ export function DiscoverActiveFiltersBar({
         <View style={styles.container}>
             {broadenedCopy ? (
                 <View style={styles.infoPill}>
-                    <Ionicons name="sparkles-outline" size={14} color={Colors.primary} />
+                    <Ionicons name="sparkles-outline" size={IconSizes.badge} color={Colors.primary} />
                     <Text style={styles.infoText}>{broadenedCopy}</Text>
                 </View>
             ) : null}
@@ -44,7 +44,7 @@ export function DiscoverActiveFiltersBar({
                             activeOpacity={0.8}
                         >
                             <Text style={styles.chipText}>{chip.label}</Text>
-                            <Ionicons name="close" size={14} color={Colors.primary} />
+                            <Ionicons name="close" size={IconSizes.badge} color={Colors.primary} />
                         </TouchableOpacity>
                     ))}
 
