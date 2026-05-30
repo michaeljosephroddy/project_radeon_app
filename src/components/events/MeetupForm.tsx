@@ -1,12 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import React from 'react';
-import { Image, Platform, ScrollView, StyleProp, StyleSheet, Switch, Text, TouchableOpacity, View, ViewStyle } from 'react-native';
-import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
+import { Image, Platform, StyleProp, StyleSheet, Switch, Text, TouchableOpacity, View, ViewStyle } from 'react-native';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as api from '../../api/client';
 import { Colors, ControlSizes, Radius, Spacing, TextStyles, Typography } from '../../theme';
+import { AppKeyboardAwareScrollView } from '../ui/AppKeyboardAwareScrollView';
+import { KeyboardStickyFooter } from '../ui/KeyboardStickyFooter';
 import { PrimaryButton } from '../ui/PrimaryButton';
 import { TextField } from '../ui/TextField';
 import { MeetupFormValues } from './MeetupFormState';
@@ -218,12 +218,21 @@ export function MeetupForm({
     onCancelEdit,
     contentStyle,
 }: MeetupFormProps): React.ReactElement {
-    const insets = useSafeAreaInsets();
     const [activePicker, setActivePicker] = React.useState<PickerField>(null);
     const [coHostQuery, setCoHostQuery] = React.useState('');
     const [locationAdvancedOpen, setLocationAdvancedOpen] = React.useState(false);
     const [coHostsOpen, setCoHostsOpen] = React.useState(values.co_host_ids.length > 0);
     const [visibilityOpen, setVisibilityOpen] = React.useState(false);
+    const [footerHeight, setFooterHeight] = React.useState(0);
+    const keyboardBottomOffset = footerHeight + Spacing.sm;
+    const scrollContentStyle = React.useMemo(
+        () => [
+            styles.content,
+            { paddingBottom: Spacing.md + footerHeight },
+            contentStyle,
+        ],
+        [contentStyle, footerHeight],
+    );
     const isOnline = values.event_type === 'online';
     const showLocationFields = values.event_type !== 'online';
     const selectedCoHosts = React.useMemo(
@@ -583,12 +592,10 @@ export function MeetupForm({
     };
 
     return (
-        <KeyboardAvoidingView behavior="padding" style={styles.container}>
-            <ScrollView
-                contentContainerStyle={[styles.content, contentStyle]}
-                keyboardDismissMode="interactive"
-                keyboardShouldPersistTaps="handled"
-                showsVerticalScrollIndicator={false}
+        <View style={styles.container}>
+            <AppKeyboardAwareScrollView
+                contentContainerStyle={scrollContentStyle}
+                bottomOffset={keyboardBottomOffset}
             >
                 <View style={styles.progressBlock}>
                     <Text style={styles.progressText}>{`${STEPS[stepIndex]?.label ?? 'Step'} ${stepIndex + 1} of ${stepTotal}`}</Text>
@@ -628,9 +635,9 @@ export function MeetupForm({
                 >
                     {renderStepContent()}
                 </Animated.View>
-            </ScrollView>
+            </AppKeyboardAwareScrollView>
 
-            <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, Spacing.sm) + Spacing.sm }]}>
+            <KeyboardStickyFooter contentStyle={styles.footer} onHeightChange={setFooterHeight}>
                 <View style={styles.footerActionRow}>
                     {footerBackAction ? (
                         <TouchableOpacity style={styles.backStepButton} onPress={footerBackAction} activeOpacity={0.84} disabled={loading}>
@@ -659,8 +666,8 @@ export function MeetupForm({
                         <Text style={styles.destructiveActionText}>{destructiveActionLabel}</Text>
                     </TouchableOpacity>
                 ) : null}
-            </View>
-        </KeyboardAvoidingView>
+            </KeyboardStickyFooter>
+        </View>
     );
 }
 
@@ -988,11 +995,6 @@ const styles = StyleSheet.create({
         padding: Spacing.xs,
     },
     footer: {
-        borderTopWidth: 1,
-        borderTopColor: Colors.border.emphasis,
-        backgroundColor: Colors.bg.page,
-        paddingHorizontal: Spacing.md,
-        paddingTop: Spacing.sm,
         gap: Spacing.sm,
     },
     footerActionRow: {

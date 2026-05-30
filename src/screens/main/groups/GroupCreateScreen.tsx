@@ -9,14 +9,13 @@ import {
     View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import Animated, { FadeIn, FadeOut, useAnimatedStyle } from 'react-native-reanimated';
+import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import * as ImagePicker from 'expo-image-picker';
 import * as api from '../../../api/client';
 import { CreateFlowFrame } from '../../../components/ui/CreateFlowFrame';
 import { SegmentedControl } from '../../../components/ui/SegmentedControl';
 import { TextField } from '../../../components/ui/TextField';
 import { useCreateGroupMutation } from '../../../hooks/queries/useGroups';
-import { useGradualKeyboardInset } from '../../../hooks/useGradualKeyboardInset';
 import { Colors, ControlSizes, Radius, Spacing, TextStyles } from '../../../theme';
 
 interface GroupCreateScreenProps {
@@ -100,14 +99,6 @@ export function GroupCreateScreen({
     const [formError, setFormError] = useState<string | null>(null);
     const [submitting, setSubmitting] = useState(false);
     const uploadPromiseRef = useRef<Promise<api.GroupImageUploadResult> | null>(null);
-    const { height: keyboardInsetHeight } = useGradualKeyboardInset({
-        closedHeight: 0,
-        openedOffset: Spacing.sm,
-    });
-    const keyboardSpacerStyle = useAnimatedStyle((): { height: number } => ({
-        height: keyboardInsetHeight.value,
-    }));
-
     const trimmedName = name.trim();
     const currentStep = GROUP_CREATE_STEPS[currentStepIndex]?.key ?? 'identity';
     const isCreating = createGroupMutation.isPending || submitting;
@@ -497,7 +488,6 @@ export function GroupCreateScreen({
                     </TouchableOpacity>
                 </View>
             )}
-            keyboardSpacer={<Animated.View style={[styles.keyboardSpacer, keyboardSpacerStyle]} />}
         >
                 <View style={styles.progressBlock}>
                     <Text style={styles.progressText}>{`${GROUP_CREATE_STEPS[currentStepIndex]?.label ?? 'Step'} ${currentStepIndex + 1} of ${GROUP_CREATE_STEPS.length}`}</Text>
@@ -551,10 +541,6 @@ function ReviewRow({ label, value, last = false }: { label: string; value: strin
 }
 
 const styles = StyleSheet.create({
-    keyboardSpacer: {
-        flexShrink: 0,
-        backgroundColor: Colors.bg.page,
-    },
     progressBlock: {
         gap: Spacing.sm,
     },

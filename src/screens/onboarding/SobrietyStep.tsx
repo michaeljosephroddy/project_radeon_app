@@ -2,13 +2,15 @@ import { appAlert } from '@/components/ui/appAlert';
 import React, { useState } from 'react';
 import {
     View, Text, TouchableOpacity,
-    StyleSheet, ScrollView, KeyboardAvoidingView, Platform, Keyboard,
+    StyleSheet, Platform, Keyboard,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { Ionicons } from '@expo/vector-icons';
 import { PrimaryButton } from '../../components/ui/PrimaryButton';
+import { AppKeyboardAwareScrollView } from '../../components/ui/AppKeyboardAwareScrollView';
+import { KeyboardStickyFooter } from '../../components/ui/KeyboardStickyFooter';
 import { OnboardingProgressHeader } from '../../components/onboarding/OnboardingProgressHeader';
 import { TextField } from '../../components/ui/TextField';
 import { useAuth } from '../../hooks/useAuth';
@@ -27,10 +29,16 @@ export function SobrietyStep({ onNext, onBack, dotIndex, dotTotal }: SobrietySte
     const [bio, setBio] = useState(user?.bio ?? '');
     const [showPicker, setShowPicker] = useState(Platform.OS === 'ios');
     const [saving, setSaving] = useState(false);
+    const [footerHeight, setFooterHeight] = useState(0);
 
     const pickerValue = soberSince ? new Date(`${soberSince}T12:00:00Z`) : new Date();
     const formattedDate = formatSobrietyDate(soberSince);
     const canContinue = Boolean(soberSince && bio.trim().length > 0 && bio.length <= MAX_BIO);
+    const keyboardBottomOffset = footerHeight + Spacing.sm;
+    const scrollContentStyle = [
+        styles.scrollContent,
+        { paddingBottom: Spacing.xl + footerHeight },
+    ];
 
     const handleDateChange = (event: DateTimePickerEvent, selectedDate?: Date) => {
         if (Platform.OS === 'android') {
@@ -67,79 +75,74 @@ export function SobrietyStep({ onNext, onBack, dotIndex, dotTotal }: SobrietySte
     };
 
     return (
-        <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+        <SafeAreaView style={styles.container} edges={['top']}>
             <StatusBar style="light" />
             <OnboardingProgressHeader dotIndex={dotIndex} dotTotal={dotTotal} onBack={onBack} />
 
-            <KeyboardAvoidingView
+            <AppKeyboardAwareScrollView
                 style={styles.flex}
-                behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+                contentContainerStyle={scrollContentStyle}
+                bottomOffset={keyboardBottomOffset}
             >
-                <ScrollView
-                    style={styles.flex}
-                    contentContainerStyle={styles.scrollContent}
-                    keyboardShouldPersistTaps="handled"
-                >
-                    <View style={styles.iconWrap}>
-                        <Ionicons name="leaf-outline" size={32} color={Colors.primary} />
-                    </View>
-                    <Text style={styles.title}>Your story</Text>
-                    <Text style={styles.subtitle}>Share when your journey began and a little about yourself.</Text>
+                <View style={styles.iconWrap}>
+                    <Ionicons name="leaf-outline" size={32} color={Colors.primary} />
+                </View>
+                <Text style={styles.title}>Your story</Text>
+                <Text style={styles.subtitle}>Share when your journey began and a little about yourself.</Text>
 
-                    <View style={styles.section}>
-                        <Text style={styles.label}>Sober since</Text>
-                        {Platform.OS === 'android' ? (
-                            <TouchableOpacity
-                                style={styles.dateButton}
-                                onPress={() => setShowPicker(true)}
-                            >
-                                <Text style={[styles.dateButtonText, !soberSince && styles.dateButtonPlaceholder]}>
-                                    {formattedDate || 'Select a date'}
-                                </Text>
-                            </TouchableOpacity>
-                        ) : (
-                            <View style={styles.dateDisplayRow}>
-                                <Text style={[styles.dateDisplay, !soberSince && styles.dateDisplayPlaceholder]}>
-                                    {formattedDate || 'Select a date'}
-                                </Text>
-                            </View>
-                        )}
-
-                        {showPicker && (
-                            <DateTimePicker
-                                value={pickerValue}
-                                mode="date"
-                                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                                maximumDate={new Date()}
-                                onChange={handleDateChange}
-                                themeVariant="dark"
-                            />
-                        )}
-                    </View>
-
-                    <View style={styles.section}>
-                        <View style={styles.labelRow}>
-                            <Text style={styles.label}>Bio</Text>
-                            <Text style={[styles.charCount, bio.length > MAX_BIO && styles.charCountOver]}>
-                                {bio.length}/{MAX_BIO}
+                <View style={styles.section}>
+                    <Text style={styles.label}>Sober since</Text>
+                    {Platform.OS === 'android' ? (
+                        <TouchableOpacity
+                            style={styles.dateButton}
+                            onPress={() => setShowPicker(true)}
+                        >
+                            <Text style={[styles.dateButtonText, !soberSince && styles.dateButtonPlaceholder]}>
+                                {formattedDate || 'Select a date'}
+                            </Text>
+                        </TouchableOpacity>
+                    ) : (
+                        <View style={styles.dateDisplayRow}>
+                            <Text style={[styles.dateDisplay, !soberSince && styles.dateDisplayPlaceholder]}>
+                                {formattedDate || 'Select a date'}
                             </Text>
                         </View>
-                        <TextField
-                            style={styles.bioInput}
-                            placeholder="Tell the community a bit about yourself…"
-                            placeholderTextColor={Colors.text.muted}
-                            multiline
-                            maxLength={MAX_BIO + 10}
-                            value={bio}
-                            onChangeText={setBio}
-                        />
-                    </View>
-                </ScrollView>
+                    )}
 
-                <View style={styles.footer}>
-                    <PrimaryButton label="Continue" onPress={handleContinue} loading={saving} disabled={!canContinue || saving} />
+                    {showPicker && (
+                        <DateTimePicker
+                            value={pickerValue}
+                            mode="date"
+                            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                            maximumDate={new Date()}
+                            onChange={handleDateChange}
+                            themeVariant="dark"
+                        />
+                    )}
                 </View>
-            </KeyboardAvoidingView>
+
+                <View style={styles.section}>
+                    <View style={styles.labelRow}>
+                        <Text style={styles.label}>Bio</Text>
+                        <Text style={[styles.charCount, bio.length > MAX_BIO && styles.charCountOver]}>
+                            {bio.length}/{MAX_BIO}
+                        </Text>
+                    </View>
+                    <TextField
+                        style={styles.bioInput}
+                        placeholder="Tell the community a bit about yourself…"
+                        placeholderTextColor={Colors.text.muted}
+                        multiline
+                        maxLength={MAX_BIO + 10}
+                        value={bio}
+                        onChangeText={setBio}
+                    />
+                </View>
+            </AppKeyboardAwareScrollView>
+
+            <KeyboardStickyFooter contentStyle={styles.footer} onHeightChange={setFooterHeight}>
+                <PrimaryButton label="Continue" onPress={handleContinue} loading={saving} disabled={!canContinue || saving} />
+            </KeyboardStickyFooter>
         </SafeAreaView>
     );
 }
@@ -231,8 +234,5 @@ const styles = StyleSheet.create({
         minHeight: 100,
         textAlignVertical: 'top',
     },
-    footer: {
-        paddingHorizontal: Spacing.xl,
-        paddingBottom: Spacing.lg,
-    },
+    footer: {},
 });

@@ -5,8 +5,6 @@ import {
     Text,
     TouchableOpacity,
     StyleSheet,
-    ScrollView,
-    KeyboardAvoidingView,
     Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -14,6 +12,8 @@ import { StatusBar } from 'expo-status-bar';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { Ionicons } from '@expo/vector-icons';
 import { PrimaryButton } from '../../components/ui/PrimaryButton';
+import { AppKeyboardAwareScrollView } from '../../components/ui/AppKeyboardAwareScrollView';
+import { KeyboardStickyFooter } from '../../components/ui/KeyboardStickyFooter';
 import { OnboardingProgressHeader } from '../../components/onboarding/OnboardingProgressHeader';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { useAuth } from '../../hooks/useAuth';
@@ -31,10 +31,16 @@ export function IdentityStep({ onNext, onBack, dotIndex, dotTotal }: IdentitySte
     const [birthDate, setBirthDate] = useState(user?.birth_date ?? '');
     const [showBirthDatePicker, setShowBirthDatePicker] = useState(Platform.OS === 'ios');
     const [saving, setSaving] = useState(false);
+    const [footerHeight, setFooterHeight] = useState(0);
 
     const birthDatePickerValue = birthDate ? new Date(`${birthDate}T12:00:00Z`) : new Date('1990-01-01T12:00:00Z');
     const formattedBirthDate = formatBirthDateValue(birthDate);
     const canContinue = Boolean(gender && birthDate);
+    const keyboardBottomOffset = footerHeight + Spacing.sm;
+    const scrollContentStyle = [
+        styles.scrollContent,
+        { paddingBottom: Spacing.xl + footerHeight },
+    ];
 
     const handleBirthDateChange = (event: DateTimePickerEvent, selectedDate?: Date) => {
         if (Platform.OS === 'android') {
@@ -66,90 +72,85 @@ export function IdentityStep({ onNext, onBack, dotIndex, dotTotal }: IdentitySte
     };
 
     return (
-        <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+        <SafeAreaView style={styles.container} edges={['top']}>
             <StatusBar style="light" />
             <OnboardingProgressHeader dotIndex={dotIndex} dotTotal={dotTotal} onBack={onBack} />
 
-            <KeyboardAvoidingView
+            <AppKeyboardAwareScrollView
                 style={styles.flex}
-                behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+                contentContainerStyle={scrollContentStyle}
+                bottomOffset={keyboardBottomOffset}
             >
-                <ScrollView
-                    style={styles.flex}
-                    contentContainerStyle={styles.scrollContent}
-                    keyboardShouldPersistTaps="handled"
-                >
-                    <View style={styles.iconWrap}>
-                        <Ionicons name="person-outline" size={32} color={Colors.primary} />
-                    </View>
-                    <Text style={styles.title}>A bit about you</Text>
-                    <Text style={styles.subtitle}>
-                        Add the basics now so profile setup and discovery feel more complete later. You can edit these any time.
-                    </Text>
-
-                    <View style={styles.section}>
-                        <Text style={styles.label}>Gender</Text>
-                        <SegmentedControl
-                            items={GENDER_SEGMENTS.map((item) => ({
-                                key: item.key,
-                                label: item.label,
-                            }))}
-                            activeKey={gender || 'none'}
-                            onChange={(value) => setGender(value as EditableGender)}
-                            layer="form"
-                            tone="secondary"
-                            style={styles.segmentedControl}
-                        />
-                        {gender ? (
-                            <TouchableOpacity onPress={() => setGender('')}>
-                                <Text style={styles.clearText}>Clear gender</Text>
-                            </TouchableOpacity>
-                        ) : (
-                            <Text style={styles.helperText}>Required for a complete profile. You can edit this later.</Text>
-                        )}
-                    </View>
-
-                    <View style={styles.section}>
-                        <Text style={styles.label}>Birth date</Text>
-                        {Platform.OS === 'android' ? (
-                            <TouchableOpacity style={styles.dateButton} onPress={() => setShowBirthDatePicker(true)}>
-                                <Text style={[styles.dateButtonText, !birthDate && styles.dateButtonPlaceholder]}>
-                                    {formattedBirthDate}
-                                </Text>
-                            </TouchableOpacity>
-                        ) : (
-                            <View style={styles.dateDisplayRow}>
-                                <Text style={[styles.dateDisplay, !birthDate && styles.dateDisplayPlaceholder]}>
-                                    {formattedBirthDate}
-                                </Text>
-                            </View>
-                        )}
-
-                        {birthDate ? (
-                            <TouchableOpacity onPress={() => setBirthDate('')}>
-                                <Text style={styles.clearText}>Clear birth date</Text>
-                            </TouchableOpacity>
-                        ) : (
-                            <Text style={styles.helperText}>Required for age-based discovery and safety controls.</Text>
-                        )}
-
-                        {showBirthDatePicker ? (
-                            <DateTimePicker
-                                value={birthDatePickerValue}
-                                mode="date"
-                                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                                maximumDate={new Date()}
-                                onChange={handleBirthDateChange}
-                                themeVariant="dark"
-                            />
-                        ) : null}
-                    </View>
-                </ScrollView>
-
-                <View style={styles.footer}>
-                    <PrimaryButton label="Continue" onPress={handleContinue} loading={saving} disabled={saving || !canContinue} />
+                <View style={styles.iconWrap}>
+                    <Ionicons name="person-outline" size={32} color={Colors.primary} />
                 </View>
-            </KeyboardAvoidingView>
+                <Text style={styles.title}>A bit about you</Text>
+                <Text style={styles.subtitle}>
+                    Add the basics now so profile setup and discovery feel more complete later. You can edit these any time.
+                </Text>
+
+                <View style={styles.section}>
+                    <Text style={styles.label}>Gender</Text>
+                    <SegmentedControl
+                        items={GENDER_SEGMENTS.map((item) => ({
+                            key: item.key,
+                            label: item.label,
+                        }))}
+                        activeKey={gender || 'none'}
+                        onChange={(value) => setGender(value as EditableGender)}
+                        layer="form"
+                        tone="secondary"
+                        style={styles.segmentedControl}
+                    />
+                    {gender ? (
+                        <TouchableOpacity onPress={() => setGender('')}>
+                            <Text style={styles.clearText}>Clear gender</Text>
+                        </TouchableOpacity>
+                    ) : (
+                        <Text style={styles.helperText}>Required for a complete profile. You can edit this later.</Text>
+                    )}
+                </View>
+
+                <View style={styles.section}>
+                    <Text style={styles.label}>Birth date</Text>
+                    {Platform.OS === 'android' ? (
+                        <TouchableOpacity style={styles.dateButton} onPress={() => setShowBirthDatePicker(true)}>
+                            <Text style={[styles.dateButtonText, !birthDate && styles.dateButtonPlaceholder]}>
+                                {formattedBirthDate}
+                            </Text>
+                        </TouchableOpacity>
+                    ) : (
+                        <View style={styles.dateDisplayRow}>
+                            <Text style={[styles.dateDisplay, !birthDate && styles.dateDisplayPlaceholder]}>
+                                {formattedBirthDate}
+                            </Text>
+                        </View>
+                    )}
+
+                    {birthDate ? (
+                        <TouchableOpacity onPress={() => setBirthDate('')}>
+                            <Text style={styles.clearText}>Clear birth date</Text>
+                        </TouchableOpacity>
+                    ) : (
+                        <Text style={styles.helperText}>Required for age-based discovery and safety controls.</Text>
+                    )}
+
+                    {showBirthDatePicker ? (
+                        <DateTimePicker
+                            value={birthDatePickerValue}
+                            mode="date"
+                            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                            maximumDate={new Date()}
+                            onChange={handleBirthDateChange}
+                            themeVariant="dark"
+                        />
+                    ) : null}
+                </View>
+            </AppKeyboardAwareScrollView>
+
+            <KeyboardStickyFooter contentStyle={styles.footer} onHeightChange={setFooterHeight}>
+                <PrimaryButton label="Continue" onPress={handleContinue} loading={saving} disabled={saving || !canContinue} />
+            </KeyboardStickyFooter>
         </SafeAreaView>
     );
 }
@@ -237,8 +238,5 @@ const styles = StyleSheet.create({
         color: Colors.text.primary,
     },
     dateDisplayPlaceholder: { color: Colors.text.muted },
-    footer: {
-        paddingHorizontal: Spacing.xl,
-        paddingBottom: Spacing.lg,
-    },
+    footer: {},
 });

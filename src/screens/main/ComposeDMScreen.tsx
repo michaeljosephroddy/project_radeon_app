@@ -2,12 +2,12 @@ import { appAlert } from '@/components/ui/appAlert';
 import React, { useState, useRef } from 'react';
 import {
     View, Text, TextInput, TouchableOpacity,
-    StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator,
+    StyleSheet, ActivityIndicator,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Avatar } from '../../components/Avatar';
 import { ScreenHeader } from '../../components/ui/ScreenHeader';
+import { KeyboardStickyFooter } from '../../components/ui/KeyboardStickyFooter';
 import * as api from '../../api/client';
 import { useChatRealtime } from '../../hooks/chat/ChatRealtimeProvider';
 import { Colors, Typography, Spacing } from '../../theme';
@@ -65,7 +65,7 @@ export function ComposeDMScreen({
     const canSend = body.trim().length > 0 && !sending;
 
     return (
-        <SafeAreaView style={styles.container} edges={['bottom']}>
+        <View style={styles.container}>
             <ScreenHeader
                 onBack={onBack}
                 centerContent={(
@@ -82,9 +82,7 @@ export function ComposeDMScreen({
                 </Text>
             </View>
 
-            <KeyboardAvoidingView
-                behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-            >
+            <KeyboardStickyFooter contentStyle={styles.composerFooter}>
                 <View style={composerStandards.row}>
                     <TextInput
                         ref={inputRef}
@@ -108,8 +106,8 @@ export function ComposeDMScreen({
                         }
                     </TouchableOpacity>
                 </View>
-            </KeyboardAvoidingView>
-        </SafeAreaView>
+            </KeyboardStickyFooter>
+        </View>
     );
 }
 
@@ -136,5 +134,10 @@ const styles = StyleSheet.create({
         fontSize: Typography.sizes.lg,
         color: Colors.text.muted,
         textAlign: 'center',
+    },
+    composerFooter: {
+        paddingHorizontal: 0,
+        paddingTop: 0,
+        borderTopWidth: 0,
     },
 });

@@ -13,9 +13,10 @@ import {
 import { InfiniteData, useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 import { Swipeable } from 'react-native-gesture-handler';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import * as api from '../../api/client';
 import { MeetupCard } from '../../components/events/MeetupCard';
-import { MeetupFilterSheet } from '../../components/events/MeetupFilterSheet';
 import { MeetupForm, type MeetupFormStep } from '../../components/events/MeetupForm';
 import { MeetupFormValues } from '../../components/events/MeetupFormState';
 import { EmptyState } from '../../components/ui/EmptyState';
@@ -38,6 +39,8 @@ import { useLazyActivation } from '../../hooks/useLazyActivation';
 import { useFriends } from '../../hooks/queries/useFriends';
 import { useMeetupCategories, useMeetups, useMyMeetups } from '../../hooks/queries/useMeetups';
 import { useRefetchOnActiveIfStale } from '../../hooks/useRefetchOnActiveIfStale';
+import { setMeetupFiltersRouteState } from '../../navigation/filterRouteStores';
+import type { RootStackParamList } from '../../navigation/types';
 import { useScrollToTopButton } from '../../hooks/useScrollToTopButton';
 import { queryKeys } from '../../query/queryKeys';
 import { MeetupReviewScreen } from './MeetupReviewScreen';
@@ -347,6 +350,7 @@ export function MeetupsScreen({
     onOpenManageMeetup,
     onRsvpComplete,
 }: MeetupsScreenProps) {
+    const rootNavigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
     const { user } = useAuth();
     const queryClient = useQueryClient();
     const listRef = useRef<FlatList<api.Meetup> | null>(null);
@@ -860,10 +864,32 @@ export function MeetupsScreen({
         ]);
     };
 
-    const handleApplyFilters = () => {
+    const handleOpenFilters = (): void => {
+        setFilterOpen(true);
+        rootNavigation.navigate('MeetupFilters');
+    };
+
+    const handleApplyFilters = (): boolean => {
         setAppliedFilters(draftFilters);
         setFilterOpen(false);
+        return true;
     };
+
+    useEffect(() => {
+        if (!filterOpen) {
+            setMeetupFiltersRouteState(null);
+            return;
+        }
+
+        setMeetupFiltersRouteState({
+            draftFilters,
+            categories,
+            onChangeFilters: setDraftFilters,
+            onClose: () => setFilterOpen(false),
+            onReset: () => setDraftFilters(DEFAULT_MEETUP_FILTERS),
+            onApply: handleApplyFilters,
+        });
+    }, [categories, draftFilters, filterOpen]);
 
     const handleLoadMore = async () => {
         if (activeView === 'hosting') {
@@ -906,7 +932,7 @@ export function MeetupsScreen({
                     style={styles.searchBar}
                     leading={<Ionicons name="search-outline" size={18} color={Colors.text.muted} />}
                 />
-                <TouchableOpacity style={styles.filterButton} onPress={() => setFilterOpen(true)} activeOpacity={0.86}>
+                <TouchableOpacity style={styles.filterButton} onPress={handleOpenFilters} activeOpacity={0.86}>
                     <Ionicons name="options-outline" size={20} color={Colors.text.primary} />
                     {activeFilterChips.length ? (
                         <View style={styles.filterBadge}>
@@ -1273,15 +1299,6 @@ export function MeetupsScreen({
                 </>
             )}
 
-            <MeetupFilterSheet
-                visible={filterOpen}
-                draftFilters={draftFilters}
-                categories={categories}
-                onChangeFilters={setDraftFilters}
-                onClose={() => setFilterOpen(false)}
-                onReset={() => setDraftFilters(DEFAULT_MEETUP_FILTERS)}
-                onApply={handleApplyFilters}
-            />
         </View>
     );
 }

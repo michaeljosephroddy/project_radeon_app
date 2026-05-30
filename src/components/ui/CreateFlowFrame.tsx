@@ -1,21 +1,20 @@
-import React from 'react';
+import React, { useMemo, useState } from 'react';
 import {
-    ScrollView,
     StyleProp,
     StyleSheet,
     View,
     ViewStyle,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors, ContentInsets, Spacing } from '../../theme';
 import { CREATE_SURFACE_HEADER_HEIGHT, CreateSurfaceHeader } from './CreateSurfaceHeader';
+import { AppKeyboardAwareScrollView } from './AppKeyboardAwareScrollView';
+import { KeyboardStickyFooter } from './KeyboardStickyFooter';
 
 interface CreateFlowFrameProps {
     title: string;
     onBack: () => void;
     children: React.ReactNode;
     footer?: React.ReactNode;
-    keyboardSpacer?: React.ReactNode;
     contentStyle?: StyleProp<ViewStyle>;
     scrollStyle?: StyleProp<ViewStyle>;
 }
@@ -25,31 +24,35 @@ export function CreateFlowFrame({
     onBack,
     children,
     footer,
-    keyboardSpacer,
     contentStyle,
     scrollStyle,
 }: CreateFlowFrameProps): React.ReactElement {
-    const insets = useSafeAreaInsets();
-    const footerBottomPadding = Math.max(insets.bottom, Spacing.sm);
+    const [footerHeight, setFooterHeight] = useState(0);
+    const keyboardBottomOffset = footer ? footerHeight + Spacing.sm : Spacing.xl;
+    const resolvedContentStyle = useMemo(
+        () => [
+            styles.content,
+            footer ? { paddingBottom: Spacing.xl + footerHeight } : null,
+            contentStyle,
+        ],
+        [contentStyle, footer, footerHeight],
+    );
 
     return (
         <View style={styles.container}>
             <CreateSurfaceHeader onBack={onBack} title={title} />
-            <ScrollView
+            <AppKeyboardAwareScrollView
                 style={[styles.scroll, scrollStyle]}
-                contentContainerStyle={[styles.content, contentStyle]}
-                keyboardShouldPersistTaps="handled"
-                keyboardDismissMode="interactive"
-                automaticallyAdjustKeyboardInsets={false}
+                contentContainerStyle={resolvedContentStyle}
+                bottomOffset={keyboardBottomOffset}
             >
                 {children}
-            </ScrollView>
+            </AppKeyboardAwareScrollView>
             {footer ? (
-                <View style={[styles.footer, { paddingBottom: footerBottomPadding }]}>
+                <KeyboardStickyFooter onHeightChange={setFooterHeight}>
                     {footer}
-                </View>
+                </KeyboardStickyFooter>
             ) : null}
-            {keyboardSpacer}
         </View>
     );
 }
@@ -67,12 +70,5 @@ const styles = StyleSheet.create({
         paddingTop: CREATE_SURFACE_HEADER_HEIGHT + Spacing.md,
         paddingBottom: Spacing.xl,
         gap: Spacing.lg,
-    },
-    footer: {
-        borderTopWidth: 1,
-        borderTopColor: Colors.border.emphasis,
-        backgroundColor: Colors.bg.page,
-        paddingHorizontal: ContentInsets.screenHorizontal,
-        paddingTop: Spacing.sm,
     },
 });

@@ -1,6 +1,5 @@
 import React from 'react';
 import {
-    Modal,
     ScrollView,
     StyleSheet,
     StyleProp,
@@ -24,7 +23,7 @@ import {
 } from '../../screens/main/support/recoveryMeetings';
 
 interface RecoveryMeetingFilterSheetProps {
-    visible: boolean;
+    active: boolean;
     draftFilters: RecoveryMeetingFilters;
     onChangeFilters: React.Dispatch<React.SetStateAction<RecoveryMeetingFilters>>;
     onClose: () => void;
@@ -81,7 +80,7 @@ function toggleFellowship(current: RecoveryMeetingFilters, value: string): Recov
 }
 
 export function RecoveryMeetingFilterSheet({
-    visible,
+    active,
     draftFilters,
     onChangeFilters,
     onClose,
@@ -103,7 +102,7 @@ export function RecoveryMeetingFilterSheet({
             region: selectedRegionValue || undefined,
             fellowship: suggestionFellowship,
         },
-        visible && selectedCountryValue.length > 0 && debouncedLocationQuery.length >= 2,
+        active && selectedCountryValue.length > 0 && debouncedLocationQuery.length >= 2,
     );
     const regionSuggestionsQuery = useRecoveryMeetingFilterOptions(
         {
@@ -112,7 +111,7 @@ export function RecoveryMeetingFilterSheet({
             country: selectedCountryValue || undefined,
             fellowship: suggestionFellowship,
         },
-        visible && selectedCountryValue.length > 0 && debouncedRegionQuery.length >= 2,
+        active && selectedCountryValue.length > 0 && debouncedRegionQuery.length >= 2,
     );
     const countrySuggestionsQuery = useRecoveryMeetingFilterOptions(
         {
@@ -120,7 +119,7 @@ export function RecoveryMeetingFilterSheet({
             q: debouncedCountryQuery,
             fellowship: suggestionFellowship,
         },
-        visible && debouncedCountryQuery.length >= 2,
+        active && debouncedCountryQuery.length >= 2,
     );
     const locationSuggestions = locationSuggestionsQuery.data ?? [];
     const regionSuggestions = regionSuggestionsQuery.data ?? [];
@@ -140,11 +139,10 @@ export function RecoveryMeetingFilterSheet({
     const showCountrySuggestions = debouncedCountryQuery.length >= 2;
 
     return (
-        <Modal visible={visible} animationType="slide" transparent={false} onRequestClose={onClose}>
-            <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-                <ScreenHeader onBack={onClose} title="Meeting filters" />
+        <SafeAreaView style={styles.container} edges={['bottom']}>
+            <ScreenHeader onBack={onClose} title="Meeting filters" />
 
-                <ScrollView contentContainerStyle={[screenStandards.sheetContent, styles.content]} showsVerticalScrollIndicator={false}>
+            <ScrollView contentContainerStyle={[screenStandards.sheetContent, styles.content]} showsVerticalScrollIndicator={false}>
                     <View style={styles.section}>
                         <Text style={styles.sectionTitle}>Fellowship</Text>
                         <View style={styles.wrap}>
@@ -345,16 +343,15 @@ export function RecoveryMeetingFilterSheet({
                             ))}
                         </View>
                     </View>
-                </ScrollView>
+            </ScrollView>
 
-                <View style={styles.footer}>
-                    <TouchableOpacity onPress={onReset} style={styles.resetButton} activeOpacity={0.8}>
-                        <Text style={styles.resetText}>Reset</Text>
-                    </TouchableOpacity>
-                    <PrimaryButton label="Apply filters" onPress={onApply} style={styles.applyButton} />
-                </View>
-            </SafeAreaView>
-        </Modal>
+            <View style={styles.footer}>
+                <TouchableOpacity onPress={onReset} style={styles.resetButton} activeOpacity={0.8}>
+                    <Text style={styles.resetText}>Reset</Text>
+                </TouchableOpacity>
+                <PrimaryButton label="Apply filters" onPress={onApply} style={styles.applyButton} />
+            </View>
+        </SafeAreaView>
     );
 }
 

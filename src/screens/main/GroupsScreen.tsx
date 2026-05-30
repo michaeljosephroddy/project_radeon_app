@@ -3,7 +3,6 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
     ActivityIndicator,
     FlatList,
-    Modal,
     RefreshControl,
     ScrollView,
     StyleSheet,
@@ -13,6 +12,8 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import * as api from '../../api/client';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { SearchBar } from '../../components/ui/SearchBar';
@@ -23,6 +24,8 @@ import { useGroups, useJoinGroupMutation } from '../../hooks/queries/useGroups';
 import { useScrollToTopButton } from '../../hooks/useScrollToTopButton';
 import { screenStandards } from '../../styles/screenStandards';
 import { Colors, ContentInsets, ControlSizes, Radius, Spacing, TextStyles, getAvatarColors } from '../../theme';
+import { setGroupFiltersRouteState } from '../../navigation/filterRouteStores';
+import type { RootStackParamList } from '../../navigation/types';
 
 interface GroupsScreenProps {
     isActive: boolean;
@@ -31,9 +34,9 @@ interface GroupsScreenProps {
 }
 
 type GroupScope = 'discover' | 'joined';
-type GroupTypeFilter = 'all' | 'standard' | 'support';
+export type GroupTypeFilter = 'all' | 'standard' | 'support';
 
-interface GroupFilterChip {
+export interface GroupFilterChip {
     label: string;
     tag?: string;
     recoveryPathway?: string;
@@ -123,6 +126,7 @@ const GroupSearchRow = React.memo(function GroupSearchRow({
 });
 
 export function GroupsScreen({ isActive, onOpenGroup, onGroupJoined }: GroupsScreenProps): React.ReactElement {
+    const rootNavigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
     const listRef = useRef<FlatList<api.Group> | null>(null);
     const scrollToTop = useScrollToTopButton({ threshold: 520 });
     const [query, setQuery] = useState('');
@@ -145,18 +149,20 @@ export function GroupsScreen({ isActive, onOpenGroup, onGroupJoined }: GroupsScr
         setDraftCity(city);
         setDraftGroupType(groupType);
         setFilterOpen(true);
-    }, [activeChip, city, country, groupType]);
+        rootNavigation.navigate('GroupFilters');
+    }, [activeChip, city, country, groupType, rootNavigation]);
 
     const handleSearchChange = useCallback((nextQuery: string): void => {
         setQuery(nextQuery);
     }, []);
 
-    const applyFilters = (): void => {
+    const applyFilters = (): boolean => {
         setActiveChip(draftChip);
         setCountry(draftCountry.trim());
         setCity(draftCity.trim());
         setGroupType(draftGroupType);
         setFilterOpen(false);
+        return true;
     };
 
     const resetFilters = (): void => {
@@ -170,6 +176,27 @@ export function GroupsScreen({ isActive, onOpenGroup, onGroupJoined }: GroupsScr
         setGroupType('all');
         setFilterOpen(false);
     };
+
+    useEffect(() => {
+        if (!filterOpen) {
+            setGroupFiltersRouteState(null);
+            return;
+        }
+
+        setGroupFiltersRouteState({
+            draftChip,
+            setDraftChip,
+            draftGroupType,
+            setDraftGroupType,
+            draftCountry,
+            setDraftCountry,
+            draftCity,
+            setDraftCity,
+            onClose: () => setFilterOpen(false),
+            onReset: resetFilters,
+            onApply: applyFilters,
+        });
+    }, [draftChip, draftCity, draftCountry, draftGroupType, filterOpen]);
 
     const groupsQuery = useGroups({
         q: query || undefined,
@@ -282,88 +309,111 @@ export function GroupsScreen({ isActive, onOpenGroup, onGroupJoined }: GroupsScr
                     <ActivityIndicator color={Colors.primary} />
                 </View>
             ) : null}
-            <Modal
-                visible={filterOpen}
-                animationType="slide"
-                transparent={false}
-                presentationStyle="pageSheet"
-                onRequestClose={() => setFilterOpen(false)}
-            >
-                <SafeAreaView style={styles.filterScreen} edges={['top', 'bottom']}>
-                    <View style={styles.filterHeader}>
-                        <TouchableOpacity style={styles.filterHeaderButton} onPress={() => setFilterOpen(false)}>
-                            <Ionicons name="close" size={22} color={Colors.text.primary} />
-                        </TouchableOpacity>
-                        <Text style={styles.filterTitle}>Group filters</Text>
-                        <TouchableOpacity style={styles.filterHeaderButton} onPress={resetFilters}>
-                            <Text style={styles.resetText}>Reset</Text>
-                        </TouchableOpacity>
-                    </View>
-                    <ScrollView
-                        style={styles.filterScroll}
-                        contentContainerStyle={styles.filterContent}
-                        showsVerticalScrollIndicator={false}
-                    >
-                        <View style={styles.filterSection}>
-                            <Text style={styles.filterSectionLabel}>Focus</Text>
-                            <View style={styles.filterOptions}>
-                                {FILTER_CHIPS.map((item) => {
-                                    const isSelected = draftChip?.label === item.label;
-                                    return (
-                                        <FilterChip
-                                            key={item.label}
-                                            label={item.label}
-                                            selected={isSelected}
-                                            onPress={() => setDraftChip(isSelected ? null : item)}
-                                        />
-                                    );
-                                })}
-                            </View>
-                        </View>
-                        <View style={styles.filterSection}>
-                            <Text style={styles.filterSectionLabel}>Group type</Text>
-                            <View style={styles.filterOptions}>
-                                <FilterChip
-                                    label="All groups"
-                                    selected={draftGroupType === 'all'}
-                                    onPress={() => setDraftGroupType('all')}
-                                />
-                                <FilterChip
-                                    label="Standard"
-                                    selected={draftGroupType === 'standard'}
-                                    onPress={() => setDraftGroupType(draftGroupType === 'standard' ? 'all' : 'standard')}
-                                />
-                                <FilterChip
-                                    label="Support"
-                                    selected={draftGroupType === 'support'}
-                                    onPress={() => setDraftGroupType(draftGroupType === 'support' ? 'all' : 'support')}
-                                />
-                            </View>
-                        </View>
-                        <View style={styles.filterSection}>
-                            <Text style={styles.filterSectionLabel}>Location</Text>
-                            <TextField
-                                value={draftCountry}
-                                onChangeText={setDraftCountry}
-                                placeholder="Country"
-                                returnKeyType="search"
-                            />
-                            <TextField
-                                value={draftCity}
-                                onChangeText={setDraftCity}
-                                placeholder="City"
-                                returnKeyType="search"
-                            />
-                        </View>
-                    </ScrollView>
-                    <View style={styles.filterFooter}>
-                        <TouchableOpacity style={styles.applyButton} onPress={applyFilters}>
-                            <Text style={styles.applyButtonText}>Apply filters</Text>
-                        </TouchableOpacity>
-                    </View>
-                </SafeAreaView>
-            </Modal>
         </View>
+    );
+}
+
+export interface GroupFiltersScreenProps {
+    draftChip: GroupFilterChip | null;
+    setDraftChip: React.Dispatch<React.SetStateAction<GroupFilterChip | null>>;
+    draftGroupType: GroupTypeFilter;
+    setDraftGroupType: React.Dispatch<React.SetStateAction<GroupTypeFilter>>;
+    draftCountry: string;
+    setDraftCountry: React.Dispatch<React.SetStateAction<string>>;
+    draftCity: string;
+    setDraftCity: React.Dispatch<React.SetStateAction<string>>;
+    onClose: () => void;
+    onReset: () => void;
+    onApply: () => void;
+}
+
+export function GroupFiltersScreen({
+    draftChip,
+    setDraftChip,
+    draftGroupType,
+    setDraftGroupType,
+    draftCountry,
+    setDraftCountry,
+    draftCity,
+    setDraftCity,
+    onClose,
+    onReset,
+    onApply,
+}: GroupFiltersScreenProps): React.ReactElement {
+    return (
+        <SafeAreaView style={styles.filterScreen} edges={['bottom']}>
+            <View style={styles.filterHeader}>
+                <TouchableOpacity style={styles.filterHeaderButton} onPress={onClose}>
+                    <Ionicons name="arrow-back" size={22} color={Colors.primary} />
+                </TouchableOpacity>
+                <Text style={styles.filterTitle}>Group filters</Text>
+                <TouchableOpacity style={styles.filterHeaderButton} onPress={onReset}>
+                    <Text style={styles.resetText}>Reset</Text>
+                </TouchableOpacity>
+            </View>
+            <ScrollView
+                style={styles.filterScroll}
+                contentContainerStyle={styles.filterContent}
+                showsVerticalScrollIndicator={false}
+            >
+                <View style={styles.filterSection}>
+                    <Text style={styles.filterSectionLabel}>Focus</Text>
+                    <View style={styles.filterOptions}>
+                        {FILTER_CHIPS.map((item) => {
+                            const isSelected = draftChip?.label === item.label;
+                            return (
+                                <FilterChip
+                                    key={item.label}
+                                    label={item.label}
+                                    selected={isSelected}
+                                    onPress={() => setDraftChip(isSelected ? null : item)}
+                                />
+                            );
+                        })}
+                    </View>
+                </View>
+                <View style={styles.filterSection}>
+                    <Text style={styles.filterSectionLabel}>Group type</Text>
+                    <View style={styles.filterOptions}>
+                        <FilterChip
+                            label="All groups"
+                            selected={draftGroupType === 'all'}
+                            onPress={() => setDraftGroupType('all')}
+                        />
+                        <FilterChip
+                            label="Standard"
+                            selected={draftGroupType === 'standard'}
+                            onPress={() => setDraftGroupType(draftGroupType === 'standard' ? 'all' : 'standard')}
+                        />
+                        <FilterChip
+                            label="Support"
+                            selected={draftGroupType === 'support'}
+                            onPress={() => setDraftGroupType(draftGroupType === 'support' ? 'all' : 'support')}
+                        />
+                    </View>
+                </View>
+                <View style={styles.filterSection}>
+                    <Text style={styles.filterSectionLabel}>Location</Text>
+                    <TextField
+                        value={draftCountry}
+                        onChangeText={setDraftCountry}
+                        placeholder="Country"
+                        returnKeyType="search"
+                    />
+                    <TextField
+                        value={draftCity}
+                        onChangeText={setDraftCity}
+                        placeholder="City"
+                        returnKeyType="search"
+                    />
+                </View>
+            </ScrollView>
+            <View style={styles.filterFooter}>
+                <TouchableOpacity style={styles.applyButton} onPress={onApply}>
+                    <Text style={styles.applyButtonText}>Apply filters</Text>
+                </TouchableOpacity>
+            </View>
+        </SafeAreaView>
     );
 }
 
