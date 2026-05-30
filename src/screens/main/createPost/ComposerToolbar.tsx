@@ -1,30 +1,21 @@
 import React from "react";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { StyleSheet, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import {
   Colors,
   ControlSizes,
   Radius,
   Spacing,
-  TextStyles,
 } from "../../../theme";
 
 interface ComposerToolbarProps {
   hasImage: boolean;
-  tagCount: number;
-  maxTags: number;
-  tagsEnabled?: boolean;
   onPickImage: () => void;
-  onOpenTagPicker: () => void;
 }
 
 export function ComposerToolbar({
   hasImage,
-  tagCount,
-  maxTags,
-  tagsEnabled = true,
   onPickImage,
-  onOpenTagPicker,
 }: ComposerToolbarProps): React.ReactElement {
   return (
     <View style={styles.toolbar}>
@@ -41,23 +32,6 @@ export function ComposerToolbar({
           color={Colors.primary}
         />
       </TouchableOpacity>
-
-      {tagsEnabled ? (
-        <TouchableOpacity
-          style={styles.iconButton}
-          onPress={onOpenTagPicker}
-          accessibilityRole="button"
-          accessibilityLabel={`Add tags. ${tagCount} of ${maxTags} selected`}
-          hitSlop={4}
-        >
-          <Ionicons name="pricetag-outline" size={20} color={Colors.primary} />
-          {tagCount > 0 ? (
-            <View style={styles.badge}>
-              <Text style={styles.badgeText}>{tagCount}</Text>
-            </View>
-          ) : null}
-        </TouchableOpacity>
-      ) : null}
     </View>
   );
 }
@@ -68,7 +42,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: Spacing.sm,
     paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
+    paddingVertical: Spacing.xs,
     borderTopWidth: 1,
     borderTopColor: Colors.border.emphasis,
     backgroundColor: Colors.bg.page,
@@ -80,22 +54,5 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: Colors.primarySubtle,
-  },
-  badge: {
-    position: "absolute",
-    top: -2,
-    right: -2,
-    minWidth: 16,
-    height: 16,
-    paddingHorizontal: 4,
-    borderRadius: 8,
-    backgroundColor: Colors.primary,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  badgeText: {
-    ...TextStyles.caption,
-    color: Colors.textOn.primary,
-    fontWeight: "700",
   },
 });
