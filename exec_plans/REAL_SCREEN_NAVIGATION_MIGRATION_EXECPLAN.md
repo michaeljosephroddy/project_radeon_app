@@ -29,7 +29,9 @@ The user-visible outcome is that pressing between app pages feels smooth and sta
 - [x] (2026-05-30 Europe/Dublin) Ran `npm run typecheck`; TypeScript completed with exit code 0.
 - [x] (2026-05-30 Europe/Dublin) Ran `git diff --check`; no whitespace errors were reported.
 - [x] (2026-05-30 Europe/Dublin) Migrated Dating profile option editors from the internal `editingSection` swap to a nested native stack with `DatingProfileMain` and `DatingProfileSection` screens.
-- [ ] Replace the remaining current custom app shell with nested bottom tabs and per-tab stacks while preserving the existing visual tab bar.
+- [x] (2026-05-30 Europe/Dublin) Replaced the remaining custom app shell with React Navigation bottom tabs and per-tab native stacks while preserving the existing visual bottom tab bar, center create button, top header, notifications entry point, and own-profile entry point.
+- [x] (2026-05-30 Europe/Dublin) Migrated Dating profile detail opening from the Discover deck to the root `DatingProfileDetail` route and removed the old inline Dating profile detail modal path from `DiscoverScreen`.
+- [x] (2026-05-30 Europe/Dublin) Ran `npm run typecheck`; TypeScript completed with exit code 0 after the nested-tab migration.
 - [x] Migrate Dating profile section editors to real stack screens with shared unsaved draft state.
 - [x] Migrate high-impact shared detail screens such as Chat, User Profile, Group Detail, Meetup Detail, Recovery Meeting Detail, Notifications, and Create flows.
 - [x] Remove obsolete manual overlay state from `AppNavigator` and `DiscoverScreen`.
@@ -37,8 +39,8 @@ The user-visible outcome is that pressing between app pages feels smooth and sta
 
 ## Surprises & Discoveries
 
-- Observation: The main Feed, Discover, Community, Chats, and Profile tabs are already designed to stay mounted using `tabVisible` and `tabHidden` wrappers in `src/navigation/AppNavigator.tsx`.
-    Evidence: `AppNavigator` defines memoized tab wrappers such as `FeedTab`, `DiscoverTab`, `CommunityTab`, `ChatsTab`, and `ProfileTab`, and switches visibility with style objects rather than reconstructing every tab on each tab press.
+- Observation: The main Feed, Discover, Community, Chats, and Profile tabs originally stayed mounted using `tabVisible` and `tabHidden` wrappers in `src/navigation/AppNavigator.tsx`; that compatibility shell has now been replaced by React Navigation bottom tabs with `detachInactiveScreens={false}` and `lazy={false}`.
+    Evidence: `AppNavigator` now creates `MainTabs`, `FeedStack`, `DiscoverStack`, `CommunityStack`, `ChatsStack`, and `ProfileStack` navigators, and renders the existing visual tab bar through a custom `tabBar`.
 
 - Observation: The flicker reported in Dating is not isolated to a single component. It is caused by a broader pattern of local boolean state controlling full-screen pages and overlays.
     Evidence: `DiscoverScreen` has state such as `datingLikesOpen`, `datingMatchesOpen`, and `datingProfileEditorOpen`; before this plan, these values drove early `return` blocks or overlay-style rendering rather than route transitions.
@@ -54,6 +56,9 @@ The user-visible outcome is that pressing between app pages feels smooth and sta
 
 - Observation: Dating profile option editors no longer use the internal `editingSection` swap.
     Evidence: `DatingProfileEditorScreen` now renders `DatingProfileEditorStack` with `DatingProfileMain` and `DatingProfileSection`, and no longer contains `editingSection`, `shouldRestoreEditScroll`, or the scroll-restore `requestAnimationFrame` path.
+
+- Observation: The Discover dating deck no longer owns a local Dating profile detail modal.
+    Evidence: `DiscoverScreen` accepts `onOpenDatingProfile`, and `DiscoverHomeScreen` routes selected dating profiles to `DatingProfileDetail` with `profileId` and `initialProfile`.
 
 ## Decision Log
 
@@ -81,11 +86,15 @@ The user-visible outcome is that pressing between app pages feels smooth and sta
     Rationale: Extracting all Dating state from `DiscoverScreen` into shared route-aware state is a larger follow-up. Route wrappers let the app start using real stack screens immediately, then the duplicate remaining `DiscoverScreen` local state can be removed once all Dating flows have moved.
     Date/Author: 2026-05-29 / Codex
 
+- Decision: Keep global shared detail screens on the root stack while using per-tab stacks for each primary tab.
+    Rationale: Chat, user profiles, notifications, comments, Dating detail, group detail, meetup detail, and create flows can be opened from multiple tabs. Keeping them in the root stack avoids duplicating route registrations while the primary tabs still get real tab navigation and independent stack roots.
+    Date/Author: 2026-05-30 / Codex
+
 ## Outcomes & Retrospective
 
-The high-impact shared detail flows and Dating top-level surfaces now use React Navigation native stack routes instead of local full-screen replacement state. The existing custom visual tab shell remains in place for the five primary tabs, which preserves current tab/header styling while route transitions handle pushed screens.
+The high-impact shared detail flows and Dating top-level surfaces now use React Navigation native stack routes instead of local full-screen replacement state. The primary app shell now uses React Navigation bottom tabs with per-tab native stack roots, while preserving the existing visual tab bar, top header, notification badge, center create action, and own-profile shortcut.
 
-Remaining work is narrower than the original plan: replace the visual tab shell with a true React Navigation bottom-tab navigator when the team is ready for a larger app-shell refactor. Static validation passed, but device smoothness checks still need to be performed on a simulator or physical device.
+Static validation passed. The remaining unchecked item is manual smoothness validation on a simulator or physical device, because transition quality cannot be honestly verified from TypeScript or shell output alone.
 
 ## Context and Orientation
 
