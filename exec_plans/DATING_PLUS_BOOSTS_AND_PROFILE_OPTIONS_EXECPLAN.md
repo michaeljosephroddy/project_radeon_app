@@ -8,7 +8,7 @@ This document follows `PLANS.md` in this repository. It is self-contained so a f
 
 SoberSpace should offer a dating upgrade that feels native to a sober social app: useful advanced compatibility filters, visibility tools, and profile details that help people understand sober lifestyle fit before matching. After this work, a user can fill out richer dating profile details, browse with basic filters for free, upgrade to SoberSpace Plus for advanced filters and likes-you visibility, and buy one-off Spotlights to show their profile to more compatible people for a short period.
 
-The product inspiration is the screenshot set at `/home/michaelroddy/Downloads/j`, which shows dating preferences, optional profile details, subscription benefits, and boost purchase sheets. The implementation must not copy Hinge styling, copy, or brand structure. It should use SoberSpace's dark theme, current typography and spacing tokens, sober compatibility framing, and the existing dating profile editor pattern.
+The product inspiration is the screenshot sets at `/home/michaelroddy/Downloads/j` and `/home/michaelroddy/Downloads/k`, which show dating preferences, optional profile details, subscription benefits, boost purchase sheets, and profile-adjacent "Get more" monetization hubs. The implementation must not copy Hinge or Tinder styling, copy, or brand structure. It should use SoberSpace's dark theme, current typography and spacing tokens, sober compatibility framing, and the existing dating profile editor pattern.
 
 ## Progress
 
@@ -19,12 +19,18 @@ The product inspiration is the screenshot set at `/home/michaelroddy/Downloads/j
 - [x] (2026-05-30T11:37Z) Added a backend migration, Go types, parsing, validation, SQL scan/update support, and tests for expanded Dating profile options.
 - [x] (2026-05-30T11:37Z) Added app API typings, editor rows, section editors, profile preview rows, and public profile detail rows for the expanded Dating profile options.
 - [x] (2026-05-30T11:37Z) Added a SoberSpace Plus screen with target plan pricing, benefits, Spotlight catalogue, navigation, and 402 daily-like-limit routing.
-- [ ] Create backend migrations and entitlement model for boost inventory.
-- [ ] Add backend advanced filter support.
-- [ ] Add app advanced filter paywall UI.
-- [ ] Add real Spotlight purchase sheet with inventory and activation state.
+- [x] (2026-05-30T12:22Z) Reviewed `/home/michaelroddy/Downloads/k` screenshots and decided the next monetization surface should be a third Dating profile editor tab named `Get more`, not a new bottom tab.
+- [x] (2026-05-30T13:18Z) Created backend Spotlight purchase/inventory/activation migration, store APIs, routes, cache pass-through, discovery ranking weight, and tests.
+- [x] (2026-05-30T13:18Z) Added the Dating profile editor `Get more` tab with Plus plans, benefits, Spotlight/Super Spotlight inventory, activation state, setup-required purchase CTAs, and a future Standout Like section.
+- [x] (2026-05-30T13:18Z) Added app API types/functions and React Query hooks for Spotlight status and activation.
+- [x] (2026-05-30T13:18Z) Applied backend migration `106_dating_spotlights.sql` locally.
+- [x] (2026-05-30T13:42Z) Added backend Plus-gated advanced Dating filters for dating intentions, height, family plans, vices, sober lifestyle, recovery approach, nightlife comfort, and substance boundaries.
+- [x] (2026-05-30T13:42Z) Added app advanced Dating filter UI with Plus-locked rows for free users and usable filter controls for Plus users.
+- [x] (2026-05-30T14:05Z) Added subscription savings labels and the auto-renewal/cancellation disclaimer to the SoberSpace Plus surfaces.
+- [x] (2026-05-30T14:22Z) Redesigned the Dating profile editor `Get more` tab around a simpler profile-status header, quick action tiles, and Free versus Plus comparison card.
+- [x] (2026-05-30T13:18Z) Add real Spotlight inventory and activation state to the `Get more` tab.
 - [ ] Integrate real App Store / Google Play products and receipt validation.
-- [ ] Validate end-to-end behavior with backend tests, app typecheck, and manual flows.
+- [x] (2026-05-30T13:18Z) Validate implemented backend/app slices with backend tests, app typecheck, and local migration.
 
 ## Surprises & Discoveries
 
@@ -36,6 +42,10 @@ The product inspiration is the screenshot set at `/home/michaelroddy/Downloads/j
     Evidence: That plan explicitly states "Billing provider, pricing, checkout, receipt validation, and webhooks are separate future work."
 - Observation: Store billing provider setup is not present in the Expo app yet.
     Evidence: The implementation added product IDs, target display prices, and purchase entry points, but purchase actions intentionally show setup-required messaging until App Store / Google Play products and server-side validation are connected.
+- Observation: The screenshots in `/home/michaelroddy/Downloads/k` place monetization close to the user's profile and profile-completion surface, rather than only in a modal paywall.
+    Evidence: Hinge shows a profile-area `Get more` tab alongside safety/profile tabs, and Tinder shows boosts, super-like inventory, and subscriptions on the profile screen.
+- Observation: Spotlight inventory can now be activated, but inventory still needs to be granted by manual/admin rows or a future billing provider.
+    Evidence: Migration `106_dating_spotlights.sql` creates purchase and inventory tables, while the app purchase CTAs still show setup-required messaging until receipt validation or webhooks are connected.
 
 ## Decision Log
 
@@ -54,10 +64,16 @@ The product inspiration is the screenshot set at `/home/michaelroddy/Downloads/j
 - Decision: Do not hardcode exact Hinge copy, visual hierarchy, or brand styling.
     Rationale: The product can reuse mechanics, but the UI should be original and consistent with SoberSpace's dark interface, current chips, rows, and screen headers.
     Date/Author: 2026-05-30 / Codex
+- Decision: Put `Get more` inside the Dating profile editor as a third tab beside `Edit` and `Preview`.
+    Rationale: This keeps monetization tied to the Dating profile context, matches the profile-adjacent pattern from the new screenshots, and avoids adding another bottom tab. Dating paywall entry points can later deep-link to this tab.
+    Date/Author: 2026-05-30 / Codex
+- Decision: Build real boost inventory and activation before real checkout.
+    Rationale: Store billing is not configured yet, but backend inventory, activation, expiry, and discovery ranking are valuable product infrastructure that can be tested without pretending purchases work.
+    Date/Author: 2026-05-30 / Codex
 
 ## Outcomes & Retrospective
 
-Partial implementation is underway. Shipped so far: richer Dating profile options, app editing/display support, a SoberSpace Plus paywall surface, product/benefit catalogue, and backend enforcement for the free daily like limit. Deferred: real billing checkout, receipt validation, boost inventory/activation, advanced filter backend support, and advanced filter paywall rows.
+Implementation is complete except for live billing provider integration. Shipped so far: richer Dating profile options, app editing/display support, a SoberSpace Plus paywall surface, product/benefit catalogue, backend enforcement for the free daily like limit, the Dating profile editor `Get more` tab, backend Spotlight inventory/activation/ranking infrastructure, and Plus-gated advanced Dating filters. Deferred: real billing checkout, receipt validation, and store/provider webhooks.
 
 ## Context and Orientation
 
@@ -78,6 +94,8 @@ Terms used in this plan:
 `Entitlement` means a backend-enforced permission derived from subscription and purchase state, such as "can view likes-you list" or "has unlimited dating likes." The app may hide or lock UI, but the backend must be the source of truth.
 
 `Advanced filter` means a dating/discovery filter only available to Plus users. Free users can see locked rows and upgrade prompts, but backend requests using locked filters must be rejected or ignored with a clear entitlement response.
+
+`Get more` means the monetization hub shown as the third tab in the Dating profile editor, beside `Edit` and `Preview`. It is not a bottom tab. It should include subscription benefits, plan options, Spotlight inventory/purchase entries, Super Spotlight entries, and any future Standout Like inventory.
 
 ## Product Definition
 
@@ -106,6 +124,18 @@ Super Spotlight: 24 hours of stronger visibility.
 Two Super Spotlights bundle: two 24-hour Super Spotlights usable at any time.
 
 The app should frame these around sober compatibility, not vanity. Example SoberSpace-style copy: "Be shown to more compatible sober daters" and "Get seen by people whose dating goals and sober lifestyle fit yours." Do not use exact screenshot copy such as "Send and see all the likes you want" or "Boost your profile for more views."
+
+The primary app surface for these products should be the Dating profile editor's `Get more` tab. Existing locked surfaces, such as Likes You and daily-like-limit errors, may keep opening the current full SoberSpace Plus screen until initial-tab deep-linking is implemented. Once deep-linking is available, route those entry points to the `Get more` tab with the relevant section focused.
+
+The `Get more` tab should include:
+
+- A concise profile-context header, using existing Dating profile data where available.
+- A profile completion prompt or progress row if the data is already available cheaply.
+- Quick inventory tiles for Spotlights, Super Spotlights, and a future Standout Like concept if product decides to include one.
+- A SoberSpace Plus comparison card showing Free versus Plus for core benefits.
+- Plan options using the existing target product IDs and target prices until live store metadata exists.
+- Spotlight and Super Spotlight product cards with inventory count and activation state once the backend supports it.
+- Clear setup-required purchase messaging while billing is not connected.
 
 ## Pricing
 
@@ -165,9 +195,9 @@ Milestone 2 implements dating profile fields. Add database columns to `dating_pr
 
 Milestone 3 implements advanced filters and paywalls. Update `DiscoverFilterSheet`, `useDiscoverFilters`, query keys, API payload types, and backend dating discover query handling. Free users should see locked advanced filter rows with a SoberSpace Plus upsell. If a free user somehow sends Plus-only filters, the backend must return a clear entitlement error rather than silently giving paid behavior.
 
-Milestone 4 implements the SoberSpace Plus purchase screen. Add a native-feeling paywall screen using SoberSpace colors, icons, and existing UI primitives. The screen should have a concise hero, product selector for weekly/monthly/3-month/6-month, benefit list, purchase CTA, restore purchases action, and legal renewal copy. It must not copy Hinge layout exactly. The initial implementation can use mocked product data behind a feature flag if store setup is not ready, but production must use App Store / Google Play product metadata.
+Milestone 4 implements the Dating profile editor `Get more` tab. Add `get_more` to the editor tab union and segmented control in `src/components/discover/DatingProfileEditorScreen.tsx`. Render a native-feeling monetization hub using SoberSpace colors, icons, existing UI primitives, and the existing product catalogue in `src/utils/datingMonetization.ts`. The tab should include Plus, Spotlight, Super Spotlight, and inventory placeholders. It must not copy Hinge or Tinder layout exactly. Purchase CTAs should use setup-required messaging until store billing is connected.
 
-Milestone 5 implements Spotlights. Add a bottom sheet or screen for buying and activating Spotlight products. Users should see their available inventory, active Spotlight expiry if any, and purchase options. Backend ranking should promote active Spotlight profiles in dating discovery while still respecting safety, blocks, dating completion, distance, age, gender, and other filters. Spotlights must not show a user to people they should not be eligible for.
+Milestone 5 implements Spotlights. Add backend tables and routes for Spotlight inventory and active Spotlight windows. Users should see their available inventory and active Spotlight expiry in the `Get more` tab. Activation should consume inventory exactly once and return the active window. Backend ranking should promote active Spotlight profiles in dating discovery while still respecting safety, blocks, dating completion, distance, age, gender, and other filters. Spotlights must not show a user to people they should not be eligible for.
 
 Milestone 6 integrates billing. Choose one in-app purchase approach and document it. The likely path for Expo is RevenueCat or Expo-compatible native in-app purchase modules. Backend must validate purchases server-side through provider webhooks or receipt verification and must not trust app-only purchase state. Store product IDs should be constants in one app module and one backend module.
 
@@ -214,6 +244,14 @@ If UI screens are implemented, start the app and manually verify flows:
 
 Open the app, navigate to Dating, edit a profile, open advanced filters, tap locked filters as a free user, open the Plus paywall, and open the Spotlight purchase sheet.
 
+For the next slice, manually verify:
+
+    Open Dating profile editor
+    Switch between Edit, Preview, and Get more
+    Tap Plus plan CTAs and confirm setup-required messaging
+    Tap Spotlight/Super Spotlight CTAs and confirm setup-required messaging
+    If backend Spotlight state is implemented, activate available inventory and confirm expiry state appears
+
 ## Validation and Acceptance
 
 Backend acceptance:
@@ -234,15 +272,17 @@ App acceptance:
 
 The dating profile editor shows the new optional fields in grouped sections and saves them successfully.
 
+The dating profile editor shows `Edit`, `Preview`, and `Get more` tabs. `Get more` renders without disrupting editing or preview state.
+
 The public dating profile detail screen and preview show only filled optional fields.
 
 The advanced filter sheet shows free filters normally and Plus filters as locked when the user is free.
 
 Tapping a locked advanced filter opens a SoberSpace Plus upsell using SoberSpace styling and copy.
 
-The Plus screen shows weekly, monthly, 3-month, and 6-month products with localized store prices, a clear benefit list, restore purchases, and legal renewal copy.
+The `Get more` tab shows weekly, monthly, 3-month, and 6-month products. In production it must use localized store prices; before billing integration it may show target reference pricing with setup-required CTAs.
 
-The Spotlight screen shows one-hour and 24-hour purchase options, inventory, active expiry state, and activation CTA.
+The `Get more` tab shows one-hour and 24-hour Spotlight options, inventory, active expiry state, and activation CTA once backend Spotlight state exists.
 
 Commands must pass:
 
@@ -273,6 +313,10 @@ Profile option screenshots show bottom-sheet pickers with chip options for commu
 Subscription screenshots show weekly, monthly, 3-month, and 6-month subscription products and benefits such as unlimited likes, seeing likes, more preferences, standouts, sorting likes, enhanced recommendations, skip the line, and priority likes.
 
 Boost screenshots show one-hour boosts, 24-hour superboosts, bundles, a carousel card pattern, and a select CTA. SoberSpace should translate this into Spotlight and Super Spotlight without copying the sheet design.
+
+Screenshot-derived reference features from `/home/michaelroddy/Downloads/k`:
+
+Hinge shows a profile-area `Get more` tab with a large subscription card, then product rows for boosts and roses. Tinder shows profile completion, quick inventory tiles for super likes and boosts, and a subscription comparison card. SoberSpace should adapt these mechanics into the Dating profile editor's `Get more` tab, using Spotlights and SoberSpace Plus language instead of Hinge/Tinder naming.
 
 ## Interfaces and Dependencies
 
@@ -316,8 +360,12 @@ App product IDs should live in one module, for example `src/billing/products.ts`
 
 App purchase UI should use existing components where possible: `ScreenHeader`, `PrimaryButton`, `SegmentedControl`, existing theme tokens, and icons from `@expo/vector-icons` unless the app standardizes on another icon package. Avoid adding a new visual design system.
 
+The app currently stores product metadata in `src/utils/datingMonetization.ts`. Keep using that module for the immediate `Get more` tab. If real billing integration adds store SDK concerns later, move or re-export these constants from a dedicated billing module without changing product IDs.
+
 Backend must remain the enforcement boundary. The app can show locked UI based on `User.is_plus`, but all protected API routes must check entitlements server-side.
 
 ## Revision Notes
 
 2026-05-30 / Codex: Initial ExecPlan created from dating-app screenshots and product discussion. It records the decision to use one subscription tier, Hinge-like reference pricing through localized store products, one-off Spotlight purchases, expanded dating profile options, and SoberSpace-specific sober compatibility fields.
+
+2026-05-30 / Codex: Updated after reviewing `/home/michaelroddy/Downloads/k`. The next app surface is now a `Get more` tab inside the Dating profile editor, with backend Spotlight inventory/activation planned before real checkout integration.

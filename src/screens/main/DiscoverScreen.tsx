@@ -48,6 +48,7 @@ import {
     getDiscoverActiveChips,
     getDiscoverRelaxedCopy,
     hasNonDefaultDiscoverFilters,
+    hasPlusDatingFilters,
     toDiscoverApiFilters,
     useDiscoverFilters,
     validateDiscoverDraft,
@@ -622,6 +623,10 @@ export function DiscoverScreen({
         if (!validatedDraft.normalized) {
             return false;
         }
+        if (isDatingTab && user?.is_plus !== true && hasPlusDatingFilters(validatedDraft.normalized)) {
+            rootNavigation.navigate('SoberSpacePlus', { source: 'profile_preferences' });
+            return false;
+        }
 
         const preview = isDatingTab ? datingPreviewQuery.data : previewQuery.data;
         const nextState = applyDiscoverPreviewEffectiveFilters(validatedDraft.normalized, preview);
@@ -629,7 +634,7 @@ export function DiscoverScreen({
         setDraftFilters(createDiscoverDraftFromApplied(validatedDraft.normalized));
         setFilterSheetVisible(false);
         return true;
-    }, [datingPreviewQuery.data, isDatingTab, previewQuery.data, setAppliedState, setDraftFilters, validatedDraft]);
+    }, [datingPreviewQuery.data, isDatingTab, previewQuery.data, rootNavigation, setAppliedState, setDraftFilters, user?.is_plus, validatedDraft]);
 
     const handleClearAllFilters = useCallback(() => {
         resetFilters();
@@ -679,6 +684,9 @@ export function DiscoverScreen({
             previewLoading: isDatingTab ? datingPreviewQuery.isFetching : previewQuery.isFetching,
             validationError: validatedDraft.error,
             interestOptions: interestOptionsQuery.data ?? [],
+            isDatingContext: isDatingTab,
+            isPlus: user?.is_plus === true,
+            onOpenPlus: () => rootNavigation.navigate('SoberSpacePlus', { source: 'profile_preferences' }),
             onClose: handleCloseFilters,
             onReset: () => setDraftFilters(createDefaultDiscoverDraftFilters()),
             onApply: handleApplyFilters,
@@ -694,7 +702,9 @@ export function DiscoverScreen({
         isDatingTab,
         previewQuery.data,
         previewQuery.isFetching,
+        rootNavigation,
         setDraftFilters,
+        user?.is_plus,
         validatedDraft.error,
     ]);
 

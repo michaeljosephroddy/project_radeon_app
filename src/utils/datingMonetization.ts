@@ -5,6 +5,7 @@ export interface PlusPlan {
     durationLabel: string;
     priceLabel: string;
     cadenceLabel: string;
+    savingsLabel?: string;
     badge?: string;
 }
 
@@ -22,18 +23,21 @@ export const SOBERSPACE_PLUS_PLANS: PlusPlan[] = [
         durationLabel: '1 week',
         priceLabel: '€17.99',
         cadenceLabel: 'per week',
+        savingsLabel: 'New',
     },
     {
         id: 'soberspace_plus_monthly',
         durationLabel: '1 month',
         priceLabel: '€30.99',
         cadenceLabel: 'per month',
+        savingsLabel: 'Save 60%',
     },
     {
         id: 'soberspace_plus_3_month',
         durationLabel: '3 months',
         priceLabel: '€59.99',
         cadenceLabel: '€19.99 per month',
+        savingsLabel: 'Save 74%',
         badge: 'Best value',
     },
     {
@@ -41,6 +45,7 @@ export const SOBERSPACE_PLUS_PLANS: PlusPlan[] = [
         durationLabel: '6 months',
         priceLabel: '€89.99',
         cadenceLabel: '€14.99 per month',
+        savingsLabel: 'Save 81%',
     },
 ];
 
@@ -51,6 +56,8 @@ export const SOBERSPACE_PLUS_BENEFITS = [
     'More standout profiles each day',
     'Sort incoming likes faster',
 ];
+
+export const SOBERSPACE_PLUS_DISCLAIMER = 'Unlimited Dating likes may still require you to reply to or close conversations where it is your turn. Subscriptions renew automatically for the same price and package length until cancelled through your App Store or Google Play settings. By subscribing, you agree to the SoberSpace Terms.';
 
 export const SOBERSPACE_SPOTLIGHT_PRODUCTS: SpotlightProduct[] = [
     {
@@ -80,4 +87,3 @@ export const SOBERSPACE_SPOTLIGHT_PRODUCTS: SpotlightProduct[] = [
         unitLabel: '€18.99 each',
     },
 ];
-

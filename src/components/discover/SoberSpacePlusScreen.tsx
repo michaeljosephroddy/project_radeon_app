@@ -6,6 +6,7 @@ import { appAlert } from '../ui/appAlert';
 import { PrimaryButton } from '../ui/PrimaryButton';
 import {
     SOBERSPACE_PLUS_BENEFITS,
+    SOBERSPACE_PLUS_DISCLAIMER,
     SOBERSPACE_PLUS_PLANS,
     SOBERSPACE_SPOTLIGHT_PRODUCTS,
     type PlusPlan,
@@ -78,17 +79,25 @@ export function SoberSpacePlusScreen({
                     <View style={styles.planGrid}>
                         {SOBERSPACE_PLUS_PLANS.map((plan) => (
                             <TouchableOpacity key={plan.id} style={styles.planCard} onPress={() => handleSelectPlan(plan)} activeOpacity={0.86}>
-                                {plan.badge ? (
-                                    <View style={styles.planBadge}>
-                                        <Text style={styles.planBadgeText}>{plan.badge}</Text>
-                                    </View>
-                                ) : null}
+                                <View style={styles.planBadgeRow}>
+                                    {plan.savingsLabel ? (
+                                        <View style={styles.planSavingsBadge}>
+                                            <Text style={styles.planSavingsText}>{plan.savingsLabel}</Text>
+                                        </View>
+                                    ) : null}
+                                    {plan.badge ? (
+                                        <View style={styles.planBadge}>
+                                            <Text style={styles.planBadgeText}>{plan.badge}</Text>
+                                        </View>
+                                    ) : null}
+                                </View>
                                 <Text style={styles.planDuration}>{plan.durationLabel}</Text>
                                 <Text style={styles.planPrice}>{plan.priceLabel}</Text>
                                 <Text style={styles.planCadence}>{plan.cadenceLabel}</Text>
                             </TouchableOpacity>
                         ))}
                     </View>
+                    <Text style={styles.disclaimer}>{SOBERSPACE_PLUS_DISCLAIMER}</Text>
                 </View>
 
                 <View style={styles.section}>
@@ -248,6 +257,7 @@ const styles = StyleSheet.create({
         width: '47.8%',
         minHeight: 148,
         padding: Spacing.md,
+        paddingTop: 48,
         borderRadius: Radius.md,
         borderWidth: 1,
         borderColor: Colors.border.default,
@@ -255,18 +265,35 @@ const styles = StyleSheet.create({
         justifyContent: 'flex-end',
         gap: Spacing.xs,
     },
-    planBadge: {
+    planBadgeRow: {
         position: 'absolute',
         top: Spacing.sm,
         left: Spacing.sm,
+        right: Spacing.sm,
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 4,
+    },
+    planSavingsBadge: {
         paddingHorizontal: Spacing.sm,
         paddingVertical: Spacing.xs,
         borderRadius: Radius.pill,
         backgroundColor: Colors.primarySubtle,
     },
-    planBadgeText: {
+    planSavingsText: {
         ...TextStyles.badge,
         color: Colors.primary,
+    },
+    planBadge: {
+        paddingHorizontal: Spacing.sm,
+        paddingVertical: Spacing.xs,
+        borderRadius: Radius.pill,
+        backgroundColor: Colors.warningSubtle,
+    },
+    planBadgeText: {
+        ...TextStyles.caption,
+        color: Colors.warning,
+        fontWeight: '800',
     },
     planDuration: {
         ...TextStyles.cardTitle,
@@ -279,6 +306,11 @@ const styles = StyleSheet.create({
     },
     planCadence: {
         ...TextStyles.caption,
+    },
+    disclaimer: {
+        ...TextStyles.caption,
+        color: Colors.text.muted,
+        lineHeight: 18,
     },
     spotlightList: {
         gap: Spacing.sm,
@@ -324,4 +356,3 @@ const styles = StyleSheet.create({
         marginTop: Spacing.sm,
     },
 });
-
