@@ -125,6 +125,13 @@ const POLITICAL_VIEW_OPTIONS: DatingOption<api.DatingPoliticalView>[] = [
     { value: 'other', label: 'Other' },
 ];
 
+const VICE_STATUS_OPTIONS: DatingOption<api.DatingViceStatus>[] = [
+    { value: 'yes', label: 'Yes' },
+    { value: 'sometimes', label: 'Sometimes' },
+    { value: 'no', label: 'No' },
+    { value: 'prefer_not_to_say', label: 'Prefer not to say' },
+];
+
 const LANGUAGE_OPTIONS: DatingOption<string>[] = [
     'English', 'Irish', 'Spanish', 'French', 'German', 'Italian', 'Portuguese', 'Dutch',
     'Polish', 'Romanian', 'Lithuanian', 'Latvian', 'Estonian', 'Russian', 'Ukrainian',
@@ -391,6 +398,9 @@ function getDatingDetailRows(profile: api.DatingProfile): Array<{ icon: keyof ty
         { icon: 'leaf-outline', label: 'Religion', value: labelForOption(RELIGIOUS_BELIEF_OPTIONS, profile.religious_belief ?? '') },
         { icon: 'language-outline', label: 'Languages', value: languageListLabel(profile.languages_spoken ?? []) },
         { icon: 'newspaper-outline', label: 'Politics', value: labelForOption(POLITICAL_VIEW_OPTIONS, profile.political_view ?? '') },
+        { icon: 'wine-outline', label: 'Drinking', value: labelForOption(VICE_STATUS_OPTIONS, profile.drinking_status ?? '') },
+        { icon: 'flame-outline', label: 'Smoking', value: labelForOption(VICE_STATUS_OPTIONS, profile.smoking_status ?? '') },
+        { icon: 'medical-outline', label: 'Drug use', value: labelForOption(VICE_STATUS_OPTIONS, profile.drug_use_status ?? '') },
         { icon: 'resize-outline', label: 'Height', value: heightLabel(profile.height_cm) },
         { icon: 'briefcase-outline', label: 'Work', value: workLabel(profile) },
         { icon: 'school-outline', label: 'Education', value: educationLabel(profile) },
