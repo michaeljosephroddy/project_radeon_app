@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import {
-    Alert,
     KeyboardAvoidingView,
     Platform,
     Pressable,
@@ -13,6 +12,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { appAlert } from '../../components/ui/appAlert';
 import * as api from '../../api/client';
 import { PrimaryButton } from '../../components/ui/PrimaryButton';
 import { queryKeys } from '../../query/queryKeys';
@@ -47,10 +47,10 @@ export function CreateReachOutScreen({ onBack, onCreated }: CreateReachOutScreen
                 queryClient.invalidateQueries({ queryKey: ['support-signals'] }),
                 queryClient.invalidateQueries({ queryKey: queryKeys.supportSignals({ scope: 'mine' }) }),
             ]);
-            Alert.alert('Reach Out is live', 'People who can help will be able to message you.');
+            appAlert.alert('Reach Out is live', 'People who can help will be able to message you.');
             onCreated();
         } catch (error) {
-            Alert.alert('Could not start Reach Out', error instanceof Error ? error.message : 'Please try again.');
+            appAlert.alert('Could not start Reach Out', error instanceof Error ? error.message : 'Please try again.');
         } finally {
             setSubmitting(false);
         }

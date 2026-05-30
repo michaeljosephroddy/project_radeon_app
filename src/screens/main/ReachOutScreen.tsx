@@ -1,7 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import {
     ActivityIndicator,
-    Alert,
     FlatList,
     Pressable,
     RefreshControl,
@@ -15,6 +14,7 @@ import * as api from '../../api/client';
 import { Avatar } from '../../components/Avatar';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { PrimaryButton } from '../../components/ui/PrimaryButton';
+import { appAlert } from '../../components/ui/appAlert';
 import { useActiveSupportSignals, useMySupportSignal } from '../../hooks/queries/useSupport';
 import { queryKeys } from '../../query/queryKeys';
 import { screenStandards } from '../../styles/screenStandards';
@@ -75,7 +75,7 @@ export function ReachOutScreen({ isActive, onOpenChat, focusSignalId = null }: R
             const chat = await api.getChat(result.chat_id);
             onOpenChat(chat);
         } catch (error) {
-            Alert.alert('Could not open chat', error instanceof Error ? error.message : 'Please try again.');
+            appAlert.alert('Could not open chat', error instanceof Error ? error.message : 'Please try again.');
         } finally {
             setPendingId(null);
         }
@@ -87,7 +87,7 @@ export function ReachOutScreen({ isActive, onOpenChat, focusSignalId = null }: R
         const message = action === 'resolve'
             ? 'This will remove your Reach Out signal.'
             : 'People will stop seeing that you are reaching out.';
-        Alert.alert(title, message, [
+        appAlert.alert(title, message, [
             { text: 'Keep it live', style: 'cancel' },
             {
                 text: action === 'resolve' ? 'Mark okay' : 'Cancel',
@@ -100,7 +100,7 @@ export function ReachOutScreen({ isActive, onOpenChat, focusSignalId = null }: R
                     request
                         .then(() => invalidateSignals())
                         .catch((error: unknown) => {
-                            Alert.alert('Could not update Reach Out', error instanceof Error ? error.message : 'Please try again.');
+                            appAlert.alert('Could not update Reach Out', error instanceof Error ? error.message : 'Please try again.');
                         })
                         .finally(() => setPendingId(null));
                 },
