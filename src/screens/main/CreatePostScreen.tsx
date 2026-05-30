@@ -1,3 +1,4 @@
+import { appAlert } from '@/components/ui/appAlert';
 import React, { useCallback } from "react";
 import { useCreatePostMutation } from "../../hooks/queries/useCreatePostMutation";
 import { PostComposer, PostComposerSubmitInput } from "./createPost/PostComposer";
@@ -23,6 +24,7 @@ export function CreatePostScreen({
         tags: input.tags,
       });
       await onPostCreated?.(post);
+      appAlert.alert("Post shared", "Your post is now live.");
     },
     [createPostMutation, onPostCreated],
   );

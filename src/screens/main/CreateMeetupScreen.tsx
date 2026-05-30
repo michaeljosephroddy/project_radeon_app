@@ -3,6 +3,7 @@ import React, { useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { useQueryClient } from '@tanstack/react-query';
+import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as api from '../../api/client';
 import { MeetupForm, type MeetupFormStep } from '../../components/events/MeetupForm';
@@ -120,6 +121,39 @@ function meetupToFormValues(meetup: api.Meetup): MeetupFormValues {
     };
 }
 
+function stringArraysEqual(left: string[], right: string[]): boolean {
+    if (left.length !== right.length) return false;
+    const sortedLeft = [...left].sort();
+    const sortedRight = [...right].sort();
+    return sortedLeft.every((item, index) => item === sortedRight[index]);
+}
+
+function meetupFormValuesEqual(left: MeetupFormValues, right: MeetupFormValues): boolean {
+    return left.title === right.title
+        && left.description === right.description
+        && left.category_slug === right.category_slug
+        && stringArraysEqual(left.co_host_ids, right.co_host_ids)
+        && left.event_type === right.event_type
+        && left.visibility === right.visibility
+        && left.city === right.city
+        && left.country === right.country
+        && left.venue_name === right.venue_name
+        && left.address_line_1 === right.address_line_1
+        && left.address_line_2 === right.address_line_2
+        && left.how_to_find_us === right.how_to_find_us
+        && left.online_url === right.online_url
+        && left.cover_image_url === right.cover_image_url
+        && left.starts_on === right.starts_on
+        && left.starts_at === right.starts_at
+        && left.ends_on === right.ends_on
+        && left.ends_at === right.ends_at
+        && left.timezone === right.timezone
+        && left.lat === right.lat
+        && left.lng === right.lng
+        && left.capacity === right.capacity
+        && left.waitlist_enabled === right.waitlist_enabled;
+}
+
 function buildStartsAt(dateInput: string, timeInput: string): string | null {
     const date = dateInput.trim();
     const time = timeInput.trim();
@@ -216,7 +250,8 @@ export function CreateMeetupScreen({
     const queryClient = useQueryClient();
     const coverUploadRef = useRef<Promise<string> | null>(null);
     const coverUploadTokenRef = useRef(0);
-    const [formValues, setFormValues] = useState<MeetupFormValues>(() => meetup ? meetupToFormValues(meetup) : defaultFormValues(user));
+    const initialFormValuesRef = useRef<MeetupFormValues>(meetup ? meetupToFormValues(meetup) : defaultFormValues(user));
+    const [formValues, setFormValues] = useState<MeetupFormValues>(() => initialFormValuesRef.current);
     const [createStage, setCreateStage] = useState<CreateStage>('form');
     const [currentStepIndex, setCurrentStepIndex] = useState(0);
     const [submitting, setSubmitting] = useState(false);
@@ -243,6 +278,7 @@ export function CreateMeetupScreen({
     const currentStep = MEETUP_FORM_STEPS[currentStepIndex] ?? 'essentials';
     const isFinalStep = currentStepIndex === MEETUP_FORM_STEPS.length - 1;
     const formActionLabel = isFinalStep ? formReviewActionLabel : 'Next';
+    const hasDraft = localCoverPreviewUri !== null || !meetupFormValuesEqual(formValues, initialFormValuesRef.current);
 
     const handleChangeFormValue = (key: keyof MeetupFormValues, value: string | boolean | string[]) => {
         setFormValues((current) => ({ ...current, [key]: value } as MeetupFormValues));
@@ -253,6 +289,27 @@ export function CreateMeetupScreen({
         setFormError(error);
         setCurrentStepIndex(Math.max(0, MEETUP_FORM_STEPS.indexOf(step)));
         setCreateStage('form');
+    };
+
+    const handleClose = (): void => {
+        if (submitting) return;
+        if (createStage === 'review') {
+            setCreateStage('form');
+            return;
+        }
+        if (!hasDraft) {
+            onBack();
+            return;
+        }
+
+        appAlert.alert(
+            meetup ? 'Discard changes?' : 'Discard meetup?',
+            meetup ? 'Your unsaved meetup changes will be lost.' : 'Your current meetup draft will be lost.',
+            [
+                { text: 'Cancel', style: 'cancel' },
+                { text: 'Discard', style: 'destructive', onPress: onBack },
+            ],
+        );
     };
 
     const handleFormPrimaryAction = (): void => {
@@ -302,7 +359,6 @@ export function CreateMeetupScreen({
             const cover_image_url = await uploadPromise;
             if (coverUploadTokenRef.current !== uploadToken) return;
             setFormValues((current) => ({ ...current, cover_image_url }));
-            setLocalCoverPreviewUri(null);
         } catch (error: unknown) {
             if (coverUploadTokenRef.current !== uploadToken) return;
             setLocalCoverPreviewUri(previousPreview);
@@ -376,9 +432,11 @@ export function CreateMeetupScreen({
                 meetup ? queryClient.invalidateQueries({ queryKey: ['meetup', meetup.id] }) : Promise.resolve(),
             ]);
             if (meetup) {
+                appAlert.alert('Meetup updated', `${savedMeetup.title} has been updated.`);
                 onUpdated?.(savedMeetup);
                 return;
             }
+            appAlert.alert('Meetup published', `${savedMeetup.title} is live.`);
             onCreated(savedMeetup);
         } catch (error: unknown) {
             appAlert.alert('Error', error instanceof Error ? error.message : 'Unable to save this event right now.');
@@ -392,8 +450,13 @@ export function CreateMeetupScreen({
     return (
         <View style={styles.container}>
             {createStage === 'form' ? (
-                <>
-                    <CreateSurfaceHeader onBack={onBack} title={headerTitle} />
+                <Animated.View
+                    key={`form-${currentStep}`}
+                    entering={FadeIn.duration(160)}
+                    exiting={FadeOut.duration(100)}
+                    style={styles.stage}
+                >
+                    <CreateSurfaceHeader onBack={handleClose} title={headerTitle} />
                     <MeetupForm
                         title={formTitle}
                         values={formValues}
@@ -414,11 +477,18 @@ export function CreateMeetupScreen({
                         onRemoveCover={handleRemoveCoverImage}
                         onPrimaryAction={handleFormPrimaryAction}
                         onBackStep={currentStepIndex > 0 ? () => setCurrentStepIndex((index) => Math.max(0, index - 1)) : undefined}
+                        onCancelEdit={handleClose}
                         contentStyle={[styles.formContent, { paddingBottom: bottomSafePadding }]}
                     />
-                </>
+                </Animated.View>
             ) : (
-                <MeetupReviewScreen
+                <Animated.View
+                    key="review"
+                    entering={FadeIn.duration(160)}
+                    exiting={FadeOut.duration(100)}
+                    style={styles.stage}
+                >
+                    <MeetupReviewScreen
                     title={reviewTitle}
                     values={formValues}
                     categories={categories}
@@ -430,7 +500,8 @@ export function CreateMeetupScreen({
                     primaryActionVariant={formMode === 'published' ? 'primary' : 'success'}
                     onBack={() => setCreateStage('form')}
                     onPrimaryAction={() => void submitMeetup()}
-                />
+                    />
+                </Animated.View>
             )}
         </View>
     );
@@ -443,5 +514,8 @@ const styles = StyleSheet.create({
     },
     formContent: {
         paddingTop: CREATE_SURFACE_HEADER_HEIGHT + Spacing.sm,
+    },
+    stage: {
+        flex: 1,
     },
 });

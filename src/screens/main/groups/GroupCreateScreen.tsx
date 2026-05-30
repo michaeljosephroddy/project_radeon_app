@@ -3,23 +3,21 @@ import React, { useCallback, useMemo, useRef, useState } from 'react';
 import {
     ActivityIndicator,
     Image,
-    ScrollView,
     StyleSheet,
     Text,
     TouchableOpacity,
     View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import Animated, { useAnimatedStyle } from 'react-native-reanimated';
+import Animated, { FadeIn, FadeOut, useAnimatedStyle } from 'react-native-reanimated';
 import * as ImagePicker from 'expo-image-picker';
 import * as api from '../../../api/client';
-import { CREATE_SURFACE_HEADER_HEIGHT, CreateSurfaceHeader } from '../../../components/ui/CreateSurfaceHeader';
+import { CreateFlowFrame } from '../../../components/ui/CreateFlowFrame';
 import { SegmentedControl } from '../../../components/ui/SegmentedControl';
 import { TextField } from '../../../components/ui/TextField';
 import { useCreateGroupMutation } from '../../../hooks/queries/useGroups';
 import { useGradualKeyboardInset } from '../../../hooks/useGradualKeyboardInset';
-import { Colors, ContentInsets, ControlSizes, Radius, Spacing, TextStyles } from '../../../theme';
+import { Colors, ControlSizes, Radius, Spacing, TextStyles } from '../../../theme';
 
 interface GroupCreateScreenProps {
     onBack: () => void;
@@ -114,6 +112,15 @@ export function GroupCreateScreen({
     const currentStep = GROUP_CREATE_STEPS[currentStepIndex]?.key ?? 'identity';
     const isCreating = createGroupMutation.isPending || submitting;
     const canSubmit = trimmedName.length >= 3 && !isCreating;
+    const hasDraft = trimmedName.length > 0
+        || description.trim().length > 0
+        || rules.trim().length > 0
+        || country.trim().length > 0
+        || city.trim().length > 0
+        || postingPermission !== 'members'
+        || selectedFocus.length > 0
+        || selectedImage !== null;
+    const nameHasError = Boolean(formError) && currentStep === 'identity' && trimmedName.length < 3;
 
     const selectedTags = useMemo(
         () => selectedFocus.map(item => item.tag).filter((tag): tag is string => Boolean(tag)),
@@ -236,6 +243,7 @@ export function GroupCreateScreen({
                 tags: selectedTags,
                 recovery_pathways: selectedPathways,
             });
+            appAlert.alert('Group created', `${group.name} is live.`);
             onCreated(group);
         } catch (error: unknown) {
             appAlert.alert(
@@ -268,6 +276,18 @@ export function GroupCreateScreen({
     const handleBackStep = (): void => {
         setFormError(null);
         setCurrentStepIndex((index) => Math.max(index - 1, 0));
+    };
+
+    const handleClose = (): void => {
+        if (!hasDraft || isCreating) {
+            onBack();
+            return;
+        }
+
+        appAlert.alert('Discard group?', 'Your current group draft will be lost.', [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Discard', style: 'destructive', onPress: onBack },
+        ]);
     };
 
     const renderImagePicker = (): React.ReactElement => (
@@ -327,6 +347,7 @@ export function GroupCreateScreen({
                             placeholder="Group name"
                             autoCapitalize="words"
                             returnKeyType="next"
+                            style={nameHasError && styles.inputError}
                         />
                         <TextField
                             value={description}
@@ -445,18 +466,39 @@ export function GroupCreateScreen({
     };
 
     return (
-        <SafeAreaView style={styles.container} edges={['bottom']}>
-            <CreateSurfaceHeader
-                title="Create group"
-                onBack={onBack}
-            />
-            <ScrollView
-                style={styles.scroll}
-                contentContainerStyle={styles.content}
-                keyboardShouldPersistTaps="handled"
-                keyboardDismissMode="interactive"
-                automaticallyAdjustKeyboardInsets={false}
-            >
+        <CreateFlowFrame
+            title="Create group"
+            onBack={handleClose}
+            footer={(
+                <View style={styles.footerActionRow}>
+                    <TouchableOpacity
+                        style={styles.backButton}
+                        onPress={currentStepIndex > 0 ? handleBackStep : handleClose}
+                        activeOpacity={0.84}
+                        disabled={isCreating}
+                    >
+                        {currentStepIndex > 0 ? <Ionicons name="chevron-back" size={18} color={Colors.primary} /> : null}
+                        <Text style={styles.backButtonText}>{currentStepIndex > 0 ? 'Back' : 'Cancel'}</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                        style={[styles.primaryButton, isCreating && styles.disabled]}
+                        onPress={handlePrimaryAction}
+                        activeOpacity={0.86}
+                        disabled={isCreating}
+                    >
+                        {isCreating ? (
+                            <ActivityIndicator color={Colors.textOn.primary} />
+                        ) : (
+                            <>
+                                <Text style={styles.primaryButtonText}>{currentStep === 'review' ? 'Create group' : 'Next'}</Text>
+                                <Ionicons name="chevron-forward" size={18} color={Colors.textOn.primary} />
+                            </>
+                        )}
+                    </TouchableOpacity>
+                </View>
+            )}
+            keyboardSpacer={<Animated.View style={[styles.keyboardSpacer, keyboardSpacerStyle]} />}
+        >
                 <View style={styles.progressBlock}>
                     <Text style={styles.progressText}>{`${GROUP_CREATE_STEPS[currentStepIndex]?.label ?? 'Step'} ${currentStepIndex + 1} of ${GROUP_CREATE_STEPS.length}`}</Text>
                     <View style={styles.progressTrack}>
@@ -487,38 +529,15 @@ export function GroupCreateScreen({
                     </View>
                 ) : null}
 
-                {renderStepContent()}
-            </ScrollView>
-            <View style={styles.footer}>
-                <View style={styles.footerActionRow}>
-                    <TouchableOpacity
-                        style={styles.backButton}
-                        onPress={currentStepIndex > 0 ? handleBackStep : onBack}
-                        activeOpacity={0.84}
-                        disabled={isCreating}
-                    >
-                        {currentStepIndex > 0 ? <Ionicons name="chevron-back" size={18} color={Colors.primary} /> : null}
-                        <Text style={styles.backButtonText}>{currentStepIndex > 0 ? 'Back' : 'Cancel'}</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                        style={[styles.primaryButton, isCreating && styles.disabled]}
-                        onPress={handlePrimaryAction}
-                        activeOpacity={0.86}
-                        disabled={isCreating}
-                    >
-                        {isCreating ? (
-                            <ActivityIndicator color={Colors.textOn.primary} />
-                        ) : (
-                            <>
-                                <Text style={styles.primaryButtonText}>{currentStep === 'review' ? 'Create group' : 'Next'}</Text>
-                                <Ionicons name="chevron-forward" size={18} color={Colors.textOn.primary} />
-                            </>
-                        )}
-                    </TouchableOpacity>
-                </View>
-            </View>
-            <Animated.View style={[styles.keyboardSpacer, keyboardSpacerStyle]} />
-        </SafeAreaView>
+                <Animated.View
+                    key={currentStep}
+                    entering={FadeIn.duration(160)}
+                    exiting={FadeOut.duration(100)}
+                    style={styles.stepContent}
+                >
+                    {renderStepContent()}
+                </Animated.View>
+        </CreateFlowFrame>
     );
 }
 
@@ -532,25 +551,15 @@ function ReviewRow({ label, value, last = false }: { label: string; value: strin
 }
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: Colors.bg.page,
-    },
-    scroll: {
-        flex: 1,
-    },
     keyboardSpacer: {
         flexShrink: 0,
         backgroundColor: Colors.bg.page,
     },
-    content: {
-        paddingHorizontal: ContentInsets.screenHorizontal,
-        paddingTop: CREATE_SURFACE_HEADER_HEIGHT + Spacing.md,
-        paddingBottom: Spacing.xl,
-        gap: Spacing.lg,
-    },
     progressBlock: {
         gap: Spacing.sm,
+    },
+    stepContent: {
+        gap: Spacing.lg,
     },
     progressText: {
         ...TextStyles.caption,
@@ -792,14 +801,6 @@ const styles = StyleSheet.create({
         ...TextStyles.body,
         color: Colors.text.primary,
     },
-    footer: {
-        borderTopWidth: 1,
-        borderTopColor: Colors.border.emphasis,
-        backgroundColor: Colors.bg.page,
-        paddingHorizontal: ContentInsets.screenHorizontal,
-        paddingTop: Spacing.sm,
-        paddingBottom: Spacing.sm,
-    },
     footerActionRow: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -839,6 +840,10 @@ const styles = StyleSheet.create({
     },
     disabled: {
         opacity: 0.5,
+    },
+    inputError: {
+        borderColor: Colors.danger,
+        borderWidth: 1,
     },
 });
 

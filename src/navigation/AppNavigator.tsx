@@ -13,6 +13,7 @@ import { useIsFocused, useNavigation, useRoute, type RouteProp } from '@react-na
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { StatusBar } from 'expo-status-bar';
+import * as Haptics from 'expo-haptics';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { getDeviceCoords, reverseGeocodePlace } from '../utils/location';
@@ -607,6 +608,7 @@ export function AppNavigator(): React.ReactElement {
 
     const openGlobalCreateMenu = useCallback((): void => {
         Keyboard.dismiss();
+        triggerHaptic(Haptics.ImpactFeedbackStyle.Medium);
         rootNavigation.navigate('CreateMenu');
     }, [rootNavigation]);
 
@@ -826,3 +828,11 @@ const styles = StyleSheet.create({
         color: Colors.primary,
     },
 });
+
+function triggerHaptic(style: Haptics.ImpactFeedbackStyle): void {
+    try {
+        Haptics.impactAsync(style).catch(() => {});
+    } catch {
+        // Haptics are optional in development builds.
+    }
+}

@@ -6,7 +6,11 @@ import {
     View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
+import { useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as api from '../../api/client';
+import { queryKeys } from '../../query/queryKeys';
 import { Colors, Radius, Spacing, TextStyles, Typography } from '../../theme';
 
 type CreateActionKey = 'post' | 'support_request' | 'meetup' | 'group';
@@ -35,6 +39,7 @@ export function CreateMenuScreen({
     onCreateGroup,
 }: CreateMenuScreenProps): React.ReactElement {
     const insets = useSafeAreaInsets();
+    const queryClient = useQueryClient();
     const actions: CreateAction[] = [
         {
             key: 'post',
@@ -66,13 +71,39 @@ export function CreateMenuScreen({
         },
     ];
 
+    React.useEffect(() => {
+        void queryClient.prefetchQuery({
+            queryKey: queryKeys.meetupCategories(),
+            queryFn: () => api.getMeetupCategories(),
+            staleTime: 1000 * 60 * 30,
+        });
+        void queryClient.prefetchQuery({
+            queryKey: ['friends', { limit: 100 }],
+            queryFn: async () => {
+                const page = await api.getFriends(undefined, 100);
+                return page.items ?? [];
+            },
+            staleTime: 1000 * 60 * 5,
+        });
+    }, [queryClient]);
+
+    const handleClose = (): void => {
+        triggerHaptic(Haptics.ImpactFeedbackStyle.Light);
+        onClose();
+    };
+
+    const handleActionPress = (action: CreateAction): void => {
+        triggerHaptic(Haptics.ImpactFeedbackStyle.Medium);
+        action.onPress();
+    };
+
     return (
         <View style={styles.screen}>
             <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="Close create menu"
                 style={styles.scrim}
-                onPress={onClose}
+                onPress={handleClose}
             />
             <View style={[styles.sheet, { paddingBottom: insets.bottom + Spacing.xl }]}>
                 <View style={styles.dragHeader}>
@@ -86,7 +117,7 @@ export function CreateMenuScreen({
                             accessibilityRole="button"
                             accessibilityLabel={action.title}
                             style={({ pressed }) => [styles.actionRow, pressed && styles.actionRowPressed]}
-                            onPress={action.onPress}
+                            onPress={() => handleActionPress(action)}
                         >
                             <View style={styles.iconWrap}>
                                 <Ionicons name={action.icon} size={22} color={Colors.primary} />
@@ -102,6 +133,14 @@ export function CreateMenuScreen({
             </View>
         </View>
     );
+}
+
+function triggerHaptic(style: Haptics.ImpactFeedbackStyle): void {
+    try {
+        Haptics.impactAsync(style).catch(() => {});
+    } catch {
+        // Haptics are optional in development builds.
+    }
 }
 
 const styles = StyleSheet.create({

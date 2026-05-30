@@ -3,6 +3,7 @@ import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/dat
 import React from 'react';
 import { Image, Platform, ScrollView, StyleProp, StyleSheet, Switch, Text, TouchableOpacity, View, ViewStyle } from 'react-native';
 import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
+import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as api from '../../api/client';
 import { Colors, ControlSizes, Radius, Spacing, TextStyles, Typography } from '../../theme';
@@ -283,6 +284,14 @@ export function MeetupForm({
     };
     const footerBackAction = onBackStep ?? onCancelEdit;
     const footerBackLabel = onBackStep ? 'Back' : 'Cancel';
+    const errorMessage = error ?? '';
+    const titleHasError = errorMessage.includes('Title');
+    const categoryHasError = errorMessage.includes('category');
+    const cityHasError = errorMessage.includes('City');
+    const onlineURLHasError = errorMessage.includes('Online');
+    const capacityHasError = errorMessage.includes('Capacity');
+    const latHasError = errorMessage.includes('Latitude');
+    const lngHasError = errorMessage.includes('Longitude');
 
     const renderStepContent = (): React.ReactNode => {
         if (step === 'essentials') {
@@ -313,9 +322,14 @@ export function MeetupForm({
 
                     <View style={styles.section}>
                         <Text style={styles.sectionTitle}>Basics</Text>
-                        <TextField value={values.title} onChangeText={(value) => onChange('title', value)} placeholder="Event title" />
+                        <TextField
+                            value={values.title}
+                            onChangeText={(value) => onChange('title', value)}
+                            placeholder="Event title"
+                            style={titleHasError && styles.inputError}
+                        />
                         <Text style={styles.fieldLabel}>Category</Text>
-                        <View style={styles.wrap}>
+                        <View style={[styles.wrap, categoryHasError && styles.choiceError]}>
                             {categories.map((category) => (
                                 <ChoiceChip
                                     key={category.slug}
@@ -405,7 +419,12 @@ export function MeetupForm({
 
                     <View style={styles.section}>
                         <Text style={styles.sectionTitle}>{isOnline ? 'Online setup' : 'Location'}</Text>
-                        <TextField value={values.city} onChangeText={(value) => onChange('city', value)} placeholder="City" />
+                        <TextField
+                            value={values.city}
+                            onChangeText={(value) => onChange('city', value)}
+                            placeholder="City"
+                            style={cityHasError && styles.inputError}
+                        />
                         <TextField value={values.country} onChangeText={(value) => onChange('country', value)} placeholder="Country" />
                         {showLocationFields ? (
                             <>
@@ -414,7 +433,13 @@ export function MeetupForm({
                             </>
                         ) : null}
                         {(isOnline || values.event_type === 'hybrid') ? (
-                            <TextField value={values.online_url} onChangeText={(value) => onChange('online_url', value)} placeholder="Online event link" autoCapitalize="none" />
+                            <TextField
+                                value={values.online_url}
+                                onChangeText={(value) => onChange('online_url', value)}
+                                placeholder="Online event link"
+                                autoCapitalize="none"
+                                style={onlineURLHasError && styles.inputError}
+                            />
                         ) : null}
                         <ExpandableSection
                             title="Advanced location"
@@ -436,6 +461,7 @@ export function MeetupForm({
                                         placeholder="Latitude"
                                         keyboardType="numbers-and-punctuation"
                                         autoCapitalize="none"
+                                        style={latHasError && styles.inputError}
                                     />
                                 </View>
                                 <View style={styles.half}>
@@ -445,6 +471,7 @@ export function MeetupForm({
                                         placeholder="Longitude"
                                         keyboardType="numbers-and-punctuation"
                                         autoCapitalize="none"
+                                        style={lngHasError && styles.inputError}
                                     />
                                 </View>
                             </View>
@@ -463,6 +490,7 @@ export function MeetupForm({
                         onChangeText={(value) => onChange('capacity', value)}
                         placeholder="Capacity (optional)"
                         keyboardType="number-pad"
+                        style={capacityHasError && styles.inputError}
                     />
                     <View style={styles.switchRow}>
                         <View style={styles.switchCopy}>
@@ -592,7 +620,14 @@ export function MeetupForm({
                     </View>
                 )}
 
-                {renderStepContent()}
+                <Animated.View
+                    key={step}
+                    entering={FadeIn.duration(160)}
+                    exiting={FadeOut.duration(100)}
+                    style={styles.stepContent}
+                >
+                    {renderStepContent()}
+                </Animated.View>
             </ScrollView>
 
             <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, Spacing.sm) + Spacing.sm }]}>
@@ -640,6 +675,9 @@ const styles = StyleSheet.create({
     progressBlock: {
         gap: Spacing.sm,
         paddingTop: Spacing.sm,
+    },
+    stepContent: {
+        gap: Spacing.lg,
     },
     progressText: {
         ...TextStyles.caption,
@@ -938,6 +976,16 @@ const styles = StyleSheet.create({
     },
     emptyText: {
         ...TextStyles.secondary,
+    },
+    inputError: {
+        borderColor: Colors.danger,
+        borderWidth: 1,
+    },
+    choiceError: {
+        borderRadius: Radius.md,
+        borderWidth: 1,
+        borderColor: Colors.danger,
+        padding: Spacing.xs,
     },
     footer: {
         borderTopWidth: 1,

@@ -1,17 +1,15 @@
 import { appAlert } from '@/components/ui/appAlert';
 import React, { useCallback, useState } from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
 import Animated, { useAnimatedStyle } from 'react-native-reanimated';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as api from '../../api/client';
-import { CreateSurfaceHeader, CREATE_SURFACE_HEADER_HEIGHT } from '../../components/ui/CreateSurfaceHeader';
+import { CreateFlowFrame } from '../../components/ui/CreateFlowFrame';
 import { InfoNoticeCard } from '../../components/ui/InfoNoticeCard';
 import { PrimaryButton } from '../../components/ui/PrimaryButton';
 import { TextField } from '../../components/ui/TextField';
 import { useAuth } from '../../hooks/useAuth';
 import { useGradualKeyboardInset } from '../../hooks/useGradualKeyboardInset';
-import { screenStandards } from '../../styles/screenStandards';
 import { Colors, Radius, Spacing, TextStyles } from '../../theme';
 import { getDeviceCoords, reverseGeocodePlace } from '../../utils/location';
 
@@ -76,27 +74,45 @@ export function CreateSupportRequestScreen({
     onCreated,
 }: CreateSupportRequestScreenProps): React.ReactElement {
     const { user, refreshUser } = useAuth();
-    const insets = useSafeAreaInsets();
     const queryClient = useQueryClient();
     const initialCity = user?.current_city ?? user?.city ?? null;
     const [form, setForm] = useState<api.CreateSupportRequestInput>(() => defaultSupportForm(initialCity));
     const [showNotice, setShowNotice] = useState(true);
     const [submitting, setSubmitting] = useState(false);
     const [detectingLocation, setDetectingLocation] = useState(false);
+    const [formError, setFormError] = useState<string | null>(null);
     const storedCity = user?.current_city ?? user?.city ?? null;
     const selectedLocationCity = form.location?.visibility === 'city' ? form.location.city ?? null : null;
     const locationCity = storedCity ?? selectedLocationCity;
     const includeCity = form.location?.visibility === 'city';
     const messageBody = form.message?.trim() ?? '';
-    const canSubmit = messageBody.length > 0 && !submitting;
-    const bottomSafeSpace = Math.max(insets.bottom, Spacing.sm);
+    const defaultLocationCity = initialCity ?? null;
+    const currentLocationCity = form.location?.visibility === 'city' ? form.location.city ?? null : null;
+    const hasDraft = messageBody.length > 0
+        || form.topics.length > 0
+        || form.support_type !== 'chat'
+        || form.urgency !== 'low'
+        || form.preferred_gender !== null
+        || currentLocationCity !== defaultLocationCity;
     const { height: keyboardInsetHeight } = useGradualKeyboardInset({
-        closedHeight: bottomSafeSpace,
+        closedHeight: 0,
         openedOffset: Spacing.sm,
     });
     const keyboardSpacerStyle = useAnimatedStyle((): { height: number } => ({
         height: keyboardInsetHeight.value,
     }));
+
+    const handleBack = useCallback((): void => {
+        if (!hasDraft || submitting) {
+            onBack();
+            return;
+        }
+
+        appAlert.alert('Discard request?', 'Your current support request will be lost.', [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Discard', style: 'destructive', onPress: onBack },
+        ]);
+    }, [hasDraft, onBack, submitting]);
 
     const toggleTopic = useCallback((topic: api.SupportTopic) => {
         setForm((current) => ({
@@ -150,10 +166,11 @@ export function CreateSupportRequestScreen({
     const handleSubmit = useCallback(async () => {
         const trimmedMessage = form.message?.trim() ?? '';
         if (!trimmedMessage) {
-            appAlert.alert('Add context', 'Please describe the support you need before posting.');
+            setFormError('Please describe the support you need before posting.');
             return;
         }
 
+        setFormError(null);
         setSubmitting(true);
         try {
             const payload: api.CreateSupportRequestInput = {
@@ -170,6 +187,7 @@ export function CreateSupportRequestScreen({
                 queryClient.invalidateQueries({ queryKey: ['groups'] }),
                 queryClient.invalidateQueries({ queryKey: ['chats'] }),
             ]);
+            appAlert.alert('Request posted', 'Your support request is live.');
             onCreated(created);
         } catch (error: unknown) {
             appAlert.alert('Could not create support request', error instanceof Error ? error.message : 'Something went wrong.');
@@ -179,144 +197,142 @@ export function CreateSupportRequestScreen({
     }, [form, onCreated, queryClient]);
 
     return (
-        <View style={styles.container}>
-            <CreateSurfaceHeader onBack={onBack} title="Create support request" />
-            <ScrollView
-                style={styles.scroll}
-                contentContainerStyle={[screenStandards.detailContent, screenStandards.scrollContent, styles.content]}
-                keyboardShouldPersistTaps="handled"
-                keyboardDismissMode="interactive"
-                automaticallyAdjustKeyboardInsets={false}
-            >
-                {showNotice ? (
-                    <InfoNoticeCard
-                        title="Create support request"
-                        description="Tell the community what support you need and how people can respond."
-                        style={styles.headerCard}
-                        onDismiss={() => setShowNotice(false)}
-                    />
-                ) : null}
-
-                <Text style={styles.formLabel}>Support type</Text>
-                <View style={styles.selectorWrap}>
-                    {SUPPORT_TYPES.map((type) => (
-                        <TouchableOpacity
-                            key={type}
-                            style={[styles.selectorChip, form.support_type === type && styles.selectorChipActive]}
-                            onPress={() => setForm((current) => ({ ...current, support_type: type }))}
-                        >
-                            <Text style={[styles.selectorChipText, form.support_type === type && styles.selectorChipTextActive]}>
-                                {SUPPORT_TYPE_LABELS[type]}
-                            </Text>
-                        </TouchableOpacity>
-                    ))}
-                </View>
-
-                <Text style={styles.formLabel}>Urgency</Text>
-                <View style={styles.selectorWrap}>
-                    {URGENCIES.map((urgency) => (
-                        <TouchableOpacity
-                            key={urgency}
-                            style={[styles.selectorChip, form.urgency === urgency && styles.selectorChipActive]}
-                            onPress={() => setForm((current) => ({ ...current, urgency }))}
-                        >
-                            <Text style={[styles.selectorChipText, form.urgency === urgency && styles.selectorChipTextActive]}>
-                                {URGENCY_LABELS[urgency]}
-                            </Text>
-                        </TouchableOpacity>
-                    ))}
-                </View>
-
-                <Text style={styles.formLabel}>Topics</Text>
-                <View style={styles.selectorWrap}>
-                    {TOPICS.map((topic) => {
-                        const active = form.topics.includes(topic);
-                        return (
-                            <TouchableOpacity
-                                key={topic}
-                                style={[styles.selectorChip, active && styles.selectorChipActive]}
-                                onPress={() => toggleTopic(topic)}
-                            >
-                                <Text style={[styles.selectorChipText, active && styles.selectorChipTextActive]}>
-                                    {TOPIC_LABELS[topic]}
-                                </Text>
-                            </TouchableOpacity>
-                        );
-                    })}
-                </View>
-
-                <Text style={styles.formLabel}>Preferred gender</Text>
-                <View style={styles.selectorWrap}>
-                    {(['no_preference', 'woman', 'man', 'non_binary'] as api.PreferredGender[]).map((gender) => {
-                        const active = (form.preferred_gender ?? 'no_preference') === gender;
-                        const label = gender === 'no_preference' ? 'No preference' : gender === 'non_binary' ? 'Non-binary' : gender[0].toUpperCase() + gender.slice(1);
-                        return (
-                            <TouchableOpacity
-                                key={gender}
-                                style={[styles.selectorChip, active && styles.selectorChipActive]}
-                                onPress={() => setForm((current) => ({ ...current, preferred_gender: gender === 'no_preference' ? null : gender }))}
-                            >
-                                <Text style={[styles.selectorChipText, active && styles.selectorChipTextActive]}>{label}</Text>
-                            </TouchableOpacity>
-                        );
-                    })}
-                </View>
-
-                <Text style={styles.formLabel}>Location</Text>
-                <View style={styles.selectorWrap}>
-                    <TouchableOpacity
-                        style={[styles.selectorChip, !includeCity && styles.selectorChipActive]}
-                        onPress={() => setForm((current) => ({ ...current, location: null }))}
-                    >
-                        <Text style={[styles.selectorChipText, !includeCity && styles.selectorChipTextActive]}>Hidden</Text>
-                    </TouchableOpacity>
-                    {locationCity ? (
-                        <TouchableOpacity
-                            style={[styles.selectorChip, includeCity && styles.selectorChipActive]}
-                            onPress={() => setForm((current) => ({
-                                ...current,
-                                location: { city: locationCity, visibility: 'city' },
-                            }))}
-                        >
-                            <Text style={[styles.selectorChipText, includeCity && styles.selectorChipTextActive]}>Use {locationCity}</Text>
-                        </TouchableOpacity>
-                    ) : (
-                        <TouchableOpacity
-                            style={[styles.selectorChip, detectingLocation && styles.selectorChipDisabled]}
-                            onPress={() => void handleUseCurrentLocation()}
-                            disabled={detectingLocation}
-                        >
-                            <Text style={styles.selectorChipText}>
-                                {detectingLocation ? 'Detecting...' : 'Use current location'}
-                            </Text>
-                        </TouchableOpacity>
-                    )}
-                </View>
-
-                <TextField
-                    value={form.message ?? ''}
-                    onChangeText={(message) => setForm((current) => ({ ...current, message }))}
-                    placeholder="What support do you need right now?"
-                    multiline
-                    style={[styles.formInput, styles.inputMultiline]}
-                />
-
+        <CreateFlowFrame
+            title="Create support request"
+            onBack={handleBack}
+            footer={(
                 <PrimaryButton
                     label={submitting ? 'Posting...' : 'Post request'}
                     onPress={() => void handleSubmit()}
-                    disabled={!canSubmit}
-                    style={styles.submitButton}
+                    loading={submitting}
+                    disabled={submitting}
                 />
-            </ScrollView>
-            <Animated.View style={[styles.keyboardSpacer, keyboardSpacerStyle]} />
-        </View>
+            )}
+            keyboardSpacer={<Animated.View style={[styles.keyboardSpacer, keyboardSpacerStyle]} />}
+        >
+            {showNotice ? (
+                <InfoNoticeCard
+                    title="Create support request"
+                    description="Tell the community what support you need and how people can respond."
+                    style={styles.headerCard}
+                    onDismiss={() => setShowNotice(false)}
+                />
+            ) : null}
+
+            <Text style={styles.formLabel}>Support type</Text>
+            <View style={styles.selectorWrap}>
+                {SUPPORT_TYPES.map((type) => (
+                    <TouchableOpacity
+                        key={type}
+                        style={[styles.selectorChip, form.support_type === type && styles.selectorChipActive]}
+                        onPress={() => setForm((current) => ({ ...current, support_type: type }))}
+                    >
+                        <Text style={[styles.selectorChipText, form.support_type === type && styles.selectorChipTextActive]}>
+                            {SUPPORT_TYPE_LABELS[type]}
+                        </Text>
+                    </TouchableOpacity>
+                ))}
+            </View>
+
+            <Text style={styles.formLabel}>Urgency</Text>
+            <View style={styles.selectorWrap}>
+                {URGENCIES.map((urgency) => (
+                    <TouchableOpacity
+                        key={urgency}
+                        style={[styles.selectorChip, form.urgency === urgency && styles.selectorChipActive]}
+                        onPress={() => setForm((current) => ({ ...current, urgency }))}
+                    >
+                        <Text style={[styles.selectorChipText, form.urgency === urgency && styles.selectorChipTextActive]}>
+                            {URGENCY_LABELS[urgency]}
+                        </Text>
+                    </TouchableOpacity>
+                ))}
+            </View>
+
+            <Text style={styles.formLabel}>Topics</Text>
+            <View style={styles.selectorWrap}>
+                {TOPICS.map((topic) => {
+                    const active = form.topics.includes(topic);
+                    return (
+                        <TouchableOpacity
+                            key={topic}
+                            style={[styles.selectorChip, active && styles.selectorChipActive]}
+                            onPress={() => toggleTopic(topic)}
+                        >
+                            <Text style={[styles.selectorChipText, active && styles.selectorChipTextActive]}>
+                                {TOPIC_LABELS[topic]}
+                            </Text>
+                        </TouchableOpacity>
+                    );
+                })}
+            </View>
+
+            <Text style={styles.formLabel}>Preferred gender</Text>
+            <View style={styles.selectorWrap}>
+                {(['no_preference', 'woman', 'man', 'non_binary'] as api.PreferredGender[]).map((gender) => {
+                    const active = (form.preferred_gender ?? 'no_preference') === gender;
+                    const label = gender === 'no_preference' ? 'No preference' : gender === 'non_binary' ? 'Non-binary' : gender[0].toUpperCase() + gender.slice(1);
+                    return (
+                        <TouchableOpacity
+                            key={gender}
+                            style={[styles.selectorChip, active && styles.selectorChipActive]}
+                            onPress={() => setForm((current) => ({ ...current, preferred_gender: gender === 'no_preference' ? null : gender }))}
+                        >
+                            <Text style={[styles.selectorChipText, active && styles.selectorChipTextActive]}>{label}</Text>
+                        </TouchableOpacity>
+                    );
+                })}
+            </View>
+
+            <Text style={styles.formLabel}>Location</Text>
+            <View style={styles.selectorWrap}>
+                <TouchableOpacity
+                    style={[styles.selectorChip, !includeCity && styles.selectorChipActive]}
+                    onPress={() => setForm((current) => ({ ...current, location: null }))}
+                >
+                    <Text style={[styles.selectorChipText, !includeCity && styles.selectorChipTextActive]}>Hidden</Text>
+                </TouchableOpacity>
+                {locationCity ? (
+                    <TouchableOpacity
+                        style={[styles.selectorChip, includeCity && styles.selectorChipActive]}
+                        onPress={() => setForm((current) => ({
+                            ...current,
+                            location: { city: locationCity, visibility: 'city' },
+                        }))}
+                    >
+                        <Text style={[styles.selectorChipText, includeCity && styles.selectorChipTextActive]}>Use {locationCity}</Text>
+                    </TouchableOpacity>
+                ) : (
+                    <TouchableOpacity
+                        style={[styles.selectorChip, detectingLocation && styles.selectorChipDisabled]}
+                        onPress={() => void handleUseCurrentLocation()}
+                        disabled={detectingLocation}
+                    >
+                        <Text style={styles.selectorChipText}>
+                            {detectingLocation ? 'Detecting...' : 'Use current location'}
+                        </Text>
+                    </TouchableOpacity>
+                )}
+            </View>
+
+            <TextField
+                value={form.message ?? ''}
+                onChangeText={(message) => {
+                    setForm((current) => ({ ...current, message }));
+                    if (formError) setFormError(null);
+                }}
+                placeholder="What support do you need right now?"
+                multiline
+                style={[styles.formInput, styles.inputMultiline, formError && styles.inputError]}
+            />
+            {formError ? (
+                <Text style={styles.errorText}>{formError}</Text>
+            ) : null}
+        </CreateFlowFrame>
     );
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: Colors.bg.page },
-    scroll: { flex: 1 },
-    content: { paddingTop: CREATE_SURFACE_HEADER_HEIGHT + Spacing.sm },
     keyboardSpacer: {
         flexShrink: 0,
         backgroundColor: Colors.bg.page,
@@ -343,5 +359,14 @@ const styles = StyleSheet.create({
     selectorChipTextActive: { color: Colors.textOn.primary, fontWeight: '700' },
     formInput: { marginTop: Spacing.md },
     inputMultiline: { minHeight: 110, textAlignVertical: 'top' },
-    submitButton: { marginTop: Spacing.lg },
+    inputError: {
+        borderColor: Colors.danger,
+        borderWidth: 1,
+    },
+    errorText: {
+        ...TextStyles.caption,
+        color: Colors.danger,
+        fontWeight: '700',
+        marginTop: -Spacing.sm,
+    },
 });

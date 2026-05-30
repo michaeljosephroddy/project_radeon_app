@@ -80,7 +80,7 @@ export function RootNavigation(): React.ReactElement {
                                 component={RootCreateMenuScreen}
                                 options={{
                                     presentation: 'transparentModal',
-                                    animation: 'fade',
+                                    animation: 'slide_from_bottom',
                                     contentStyle: styles.transparentScreen,
                                 }}
                             />
