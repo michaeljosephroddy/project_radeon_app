@@ -12,7 +12,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { KeyboardAwareScrollView, type KeyboardAwareScrollViewRef } from 'react-native-keyboard-controller';
+import { type KeyboardAwareScrollViewRef } from 'react-native-keyboard-controller';
 import { createNativeStackNavigator, type NativeStackScreenProps } from '@react-navigation/native-stack';
 import * as api from '../../api/client';
 import { useInterests } from '../../hooks/queries/useInterests';
@@ -23,6 +23,7 @@ import { DatingPhotoCarousel } from './DatingPhotoCarousel';
 import { DatingSortablePhotoGrid } from './DatingSortablePhotoGrid';
 import { InterestSelector } from '../InterestSelector';
 import { InfoNoticeCard } from '../ui/InfoNoticeCard';
+import { AppKeyboardAwareScrollView } from '../ui/AppKeyboardAwareScrollView';
 import { PrimaryButton } from '../ui/PrimaryButton';
 import { SegmentedControl } from '../ui/SegmentedControl';
 import { ScreenHeader } from '../ui/ScreenHeader';
@@ -497,15 +498,12 @@ export function DatingProfileEditorScreen({
             </View>
 
             {activeTab === 'edit' ? (
-                <KeyboardAwareScrollView
+                <AppKeyboardAwareScrollView
                     ref={scrollRef}
                     bottomOffset={Spacing.xl}
                     contentContainerStyle={styles.content}
                     extraKeyboardSpace={Spacing.xl}
-                    keyboardDismissMode="interactive"
-                    keyboardShouldPersistTaps="handled"
                     scrollEventThrottle={16}
-                    showsVerticalScrollIndicator={false}
                 >
                     {showProfileNotice ? (
                         <View style={styles.header}>
@@ -575,7 +573,7 @@ export function DatingProfileEditorScreen({
                             </View>
                         ) : null}
                     </View>
-                </KeyboardAwareScrollView>
+                </AppKeyboardAwareScrollView>
             ) : (
                 <DatingProfilePreview
                     profile={profile}
@@ -915,17 +913,14 @@ function DatingSectionEditor(props: DatingSectionEditorProps): React.ReactElemen
     }, []);
 
     return (
-        <KeyboardAwareScrollView
+        <AppKeyboardAwareScrollView
             ref={sectionScrollRef}
             bottomOffset={Spacing.xl}
             contentContainerStyle={styles.focusedContent}
             extraKeyboardSpace={Spacing.xl}
-            keyboardDismissMode="interactive"
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}
         >
             {renderSectionEditorContent({ ...props, ensureFocusedInputVisible })}
-        </KeyboardAwareScrollView>
+        </AppKeyboardAwareScrollView>
     );
 }
 

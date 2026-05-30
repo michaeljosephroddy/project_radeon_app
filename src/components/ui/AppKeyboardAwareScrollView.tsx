@@ -1,4 +1,5 @@
 import React, { forwardRef } from 'react';
+import { Platform } from 'react-native';
 import {
     KeyboardAwareScrollView,
     type KeyboardAwareScrollViewProps,
@@ -14,10 +15,11 @@ export const AppKeyboardAwareScrollView = forwardRef<KeyboardAwareScrollViewRef,
     function AppKeyboardAwareScrollView(
         {
             bottomOffset = Spacing.lg,
-            keyboardDismissMode = 'interactive',
+            keyboardDismissMode = Platform.OS === 'ios' ? 'interactive' : 'on-drag',
             keyboardShouldPersistTaps = 'handled',
             showsVerticalScrollIndicator = false,
             automaticallyAdjustKeyboardInsets = false,
+            disableScrollOnKeyboardHide = true,
             ...props
         },
         ref,
@@ -30,6 +32,7 @@ export const AppKeyboardAwareScrollView = forwardRef<KeyboardAwareScrollViewRef,
                 keyboardShouldPersistTaps={keyboardShouldPersistTaps}
                 showsVerticalScrollIndicator={showsVerticalScrollIndicator}
                 automaticallyAdjustKeyboardInsets={automaticallyAdjustKeyboardInsets}
+                disableScrollOnKeyboardHide={disableScrollOnKeyboardHide}
                 {...props}
             />
         );

@@ -9,7 +9,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import * as api from '../../../api/client';
 import { AppKeyboardAwareScrollView } from '../../../components/ui/AppKeyboardAwareScrollView';
-import { KeyboardStickyFooter } from '../../../components/ui/KeyboardStickyFooter';
+import { KEYBOARD_STICKY_FOOTER_SINGLE_ACTION_RESERVE, KeyboardStickyFooter } from '../../../components/ui/KeyboardStickyFooter';
 import { ScreenHeader } from '../../../components/ui/ScreenHeader';
 import { TextField } from '../../../components/ui/TextField';
 import { useReportGroupTargetMutation } from '../../../hooks/queries/useGroups';
@@ -41,12 +41,11 @@ export function GroupReportScreen({
 }: GroupReportScreenProps): React.ReactElement {
     const [reason, setReason] = useState(REPORT_REASONS[0]);
     const [details, setDetails] = useState('');
-    const [footerHeight, setFooterHeight] = useState(0);
     const reportMutation = useReportGroupTargetMutation(group.id);
-    const keyboardBottomOffset = footerHeight + Spacing.sm;
+    const keyboardBottomOffset = KEYBOARD_STICKY_FOOTER_SINGLE_ACTION_RESERVE;
     const scrollContentStyle = [
         styles.content,
-        { paddingBottom: Spacing.md + footerHeight },
+        { paddingBottom: Spacing.md + KEYBOARD_STICKY_FOOTER_SINGLE_ACTION_RESERVE },
     ];
 
     const submit = async (): Promise<void> => {
@@ -105,7 +104,7 @@ export function GroupReportScreen({
                 />
             </AppKeyboardAwareScrollView>
 
-            <KeyboardStickyFooter onHeightChange={setFooterHeight}>
+            <KeyboardStickyFooter>
                 <TouchableOpacity
                     style={[styles.submitButton, reportMutation.isPending && styles.disabled]}
                     onPress={submit}

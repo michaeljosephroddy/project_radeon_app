@@ -5,7 +5,6 @@ import {
     StyleSheet, RefreshControl, ActivityIndicator, Modal,
     Platform,
 } from 'react-native';
-import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -726,10 +725,7 @@ export function FeedScreen({
     }
 
     return (
-        <KeyboardAvoidingView
-            behavior="padding"
-            style={styles.container}
-        >
+        <View style={styles.container}>
             <FlatList
                 ref={flatListRef}
                 data={feedItems}
@@ -843,7 +839,7 @@ export function FeedScreen({
                     </View>
                 </View>
             </Modal>
-        </KeyboardAvoidingView>
+        </View>
     );
 }
 
