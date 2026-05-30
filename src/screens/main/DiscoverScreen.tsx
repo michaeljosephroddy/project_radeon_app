@@ -116,10 +116,10 @@ function useDebounce<T>(value: T, delay: number): T {
 
 const DiscoverCard = memo(function DiscoverCard({ user, isFriended, onPress, onFriend }: DiscoverCardProps) {
     const avatarColors = getAvatarColors(user.username);
-    const milestone = getRecoveryMilestone(user.sober_since);
+    const badges = getPeopleBadges(user);
 
     return (
-        <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.92}>
+        <TouchableOpacity style={[styles.card, user.has_active_reach_out && styles.cardReachOut]} onPress={onPress} activeOpacity={0.92}>
             {user.avatar_url ? (
                 <Image source={{ uri: user.avatar_url }} style={StyleSheet.absoluteFill} resizeMode="cover" />
             ) : (
@@ -153,10 +153,13 @@ const DiscoverCard = memo(function DiscoverCard({ user, isFriended, onPress, onF
             ) : null}
 
             <View style={styles.cardFooter}>
-                {milestone ? (
-                    <View style={styles.cardMilestonePill}>
-                        <Ionicons name="trophy-outline" size={IconSizes.badge} color={Colors.textOn.warning} />
-                        <Text style={styles.cardMilestoneText}>{milestone.currentLabel}</Text>
+                {badges.length > 0 ? (
+                    <View style={styles.cardBadges}>
+                        {badges.map((badge) => (
+                            <View key={badge} style={styles.cardMetaPill}>
+                                <Text style={styles.cardMetaText}>{badge}</Text>
+                            </View>
+                        ))}
                     </View>
                 ) : null}
                 <Text style={styles.cardName} numberOfLines={1}>{formatUsername(user.username)}</Text>
@@ -260,7 +263,7 @@ function getResultsHeading(
         if (isDatingTab) {
             return broadened ? 'Close Dating matches in search' : 'Filtered Dating search results';
         }
-        return broadened ? 'Close matches in search' : 'Filtered search results';
+        return broadened ? 'More people in search' : 'Filtered People search';
     }
     if (isSearching) {
         return isDatingTab ? 'Dating search results' : 'Search results';
@@ -269,12 +272,12 @@ function getResultsHeading(
         if (isDatingTab) {
             return broadened ? 'Close Dating matches' : 'Filtered Dating profiles';
         }
-        return broadened ? 'Close matches' : 'Filtered people';
+        return broadened ? 'More people' : 'Filtered people';
     }
     if (isDatingTab) {
         return 'Dating profiles';
     }
-    return 'Suggested for you';
+    return 'People to connect with';
 }
 
 function getNoResultsCopy(
@@ -284,30 +287,30 @@ function getNoResultsCopy(
     broadened: boolean,
     isDatingTab: boolean,
 ): { title: string; description: string } {
-    const hasFilters = hasNonDefaultDiscoverFilters(appliedFilters);
+    const hasFilters = hasNonDefaultDiscoverFilters(appliedFilters, { includeDatingFields: isDatingTab });
 
     if (isSearching) {
         return {
             title: isDatingTab ? `No Dating profiles found for "${query}"` : `No people found for "${query}"`,
             description: hasFilters
-                ? 'Try removing a filter or broadening your match pool.'
+                ? 'Try removing a filter or widening the people shown.'
                 : 'Try a shorter username or clear the search.',
         };
     }
 
     if (broadened) {
         return {
-            title: isDatingTab ? 'No close Dating matches right now' : 'No close matches right now',
+            title: isDatingTab ? 'No close Dating matches right now' : 'No more people right now',
             description: 'Your broadened search still came up empty. Try clearing one or two filters and check back later.',
         };
     }
 
     if (hasFilters) {
         return {
-            title: isDatingTab ? 'No Dating profiles match those filters' : 'No exact matches yet',
+            title: isDatingTab ? 'No Dating profiles match those filters' : 'No people match those filters yet',
             description: isDatingTab
                 ? 'Dating only includes people who also opted in. Try widening distance, easing your age range, or check back later.'
-                : 'Try widening distance, easing your age range, or letting the app broaden results when inventory is low.',
+                : 'Try widening distance, changing interests, or letting the app broaden results when inventory is low.',
         };
     }
 
@@ -352,6 +355,14 @@ function formatCompactCount(count: number): string {
     return count > 99 ? '99+' : String(count);
 }
 
+function getPeopleBadges(user: api.User): string[] {
+    const badges: string[] = [];
+    if (typeof user.distance_km === 'number' && user.distance_km <= 50) {
+        badges.push(user.distance_km < 1 ? 'Nearby' : `${Math.round(user.distance_km)} km`);
+    }
+    return badges;
+}
+
 export function DiscoverScreen({
     isActive,
     onOpenUserProfile,
@@ -381,8 +392,7 @@ export function DiscoverScreen({
     const loggedDatingSetupStartedRef = useRef(false);
     const listRef = useRef<FlatList<api.User>>(null);
     const discoverScrollToTop = useScrollToTopButton({ threshold: 520 });
-    const datingEnabled = user?.connection_intents?.includes('dating') ?? false;
-    const datingProfileQuery = useDatingProfile(hasActivated && datingEnabled);
+    const datingProfileQuery = useDatingProfile(hasActivated);
     const datingProfile = datingProfileQuery.data ?? null;
     const datingProfileReady = Boolean(datingProfile?.completed_at) && !datingProfile?.paused;
 
@@ -417,42 +427,6 @@ export function DiscoverScreen({
     }, [hasActivated, refreshDeviceLocation]);
 
     useEffect(() => {
-        if (!datingEnabled && activeTab === 'dating') {
-            setActiveTab('friends');
-        }
-    }, [activeTab, datingEnabled]);
-
-    useEffect(() => {
-        if (draftFilters.intent === 'dating') {
-            setDraftFilters((current) => current.intent === 'dating'
-                ? { ...current, intent: 'any' }
-                : current);
-        }
-
-        if (appliedState.requested.intent === 'dating' || appliedState.effective.intent === 'dating') {
-            setAppliedState((current) => {
-                if (current.requested.intent !== 'dating' && current.effective.intent !== 'dating') {
-                    return current;
-                }
-
-                return {
-                    ...current,
-                    requested: { ...current.requested, intent: 'any' },
-                    effective: { ...current.effective, intent: 'any' },
-                    broadened: false,
-                    relaxedFields: (current.relaxedFields ?? []).filter((field) => field !== 'intent'),
-                };
-            });
-        }
-    }, [
-        appliedState.effective.intent,
-        appliedState.requested.intent,
-        draftFilters.intent,
-        setAppliedState,
-        setDraftFilters,
-    ]);
-
-    useEffect(() => {
         if (isActive && activeTab === 'dating' && !datingProfileReady && !loggedDatingSetupStartedRef.current) {
             loggedDatingSetupStartedRef.current = true;
             logDatingEvent({ event_type: 'setup_started' });
@@ -468,27 +442,27 @@ export function DiscoverScreen({
     const isSearching = isFriendsTab && liveSearchText.length > 0;
     const hasCommittedSearch = isFriendsTab && debouncedQuery.length > 0;
     const isSearchPending = isSearching && liveSearchText !== debouncedQuery;
-    const hasAppliedFilters = hasNonDefaultDiscoverFilters(appliedState.requested);
-    const activeChips = useMemo(() => getDiscoverActiveChips(appliedState.requested), [appliedState.requested]);
+    const hasAppliedFilters = hasNonDefaultDiscoverFilters(appliedState.requested, { includeDatingFields: isDatingTab });
+    const activeChips = useMemo(
+        () => getDiscoverActiveChips(appliedState.requested, { includeDatingFields: isDatingTab }),
+        [appliedState.requested, isDatingTab],
+    );
     const broadenedCopy = appliedState.broadened ? getDiscoverRelaxedCopy(appliedState.relaxedFields) : null;
     const filterCount = activeChips.length;
 
-    const validatedDraft = useMemo(() => validateDiscoverDraft(draftFilters), [draftFilters]);
+    const validatedDraft = useMemo(
+        () => validateDiscoverDraft(draftFilters, { includeDatingFields: isDatingTab }),
+        [draftFilters, isDatingTab],
+    );
     const peopleActive = isActive && isFriendsTab;
     const meetingsActive = isActive && activeTab === 'meetings';
-    const tabIntent: api.ConnectionIntent | undefined = isDatingTab ? 'dating' : undefined;
-
     const draftApiFilters = useMemo(
-        () => validatedDraft.normalized ? {
-            ...toDiscoverApiFilters(validatedDraft.normalized),
-            intent: tabIntent,
-        } : undefined,
-        [tabIntent, validatedDraft.normalized],
+        () => validatedDraft.normalized ? toDiscoverApiFilters(validatedDraft.normalized, { includeDatingFields: false }) : undefined,
+        [validatedDraft.normalized],
     );
     const datingDraftApiFilters = useMemo(() => {
         if (!validatedDraft.normalized) return undefined;
-        const { intent: _intent, ...filters } = toDiscoverApiFilters(validatedDraft.normalized);
-        return filters;
+        return toDiscoverApiFilters(validatedDraft.normalized, { includeDatingFields: true });
     }, [validatedDraft.normalized]);
 
     const interestOptionsQuery = useInterests(hasActivated && filterSheetVisible && isPeopleTab);
@@ -503,7 +477,7 @@ export function DiscoverScreen({
         && activeTab === 'friends'
         && filterSheetVisible
         && validatedDraft.normalized
-        && hasNonDefaultDiscoverFilters(validatedDraft.normalized),
+        && hasNonDefaultDiscoverFilters(validatedDraft.normalized, { includeDatingFields: false }),
     ));
     const datingDraftDistanceKm = datingDraftApiFilters?.distanceKm ?? DISCOVER_DEFAULT_DISTANCE_KM;
     const datingPreviewNeedsLocation = datingDraftDistanceKm > 0;
@@ -516,24 +490,20 @@ export function DiscoverScreen({
         && isDatingTab
         && filterSheetVisible
         && validatedDraft.normalized
-        && hasNonDefaultDiscoverFilters(validatedDraft.normalized)
+        && hasNonDefaultDiscoverFilters(validatedDraft.normalized, { includeDatingFields: true })
         && (!datingPreviewNeedsLocation || locationState.status === 'available')
     ));
 
     const effectiveApiFilters = useMemo(
-        () => hasAppliedFilters ? toDiscoverApiFilters(appliedState.effective) : {},
+        () => hasAppliedFilters ? toDiscoverApiFilters(appliedState.effective, { includeDatingFields: false }) : {},
         [appliedState.effective, hasAppliedFilters],
     );
     const datingEffectiveApiFilters = useMemo(() => {
-        const { intent: _intent, ...filters } = toDiscoverApiFilters(appliedState.effective);
-        return filters;
+        return toDiscoverApiFilters(appliedState.effective, { includeDatingFields: true });
     }, [appliedState.effective]);
     const queryApiFilters = useMemo(
-        () => ({
-            ...effectiveApiFilters,
-            intent: tabIntent,
-        }),
-        [effectiveApiFilters, tabIntent],
+        () => effectiveApiFilters,
+        [effectiveApiFilters],
     );
 
     const discoverMode: 'suggested' | 'search' | 'filtered' = hasCommittedSearch
@@ -543,7 +513,7 @@ export function DiscoverScreen({
             : 'suggested';
 
     const discoverQuery = useDiscoverResultsQuery({
-        mode: discoverMode,
+        queryMode: discoverMode,
         query: hasCommittedSearch ? debouncedQuery : undefined,
         ...queryApiFilters,
         lat: discoverLat,
@@ -805,8 +775,8 @@ export function DiscoverScreen({
             {showFilterNotice ? (
                 <View style={styles.filterSummaryWrap}>
                     <InfoNoticeCard
-                        title="Find people"
-                        description="Search members and refine suggestions with filters."
+                        title="Find sober people"
+                        description="Discover sober people nearby or people who share your interests."
                         onDismiss={() => setShowFilterNotice(false)}
                     />
                 </View>
@@ -844,11 +814,11 @@ export function DiscoverScreen({
 
     const discoverTabs = useMemo(
         () => [
-            { key: 'friends', label: 'Friends' },
+            { key: 'friends', label: 'People' },
             { key: 'meetings', label: 'Meetings' },
-            ...(datingEnabled ? [{ key: 'dating', label: 'Dating' }] : []),
+            { key: 'dating', label: 'Dating' },
         ],
-        [datingEnabled],
+        [],
     );
 
     const surfaceTabs = (
@@ -882,7 +852,7 @@ export function DiscoverScreen({
                     description="Complete your Dating profile before people can discover you."
                     primaryLabel="Complete profile"
                     onPrimaryPress={() => onOpenDatingProfileEditor?.()}
-                    secondaryLabel="Back to friends"
+                    secondaryLabel="Back to People"
                     onSecondaryPress={() => setActiveTab('friends')}
                 />
             </View>
@@ -1197,10 +1167,6 @@ const styles = StyleSheet.create({
         paddingHorizontal: Spacing.md,
         paddingBottom: Spacing.sm,
     },
-    datingGateScreen: {
-        flex: 1,
-        backgroundColor: Colors.bg.page,
-    },
     datingControls: {
         paddingHorizontal: Spacing.md,
         paddingBottom: Spacing.sm,
@@ -1353,6 +1319,10 @@ const styles = StyleSheet.create({
         overflow: 'hidden',
         backgroundColor: Colors.bg.surface,
     },
+    cardReachOut: {
+        borderWidth: 2,
+        borderColor: Colors.danger,
+    },
     cardInitials: {
         ...StyleSheet.absoluteFillObject,
         alignItems: 'center',
@@ -1388,20 +1358,22 @@ const styles = StyleSheet.create({
         bottom: Spacing.sm,
         gap: Spacing.xs,
     },
-    cardMilestonePill: {
+    cardBadges: {
         flexDirection: 'row',
-        alignItems: 'center',
-        gap: 4,
+        flexWrap: 'wrap',
+        gap: Spacing.xs,
+    },
+    cardMetaPill: {
         alignSelf: 'flex-start',
-        backgroundColor: 'rgba(255,255,255,0.92)',
+        backgroundColor: 'rgba(15,23,42,0.74)',
         borderRadius: Radius.pill,
         paddingHorizontal: 8,
         paddingVertical: 4,
     },
-    cardMilestoneText: {
+    cardMetaText: {
         fontSize: Typography.sizes.xs,
-        fontWeight: '600',
-        color: Colors.textOn.warning,
+        fontWeight: '700',
+        color: '#fff',
     },
     cardName: {
         fontSize: TextStyles.cardTitle.fontSize,

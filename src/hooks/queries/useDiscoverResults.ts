@@ -8,7 +8,7 @@ import { useMemo } from 'react';
 const DISCOVER_STALE_TIME = 1000 * 60;
 
 interface UseDiscoverResultsParams extends api.DiscoverFiltersPayload {
-    mode: 'suggested' | 'search' | 'filtered';
+    queryMode: 'suggested' | 'search' | 'filtered';
     query?: string;
     city?: string;
     lat?: number;
@@ -18,12 +18,11 @@ interface UseDiscoverResultsParams extends api.DiscoverFiltersPayload {
 
 export function useDiscoverResults(params: UseDiscoverResultsParams, enabled = true) {
     const limit = params.limit ?? 20;
-    const queryKey = params.mode === 'search'
+    const queryKey = params.queryMode === 'search'
         ? queryKeys.discoverSearch({
             query: params.query,
             city: params.city,
             gender: params.gender,
-            intent: params.intent,
             ageMin: params.ageMin,
             ageMax: params.ageMax,
             distanceKm: params.distanceKm,
@@ -33,11 +32,10 @@ export function useDiscoverResults(params: UseDiscoverResultsParams, enabled = t
             lng: params.lng,
             limit,
         })
-        : params.mode === 'filtered'
+        : params.queryMode === 'filtered'
             ? queryKeys.discoverFiltered({
                 city: params.city,
                 gender: params.gender,
-                intent: params.intent,
                 ageMin: params.ageMin,
                 ageMax: params.ageMax,
                 distanceKm: params.distanceKm,
@@ -60,7 +58,6 @@ export function useDiscoverResults(params: UseDiscoverResultsParams, enabled = t
             query: params.query,
             city: params.city,
             gender: params.gender,
-            intent: params.intent,
             ageMin: params.ageMin,
             ageMax: params.ageMax,
             distanceKm: params.distanceKm,
@@ -77,7 +74,7 @@ export function useDiscoverResults(params: UseDiscoverResultsParams, enabled = t
         staleTime: DISCOVER_STALE_TIME,
         refetchOnMount: policy?.refetchOnMount,
         enabled,
-        placeholderData: params.mode === 'search' ? undefined : (previousData) => previousData,
+        placeholderData: params.queryMode === 'search' ? undefined : (previousData) => previousData,
     });
 
     const users = useMemo(

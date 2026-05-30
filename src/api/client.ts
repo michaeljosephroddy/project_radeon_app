@@ -123,7 +123,6 @@ export interface User {
     country?: string;
     bio?: string | null;
     interests: string[];
-    connection_intents: ConnectionIntent[];
     gender?: UserGender | null;
     birth_date?: string | null;
     sober_since?: string;
@@ -135,6 +134,8 @@ export interface User {
     current_city?: string | null;
     current_country?: string | null;
     location_updated_at?: string | null;
+    distance_km?: number | null;
+    has_active_reach_out?: boolean;
 }
 
 export type IdentityVerificationStatus =
@@ -844,7 +845,6 @@ export interface ChatRealtimeServerEvent {
 }
 
 export type UserGender = 'woman' | 'man' | 'non_binary';
-export type ConnectionIntent = 'friends' | 'dating';
 export type UserReportReason = 'unwanted_advances' | 'harassment' | 'spam' | 'safety_concern' | 'other';
 export type ContentReportTargetType =
     | 'feed_post'
@@ -864,12 +864,11 @@ export type ContentReportReason =
     | 'self_harm'
     | 'other';
 export type DiscoverSobrietyFilter = 'days_30' | 'days_90' | 'years_1' | 'years_5';
-export type DiscoverRelaxedField = 'distance' | 'age' | 'interests' | 'intent' | 'sobriety';
+export type DiscoverRelaxedField = 'distance' | 'age' | 'interests' | 'sobriety';
 export type DiscoverTooNarrowField = DiscoverRelaxedField | 'gender';
 
 export interface DiscoverFiltersPayload {
     gender?: UserGender;
-    intent?: ConnectionIntent;
     ageMin?: number;
     ageMax?: number;
     distanceKm?: number;
@@ -896,7 +895,6 @@ export interface DiscoverPreviewResponse {
     likely_too_narrow_fields?: DiscoverTooNarrowField[];
     effective_filters: {
         gender?: UserGender;
-        intent?: ConnectionIntent;
         age_min?: number;
         age_max?: number;
         distance_km?: number;
@@ -1192,7 +1190,6 @@ export interface UpdateMeInput {
     bio?: string | null;
     birth_date?: string;
     interests?: string[];
-    connection_intents?: ConnectionIntent[];
     sober_since?: string;
     lat?: number;
     lng?: number;
@@ -1683,7 +1680,6 @@ export async function discoverUsers(params?: {
     query?: string;
     city?: string;
     gender?: UserGender;
-    intent?: ConnectionIntent;
     ageMin?: number;
     ageMax?: number;
     distanceKm?: number;
@@ -1704,7 +1700,6 @@ export async function previewDiscoverUsers(params?: {
     query?: string;
     city?: string;
     gender?: UserGender;
-    intent?: ConnectionIntent;
     ageMin?: number;
     ageMax?: number;
     distanceKm?: number;
@@ -1718,7 +1713,7 @@ export async function previewDiscoverUsers(params?: {
     return request(`/users/discover/preview${suffix}`);
 }
 
-export async function discoverDatingUsers(params?: Omit<DiscoverFiltersPayload, 'intent'> & {
+export async function discoverDatingUsers(params?: DiscoverFiltersPayload & {
     lat?: number;
     lng?: number;
     cursor?: string;
@@ -1731,7 +1726,7 @@ export async function discoverDatingUsers(params?: Omit<DiscoverFiltersPayload, 
     return normalizeDatingCursorResponse(page);
 }
 
-export async function previewDatingDiscover(params?: Omit<DiscoverFiltersPayload, 'intent'> & {
+export async function previewDatingDiscover(params?: DiscoverFiltersPayload & {
     lat?: number;
     lng?: number;
 }): Promise<DiscoverPreviewResponse> {
@@ -1863,7 +1858,6 @@ function buildDiscoverSearchParams(params?: {
     query?: string;
     city?: string;
     gender?: UserGender;
-    intent?: ConnectionIntent;
     ageMin?: number;
     ageMax?: number;
     distanceKm?: number;
@@ -1878,7 +1872,6 @@ function buildDiscoverSearchParams(params?: {
     if (params?.query?.trim()) search.set('q', params.query.trim());
     if (params?.city?.trim()) search.set('city', params.city.trim());
     if (params?.gender?.trim()) search.set('gender', params.gender.trim());
-    if (params?.intent?.trim()) search.set('intent', params.intent.trim());
     if (typeof params?.ageMin === 'number') search.set('age_min', String(params.ageMin));
     if (typeof params?.ageMax === 'number') search.set('age_max', String(params.ageMax));
     if (typeof params?.distanceKm === 'number') search.set('distance_km', String(params.distanceKm));
@@ -1893,7 +1886,7 @@ function buildDiscoverSearchParams(params?: {
     return search;
 }
 
-function buildDatingDiscoverSearchParams(params?: Omit<DiscoverFiltersPayload, 'intent'> & {
+function buildDatingDiscoverSearchParams(params?: DiscoverFiltersPayload & {
     lat?: number;
     lng?: number;
     cursor?: string;

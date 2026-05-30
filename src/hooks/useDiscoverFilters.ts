@@ -74,11 +74,9 @@ export const DISCOVER_BOUNDARY_OPTIONS: { value: Exclude<api.DatingSubstanceBoun
 ];
 
 export type DiscoverGenderValue = typeof DISCOVER_GENDER_OPTIONS[number]['value'];
-export type DiscoverIntentValue = 'any' | api.ConnectionIntent;
 export type DiscoverSobrietyValue = typeof DISCOVER_SOBRIETY_OPTIONS[number]['value'];
 export type DiscoverChipKey =
     | 'gender'
-    | 'intent'
     | 'age'
     | 'distance'
     | 'sobriety'
@@ -96,7 +94,6 @@ export type DiscoverChipKey =
 
 export interface DiscoverDraftFilters {
     gender: DiscoverGenderValue;
-    intent: DiscoverIntentValue;
     ageMin: string;
     ageMax: string;
     distanceKm: number;
@@ -118,7 +115,6 @@ export interface DiscoverDraftFilters {
 
 export interface DiscoverAppliedFilters {
     gender: DiscoverGenderValue;
-    intent: DiscoverIntentValue;
     ageMin: number | null;
     ageMax: number | null;
     distanceKm: number;
@@ -152,10 +148,13 @@ export interface DiscoverActiveChip {
     label: string;
 }
 
+interface DiscoverFilterContextOptions {
+    includeDatingFields?: boolean;
+}
+
 export function createDefaultDiscoverDraftFilters(): DiscoverDraftFilters {
     return {
         gender: 'any',
-        intent: 'any',
         ageMin: '',
         ageMax: '',
         distanceKm: DISCOVER_DEFAULT_DISTANCE_KM,
@@ -179,7 +178,6 @@ export function createDefaultDiscoverDraftFilters(): DiscoverDraftFilters {
 export function createDefaultDiscoverAppliedFilters(): DiscoverAppliedFilters {
     return {
         gender: 'any',
-        intent: 'any',
         ageMin: null,
         ageMax: null,
         distanceKm: DISCOVER_DEFAULT_DISTANCE_KM,
@@ -210,15 +208,16 @@ export function createDefaultDiscoverAppliedState(): DiscoverAppliedState {
     };
 }
 
-export function hasNonDefaultDiscoverFilters(filters: DiscoverAppliedFilters): boolean {
-    return filters.gender !== 'any'
-        || filters.intent !== 'any'
-        || filters.ageMin !== null
-        || filters.ageMax !== null
+export function hasNonDefaultDiscoverFilters(filters: DiscoverAppliedFilters, options: DiscoverFilterContextOptions = {}): boolean {
+    const includeDatingFields = options.includeDatingFields ?? true;
+
+    return (includeDatingFields && filters.gender !== 'any')
+        || (includeDatingFields && filters.ageMin !== null)
+        || (includeDatingFields && filters.ageMax !== null)
         || filters.distanceKm !== DISCOVER_DEFAULT_DISTANCE_KM
         || filters.sobriety !== 'any'
         || (filters.interests ?? []).length > 0
-        || hasPlusDatingFilters(filters);
+        || (includeDatingFields && hasPlusDatingFilters(filters));
 }
 
 export function hasPlusDatingFilters(filters: DiscoverAppliedFilters): boolean {
@@ -253,46 +252,34 @@ function optionLabel<T extends string>(options: { value: T; label: string }[], v
     return options.find((option) => option.value === value)?.label ?? null;
 }
 
-export function getDiscoverIntentLabel(intent: DiscoverIntentValue): string | null {
-    if (intent === 'friends') return 'Friends';
-    if (intent === 'dating') return 'Dating';
-    return null;
-}
-
-export function getDiscoverFiltersSummary(filters: DiscoverAppliedFilters): string {
+export function getDiscoverFiltersSummary(filters: DiscoverAppliedFilters, options: DiscoverFilterContextOptions = {}): string {
+    const includeDatingFields = options.includeDatingFields ?? true;
     const parts = [
-        filters.gender !== 'any' ? getDiscoverGenderLabel(filters.gender) : null,
-        filters.intent !== 'any' ? getDiscoverIntentLabel(filters.intent) : null,
-        filters.ageMin !== null || filters.ageMax !== null
+        includeDatingFields && filters.gender !== 'any' ? getDiscoverGenderLabel(filters.gender) : null,
+        includeDatingFields && (filters.ageMin !== null || filters.ageMax !== null)
             ? `Age ${filters.ageMin ?? 18}-${filters.ageMax ?? 99}`
             : null,
         filters.distanceKm !== DISCOVER_DEFAULT_DISTANCE_KM ? getDiscoverDistanceLabel(filters.distanceKm) : null,
         filters.sobriety !== 'any' ? getDiscoverSobrietyLabel(filters.sobriety) : null,
         (filters.interests ?? []).length > 0 ? `${(filters.interests ?? []).length} interests` : null,
-        hasPlusDatingFilters(filters) ? 'Plus filters' : null,
+        includeDatingFields && hasPlusDatingFilters(filters) ? 'Plus filters' : null,
     ].filter(Boolean);
 
     return parts.join(' · ') || 'Suggestions tuned for you';
 }
 
-export function getDiscoverActiveChips(filters: DiscoverAppliedFilters): DiscoverActiveChip[] {
+export function getDiscoverActiveChips(filters: DiscoverAppliedFilters, options: DiscoverFilterContextOptions = {}): DiscoverActiveChip[] {
+    const includeDatingFields = options.includeDatingFields ?? true;
     const chips: DiscoverActiveChip[] = [];
 
-    if (filters.gender !== 'any') {
+    if (includeDatingFields && filters.gender !== 'any') {
         chips.push({
             key: 'gender',
             label: getDiscoverGenderLabel(filters.gender) ?? 'Gender',
         });
     }
 
-    if (filters.intent !== 'any') {
-        chips.push({
-            key: 'intent',
-            label: getDiscoverIntentLabel(filters.intent) ?? 'Intent',
-        });
-    }
-
-    if (filters.ageMin !== null || filters.ageMax !== null) {
+    if (includeDatingFields && (filters.ageMin !== null || filters.ageMax !== null)) {
         chips.push({
             key: 'age',
             label: `Age ${filters.ageMin ?? 18}-${filters.ageMax ?? 99}`,
@@ -318,6 +305,10 @@ export function getDiscoverActiveChips(filters: DiscoverAppliedFilters): Discove
             key: `interest:${interest}`,
             label: interest,
         });
+    }
+
+    if (!includeDatingFields) {
+        return chips;
     }
 
     if (filters.relationshipGoal) {
@@ -366,7 +357,6 @@ export function getDiscoverActiveChips(filters: DiscoverAppliedFilters): Discove
 export function createDiscoverDraftFromApplied(filters: DiscoverAppliedFilters): DiscoverDraftFilters {
     return {
         gender: filters.gender,
-        intent: filters.intent,
         ageMin: filters.ageMin === null ? '' : String(filters.ageMin),
         ageMax: filters.ageMax === null ? '' : String(filters.ageMax),
         distanceKm: filters.distanceKm,
@@ -387,73 +377,77 @@ export function createDiscoverDraftFromApplied(filters: DiscoverAppliedFilters):
     };
 }
 
-export function validateDiscoverDraft(filters: DiscoverDraftFilters): { normalized?: DiscoverAppliedFilters; error?: string } {
+export function validateDiscoverDraft(
+    filters: DiscoverDraftFilters,
+    options: DiscoverFilterContextOptions = {},
+): { normalized?: DiscoverAppliedFilters; error?: string } {
+    const includeDatingFields = options.includeDatingFields ?? true;
     const ageMin = filters.ageMin.trim() ? Number(filters.ageMin.trim()) : null;
     const ageMax = filters.ageMax.trim() ? Number(filters.ageMax.trim()) : null;
     const heightMinCm = filters.heightMinCm.trim() ? Number(filters.heightMinCm.trim()) : null;
     const heightMaxCm = filters.heightMaxCm.trim() ? Number(filters.heightMaxCm.trim()) : null;
 
-    if ([ageMin, ageMax, heightMinCm, heightMaxCm].some((value) => value !== null && Number.isNaN(value))) {
+    if (includeDatingFields && [ageMin, ageMax, heightMinCm, heightMaxCm].some((value) => value !== null && Number.isNaN(value))) {
         return { error: 'Age and height values must be valid numbers.' };
     }
 
-    if (ageMin !== null && ageMax !== null && ageMin > ageMax) {
+    if (includeDatingFields && ageMin !== null && ageMax !== null && ageMin > ageMax) {
         return { error: 'Minimum age cannot be greater than maximum age.' };
     }
 
-    if (heightMinCm !== null && heightMaxCm !== null && heightMinCm > heightMaxCm) {
+    if (includeDatingFields && heightMinCm !== null && heightMaxCm !== null && heightMinCm > heightMaxCm) {
         return { error: 'Minimum height cannot be greater than maximum height.' };
     }
 
-    if ((heightMinCm !== null && (heightMinCm < 90 || heightMinCm > 230)) || (heightMaxCm !== null && (heightMaxCm < 90 || heightMaxCm > 230))) {
+    if (includeDatingFields && ((heightMinCm !== null && (heightMinCm < 90 || heightMinCm > 230)) || (heightMaxCm !== null && (heightMaxCm < 90 || heightMaxCm > 230)))) {
         return { error: 'Height must be between 90 cm and 230 cm.' };
     }
 
     return {
         normalized: {
-            gender: filters.gender,
-            intent: filters.intent,
-            ageMin,
-            ageMax,
+            gender: includeDatingFields ? filters.gender : 'any',
+            ageMin: includeDatingFields ? ageMin : null,
+            ageMax: includeDatingFields ? ageMax : null,
             distanceKm: filters.distanceKm,
             sobriety: filters.sobriety,
             interests: [...(filters.interests ?? [])],
-            relationshipGoal: filters.relationshipGoal,
-            heightMinCm,
-            heightMaxCm,
-            familyPlans: filters.familyPlans,
-            drinkingStatus: filters.drinkingStatus,
-            smokingStatus: filters.smokingStatus,
-            drugUseStatus: filters.drugUseStatus,
-            soberLifestyle: filters.soberLifestyle,
-            recoveryApproach: filters.recoveryApproach,
-            nightlifeComfort: filters.nightlifeComfort,
-            substanceBoundary: filters.substanceBoundary,
+            relationshipGoal: includeDatingFields ? filters.relationshipGoal : '',
+            heightMinCm: includeDatingFields ? heightMinCm : null,
+            heightMaxCm: includeDatingFields ? heightMaxCm : null,
+            familyPlans: includeDatingFields ? filters.familyPlans : '',
+            drinkingStatus: includeDatingFields ? filters.drinkingStatus : '',
+            smokingStatus: includeDatingFields ? filters.smokingStatus : '',
+            drugUseStatus: includeDatingFields ? filters.drugUseStatus : '',
+            soberLifestyle: includeDatingFields ? filters.soberLifestyle : '',
+            recoveryApproach: includeDatingFields ? filters.recoveryApproach : '',
+            nightlifeComfort: includeDatingFields ? filters.nightlifeComfort : '',
+            substanceBoundary: includeDatingFields ? filters.substanceBoundary : '',
             broadenIfFewExact: filters.broadenIfFewExact,
         },
     };
 }
 
-export function toDiscoverApiFilters(filters: DiscoverAppliedFilters): api.DiscoverFiltersPayload {
+export function toDiscoverApiFilters(filters: DiscoverAppliedFilters, options: DiscoverFilterContextOptions = {}): api.DiscoverFiltersPayload {
+    const includeDatingFields = options.includeDatingFields ?? true;
+
     return {
-        gender: filters.gender === 'any' ? undefined : filters.gender,
-        intent: filters.intent === 'any' ? undefined : filters.intent,
-        ageMin: filters.ageMin ?? undefined,
-        ageMax: filters.ageMax ?? undefined,
+        gender: includeDatingFields && filters.gender !== 'any' ? filters.gender : undefined,
+        ageMin: includeDatingFields ? filters.ageMin ?? undefined : undefined,
+        ageMax: includeDatingFields ? filters.ageMax ?? undefined : undefined,
         distanceKm: filters.distanceKm,
         sobriety: filters.sobriety === 'any' ? undefined : filters.sobriety,
         interests: (filters.interests ?? []).length > 0 ? filters.interests : undefined,
-        relationshipGoal: filters.relationshipGoal || undefined,
-        heightMinCm: filters.heightMinCm ?? undefined,
-        heightMaxCm: filters.heightMaxCm ?? undefined,
-        familyPlans: filters.familyPlans || undefined,
-        drinkingStatus: filters.drinkingStatus || undefined,
-        smokingStatus: filters.smokingStatus || undefined,
-        drugUseStatus: filters.drugUseStatus || undefined,
-        soberLifestyle: filters.soberLifestyle || undefined,
-        recoveryApproach: filters.recoveryApproach || undefined,
-        nightlifeComfort: filters.nightlifeComfort || undefined,
-        substanceBoundary: filters.substanceBoundary || undefined,
+        relationshipGoal: includeDatingFields ? filters.relationshipGoal || undefined : undefined,
+        heightMinCm: includeDatingFields ? filters.heightMinCm ?? undefined : undefined,
+        heightMaxCm: includeDatingFields ? filters.heightMaxCm ?? undefined : undefined,
+        familyPlans: includeDatingFields ? filters.familyPlans || undefined : undefined,
+        drinkingStatus: includeDatingFields ? filters.drinkingStatus || undefined : undefined,
+        smokingStatus: includeDatingFields ? filters.smokingStatus || undefined : undefined,
+        drugUseStatus: includeDatingFields ? filters.drugUseStatus || undefined : undefined,
+        soberLifestyle: includeDatingFields ? filters.soberLifestyle || undefined : undefined,
+        recoveryApproach: includeDatingFields ? filters.recoveryApproach || undefined : undefined,
+        nightlifeComfort: includeDatingFields ? filters.nightlifeComfort || undefined : undefined,
+        substanceBoundary: includeDatingFields ? filters.substanceBoundary || undefined : undefined,
     };
 }
 
@@ -482,7 +476,6 @@ export function applyDiscoverPreviewEffectiveFilters(
     const effective: DiscoverAppliedFilters = {
         ...requested,
         gender: (effectiveFilters.gender ?? requested.gender) as DiscoverGenderValue,
-        intent: (effectiveFilters.intent ?? requested.intent) as DiscoverIntentValue,
         ageMin: effectiveFilters.age_min ?? requested.ageMin,
         ageMax: effectiveFilters.age_max ?? requested.ageMax,
         distanceKm: effectiveFilters.distance_km ?? requested.distanceKm,
@@ -503,9 +496,6 @@ export function applyDiscoverPreviewEffectiveFilters(
 export function clearDiscoverChip(filters: DiscoverAppliedFilters, chipKey: DiscoverChipKey): DiscoverAppliedFilters {
     if (chipKey === 'gender') {
         return { ...filters, gender: 'any' };
-    }
-    if (chipKey === 'intent') {
-        return { ...filters, intent: 'any' };
     }
     if (chipKey === 'age') {
         return { ...filters, ageMin: null, ageMax: null };
@@ -547,8 +537,6 @@ export function getDiscoverRelaxedCopy(relaxedFields: api.DiscoverRelaxedField[]
             return 'age range';
         case 'interests':
             return 'shared interests';
-        case 'intent':
-            return 'connection intent';
         case 'sobriety':
             return 'sobriety';
         }

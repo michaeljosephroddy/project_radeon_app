@@ -4,13 +4,11 @@ import {
     Modal,
     ScrollView,
     StyleSheet,
-    Switch,
     Text,
     TouchableOpacity,
     View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import * as api from '../../api/client';
 import { PrimaryButton } from '../../components/ui/PrimaryButton';
 import { ScreenHeader } from '../../components/ui/ScreenHeader';
 import { SectionLabel } from '../../components/ui/SectionLabel';
@@ -40,30 +38,11 @@ export function SettingsScreen({
     onOpenNotificationPreferences,
     onOpenLegalDocument,
 }: SettingsScreenProps) {
-    const { user, refreshUser, deleteAccount } = useAuth();
-    const [savingDatingMode, setSavingDatingMode] = useState(false);
+    const { deleteAccount } = useAuth();
     const [deleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
     const [deleteConfirmText, setDeleteConfirmText] = useState('');
     const [deletingAccount, setDeletingAccount] = useState(false);
-    const datingEnabled = user?.connection_intents?.includes('dating') ?? false;
     const canSubmitDelete = deleteConfirmText.trim().toLowerCase() === 'delete';
-
-    const handleDatingModeChange = async (enabled: boolean): Promise<void> => {
-        setSavingDatingMode(true);
-        try {
-            await api.updateMe({
-                connection_intents: enabled ? ['friends', 'dating'] : ['friends'],
-            });
-            await refreshUser();
-        } catch (error: unknown) {
-            appAlert.alert(
-                'Could not update Dating mode',
-                error instanceof Error ? error.message : 'Please try again.',
-            );
-        } finally {
-            setSavingDatingMode(false);
-        }
-    };
 
     const handleOpenDeleteConfirm = (): void => {
         setDeleteConfirmText('');
@@ -97,27 +76,6 @@ export function SettingsScreen({
 
             <ScrollView style={styles.scroll} contentContainerStyle={screenStandards.detailContent}>
                 <View style={styles.firstSectionLabel}>
-                    <SectionLabel>DISCOVERY & CONNECTIONS</SectionLabel>
-                </View>
-                <View style={styles.group}>
-                    <View style={[styles.row, styles.rowWithControl]}>
-                        <View style={styles.rowCopy}>
-                            <Text style={styles.rowText}>Dating mode</Text>
-                            <Text style={styles.rowDescription}>
-                                See and be shown in Dating only with people who also opted in.
-                            </Text>
-                        </View>
-                        <Switch
-                            value={datingEnabled}
-                            onValueChange={handleDatingModeChange}
-                            disabled={savingDatingMode}
-                            trackColor={{ false: Colors.border.default, true: Colors.primarySubtle }}
-                            thumbColor={datingEnabled ? Colors.primary : Colors.bg.surface}
-                            ios_backgroundColor={Colors.border.default}
-                        />
-                    </View>
-                </View>
-                <View style={styles.sectionLabel}>
                     <SectionLabel>NOTIFICATIONS</SectionLabel>
                 </View>
                 <View style={styles.group}>
@@ -245,22 +203,10 @@ const styles = StyleSheet.create({
         paddingHorizontal: Spacing.md,
         paddingVertical: 13,
     },
-    rowWithControl: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: Spacing.md,
-    },
-    rowCopy: {
-        flex: 1,
-    },
     rowText: { ...TextStyles.rowTitle },
     divider: {
         height: StyleSheet.hairlineWidth,
         backgroundColor: Colors.border.default,
-    },
-    rowDescription: {
-        marginTop: Spacing.xs,
-        ...TextStyles.rowDescription,
     },
     logoutText: { ...TextStyles.rowTitle, color: Colors.danger },
     deleteText: { ...TextStyles.rowTitle, color: Colors.danger },

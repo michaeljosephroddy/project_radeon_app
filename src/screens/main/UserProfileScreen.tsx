@@ -26,7 +26,6 @@ import { dedupeById } from '../../utils/list';
 import { getListPerformanceProps } from '../../utils/listPerformance';
 import { AvatarSizes, Colors, ControlSizes, IconSizes, Spacing, Radius, ContentInsets, TextStyles } from '../../theme';
 import { formatUsername } from '../../utils/identity';
-import { getConnectionIntentLabel, normalizeConnectionIntents } from '../../utils/connectionIntents';
 
 interface UserProfileScreenProps {
     userId: string;
@@ -91,11 +90,6 @@ export function UserProfileScreen({
     const loadingMorePosts = activeTab === 'posts' && userPostsQuery.isFetchingNextPage;
     const postsHasMore = activeTab === 'posts' && (userPostsQuery.hasNextPage ?? false);
     const friendshipStatus = profile?.friendship_status === 'self' ? 'friends' : (profile?.friendship_status ?? 'none');
-    const profileIntents = useMemo(
-        () => profile ? normalizeConnectionIntents(profile.connection_intents) : [],
-        [profile],
-    );
-
     const onRefresh = async (): Promise<void> => {
         if (activeTab === 'posts') {
             resetInfiniteQueryToFirstPage(queryClient, queryKeys.userPosts(userId, 20));
@@ -295,18 +289,6 @@ export function UserProfileScreen({
                                 ))}
                             </View>
                         ) : null}
-                        {profileIntents.length ? (
-                            <View style={styles.intentBlock}>
-                                <Text style={styles.intentTitle}>Connection intent</Text>
-                                <View style={styles.intentWrap}>
-                                    {profileIntents.map((intent) => (
-                                        <View key={intent} style={styles.intentChip}>
-                                            <Text style={styles.intentChipText}>{getConnectionIntentLabel(intent)}</Text>
-                                        </View>
-                                    ))}
-                                </View>
-                            </View>
-                        ) : null}
                         <SobrietyCounter soberSince={profile?.sober_since} compact style={styles.sobrietyCounter} />
                     </>
                 )}
@@ -485,29 +467,6 @@ const styles = StyleSheet.create({
     },
     interestChipText: {
         ...TextStyles.chip,
-    },
-    intentBlock: {
-        gap: Spacing.xs,
-        marginTop: Spacing.md,
-    },
-    intentTitle: {
-        ...TextStyles.label,
-        color: Colors.text.primary,
-    },
-    intentWrap: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        gap: Spacing.sm,
-    },
-    intentChip: {
-        borderRadius: Radius.pill,
-        backgroundColor: Colors.primarySubtle,
-        paddingHorizontal: Spacing.md,
-        paddingVertical: Spacing.xs,
-    },
-    intentChipText: {
-        ...TextStyles.chip,
-        color: Colors.primary,
     },
     sobrietyCounter: {
         marginTop: Spacing.sm,

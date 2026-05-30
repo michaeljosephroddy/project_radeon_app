@@ -111,19 +111,22 @@ function AdvancedChoiceSection<T extends string>({
 function getPrimaryLabel(
     preview: api.DiscoverPreviewResponse | undefined,
     previewLoading: boolean,
+    isDatingContext: boolean,
     validationError?: string,
 ): string {
     if (validationError) {
-        return 'Fix age range';
+        return isDatingContext ? 'Fix age range' : 'Fix filters';
     }
     if (previewLoading) {
-        return 'Checking matches...';
+        return isDatingContext ? 'Checking matches...' : 'Checking people...';
     }
     if (preview?.exact_count && preview.exact_count > 0) {
         return `Show ${preview.exact_count} people`;
     }
     if (preview?.broadened_available && preview.broadened_count) {
-        return `Show ${preview.broadened_count} close matches`;
+        return isDatingContext
+            ? `Show ${preview.broadened_count} close matches`
+            : `Show ${preview.broadened_count} people`;
     }
     return 'Apply filters';
 }
@@ -131,24 +134,31 @@ function getPrimaryLabel(
 function getPreviewCopy(
     preview: api.DiscoverPreviewResponse | undefined,
     previewLoading: boolean,
+    isDatingContext: boolean,
     validationError?: string,
 ): string {
     if (validationError) {
         return validationError;
     }
     if (previewLoading) {
-        return 'Previewing your match pool...';
+        return isDatingContext ? 'Previewing your match pool...' : 'Previewing people...';
     }
     if (!preview) {
         return 'Adjust your filters, then apply them in one step.';
     }
     if (preview.exact_count > 0) {
-        return `${preview.exact_count} exact matches currently fit this filter set.`;
+        return isDatingContext
+            ? `${preview.exact_count} exact matches currently fit this filter set.`
+            : `${preview.exact_count} people currently fit this filter set.`;
     }
     if (preview.broadened_available && preview.broadened_count) {
-        return `No exact matches right now. Broadening can surface ${preview.broadened_count} close matches.`;
+        return isDatingContext
+            ? `No exact matches right now. Broadening can surface ${preview.broadened_count} close matches.`
+            : `No exact results right now. Broadening can surface ${preview.broadened_count} people.`;
     }
-    return 'No exact matches yet. Try widening distance, age range, or interests.';
+    return isDatingContext
+        ? 'No exact matches yet. Try widening distance, age range, or interests.'
+        : 'No exact results yet. Try widening distance or interests.';
 }
 
 export function DiscoverFilterSheet({
@@ -165,8 +175,8 @@ export function DiscoverFilterSheet({
     onReset,
     onApply,
 }: DiscoverFilterSheetProps) {
-    const primaryLabel = getPrimaryLabel(preview, previewLoading, validationError);
-    const previewCopy = getPreviewCopy(preview, previewLoading, validationError);
+    const primaryLabel = getPrimaryLabel(preview, previewLoading, isDatingContext, validationError);
+    const previewCopy = getPreviewCopy(preview, previewLoading, isDatingContext, validationError);
 
     return (
         <SafeAreaView style={styles.container} edges={['bottom']}>
@@ -178,49 +188,53 @@ export function DiscoverFilterSheet({
                     <Text style={styles.previewText}>{previewCopy}</Text>
                 </View>
 
-                    <View style={styles.section}>
-                        <Text style={styles.sectionTitle}>Gender</Text>
-                        <View style={styles.optionWrap}>
-                            {DISCOVER_GENDER_OPTIONS.map((option) => (
-                                <FilterOptionChip
-                                    key={option.value}
-                                    label={option.label}
-                                    selected={draftFilters.gender === option.value}
-                                    onPress={() => onChangeFilters((current) => ({ ...current, gender: option.value }))}
-                                />
-                            ))}
-                        </View>
-                    </View>
+                    {isDatingContext ? (
+                        <>
+                            <View style={styles.section}>
+                                <Text style={styles.sectionTitle}>Gender</Text>
+                                <View style={styles.optionWrap}>
+                                    {DISCOVER_GENDER_OPTIONS.map((option) => (
+                                        <FilterOptionChip
+                                            key={option.value}
+                                            label={option.label}
+                                            selected={draftFilters.gender === option.value}
+                                            onPress={() => onChangeFilters((current) => ({ ...current, gender: option.value }))}
+                                        />
+                                    ))}
+                                </View>
+                            </View>
 
-                    <View style={styles.section}>
-                        <Text style={styles.sectionTitle}>Age range</Text>
-                        <View style={styles.ageRow}>
-                            <View style={styles.ageField}>
-                                <Text style={styles.fieldLabel}>Min</Text>
-                                <TextField
-                                    value={draftFilters.ageMin}
-                                    onChangeText={(value) => onChangeFilters((current) => ({
-                                        ...current,
-                                        ageMin: value.replace(/[^0-9]/g, ''),
-                                    }))}
-                                    placeholder="18"
-                                    keyboardType="number-pad"
-                                />
+                            <View style={styles.section}>
+                                <Text style={styles.sectionTitle}>Age range</Text>
+                                <View style={styles.ageRow}>
+                                    <View style={styles.ageField}>
+                                        <Text style={styles.fieldLabel}>Min</Text>
+                                        <TextField
+                                            value={draftFilters.ageMin}
+                                            onChangeText={(value) => onChangeFilters((current) => ({
+                                                ...current,
+                                                ageMin: value.replace(/[^0-9]/g, ''),
+                                            }))}
+                                            placeholder="18"
+                                            keyboardType="number-pad"
+                                        />
+                                    </View>
+                                    <View style={styles.ageField}>
+                                        <Text style={styles.fieldLabel}>Max</Text>
+                                        <TextField
+                                            value={draftFilters.ageMax}
+                                            onChangeText={(value) => onChangeFilters((current) => ({
+                                                ...current,
+                                                ageMax: value.replace(/[^0-9]/g, ''),
+                                            }))}
+                                            placeholder="99"
+                                            keyboardType="number-pad"
+                                        />
+                                    </View>
+                                </View>
                             </View>
-                            <View style={styles.ageField}>
-                                <Text style={styles.fieldLabel}>Max</Text>
-                                <TextField
-                                    value={draftFilters.ageMax}
-                                    onChangeText={(value) => onChangeFilters((current) => ({
-                                        ...current,
-                                        ageMax: value.replace(/[^0-9]/g, ''),
-                                    }))}
-                                    placeholder="99"
-                                    keyboardType="number-pad"
-                                />
-                            </View>
-                        </View>
-                    </View>
+                        </>
+                    ) : null}
 
                     <View style={styles.section}>
                         <View style={styles.sectionRow}>
@@ -354,8 +368,12 @@ export function DiscoverFilterSheet({
                         activeOpacity={0.85}
                     >
                         <View style={styles.toggleCopy}>
-                            <Text style={styles.toggleTitle}>Broaden only if there are no exact matches</Text>
-                            <Text style={styles.toggleSubtitle}>If your exact filter set returns zero people, the app can relax distance, age, interests, and sobriety while keeping gender strict.</Text>
+                            <Text style={styles.toggleTitle}>Broaden only if there are no exact results</Text>
+                            <Text style={styles.toggleSubtitle}>
+                                {isDatingContext
+                                    ? 'If your exact filter set returns zero people, the app can relax distance, age, interests, and sobriety while keeping gender strict.'
+                                    : 'If your exact filter set returns zero people, the app can relax distance, interests, and sobriety.'}
+                            </Text>
                         </View>
                         <View style={[styles.checkbox, draftFilters.broadenIfFewExact && styles.checkboxChecked]}>
                             {draftFilters.broadenIfFewExact ? (
