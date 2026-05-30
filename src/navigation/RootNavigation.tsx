@@ -3,6 +3,7 @@ import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { DarkTheme, NavigationContainer, type Theme } from '@react-navigation/native';
 import { createNativeStackNavigator, type NativeStackScreenProps } from '@react-navigation/native-stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useQueryClient } from '@tanstack/react-query';
 import { AppNavigator } from './AppNavigator';
 import { AuthNavigator } from './AuthNavigator';
 import { OnboardingNavigator } from './OnboardingNavigator';
@@ -16,8 +17,9 @@ import { CreateMeetupScreen } from '../screens/main/CreateMeetupScreen';
 import { MeetupDetailScreen } from '../screens/main/MeetupDetailScreen';
 import { RecoveryMeetingDetailScreen } from '../screens/main/support/RecoveryMeetingDetailScreen';
 import { GroupDetailScreen } from '../screens/main/groups/GroupDetailScreen';
-import { GroupCommentsModal } from '../screens/main/groups/GroupCommentsModal';
-import { FeedCommentsModal } from '../screens/main/feed/FeedCommentsModal';
+import { GroupAdminThreadScreen } from '../screens/main/groups/GroupAdminThreadScreen';
+import { GroupCommentsScreen } from '../screens/main/groups/GroupCommentsScreen';
+import { FeedCommentsScreen } from '../screens/main/feed/FeedCommentsScreen';
 import { NotificationsScreen } from '../screens/main/NotificationsScreen';
 import { DatingLikesRouteScreen } from '../screens/main/dating/DatingLikesRouteScreen';
 import { DatingMatchesRouteScreen } from '../screens/main/dating/DatingMatchesRouteScreen';
@@ -25,6 +27,7 @@ import { DatingProfileDetailRouteScreen } from '../screens/main/dating/DatingPro
 import { DatingProfileEditorRouteScreen } from '../screens/main/dating/DatingProfileEditorRouteScreen';
 import { ChatRealtimeProvider } from '../hooks/chat/ChatRealtimeProvider';
 import { useAuth } from '../hooks/useAuth';
+import { useGroup } from '../hooks/queries/useGroups';
 import { NotificationProvider } from '../notifications/NotificationProvider';
 import { Colors } from '../theme';
 import * as api from '../api/client';
@@ -78,6 +81,7 @@ export function RootNavigation(): React.ReactElement {
                             <RootStack.Screen name="MeetupDetail" component={RootMeetupDetailScreen} />
                             <RootStack.Screen name="RecoveryMeetingDetail" component={RootRecoveryMeetingDetailScreen} />
                             <RootStack.Screen name="GroupDetail" component={RootGroupDetailScreen} />
+                            <RootStack.Screen name="GroupAdminThread" component={RootGroupAdminThreadScreen} />
                             <RootStack.Screen name="GroupComments" component={RootGroupCommentsScreen} />
                             <RootStack.Screen name="Notifications" component={RootNotificationsScreen} />
                             <RootStack.Screen name="FeedComments" component={RootFeedCommentsScreen} />
@@ -222,6 +226,10 @@ function RootGroupDetailScreen({ route, navigation }: NativeStackScreenProps<Roo
                 onBack={() => navigation.goBack()}
                 onOpenComments={(post) => navigation.navigate('GroupComments', { post })}
                 onOpenChat={(chat) => navigation.navigate('Chat', { chat })}
+                onOpenAdminThread={(threadId) => navigation.navigate('GroupAdminThread', {
+                    groupId: route.params.groupId,
+                    threadId,
+                })}
                 initialAdminTab={route.params.initialAdminTab}
                 initialAdminThreadId={route.params.initialAdminThreadId}
                 focusPostRequest={route.params.focusPostRequest ?? null}
@@ -239,28 +247,60 @@ function RootGroupCommentsScreen({ route, navigation }: NativeStackScreenProps<R
         return <View style={styles.fullScreen} />;
     }
     return (
-        <GroupCommentsModal
-            post={route.params.post}
-            currentUser={user}
-            onClose={() => navigation.goBack()}
-            onPressUser={(profile) => navigation.navigate('UserProfile', profile)}
-        />
+        <RootStackScreenFrame>
+            <GroupCommentsScreen
+                post={route.params.post}
+                currentUser={user}
+                onBack={() => navigation.goBack()}
+                onPressUser={(profile) => navigation.navigate('UserProfile', profile)}
+            />
+        </RootStackScreenFrame>
+    );
+}
+
+function RootGroupAdminThreadScreen({ route, navigation }: NativeStackScreenProps<RootStackParamList, 'GroupAdminThread'>): React.ReactElement {
+    const groupQuery = useGroup(route.params.groupId, true);
+    const group = groupQuery.data;
+
+    if (!group) {
+        return (
+            <RootStackScreenFrame centered>
+                <ActivityIndicator color={Colors.primary} />
+            </RootStackScreenFrame>
+        );
+    }
+
+    return (
+        <RootStackScreenFrame>
+            <GroupAdminThreadScreen
+                group={group}
+                threadId={route.params.threadId}
+                onBack={() => navigation.goBack()}
+            />
+        </RootStackScreenFrame>
     );
 }
 
 function RootFeedCommentsScreen({ route, navigation }: NativeStackScreenProps<RootStackParamList, 'FeedComments'>): React.ReactElement {
     const { user } = useAuth();
+    const queryClient = useQueryClient();
     if (!user) {
         return <View style={styles.fullScreen} />;
     }
     return (
-        <FeedCommentsModal
-            thread={route.params.thread}
-            currentUser={user}
-            focusComposer={Boolean(route.params.focusComposer)}
-            onClose={() => navigation.goBack()}
-            onPressUser={(profile) => navigation.navigate('UserProfile', profile)}
-        />
+        <RootStackScreenFrame>
+            <FeedCommentsScreen
+                thread={route.params.thread}
+                currentUser={user}
+                focusComposer={Boolean(route.params.focusComposer)}
+                onBack={() => navigation.goBack()}
+                onPressUser={(profile) => navigation.navigate('UserProfile', profile)}
+                onCommentCreated={() => {
+                    void queryClient.invalidateQueries({ queryKey: ['home-feed'] });
+                    void queryClient.invalidateQueries({ queryKey: ['user-posts'] });
+                }}
+            />
+        </RootStackScreenFrame>
     );
 }
 
@@ -290,11 +330,13 @@ function RootNotificationsScreen({ navigation }: NativeStackScreenProps<RootStac
                     groupId,
                     initialAdminTab: 'reports',
                 })}
-                onOpenGroupAdminInbox={(groupId, threadId) => navigation.navigate('GroupDetail', {
-                    groupId,
-                    initialAdminTab: 'inbox',
-                    initialAdminThreadId: threadId,
-                })}
+                onOpenGroupAdminInbox={(groupId, threadId) => {
+                    if (threadId) {
+                        navigation.navigate('GroupAdminThread', { groupId, threadId });
+                        return;
+                    }
+                    navigation.navigate('GroupDetail', { groupId, initialAdminTab: 'inbox' });
+                }}
                 onOpenSupportRequestContext={(groupId, supportRequestId, postId) => navigation.navigate('GroupDetail', {
                     groupId,
                     focusSupportRequest: { requestId: supportRequestId, postId, nonce: Date.now() },

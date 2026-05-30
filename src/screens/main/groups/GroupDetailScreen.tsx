@@ -59,6 +59,7 @@ interface GroupDetailScreenProps {
     onBack: () => void;
     onOpenComments: (post: api.GroupPost) => void;
     onOpenChat: (chat: api.Chat) => void;
+    onOpenAdminThread: (threadId: string) => void;
     initialAdminTab?: 'inbox' | 'reports';
     initialAdminThreadId?: string;
     focusPostRequest: { postId: string; nonce: number } | null;
@@ -100,6 +101,7 @@ export function GroupDetailScreen({
     onBack,
     onOpenComments,
     onOpenChat,
+    onOpenAdminThread,
     initialAdminTab,
     initialAdminThreadId,
     focusPostRequest,
@@ -131,6 +133,7 @@ export function GroupDetailScreen({
                     setSurface('detail');
                     setAdminStartThreadId(undefined);
                 }}
+                onOpenThread={onOpenAdminThread}
                 initialTab={adminStartTab}
                 initialThreadId={adminStartThreadId}
             />

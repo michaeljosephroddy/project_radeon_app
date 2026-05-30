@@ -14,7 +14,7 @@ import { PrimaryButton } from '../../components/ui/PrimaryButton';
 import { ScreenHeader } from '../../components/ui/ScreenHeader';
 import { SectionLabel } from '../../components/ui/SectionLabel';
 import { SobrietyCounter } from '../../components/SobrietyCounter';
-import type { CommentThreadTarget } from './feed/FeedCommentsModal';
+import type { CommentThreadTarget } from './feed/FeedCommentsScreen';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { TextField } from '../../components/ui/TextField';
 import { SettingsScreen } from './SettingsScreen';

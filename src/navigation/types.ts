@@ -1,5 +1,5 @@
 import type { Chat, DatingProfile, GroupPost, Meetup, RecoveryMeeting } from '../api/client';
-import type { CommentThreadTarget } from '../screens/main/feed/FeedCommentsModal';
+import type { CommentThreadTarget } from '../screens/main/feed/FeedCommentsScreen';
 
 export type RootStackParamList = {
     MainTabs: {
@@ -24,6 +24,7 @@ export type RootStackParamList = {
         focusPostRequest?: { postId: string; nonce: number };
         focusSupportRequest?: { requestId: string; postId?: string; nonce: number };
     };
+    GroupAdminThread: { groupId: string; threadId: string };
     GroupComments: { post: GroupPost };
     DatingLikes: undefined;
     DatingMatches: undefined;
