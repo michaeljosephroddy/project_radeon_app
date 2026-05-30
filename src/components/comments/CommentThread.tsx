@@ -16,7 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Avatar } from '../Avatar';
 import { KEYBOARD_STICKY_FOOTER_KEYBOARD_GAP } from '../ui/KeyboardStickyFooter';
 import type { CommentMention, User } from '../../api/client';
-import { Colors, ControlSizes, Radius, Spacing, TextStyles, Typography } from '../../theme';
+import { Colors, ControlSizes, Spacing, TextStyles, Typography } from '../../theme';
 import { formatReadableTimestamp } from '../../utils/date';
 import { formatUsername } from '../../utils/identity';
 import { composerStandards } from '../../styles/composerStandards';
@@ -185,7 +185,7 @@ const CommentItem = React.memo(function CommentItem({
                 fontSize={COMMENT_AVATAR_FONT_SIZE}
             />
             <View style={styles.commentBodyWrap}>
-                <View style={styles.commentBubble}>
+                <View style={styles.commentContent}>
                     <View style={[styles.commentHeader, actions?.length ? styles.commentHeaderWithActions : null]}>
                         <View style={styles.commentHeaderCopy}>
                             <Text style={styles.commentAuthor}>{formatUsername(comment.username)}</Text>
@@ -494,11 +494,9 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
     },
     list: {
-        paddingHorizontal: Spacing.md,
-        paddingTop: Spacing.md,
+        paddingTop: 0,
         paddingBottom: Spacing.md,
         flexGrow: 1,
-        gap: Spacing.sm,
     },
     emptyList: {
         justifyContent: 'center',
@@ -554,20 +552,19 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'flex-start',
         gap: Spacing.sm,
-        paddingVertical: 0,
+        borderBottomWidth: 1,
+        borderBottomColor: Colors.border.emphasis,
+        backgroundColor: Colors.bg.page,
+        paddingHorizontal: Spacing.md,
+        paddingVertical: Spacing.sm,
     },
     commentBodyWrap: {
         flex: 1,
         minWidth: 0,
     },
-    commentBubble: {
+    commentContent: {
         position: 'relative',
-        borderWidth: 1,
-        borderColor: Colors.border.default,
-        borderRadius: Radius.md,
-        backgroundColor: Colors.bg.surface,
-        paddingHorizontal: Spacing.sm,
-        paddingVertical: Spacing.xs,
+        paddingRight: 0,
     },
     commentHeader: {
         flexDirection: 'row',
