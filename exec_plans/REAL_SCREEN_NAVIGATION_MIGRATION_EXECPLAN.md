@@ -28,8 +28,9 @@ The user-visible outcome is that pressing between app pages feels smooth and sta
 - [x] (2026-05-30 Europe/Dublin) Preserved the Dating Likes Plus gate in the route screen and restored silent local-to-remote image handoff for Dating profile photo uploads.
 - [x] (2026-05-30 Europe/Dublin) Ran `npm run typecheck`; TypeScript completed with exit code 0.
 - [x] (2026-05-30 Europe/Dublin) Ran `git diff --check`; no whitespace errors were reported.
+- [x] (2026-05-30 Europe/Dublin) Migrated Dating profile option editors from the internal `editingSection` swap to a nested native stack with `DatingProfileMain` and `DatingProfileSection` screens.
 - [ ] Replace the remaining current custom app shell with nested bottom tabs and per-tab stacks while preserving the existing visual tab bar.
-- [ ] Migrate Dating profile section editors to real stack screens with shared unsaved draft state.
+- [x] Migrate Dating profile section editors to real stack screens with shared unsaved draft state.
 - [x] Migrate high-impact shared detail screens such as Chat, User Profile, Group Detail, Meetup Detail, Recovery Meeting Detail, Notifications, and Create flows.
 - [x] Remove obsolete manual overlay state from `AppNavigator` and `DiscoverScreen`.
 - [ ] Perform manual smoothness checks on device.
@@ -51,8 +52,8 @@ The user-visible outcome is that pressing between app pages feels smooth and sta
 - Observation: The largest app-wide flicker source was the old full-screen overlay state in `AppNavigator`, not the mounted tab panes themselves.
     Evidence: After the migration, `AppNavigator` no longer stores `openChat`, `openUserProfile`, `pendingDM`, `createPostOpen`, `createGroupOpen`, `createSupportRequestOpen`, `createMeetupOpen`, `openMeetup`, `openRecoveryMeeting`, `openGroupId`, or `notificationsOpen`.
 
-- Observation: Dating profile option editors still use an internal section swap inside `DatingProfileEditorScreen`.
-    Evidence: `DatingProfileEditorScreen` still stores `editingSection` and renders `DatingSectionEditor` conditionally. Moving this to a true nested stack requires lifting the entire unsaved draft model into a shared edit-session provider.
+- Observation: Dating profile option editors no longer use the internal `editingSection` swap.
+    Evidence: `DatingProfileEditorScreen` now renders `DatingProfileEditorStack` with `DatingProfileMain` and `DatingProfileSection`, and no longer contains `editingSection`, `shouldRestoreEditScroll`, or the scroll-restore `requestAnimationFrame` path.
 
 ## Decision Log
 
@@ -84,7 +85,7 @@ The user-visible outcome is that pressing between app pages feels smooth and sta
 
 The high-impact shared detail flows and Dating top-level surfaces now use React Navigation native stack routes instead of local full-screen replacement state. The existing custom visual tab shell remains in place for the five primary tabs, which preserves current tab/header styling while route transitions handle pushed screens.
 
-Remaining work is narrower than the original plan: replace the visual tab shell with a true React Navigation bottom-tab navigator when the team is ready for a larger app-shell refactor, and move Dating profile option editors into nested route screens backed by a shared draft-state provider. Static validation passed, but device smoothness checks still need to be performed on a simulator or physical device.
+Remaining work is narrower than the original plan: replace the visual tab shell with a true React Navigation bottom-tab navigator when the team is ready for a larger app-shell refactor. Static validation passed, but device smoothness checks still need to be performed on a simulator or physical device.
 
 ## Context and Orientation
 
