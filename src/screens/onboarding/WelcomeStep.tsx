@@ -5,7 +5,7 @@ import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { PrimaryButton } from '../../components/ui/PrimaryButton';
 import { useAuth } from '../../hooks/useAuth';
-import { Colors, Typography, Spacing } from '../../theme';
+import { Colors, IconSizes, Typography, Spacing } from '../../theme';
 
 interface WelcomeStepProps {
     onNext: () => void;
@@ -19,7 +19,7 @@ export function WelcomeStep({ onNext }: WelcomeStepProps) {
             <StatusBar style="light" />
             <View style={styles.inner}>
                 <View style={styles.iconWrap}>
-                    <Ionicons name="heart" size={52} color={Colors.primary} />
+                    <Ionicons name="heart" size={IconSizes.brand} color={Colors.primary} />
                 </View>
                 <Text style={styles.wordmark}>
                     Sober<Text style={styles.accent}>Space</Text>

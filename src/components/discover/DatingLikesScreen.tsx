@@ -13,7 +13,7 @@ import { DiscoverEmptyState } from './DiscoverEmptyState';
 import { ScreenHeader } from '../ui/ScreenHeader';
 import * as api from '../../api/client';
 import { formatUsername } from '../../utils/identity';
-import { Colors, ContentInsets, Radius, Spacing, TextStyles, Typography } from '../../theme';
+import { AvatarSizes, Colors, ContentInsets, Radius, Spacing, TextStyles, Typography } from '../../theme';
 
 function relationshipGoalLabel(goal: api.DatingRelationshipGoal): string | null {
     switch (goal) {
@@ -133,7 +133,7 @@ function DatingLikeRow({
                 accessibilityRole="button"
                 accessibilityLabel={`View ${formatUsername(profile.username)} profile`}
             >
-                <Avatar username={profile.username} avatarUrl={primaryPhoto} size={58} fontSize={20} />
+                <Avatar username={profile.username} avatarUrl={primaryPhoto} size={AvatarSizes.feature} fontSize={TextStyles.sectionTitle.fontSize} />
                 <View style={styles.profileText}>
                     <Text style={styles.username} numberOfLines={1}>{nameLabel}</Text>
                     {metaLabel ? <Text style={styles.meta} numberOfLines={1}>{metaLabel}</Text> : null}

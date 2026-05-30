@@ -24,7 +24,7 @@ import { resetInfiniteQueryToFirstPage } from '../../query/infiniteQueryPolicy';
 import { queryKeys } from '../../query/queryKeys';
 import { dedupeById } from '../../utils/list';
 import { getListPerformanceProps } from '../../utils/listPerformance';
-import { Colors, ControlSizes, Spacing, Radius, ContentInsets, TextStyles } from '../../theme';
+import { AvatarSizes, Colors, ControlSizes, IconSizes, Spacing, Radius, ContentInsets, TextStyles } from '../../theme';
 import { formatUsername } from '../../utils/identity';
 import { getConnectionIntentLabel, normalizeConnectionIntents } from '../../utils/connectionIntents';
 
@@ -255,7 +255,7 @@ export function UserProfileScreen({
         <View style={styles.profileHeader}>
             <View style={styles.identityRow}>
                 <View style={styles.avatarFrame}>
-                    <Avatar username={profileName} avatarUrl={profileAvatarUrl} size={92} fontSize={31} />
+                    <Avatar username={profileName} avatarUrl={profileAvatarUrl} size={AvatarSizes.hero} fontSize={TextStyles.displayTitle.fontSize} />
                 </View>
                 <View style={styles.statsRow}>
                     <View style={styles.statItem}>
@@ -282,7 +282,7 @@ export function UserProfileScreen({
                         {profile?.bio ? <Text style={styles.bio}>{profile.bio}</Text> : null}
                         {profile?.city ? (
                             <View style={styles.metaRow}>
-                                <Ionicons name="location-outline" size={14} color={Colors.text.muted} />
+                                <Ionicons name="location-outline" size={IconSizes.badge} color={Colors.text.muted} />
                                 <Text style={styles.meta}>{profile.city}{profile.country ? `, ${profile.country}` : ''}</Text>
                             </View>
                         ) : null}
@@ -340,7 +340,7 @@ export function UserProfileScreen({
                     onPress={handleReportUser}
                     disabled={loadingProfile || safetyActionLoading !== null}
                 >
-                    <Ionicons name="flag-outline" size={15} color={Colors.text.secondary} />
+                    <Ionicons name="flag-outline" size={IconSizes.inline} color={Colors.text.secondary} />
                     <Text style={styles.safetyActionText}>Report</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
@@ -348,7 +348,7 @@ export function UserProfileScreen({
                     onPress={handleBlockUser}
                     disabled={loadingProfile || safetyActionLoading !== null}
                 >
-                    <Ionicons name="ban-outline" size={16} color={Colors.danger} />
+                    <Ionicons name="ban-outline" size={IconSizes.inline} color={Colors.danger} />
                     <Text style={styles.safetyActionDangerText}>Block</Text>
                 </TouchableOpacity>
             </View>

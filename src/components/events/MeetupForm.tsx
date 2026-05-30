@@ -4,7 +4,7 @@ import React from 'react';
 import { Image, Platform, StyleProp, StyleSheet, Switch, Text, TouchableOpacity, View, ViewStyle } from 'react-native';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import * as api from '../../api/client';
-import { Colors, ControlSizes, Radius, Spacing, TextStyles, Typography } from '../../theme';
+import { Colors, ControlSizes, IconSizes, Radius, Spacing, TextStyles, Typography } from '../../theme';
 import { AppKeyboardAwareScrollView } from '../ui/AppKeyboardAwareScrollView';
 import { KeyboardStickyFooter } from '../ui/KeyboardStickyFooter';
 import { PrimaryButton } from '../ui/PrimaryButton';
@@ -98,7 +98,7 @@ function EventTypeChoice({
             activeOpacity={0.86}
         >
             <View style={[styles.eventTypeIcon, selected && styles.eventTypeIconSelected]}>
-                <Ionicons name={icon} size={19} color={selected ? Colors.textOn.primary : Colors.primary} />
+                <Ionicons name={icon} size={IconSizes.tool} color={selected ? Colors.textOn.primary : Colors.primary} />
             </View>
             <Text style={[styles.eventTypeLabel, selected && styles.eventTypeLabelSelected]}>{label}</Text>
         </TouchableOpacity>
@@ -125,7 +125,7 @@ function ExpandableSection({
                     <Text style={styles.expandableTitle}>{title}</Text>
                     <Text style={styles.expandableSummary}>{summary}</Text>
                 </View>
-                <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={20} color={Colors.text.secondary} />
+                <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={IconSizes.tool} color={Colors.text.secondary} />
             </TouchableOpacity>
             {expanded ? <View style={styles.expandableBody}>{children}</View> : null}
         </View>
@@ -312,13 +312,13 @@ export function MeetupForm({
                                 <Image source={{ uri: coverPreviewUri }} style={styles.coverPreview} />
                             ) : (
                                 <View style={styles.coverPlaceholder}>
-                                    <Ionicons name="image-outline" size={28} color={Colors.primary} />
+                                    <Ionicons name="image-outline" size={IconSizes.hero} color={Colors.primary} />
                                     <Text style={styles.coverPlaceholderTitle}>Add cover image</Text>
                                     <Text style={styles.coverPlaceholderText}>Choose a photo that represents the meetup.</Text>
                                 </View>
                             )}
                             <View style={styles.coverOverlay}>
-                                <Ionicons name={coverPreviewUri ? 'camera-outline' : 'add'} size={18} color={Colors.textOn.primary} />
+                                <Ionicons name={coverPreviewUri ? 'camera-outline' : 'add'} size={IconSizes.row} color={Colors.textOn.primary} />
                                 <Text style={styles.coverOverlayText}>{coverUploading ? 'Uploading...' : coverPreviewUri ? 'Replace' : 'Upload'}</Text>
                             </View>
                         </TouchableOpacity>
@@ -612,7 +612,7 @@ export function MeetupForm({
                     </View>
                     <View style={styles.stepTitleRow}>
                         <View style={styles.stepIcon}>
-                            <Ionicons name={STEPS[stepIndex]?.icon ?? 'sparkles-outline'} size={18} color={Colors.primary} />
+                            <Ionicons name={STEPS[stepIndex]?.icon ?? 'sparkles-outline'} size={IconSizes.row} color={Colors.primary} />
                         </View>
                         <View style={styles.stepCopy}>
                             <Text style={styles.stepTitle}>{STEPS[stepIndex]?.label ?? title}</Text>
@@ -641,7 +641,7 @@ export function MeetupForm({
                 <View style={styles.footerActionRow}>
                     {footerBackAction ? (
                         <TouchableOpacity style={styles.backStepButton} onPress={footerBackAction} activeOpacity={0.84} disabled={loading}>
-                            {onBackStep ? <Ionicons name="chevron-back" size={18} color={Colors.primary} /> : null}
+                            {onBackStep ? <Ionicons name="chevron-back" size={IconSizes.row} color={Colors.primary} /> : null}
                             <Text style={styles.backStepText}>{footerBackLabel}</Text>
                         </TouchableOpacity>
                     ) : null}
@@ -650,7 +650,7 @@ export function MeetupForm({
                         onPress={onPrimaryAction}
                         loading={loading}
                         variant={primaryActionVariant}
-                        rightAdornment={<Ionicons name="chevron-forward" size={18} color={primaryActionVariant === 'warning' ? Colors.textOn.warning : Colors.textOn.primary} />}
+                        rightAdornment={<Ionicons name="chevron-forward" size={IconSizes.row} color={primaryActionVariant === 'warning' ? Colors.textOn.warning : Colors.textOn.primary} />}
                         style={styles.primaryAction}
                     />
                 </View>

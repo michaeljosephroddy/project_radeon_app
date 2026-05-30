@@ -8,7 +8,7 @@ import { Avatar } from '../../components/Avatar';
 import { ScreenHeader } from '../../components/ui/ScreenHeader';
 import * as api from '../../api/client';
 import { useGuardedEndReached } from '../../hooks/useGuardedEndReached';
-import { Colors, ContentInsets, Typography, Spacing, Radius } from '../../theme';
+import { AvatarSizes, Colors, ContentInsets, Typography, Spacing, Radius } from '../../theme';
 import { formatReadableTimestamp } from '../../utils/date';
 import { formatUsername } from '../../utils/identity';
 
@@ -99,7 +99,7 @@ export function HiddenContentScreen({ onBack, onOpenUserProfile }: HiddenContent
                         avatarUrl: feedItem.author.avatar_url ?? undefined,
                     })}
                 >
-                    <Avatar username={feedItem.author.username} avatarUrl={feedItem.author.avatar_url ?? undefined} size={42} />
+                    <Avatar username={feedItem.author.username} avatarUrl={feedItem.author.avatar_url ?? undefined} size={AvatarSizes.list} />
                     <View style={styles.cardBody}>
                         <View style={styles.cardHeader}>
                             <Text style={styles.cardAuthor}>{formatUsername(feedItem.author.username)}</Text>

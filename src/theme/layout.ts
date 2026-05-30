@@ -1,9 +1,20 @@
 export const Spacing = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24, xxl: 32 };
 export const Radius  = { sm: 6, md: 10, lg: 16, xl: 24, pill: 999 };
 
+export const IconSizes = {
+    badge: 12,
+    inline: 16,
+    row: 18,
+    tool: 20,
+    header: 24,
+    hero: 28,
+    primaryAction: 30,
+    brand: 52,
+};
+
 export const Header = {
     paddingVertical: 6,
-    iconSize: 28,
+    iconSize: IconSizes.header,
     sideWidth: 44,
 };
 
@@ -24,6 +35,26 @@ export const ControlSizes = {
     iconButtonLarge: ControlHeights.iconLarge,
     fabMinHeight: ControlHeights.large,
     listRowMinHeight: 52,
+};
+
+export const TargetSizes = {
+    compact: ControlHeights.compact,
+    minimum: ControlHeights.default,
+    comfortable: ControlHeights.large,
+};
+
+export const AvatarSizes = {
+    stack: 22,
+    tiny: 30,
+    mini: 32,
+    comment: 34,
+    compact: 36,
+    medium: 40,
+    list: 44,
+    feature: 58,
+    hero: 88,
+    profilePhoto: 112,
+    onboarding: 120,
 };
 
 export const ContentInsets = {

@@ -10,7 +10,7 @@ import { InfoNoticeCard } from '../../components/ui/InfoNoticeCard';
 import { PrimaryButton } from '../../components/ui/PrimaryButton';
 import { TextField } from '../../components/ui/TextField';
 import { useAuth } from '../../hooks/useAuth';
-import { Colors, ContentInsets, ControlSizes, Radius, Spacing, TextStyles } from '../../theme';
+import { Colors, ContentInsets, ControlSizes, IconSizes, Radius, Spacing, TextStyles } from '../../theme';
 import { getDeviceCoords, reverseGeocodePlace } from '../../utils/location';
 
 interface CreateSupportRequestScreenProps {
@@ -398,7 +398,7 @@ export function CreateSupportRequestScreen({
                         activeOpacity={0.84}
                         disabled={submitting}
                     >
-                        {safeStepIndex > 0 ? <Ionicons name="chevron-back" size={18} color={Colors.primary} /> : null}
+                        {safeStepIndex > 0 ? <Ionicons name="chevron-back" size={IconSizes.row} color={Colors.primary} /> : null}
                         <Text style={styles.backButtonText}>{safeStepIndex > 0 ? 'Back' : 'Cancel'}</Text>
                     </TouchableOpacity>
                     <PrimaryButton
@@ -407,7 +407,7 @@ export function CreateSupportRequestScreen({
                         loading={submitting}
                         disabled={submitting}
                         style={styles.primaryAction}
-                        rightAdornment={!isReviewStep ? <Ionicons name="chevron-forward" size={18} color={Colors.textOn.primary} /> : null}
+                        rightAdornment={!isReviewStep ? <Ionicons name="chevron-forward" size={IconSizes.row} color={Colors.textOn.primary} /> : null}
                     />
                 </View>
             )}
@@ -436,7 +436,7 @@ export function CreateSupportRequestScreen({
                 </View>
                 <View style={styles.stepTitleRow}>
                     <View style={styles.stepIcon}>
-                        <Ionicons name={SUPPORT_CREATE_STEPS[safeStepIndex]?.icon ?? 'heart-outline'} size={18} color={Colors.primary} />
+                        <Ionicons name={SUPPORT_CREATE_STEPS[safeStepIndex]?.icon ?? 'heart-outline'} size={IconSizes.row} color={Colors.primary} />
                     </View>
                     <View style={styles.stepCopy}>
                         <Text style={styles.stepTitle}>{SUPPORT_CREATE_STEPS[safeStepIndex]?.label ?? 'Support'}</Text>

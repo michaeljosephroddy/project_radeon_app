@@ -8,7 +8,7 @@ import {
     View,
     ViewStyle,
 } from 'react-native';
-import { Colors, ControlSizes, Radius, Spacing, TextStyles, Typography } from '../../theme';
+import { Colors, ControlSizes, Radius, Spacing, TextStyles } from '../../theme';
 import { TextField } from './TextField';
 
 interface SearchFieldConfig extends Omit<TextInputProps, 'style'> {
@@ -128,8 +128,7 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
     },
     actionCompactText: {
-        fontSize: Typography.sizes.sm,
-        fontWeight: '600',
+        ...TextStyles.label,
         color: Colors.primary,
     },
     actionPill: {
@@ -142,7 +141,7 @@ const styles = StyleSheet.create({
         marginLeft: Spacing.sm,
     },
     actionPillText: {
-        fontSize: Typography.sizes.lg,
+        ...TextStyles.sectionTitle,
         color: Colors.bg.page,
     },
 });

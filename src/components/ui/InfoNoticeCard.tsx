@@ -8,7 +8,7 @@ import {
     ViewStyle,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors, ControlSizes, Radius, Spacing, TextStyles } from '../../theme';
+import { Colors, ControlSizes, IconSizes, Radius, Spacing, TextStyles } from '../../theme';
 import { SurfaceCard } from './SurfaceCard';
 
 export interface InfoNoticeCardProps {
@@ -34,7 +34,7 @@ export function InfoNoticeCard({ title, description, style, onDismiss }: InfoNot
                     onPress={onDismiss}
                     activeOpacity={0.72}
                 >
-                    <Ionicons name="close" size={18} color={Colors.primary} />
+                    <Ionicons name="close" size={IconSizes.row} color={Colors.primary} />
                 </TouchableOpacity>
             ) : null}
         </SurfaceCard>
@@ -66,8 +66,7 @@ const styles = StyleSheet.create({
         borderRadius: Radius.pill,
     },
     title: {
-        fontSize: TextStyles.cardTitle.fontSize,
-        fontWeight: TextStyles.cardTitle.fontWeight,
+        ...TextStyles.cardTitle,
         color: Colors.primary,
     },
     description: {

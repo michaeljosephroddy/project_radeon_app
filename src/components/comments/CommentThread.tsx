@@ -16,7 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Avatar } from '../Avatar';
 import { KEYBOARD_STICKY_FOOTER_KEYBOARD_GAP } from '../ui/KeyboardStickyFooter';
 import type { CommentMention, User } from '../../api/client';
-import { Colors, ControlSizes, Spacing, TextStyles, Typography } from '../../theme';
+import { AvatarSizes, Colors, ControlSizes, IconSizes, Spacing, TextStyles, Typography } from '../../theme';
 import { formatReadableTimestamp } from '../../utils/date';
 import { formatUsername } from '../../utils/identity';
 import { composerStandards } from '../../styles/composerStandards';
@@ -26,8 +26,8 @@ import { CardActionMenu, type CardActionMenuAction } from '../ui/CardActionMenu'
 const INITIAL_VISIBLE = 20;
 const PAGE_VISIBLE = 20;
 const EMPTY_SUGGESTIONS: User[] = [];
-const COMMENT_AVATAR_SIZE = 34;
-const COMMENT_AVATAR_FONT_SIZE = 12;
+const COMMENT_AVATAR_SIZE = AvatarSizes.comment;
+const COMMENT_AVATAR_FONT_SIZE = TextStyles.caption.fontSize;
 
 interface ActiveMentionState {
     query: string;
@@ -433,7 +433,7 @@ export function CommentThread({
                                     style={styles.mentionRow}
                                     onPress={() => handleSelectMention(u)}
                                 >
-                                    <Avatar username={u.username} avatarUrl={u.avatar_url} size={32} fontSize={12} />
+                                    <Avatar username={u.username} avatarUrl={u.avatar_url} size={AvatarSizes.comment} fontSize={TextStyles.caption.fontSize} />
                                     <Text style={styles.mentionRowText}>{formatUsername(u.username)}</Text>
                                 </TouchableOpacity>
                             ))
@@ -475,7 +475,7 @@ export function CommentThread({
                     >
                         {submitting
                             ? <ActivityIndicator size="small" color={Colors.textOn.primary} />
-                            : <Ionicons name="send" size={18} color={Colors.textOn.primary} />
+                            : <Ionicons name="send" size={IconSizes.row} color={Colors.textOn.primary} />
                         }
                     </TouchableOpacity>
                 </View>

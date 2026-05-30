@@ -19,7 +19,7 @@ import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { useAuth } from '../../hooks/useAuth';
 import * as api from '../../api/client';
 import { formatBirthDateValue, GENDER_SEGMENTS } from '../../utils/profileIdentity';
-import { Colors, Typography, Spacing, Radius } from '../../theme';
+import { Colors, IconSizes, Typography, Spacing, Radius } from '../../theme';
 import type { OnboardingStepProps } from '../../navigation/OnboardingNavigator';
 
 type EditableGender = api.UserGender | '';
@@ -81,7 +81,7 @@ export function IdentityStep({ onNext, onBack, dotIndex, dotTotal }: IdentitySte
                 bottomOffset={keyboardBottomOffset}
             >
                 <View style={styles.iconWrap}>
-                    <Ionicons name="person-outline" size={32} color={Colors.primary} />
+                    <Ionicons name="person-outline" size={IconSizes.primaryAction} color={Colors.primary} />
                 </View>
                 <Text style={styles.title}>A bit about you</Text>
                 <Text style={styles.subtitle}>

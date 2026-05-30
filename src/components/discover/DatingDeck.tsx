@@ -27,7 +27,7 @@ import { DiscoverEmptyState } from './DiscoverEmptyState';
 import { DatingPhotoCarousel } from './DatingPhotoCarousel';
 import * as api from '../../api/client';
 import { formatUsername } from '../../utils/identity';
-import { Colors, Radius, Spacing, TextStyles, Typography } from '../../theme';
+import { Colors, IconSizes, Radius, Spacing, TextStyles, Typography } from '../../theme';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const SWIPE_THRESHOLD = SCREEN_WIDTH * 0.24;
@@ -139,7 +139,7 @@ function DatingProfileCard({
                     accessibilityRole="button"
                     accessibilityLabel={`View ${formatUsername(profile.username)} dating profile`}
                 >
-                        <Ionicons name="chevron-up" size={21} color={Colors.textOn.primary} />
+                        <Ionicons name="chevron-up" size={IconSizes.tool} color={Colors.textOn.primary} />
                     </TouchableOpacity>
                 </View>
                 {metaLabel ? <Text style={styles.meta} numberOfLines={1}>{metaLabel}</Text> : null}
@@ -153,7 +153,7 @@ function DatingProfileCard({
                     accessibilityRole="button"
                     accessibilityLabel={`Pass on ${formatUsername(profile.username)}`}
                 >
-                    <Ionicons name="close" size={28} color={Colors.danger} />
+                    <Ionicons name="close" size={IconSizes.hero} color={Colors.danger} />
                 </TouchableOpacity>
                 <TouchableOpacity
                     style={styles.cardActionButton}
@@ -162,7 +162,7 @@ function DatingProfileCard({
                     accessibilityRole="button"
                     accessibilityLabel={`Connect with ${formatUsername(profile.username)}`}
                 >
-                    <Ionicons name="heart" size={30} color={Colors.primary} />
+                    <Ionicons name="heart" size={IconSizes.primaryAction} color={Colors.primary} />
                 </TouchableOpacity>
             </View>
         </TouchableOpacity>

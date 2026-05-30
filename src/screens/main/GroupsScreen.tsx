@@ -23,7 +23,7 @@ import { TextField } from '../../components/ui/TextField';
 import { useGroups, useJoinGroupMutation } from '../../hooks/queries/useGroups';
 import { useScrollToTopButton } from '../../hooks/useScrollToTopButton';
 import { screenStandards } from '../../styles/screenStandards';
-import { Colors, ContentInsets, ControlSizes, Radius, Spacing, TextStyles, getAvatarColors } from '../../theme';
+import { Colors, ContentInsets, ControlSizes, IconSizes, Radius, Spacing, TextStyles, getAvatarColors } from '../../theme';
 import { setGroupFiltersRouteState } from '../../navigation/filterRouteStores';
 import type { RootStackParamList } from '../../navigation/types';
 
@@ -111,10 +111,10 @@ const GroupSearchRow = React.memo(function GroupSearchRow({
                     placeholder: 'Search groups',
                     returnKeyType: 'search',
                 }}
-                leading={<Ionicons name="search-outline" size={18} color={Colors.text.muted} />}
+                leading={<Ionicons name="search-outline" size={IconSizes.row} color={Colors.text.muted} />}
             />
             <TouchableOpacity style={styles.filterButton} onPress={onOpenFilters} activeOpacity={0.86}>
-                <Ionicons name="options-outline" size={20} color={Colors.text.primary} />
+                <Ionicons name="options-outline" size={IconSizes.tool} color={Colors.text.primary} />
                 {activeFilterCount ? (
                     <View style={styles.filterBadge}>
                         <Text style={styles.filterBadgeText}>{activeFilterCount}</Text>
@@ -344,7 +344,7 @@ export function GroupFiltersScreen({
         <SafeAreaView style={styles.filterScreen} edges={['bottom']}>
             <View style={styles.filterHeader}>
                 <TouchableOpacity style={styles.filterHeaderButton} onPress={onClose}>
-                    <Ionicons name="arrow-back" size={22} color={Colors.primary} />
+                    <Ionicons name="arrow-back" size={IconSizes.header} color={Colors.primary} />
                 </TouchableOpacity>
                 <Text style={styles.filterTitle}>Group filters</Text>
                 <TouchableOpacity style={styles.filterHeaderButton} onPress={onReset}>
@@ -500,7 +500,7 @@ function GroupStatusAction({
     if (isMember) {
         return (
             <View style={styles.memberPill}>
-                <Ionicons name="checkmark-circle" size={14} color={Colors.success} />
+                <Ionicons name="checkmark-circle" size={IconSizes.badge} color={Colors.success} />
                 <Text style={styles.memberPillText}>Joined</Text>
             </View>
         );
@@ -526,7 +526,7 @@ function GroupStatusAction({
 function SystemGroupPill(): React.ReactElement {
     return (
         <View style={styles.systemPill}>
-            <Ionicons name="heart-outline" size={12} color={Colors.info} />
+            <Ionicons name="heart-outline" size={IconSizes.badge} color={Colors.info} />
             <Text style={styles.systemPillText}>Support</Text>
         </View>
     );
@@ -535,7 +535,7 @@ function SystemGroupPill(): React.ReactElement {
 function PinnedGroupPill(): React.ReactElement {
     return (
         <View style={styles.pinnedPill}>
-            <Ionicons name="pin" size={12} color={Colors.primary} />
+            <Ionicons name="pin" size={IconSizes.badge} color={Colors.primary} />
             <Text style={styles.pinnedPillText}>Pinned</Text>
         </View>
     );

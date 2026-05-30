@@ -39,7 +39,7 @@ import { useAuth } from '../../../hooks/useAuth';
 import { useGuardedEndReached } from '../../../hooks/useGuardedEndReached';
 import { useScrollToTopButton } from '../../../hooks/useScrollToTopButton';
 import { screenStandards } from '../../../styles/screenStandards';
-import { Colors, ControlSizes, Radius, Spacing, TextStyles, Typography } from '../../../theme';
+import { AvatarSizes, Colors, ControlSizes, IconSizes, Radius, Spacing, TextStyles, Typography } from '../../../theme';
 import { GroupAdminScreen } from './GroupAdminScreen';
 import { GroupReportScreen } from './GroupReportScreen';
 import { formatReadableTimestamp } from '../../../utils/date';
@@ -455,7 +455,7 @@ function ManageListSeparator(): React.ReactElement {
 function SupportReplyRow({ reply }: { reply: api.SupportReply }): React.ReactElement {
     return (
         <View style={styles.replyRow}>
-            <Avatar username={reply.username} avatarUrl={reply.avatar_url ?? undefined} size={30} />
+            <Avatar username={reply.username} avatarUrl={reply.avatar_url ?? undefined} size={AvatarSizes.tiny} />
             <View style={styles.replyBody}>
                 <Text style={styles.replyAuthor}>{reply.username}</Text>
                 <Text style={styles.aboutBody}>{reply.body}</Text>
@@ -482,7 +482,7 @@ function SupportOfferRow({
 
     return (
         <View style={styles.offerRow}>
-            <Avatar username={offer.username} avatarUrl={offer.avatar_url ?? undefined} size={34} />
+            <Avatar username={offer.username} avatarUrl={offer.avatar_url ?? undefined} size={AvatarSizes.comment} />
             <View style={styles.offerBody}>
                 <Text style={styles.offerName}>{offer.username}</Text>
                 <Text style={styles.metaText}>{getSupportTypeLabel(offer.offer_type)} - {getOfferStatusLabel(offer.status)}</Text>
@@ -1003,7 +1003,7 @@ function GroupMembersTab({ group }: { group: api.Group }): React.ReactElement {
                 ListHeaderComponent={<GroupSummaryHeader group={group} />}
                 renderItem={({ item }) => (
                     <View style={styles.memberRow}>
-                        <Avatar username={item.username} avatarUrl={item.avatar_url ?? undefined} size={38} fontSize={13} />
+                        <Avatar username={item.username} avatarUrl={item.avatar_url ?? undefined} size={AvatarSizes.compact} fontSize={TextStyles.chip.fontSize} />
                         <Text style={styles.memberName}>{item.username}</Text>
                         <Text style={styles.roleLabel}>{item.role}</Text>
                     </View>
@@ -1086,7 +1086,7 @@ function GroupAboutTab({
                     <View style={styles.aboutPanel}>
                         <Text style={styles.panelTitle}>Admin tools</Text>
                         <TouchableOpacity style={styles.panelButton} onPress={onOpenAdmin}>
-                            <Ionicons name="shield-checkmark-outline" size={16} color={Colors.textOn.primary} />
+                            <Ionicons name="shield-checkmark-outline" size={IconSizes.inline} color={Colors.textOn.primary} />
                             <Text style={styles.panelButtonText}>Open admin center</Text>
                         </TouchableOpacity>
                     </View>
@@ -1131,7 +1131,7 @@ function AdminPreviewRow({
 }): React.ReactElement {
     return (
         <View style={styles.adminPreviewRow}>
-            <Avatar username={admin.username} avatarUrl={admin.avatar_url ?? undefined} size={32} fontSize={11} />
+            <Avatar username={admin.username} avatarUrl={admin.avatar_url ?? undefined} size={AvatarSizes.mini} fontSize={TextStyles.caption.fontSize} />
             <Text style={styles.memberName}>{admin.username}</Text>
             <Text style={styles.roleLabel}>{label}</Text>
         </View>

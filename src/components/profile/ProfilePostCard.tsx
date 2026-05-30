@@ -3,7 +3,7 @@ import { View, Text, Image, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Avatar } from '../Avatar';
 import * as api from '../../api/client';
-import { Colors, Radius, Spacing, TextStyles, Typography } from '../../theme';
+import { AvatarSizes, Colors, IconSizes, Radius, Spacing, TextStyles } from '../../theme';
 import { formatUsername } from '../../utils/identity';
 
 export interface ProfilePostCardProps {
@@ -27,7 +27,7 @@ export function ProfilePostCard({ post, onPressComments }: ProfilePostCardProps)
     return (
         <View style={styles.postCard}>
             <View style={styles.postHead}>
-                <Avatar username={post.username} avatarUrl={post.avatar_url} size={44} fontSize={14} />
+                <Avatar username={post.username} avatarUrl={post.avatar_url} size={AvatarSizes.list} fontSize={TextStyles.label.fontSize} />
                 <View style={styles.postHeadBody}>
                     <View style={styles.postTitleRow}>
                         <Text style={styles.postName}>{formatUsername(post.username)}</Text>
@@ -57,7 +57,7 @@ export function ProfilePostCard({ post, onPressComments }: ProfilePostCardProps)
             ) : null}
             <View style={styles.postFoot}>
                 <View style={styles.postAction}>
-                    <Ionicons name="heart-outline" size={16} color={Colors.text.muted} />
+                    <Ionicons name="heart-outline" size={IconSizes.inline} color={Colors.text.muted} />
                     <Text style={styles.postActionText}>
                         {post.like_count > 0 ? post.like_count : 'Like'}
                     </Text>
@@ -67,7 +67,7 @@ export function ProfilePostCard({ post, onPressComments }: ProfilePostCardProps)
                     onPress={() => onPressComments?.(post)}
                     disabled={!onPressComments}
                 >
-                    <Ionicons name="chatbubble-outline" size={15} color={Colors.text.muted} />
+                    <Ionicons name="chatbubble-outline" size={IconSizes.inline} color={Colors.text.muted} />
                     <Text style={styles.postActionText}>
                         {post.comment_count > 0 ? `${post.comment_count} comments` : 'Comment'}
                     </Text>
@@ -107,8 +107,7 @@ const styles = StyleSheet.create({
         ...TextStyles.meta,
     },
     postSource: {
-        fontSize: Typography.sizes.xs,
-        fontWeight: '600',
+        ...TextStyles.caption,
         color: Colors.primary,
         marginTop: 2,
     },

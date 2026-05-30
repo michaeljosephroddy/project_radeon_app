@@ -10,7 +10,7 @@ import { ScreenHeader } from '../../components/ui/ScreenHeader';
 import { KeyboardStickyFooter } from '../../components/ui/KeyboardStickyFooter';
 import * as api from '../../api/client';
 import { useChatRealtime } from '../../hooks/chat/ChatRealtimeProvider';
-import { Colors, Typography, Spacing } from '../../theme';
+import { AvatarSizes, Colors, IconSizes, Spacing, TextStyles, Typography } from '../../theme';
 import { formatUsername } from '../../utils/identity';
 import { composerStandards } from '../../styles/composerStandards';
 
@@ -70,7 +70,7 @@ export function ComposeDMScreen({
                 onBack={onBack}
                 centerContent={(
                     <View style={styles.headerIdentity}>
-                        <Avatar username={username} avatarUrl={avatarUrl} size={32} fontSize={12} />
+                        <Avatar username={username} avatarUrl={avatarUrl} size={AvatarSizes.comment} fontSize={TextStyles.caption.fontSize} />
                         <Text style={styles.headerName} numberOfLines={1}>{formatUsername(username)}</Text>
                     </View>
                 )}
@@ -102,7 +102,7 @@ export function ComposeDMScreen({
                     >
                         {sending
                             ? <ActivityIndicator size="small" color={Colors.textOn.primary} />
-                            : <Ionicons name="send" size={18} color={Colors.textOn.primary} />
+                            : <Ionicons name="send" size={IconSizes.row} color={Colors.textOn.primary} />
                         }
                     </TouchableOpacity>
                 </View>
@@ -131,7 +131,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: Spacing.xl,
     },
     placeholder: {
-        fontSize: Typography.sizes.lg,
+        ...TextStyles.sectionTitle,
         color: Colors.text.muted,
         textAlign: 'center',
     },

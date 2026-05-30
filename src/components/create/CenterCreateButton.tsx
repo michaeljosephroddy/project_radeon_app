@@ -1,7 +1,7 @@
 import React from 'react';
 import { StyleSheet, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors, ControlSizes, Radius, Spacing } from '../../theme';
+import { Colors, ControlSizes, IconSizes, Radius, Spacing } from '../../theme';
 
 interface CenterCreateButtonProps {
     visible: boolean;
@@ -23,7 +23,7 @@ export function CenterCreateButton({
                 onPress={onPress}
                 style={styles.button}
             >
-                <Ionicons name="add" size={30} color={Colors.textOn.primary} />
+                <Ionicons name="add" size={IconSizes.primaryAction} color={Colors.textOn.primary} />
             </TouchableOpacity>
         </View>
     );

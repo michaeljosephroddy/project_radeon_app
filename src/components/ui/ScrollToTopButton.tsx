@@ -1,7 +1,7 @@
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors, ControlSizes, Radius, Spacing, TextStyles } from '../../theme';
+import { Colors, ControlSizes, IconSizes, Radius, Spacing, TextStyles } from '../../theme';
 
 interface ScrollToTopButtonProps {
     onPress: () => void;
@@ -12,7 +12,7 @@ interface ScrollToTopButtonProps {
 export function ScrollToTopButton({ onPress }: ScrollToTopButtonProps) {
     return (
         <TouchableOpacity style={styles.button} onPress={onPress} activeOpacity={0.9}>
-            <Ionicons name="arrow-up" size={16} color={Colors.textOn.primary} />
+            <Ionicons name="arrow-up" size={IconSizes.inline} color={Colors.textOn.primary} />
             <Text style={styles.label}>Top</Text>
         </TouchableOpacity>
     );
@@ -25,7 +25,7 @@ const styles = StyleSheet.create({
         bottom: 20,
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 6,
+        gap: Spacing.xs,
         backgroundColor: Colors.primary,
         borderRadius: Radius.pill,
         minHeight: ControlSizes.iconButton,

@@ -1,7 +1,7 @@
 import React, { useCallback, useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors, ControlSizes, Radius, Spacing, Typography } from '../../theme';
+import { Colors, ControlSizes, IconSizes, Radius, Spacing, TextStyles } from '../../theme';
 
 export interface CardActionMenuAction {
     label: string;
@@ -32,7 +32,7 @@ export function CardActionMenu({ actions, disabled = false }: CardActionMenuProp
                 onPress={toggleOpen}
                 disabled={disabled}
             >
-                <Ionicons name="ellipsis-horizontal" size={18} color={Colors.text.muted} />
+                <Ionicons name="ellipsis-horizontal" size={IconSizes.row} color={Colors.text.muted} />
             </TouchableOpacity>
             {open ? (
                 <View style={styles.menu}>
@@ -89,18 +89,15 @@ const styles = StyleSheet.create({
         paddingHorizontal: Spacing.md,
     },
     menuItemText: {
-        fontSize: Typography.sizes.sm,
-        fontWeight: '700',
+        ...TextStyles.label,
         color: Colors.text.primary,
     },
     menuDangerText: {
-        fontSize: Typography.sizes.sm,
-        fontWeight: '700',
+        ...TextStyles.label,
         color: Colors.danger,
     },
     menuMutedText: {
-        fontSize: Typography.sizes.sm,
-        fontWeight: '700',
+        ...TextStyles.label,
         color: Colors.text.muted,
     },
 });

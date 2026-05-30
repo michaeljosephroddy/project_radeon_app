@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors, Spacing } from '../../theme';
+import { Colors, IconSizes, Spacing } from '../../theme';
 
 export type ProfileContentTabKey = 'posts' | 'reposts' | 'tagged';
 
@@ -41,7 +41,7 @@ export function ProfileContentTabs({
                     >
                         <Ionicons
                             name={tab.icon}
-                            size={23}
+                            size={IconSizes.header}
                             color={active ? Colors.text.primary : Colors.text.muted}
                         />
                     </TouchableOpacity>

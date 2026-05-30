@@ -9,7 +9,7 @@ import {
   useWindowDimensions,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { Colors, ControlSizes, Spacing, TextStyles } from "../../../theme";
+import { Colors, ControlSizes, IconSizes, Spacing, TextStyles } from "../../../theme";
 
 export interface ImagePreviewSource {
   uri: string;
@@ -52,7 +52,7 @@ export function ImagePreviewCard({
         accessibilityLabel="Remove image"
         hitSlop={6}
       >
-        <Ionicons name="close" size={16} color={Colors.textOn.primary} />
+        <Ionicons name="close" size={IconSizes.inline} color={Colors.textOn.primary} />
       </TouchableOpacity>
 
       {status === "uploading" ? (
@@ -68,7 +68,7 @@ export function ImagePreviewCard({
           accessibilityRole="button"
           accessibilityLabel="Retry image upload"
         >
-          <Ionicons name="refresh" size={20} color={Colors.textOn.primary} />
+          <Ionicons name="refresh" size={IconSizes.tool} color={Colors.textOn.primary} />
           <Text style={styles.failText}>Tap to retry</Text>
         </TouchableOpacity>
       ) : null}

@@ -12,7 +12,7 @@ import { AppKeyboardAwareScrollView } from '../../components/ui/AppKeyboardAware
 import { PrimaryButton } from '../../components/ui/PrimaryButton';
 import { TextField } from '../../components/ui/TextField';
 import { useAuth } from '../../hooks/useAuth';
-import { Colors, Typography, Spacing } from '../../theme';
+import { Colors, IconSizes, Typography, Spacing } from '../../theme';
 import { screenStandards } from '../../styles/screenStandards';
 import { isAtLeastAge, parseBirthDate } from '../../utils/age';
 import { LEGAL_LINKS } from '../../utils/legalLinks';
@@ -113,7 +113,7 @@ export function RegisterScreen({ onGoToLogin }: RegisterScreenProps) {
                         onPress={() => setAcceptedPolicies((current) => !current)}
                     >
                         <View style={[styles.checkbox, acceptedPolicies && styles.checkboxSelected]}>
-                            {acceptedPolicies ? <Ionicons name="checkmark" size={14} color={Colors.textOn.primary} /> : null}
+                            {acceptedPolicies ? <Ionicons name="checkmark" size={IconSizes.badge} color={Colors.textOn.primary} /> : null}
                         </View>
                         <Text style={styles.policyText}>
                             I agree to the{' '}

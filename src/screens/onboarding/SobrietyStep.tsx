@@ -16,7 +16,7 @@ import { TextField } from '../../components/ui/TextField';
 import { useAuth } from '../../hooks/useAuth';
 import * as api from '../../api/client';
 import { formatSobrietyDate } from '../../utils/date';
-import { Colors, Typography, Spacing, Radius } from '../../theme';
+import { Colors, IconSizes, Typography, Spacing, Radius } from '../../theme';
 import type { OnboardingStepProps } from '../../navigation/OnboardingNavigator';
 
 const MAX_BIO = 160;
@@ -84,7 +84,7 @@ export function SobrietyStep({ onNext, onBack, dotIndex, dotTotal }: SobrietySte
                 bottomOffset={keyboardBottomOffset}
             >
                 <View style={styles.iconWrap}>
-                    <Ionicons name="leaf-outline" size={32} color={Colors.primary} />
+                    <Ionicons name="leaf-outline" size={IconSizes.primaryAction} color={Colors.primary} />
                 </View>
                 <Text style={styles.title}>Your story</Text>
                 <Text style={styles.subtitle}>Share when your journey began and a little about yourself.</Text>

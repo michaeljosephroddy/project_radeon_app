@@ -1,7 +1,7 @@
 import React from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors, Radius, Spacing, TextStyles, Typography } from '../../theme';
+import { Colors, IconSizes, Radius, Spacing, TextStyles, Typography } from '../../theme';
 import { appAlert } from '../ui/appAlert';
 import { PrimaryButton } from '../ui/PrimaryButton';
 import {
@@ -45,7 +45,7 @@ export function SoberSpacePlusScreen({
         <View style={styles.container}>
             <View style={styles.header}>
                 <TouchableOpacity style={styles.backButton} onPress={onBack} activeOpacity={0.84} accessibilityRole="button" accessibilityLabel="Go back">
-                    <Ionicons name="chevron-back" size={24} color={Colors.text.primary} />
+                    <Ionicons name="chevron-back" size={IconSizes.header} color={Colors.text.primary} />
                 </TouchableOpacity>
                 <Text style={styles.headerTitle}>SoberSpace Plus</Text>
                 <View style={styles.headerSpacer} />
@@ -54,7 +54,7 @@ export function SoberSpacePlusScreen({
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
                 <View style={styles.hero}>
                     <View style={styles.heroIcon}>
-                        <Ionicons name="sparkles" size={26} color={Colors.textOn.warning} />
+                        <Ionicons name="sparkles" size={IconSizes.hero} color={Colors.textOn.warning} />
                     </View>
                     <Text style={styles.title}>{copy.title}</Text>
                     <Text style={styles.description}>{copy.description}</Text>
@@ -66,7 +66,7 @@ export function SoberSpacePlusScreen({
                         {SOBERSPACE_PLUS_BENEFITS.map((benefit) => (
                             <View key={benefit} style={styles.benefitRow}>
                                 <View style={styles.checkIcon}>
-                                    <Ionicons name="checkmark" size={16} color={Colors.textOn.primary} />
+                                    <Ionicons name="checkmark" size={IconSizes.inline} color={Colors.textOn.primary} />
                                 </View>
                                 <Text style={styles.benefitText}>{benefit}</Text>
                             </View>
@@ -107,7 +107,7 @@ export function SoberSpacePlusScreen({
                         {SOBERSPACE_SPOTLIGHT_PRODUCTS.map((product) => (
                             <TouchableOpacity key={product.id} style={styles.spotlightRow} onPress={() => handleSelectSpotlight(product)} activeOpacity={0.86}>
                                 <View style={styles.spotlightIcon}>
-                                    <Ionicons name={product.id.startsWith('super') ? 'flash' : 'radio'} size={20} color={Colors.primary} />
+                                    <Ionicons name={product.id.startsWith('super') ? 'flash' : 'radio'} size={IconSizes.tool} color={Colors.primary} />
                                 </View>
                                 <View style={styles.spotlightCopy}>
                                     <Text style={styles.spotlightTitle}>{product.title}</Text>
@@ -126,7 +126,7 @@ export function SoberSpacePlusScreen({
                     label="Continue with Plus"
                     onPress={() => handleSelectPlan(SOBERSPACE_PLUS_PLANS[2])}
                     style={styles.primaryAction}
-                    leftAdornment={<Ionicons name="sparkles" size={18} color={Colors.textOn.primary} />}
+                    leftAdornment={<Ionicons name="sparkles" size={IconSizes.row} color={Colors.textOn.primary} />}
                 />
             </ScrollView>
         </View>

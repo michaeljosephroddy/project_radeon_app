@@ -22,7 +22,7 @@ import { resetInfiniteQueryToFirstPage } from '../../query/infiniteQueryPolicy';
 import { queryKeys } from '../../query/queryKeys';
 import { dedupeById } from '../../utils/list';
 import { getListPerformanceProps } from '../../utils/listPerformance';
-import { Colors, ContentInsets, Typography, Spacing, Radius, TextStyles } from '../../theme';
+import { AvatarSizes, Colors, ContentInsets, IconSizes, Spacing, Radius, TextStyles } from '../../theme';
 import { formatUsername } from '../../utils/identity';
 
 // Formats chat timestamps into short labels that fit the list layout.
@@ -96,7 +96,7 @@ const ChatItem = React.memo(function ChatItem({ item, onOpenChat, onDeleteChat, 
                 onPress={handleOpen}
             >
                 <View style={styles.avatarWrap}>
-                    <Avatar username={item.is_group ? 'group' : (item.username ?? 'unknown')} avatarUrl={item.is_group ? undefined : item.avatar_url} size={44} fontSize={14} />
+                    <Avatar username={item.is_group ? 'group' : (item.username ?? 'unknown')} avatarUrl={item.is_group ? undefined : item.avatar_url} size={AvatarSizes.list} fontSize={TextStyles.label.fontSize} />
                     {item.is_group && (
                         <View style={styles.groupBadge}>
                             <Text style={styles.groupBadgeText}>G</Text>
@@ -261,7 +261,7 @@ export function ChatsScreen({ isActive, onOpenChat }: ChatsScreenProps) {
                     <SearchBar
                         style={styles.searchBar}
                         variant="pill"
-                        leading={<Ionicons name="search-outline" size={18} color={Colors.text.muted} />}
+                        leading={<Ionicons name="search-outline" size={IconSizes.row} color={Colors.text.muted} />}
                         primaryField={{
                             value: query,
                             onChangeText: setQuery,
@@ -328,14 +328,14 @@ const styles = StyleSheet.create({
         paddingHorizontal: ContentInsets.screenHorizontal,
     },
     searchStatusText: {
-        fontSize: Typography.sizes.sm,
+        ...TextStyles.secondary,
         color: Colors.text.muted,
     },
 
     item: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 10,
+        gap: Spacing.sm,
         paddingHorizontal: ContentInsets.screenHorizontal,
         paddingVertical: 11,
         backgroundColor: Colors.bg.page,
@@ -354,8 +354,7 @@ const styles = StyleSheet.create({
     },
     deleteActionDisabled: { opacity: 0.6 },
     deleteActionText: {
-        fontSize: Typography.sizes.sm,
-        fontWeight: '700',
+        ...TextStyles.label,
         color: Colors.textOn.primary,
     },
     avatarWrap: { position: 'relative' },
@@ -375,7 +374,7 @@ const styles = StyleSheet.create({
     groupBadgeText: { ...TextStyles.avatarBadge },
     meta: { flex: 1, minWidth: 0 },
     metaTop: { flexDirection: 'row', alignItems: 'center', gap: 5 },
-    name: { fontSize: Typography.sizes.md, fontWeight: '500', color: Colors.text.primary },
+    name: { ...TextStyles.cardTitle },
     groupPill: {
         backgroundColor: Colors.bg.raised,
         borderRadius: Radius.pill,
@@ -389,7 +388,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: 8,
         paddingVertical: 3,
     },
-    pendingPillText: { fontSize: Typography.sizes.xs, color: Colors.textOn.primary, fontWeight: '700' },
+    pendingPillText: { ...TextStyles.caption, color: Colors.textOn.primary },
     preview: {
         marginTop: 1,
         ...TextStyles.commentBody,
@@ -402,8 +401,8 @@ const styles = StyleSheet.create({
         paddingVertical: 1,
     },
     unreadBadge: {
-        minWidth: 22,
-        height: 22,
+        minWidth: IconSizes.tool,
+        height: IconSizes.tool,
         paddingHorizontal: Spacing.xs,
         borderRadius: Radius.pill,
         backgroundColor: Colors.danger,
@@ -411,10 +410,9 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
     },
     unreadBadgeText: {
-        fontSize: Typography.sizes.xs,
+        ...TextStyles.caption,
         color: Colors.textOn.danger,
-        fontWeight: '700',
     },
-    time: { fontSize: Typography.sizes.xs, color: Colors.text.muted },
+    time: { ...TextStyles.meta },
     footerLoader: { paddingVertical: Spacing.md },
 });

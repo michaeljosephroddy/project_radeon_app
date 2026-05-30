@@ -9,7 +9,7 @@ import { Avatar } from '../../../components/Avatar';
 import { useReplyGroupAdminThreadMutation } from '../../../hooks/queries/useGroups';
 import { useAuth } from '../../../hooks/useAuth';
 import { composerStandards } from '../../../styles/composerStandards';
-import { Colors, Radius, Spacing, TextStyles, Typography } from '../../../theme';
+import { AvatarSizes, Colors, IconSizes, Radius, Spacing, TextStyles, Typography } from '../../../theme';
 import { formatUsername } from '../../../utils/identity';
 import { ChatHeader } from '../chat/ChatHeader';
 import {
@@ -157,8 +157,8 @@ export function GroupAdminThreadScreen({
                                     <Avatar
                                         username={String(messageUser.name ?? '')}
                                         avatarUrl={avatarUrl}
-                                        size={36}
-                                        fontSize={13}
+                                        size={AvatarSizes.compact}
+                                        fontSize={TextStyles.chip.fontSize}
                                     />
                                     <View style={styles.flatBubble}>
                                         <Text style={styles.flatBubbleText}>{props.currentMessage.text}</Text>
@@ -213,7 +213,7 @@ export function GroupAdminThreadScreen({
                                     >
                                         <Ionicons
                                             name="send"
-                                            size={18}
+                                            size={IconSizes.row}
                                             color={Colors.textOn.primary}
                                         />
                                     </Send>

@@ -14,7 +14,7 @@ import { OnboardingProgressHeader } from '../../components/onboarding/Onboarding
 import { TextField } from '../../components/ui/TextField';
 import { useAuth } from '../../hooks/useAuth';
 import * as api from '../../api/client';
-import { Colors, Typography, Spacing } from '../../theme';
+import { Colors, IconSizes, Typography, Spacing } from '../../theme';
 import { getDeviceCoords, reverseGeocodePlace } from '../../utils/location';
 import type { OnboardingStepProps } from '../../navigation/OnboardingNavigator';
 
@@ -89,7 +89,7 @@ export function LocationStep({ onNext, onBack, dotIndex, dotTotal }: LocationSte
                 <View style={styles.iconWrap}>
                     {detecting
                         ? <ActivityIndicator color={Colors.primary} />
-                        : <Ionicons name="location" size={32} color={Colors.primary} />
+                        : <Ionicons name="location" size={IconSizes.primaryAction} color={Colors.primary} />
                     }
                 </View>
                 <Text style={styles.title}>Where are you based?</Text>

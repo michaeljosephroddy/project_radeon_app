@@ -15,7 +15,7 @@ import * as api from '../../api/client';
 import { Avatar } from '../../components/Avatar';
 import { ScreenHeader } from '../../components/ui/ScreenHeader';
 import { useGuardedEndReached } from '../../hooks/useGuardedEndReached';
-import { ContentInsets, Colors, Radius, Spacing, Typography } from '../../theme';
+import { AvatarSizes, ContentInsets, Colors, Radius, Spacing, TextStyles, Typography } from '../../theme';
 import { formatReadableTimestamp } from '../../utils/date';
 import { formatUsername } from '../../utils/identity';
 
@@ -161,7 +161,7 @@ export function BlockedUsersScreen({ onBack }: BlockedUsersScreenProps) {
 
         return (
             <View style={styles.row}>
-                <Avatar username={item.user.username} avatarUrl={item.user.avatar_url ?? undefined} size={44} fontSize={14} />
+                <Avatar username={item.user.username} avatarUrl={item.user.avatar_url ?? undefined} size={AvatarSizes.list} fontSize={TextStyles.label.fontSize} />
                 <View style={styles.rowBody}>
                     <Text style={styles.username} numberOfLines={1}>{formatUsername(item.user.username)}</Text>
                     {location ? <Text style={styles.location} numberOfLines={1}>{location}</Text> : null}

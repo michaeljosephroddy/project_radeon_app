@@ -1,7 +1,7 @@
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors, ContentInsets, Radius, Spacing, TextStyles } from '../../theme';
+import { Colors, ContentInsets, IconSizes, Radius, Spacing, TextStyles } from '../../theme';
 import {
     RecoveryMeeting,
     formatAddressLine,
@@ -54,7 +54,7 @@ export const RecoveryMeetingCard = React.memo(function RecoveryMeetingCard({
                         <View style={styles.formatBadge}>
                             <Ionicons
                                 name={formatIcon(meeting.meeting_type)}
-                                size={12}
+                                size={IconSizes.badge}
                                 color={Colors.text.secondary}
                                 style={styles.formatBadgeIcon}
                             />
@@ -66,26 +66,26 @@ export const RecoveryMeetingCard = React.memo(function RecoveryMeetingCard({
 
                     <View style={styles.detailGrid}>
                         <View style={styles.detailRow}>
-                            <Ionicons name="calendar-outline" size={15} color={Colors.text.muted} />
+                            <Ionicons name="calendar-outline" size={IconSizes.inline} color={Colors.text.muted} />
                             <Text style={styles.detailLine} numberOfLines={1}>{dayLine}</Text>
                         </View>
                         <View style={styles.detailRow}>
-                            <Ionicons name="time-outline" size={15} color={Colors.text.muted} />
+                            <Ionicons name="time-outline" size={IconSizes.inline} color={Colors.text.muted} />
                             <Text style={styles.detailLine} numberOfLines={1}>{timeLine}</Text>
                         </View>
                         <View style={styles.detailRow}>
-                            <Ionicons name={meeting.meeting_type === 'online' ? 'videocam-outline' : 'business-outline'} size={15} color={Colors.text.muted} />
+                            <Ionicons name={meeting.meeting_type === 'online' ? 'videocam-outline' : 'business-outline'} size={IconSizes.inline} color={Colors.text.muted} />
                             <Text style={styles.detailLine} numberOfLines={1}>{locationLine}</Text>
                         </View>
                         {addressLine ? (
                             <View style={styles.detailRow}>
-                                <Ionicons name="map-outline" size={15} color={Colors.text.muted} />
+                                <Ionicons name="map-outline" size={IconSizes.inline} color={Colors.text.muted} />
                                 <Text style={styles.detailLine} numberOfLines={1}>{addressLine}</Text>
                             </View>
                         ) : null}
                         {connectionLine ? (
                             <View style={styles.detailRow}>
-                                <Ionicons name="key-outline" size={15} color={Colors.text.muted} />
+                                <Ionicons name="key-outline" size={IconSizes.inline} color={Colors.text.muted} />
                                 <Text style={styles.detailLine} numberOfLines={2}>{connectionLine}</Text>
                             </View>
                         ) : null}
@@ -102,7 +102,7 @@ export const RecoveryMeetingCard = React.memo(function RecoveryMeetingCard({
                     ) : null}
                 </View>
                 <View style={styles.actionColumn}>
-                    <Ionicons name="chevron-forward" size={18} color={Colors.text.muted} />
+                    <Ionicons name="chevron-forward" size={IconSizes.row} color={Colors.text.muted} />
                 </View>
             </View>
         </TouchableOpacity>
@@ -124,7 +124,7 @@ const styles = StyleSheet.create({
     },
     body: {
         flex: 1,
-        gap: 6,
+        gap: Spacing.xs,
     },
     metaRow: {
         flexDirection: 'row',
@@ -141,9 +141,8 @@ const styles = StyleSheet.create({
         borderColor: Colors.primary,
     },
     fellowshipPillText: {
+        ...TextStyles.caption,
         color: Colors.primary,
-        fontSize: TextStyles.caption.fontSize,
-        fontWeight: TextStyles.caption.fontWeight,
     },
     formatBadge: {
         flexDirection: 'row',
@@ -156,7 +155,7 @@ const styles = StyleSheet.create({
         borderColor: Colors.border.subtle,
     },
     formatBadgeIcon: {
-        marginRight: 4,
+        marginRight: Spacing.xs,
     },
     formatBadgeText: {
         ...TextStyles.caption,
@@ -165,7 +164,7 @@ const styles = StyleSheet.create({
         ...TextStyles.sectionTitle,
     },
     detailGrid: {
-        gap: 5,
+        gap: Spacing.xs,
     },
     detailRow: {
         flexDirection: 'row',
@@ -179,7 +178,7 @@ const styles = StyleSheet.create({
     tagRow: {
         flexDirection: 'row',
         flexWrap: 'wrap',
-        gap: 6,
+        gap: Spacing.xs,
         marginTop: 4,
     },
     tag: {

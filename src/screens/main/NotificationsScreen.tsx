@@ -18,7 +18,7 @@ import * as api from '../../api/client';
 import { useNotifications } from '../../hooks/queries/useNotifications';
 import { useNotificationSummary } from '../../hooks/queries/useNotificationSummary';
 import { queryKeys } from '../../query/queryKeys';
-import { Colors, ControlSizes, Header, Radius, Spacing, TextStyles } from '../../theme';
+import { AvatarSizes, Colors, ControlSizes, Header, IconSizes, Radius, Spacing, TextStyles } from '../../theme';
 import { formatReadableTimestamp } from '../../utils/date';
 import { formatUsername } from '../../utils/identity';
 import { dedupeById } from '../../utils/list';
@@ -84,10 +84,10 @@ const NotificationRow = React.memo(function NotificationRow({ item, pending, onP
         >
             <View style={styles.avatarSlot}>
                 {item.type === 'chat.message' ? (
-                    <Avatar username={item.title || 'chat'} size={36} fontSize={12} />
+                    <Avatar username={item.title || 'chat'} size={AvatarSizes.compact} fontSize={TextStyles.caption.fontSize} />
                 ) : (
                     <View style={styles.iconCircle}>
-                        <Ionicons name={getNotificationIcon(item.type)} size={19} color={Colors.primary} />
+                        <Ionicons name={getNotificationIcon(item.type)} size={IconSizes.tool} color={Colors.primary} />
                     </View>
                 )}
                 {isUnread ? <View style={styles.unreadDot} /> : null}
@@ -99,7 +99,7 @@ const NotificationRow = React.memo(function NotificationRow({ item, pending, onP
                 <Text style={styles.rowText} numberOfLines={2}>{item.body}</Text>
                 <Text style={styles.rowMeta}>{formatReadableTimestamp(item.created_at)}</Text>
             </View>
-            <Ionicons name="chevron-forward" size={18} color={Colors.text.muted} />
+            <Ionicons name="chevron-forward" size={IconSizes.row} color={Colors.text.muted} />
         </TouchableOpacity>
     );
 }, areNotificationRowPropsEqual);

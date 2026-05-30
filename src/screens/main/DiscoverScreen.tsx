@@ -59,7 +59,7 @@ import { getDeviceCoords } from '../../utils/location';
 import type { Coords, DeviceLocationStatus } from '../../utils/location';
 import { getRecoveryMilestone } from '../../utils/date';
 import { formatUsername } from '../../utils/identity';
-import { Colors, ControlSizes, Spacing, TextStyles, Typography, Radius, getAvatarColors } from '../../theme';
+import { AvatarSizes, Colors, ControlSizes, IconSizes, Spacing, TextStyles, Typography, Radius, getAvatarColors } from '../../theme';
 import { screenStandards } from '../../styles/screenStandards';
 import { setDiscoverFiltersRouteState } from '../../navigation/filterRouteStores';
 import type { RootStackParamList } from '../../navigation/types';
@@ -146,7 +146,7 @@ const DiscoverCard = memo(function DiscoverCard({ user, isFriended, onPress, onF
                 >
                     <Ionicons
                         name={isFriended ? 'checkmark' : 'person-add-outline'}
-                        size={14}
+                        size={IconSizes.badge}
                         color="#fff"
                     />
                 </TouchableOpacity>
@@ -155,7 +155,7 @@ const DiscoverCard = memo(function DiscoverCard({ user, isFriended, onPress, onF
             <View style={styles.cardFooter}>
                 {milestone ? (
                     <View style={styles.cardMilestonePill}>
-                        <Ionicons name="trophy-outline" size={10} color={Colors.textOn.warning} />
+                        <Ionicons name="trophy-outline" size={IconSizes.badge} color={Colors.textOn.warning} />
                         <Text style={styles.cardMilestoneText}>{milestone.currentLabel}</Text>
                     </View>
                 ) : null}
@@ -177,7 +177,7 @@ const SearchResultRow = memo(function SearchResultRow({ user, isFriended, onOpen
             onPress={() => onOpenUserProfile({ userId: user.id, username: user.username, avatarUrl: user.avatar_url })}
             activeOpacity={0.8}
         >
-            <Avatar username={user.username} avatarUrl={user.avatar_url} size={44} fontSize={16} />
+            <Avatar username={user.username} avatarUrl={user.avatar_url} size={AvatarSizes.list} fontSize={TextStyles.cardTitle.fontSize} />
             <View style={styles.resultInfo}>
                 <Text style={styles.resultName}>{formatUsername(user.username)}</Text>
                 {(locationLabel || milestone) ? (
@@ -197,7 +197,7 @@ const SearchResultRow = memo(function SearchResultRow({ user, isFriended, onOpen
                 >
                     <Ionicons
                         name={isFriended ? 'checkmark' : 'person-add-outline'}
-                        size={16}
+                        size={IconSizes.inline}
                         color={isFriended ? Colors.textOn.primary : Colors.primary}
                     />
                 </TouchableOpacity>
@@ -227,8 +227,8 @@ function MatchModal({
                         <Avatar
                             username={match.profile.username}
                             avatarUrl={(match.profile.photos ?? [])[0]?.image_url}
-                            size={82}
-                            fontSize={28}
+                            size={AvatarSizes.hero}
+                            fontSize={Math.round(AvatarSizes.hero * 0.32)}
                         />
                     ) : null}
                     <Text style={styles.matchTitle}>It's a match</Text>
@@ -239,7 +239,7 @@ function MatchModal({
                         label="Send message"
                         onPress={onOpenChat}
                         loading={openingChat}
-                        leftAdornment={<Ionicons name="chatbubble-outline" size={16} color={Colors.textOn.primary} />}
+                        leftAdornment={<Ionicons name="chatbubble-outline" size={IconSizes.inline} color={Colors.textOn.primary} />}
                     />
                     <TouchableOpacity style={styles.keepBrowsingButton} onPress={onClose} activeOpacity={0.85}>
                         <Text style={styles.keepBrowsingText}>Keep browsing</Text>
@@ -903,7 +903,7 @@ export function DiscoverScreen({
                     accessibilityLabel="Open people who liked you"
                 >
                     <View style={styles.datingFilterIconWrap}>
-                        <Ionicons name="heart-outline" size={20} color={Colors.text.primary} />
+                        <Ionicons name="heart-outline" size={IconSizes.tool} color={Colors.text.primary} />
                         {datingLikesCount > 0 ? (
                             <View style={styles.datingControlBadge}>
                                 <Text style={styles.datingControlBadgeText}>{formatCompactCount(datingLikesCount)}</Text>
@@ -926,7 +926,7 @@ export function DiscoverScreen({
                     accessibilityLabel="Open dating matches"
                 >
                     <View style={styles.datingFilterIconWrap}>
-                        <Ionicons name="chatbubbles-outline" size={20} color={Colors.text.primary} />
+                        <Ionicons name="chatbubbles-outline" size={IconSizes.tool} color={Colors.text.primary} />
                         {datingMatchesUnseenCount > 0 ? (
                             <View style={[styles.datingControlBadge, styles.datingMatchBadge]}>
                                 <Text style={styles.datingMatchBadgeText}>{formatCompactCount(datingMatchesUnseenCount)}</Text>
@@ -948,7 +948,7 @@ export function DiscoverScreen({
                     accessibilityRole="button"
                     accessibilityLabel="Open Dating profile"
                 >
-                    <Ionicons name="person-circle-outline" size={20} color={Colors.text.primary} />
+                    <Ionicons name="person-circle-outline" size={IconSizes.tool} color={Colors.text.primary} />
                     <Text style={styles.datingCompactLabel} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.72}>
                         Profile
                     </Text>
@@ -962,7 +962,7 @@ export function DiscoverScreen({
                     accessibilityLabel="Open dating filters"
                 >
                     <View style={styles.datingFilterIconWrap}>
-                        <Ionicons name="options-outline" size={20} color={Colors.text.primary} />
+                        <Ionicons name="options-outline" size={IconSizes.tool} color={Colors.text.primary} />
                         {filterCount > 0 ? (
                             <View style={styles.datingControlBadge}>
                                 <Text style={styles.datingControlBadgeText}>{filterCount}</Text>
@@ -1058,7 +1058,7 @@ export function DiscoverScreen({
                     <SearchBar
                         style={styles.searchBar}
                         variant="pill"
-                        leading={<Ionicons name="search-outline" size={18} color={Colors.text.muted} />}
+                        leading={<Ionicons name="search-outline" size={IconSizes.row} color={Colors.text.muted} />}
                         primaryField={{
                             value: searchText,
                             onChangeText: setSearchText,
@@ -1071,7 +1071,7 @@ export function DiscoverScreen({
                     />
 
                     <TouchableOpacity style={styles.filterButton} onPress={handleOpenFilters} activeOpacity={0.85}>
-                        <Ionicons name="options-outline" size={20} color={Colors.text.primary} />
+                        <Ionicons name="options-outline" size={IconSizes.tool} color={Colors.text.primary} />
                         {filterCount > 0 ? (
                             <View style={styles.filterBadge}>
                                 <Text style={styles.filterBadgeText}>{filterCount}</Text>
@@ -1242,7 +1242,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: 5,
     },
     datingControlBadgeText: {
-        fontSize: 10,
+        fontSize: TextStyles.badge.fontSize,
         fontWeight: '800',
         color: Colors.textOn.primary,
     },
@@ -1250,7 +1250,7 @@ const styles = StyleSheet.create({
         backgroundColor: Colors.danger,
     },
     datingMatchBadgeText: {
-        fontSize: 10,
+        fontSize: TextStyles.badge.fontSize,
         fontWeight: '800',
         color: Colors.textOn.danger,
     },

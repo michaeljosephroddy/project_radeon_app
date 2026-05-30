@@ -30,7 +30,7 @@ import { useGuardedEndReached } from '../../hooks/useGuardedEndReached';
 import { useInterests } from '../../hooks/queries/useInterests';
 import { useUserPosts } from '../../hooks/queries/useUserPosts';
 import { useAuth } from '../../hooks/useAuth';
-import { Colors, Typography, Spacing, Radius, TextStyles } from '../../theme';
+import { AvatarSizes, Colors, IconSizes, Typography, Spacing, Radius, TextStyles } from '../../theme';
 import { formatUsername } from '../../utils/identity';
 import { CONNECTION_INTENT_OPTIONS, getConnectionIntentLabel, normalizeConnectionIntents } from '../../utils/connectionIntents';
 import { formatBirthDateValue, GENDER_SEGMENTS, getGenderLabel } from '../../utils/profileIdentity';
@@ -571,7 +571,7 @@ export function ProfileTabScreen({
                     renderItem={({ item }) => (
                         <View style={styles.row}>
                             <TouchableOpacity onPress={() => onOpenUserProfile({ userId: item.user_id, username: item.username, avatarUrl: item.avatar_url })}>
-                                <Avatar username={item.username} avatarUrl={item.avatar_url} size={44} fontSize={14} />
+                                <Avatar username={item.username} avatarUrl={item.avatar_url} size={AvatarSizes.list} fontSize={TextStyles.label.fontSize} />
                             </TouchableOpacity>
                             <TouchableOpacity style={styles.rowInfo} onPress={() => onOpenUserProfile({ userId: item.user_id, username: item.username, avatarUrl: item.avatar_url })}>
                                 <Text style={styles.rowName}>{formatUsername(item.username)}</Text>
@@ -633,7 +633,7 @@ export function ProfileTabScreen({
                         return (
                             <View style={styles.row}>
                                 <TouchableOpacity onPress={() => onOpenUserProfile({ userId: item.user_id, username: item.username, avatarUrl: item.avatar_url })}>
-                                    <Avatar username={item.username} avatarUrl={item.avatar_url} size={44} fontSize={14} />
+                                    <Avatar username={item.username} avatarUrl={item.avatar_url} size={AvatarSizes.list} fontSize={TextStyles.label.fontSize} />
                                 </TouchableOpacity>
                                 <TouchableOpacity style={styles.rowInfo} onPress={() => onOpenUserProfile({ userId: item.user_id, username: item.username, avatarUrl: item.avatar_url })}>
                                     <Text style={styles.rowName}>{formatUsername(item.username)}</Text>
@@ -700,12 +700,12 @@ export function ProfileTabScreen({
                         <View style={styles.profileTopRow}>
                             <TouchableOpacity onPress={handlePickAvatar} disabled={uploadingAvatar} style={styles.avatarWrap}>
                                 <View style={styles.avatarBorder}>
-                                    <Avatar username={user.username} avatarUrl={localAvatarUrl} size={88} fontSize={31} />
+                                    <Avatar username={user.username} avatarUrl={localAvatarUrl} size={AvatarSizes.hero} fontSize={Math.round(AvatarSizes.hero * 0.35)} />
                                 </View>
                                 <View style={styles.avatarEditBadge}>
                                     {uploadingAvatar
                                         ? <ActivityIndicator size="small" color={Colors.textOn.primary} />
-                                        : <Ionicons name="camera" size={12} color={Colors.textOn.primary} />
+                                        : <Ionicons name="camera" size={IconSizes.badge} color={Colors.textOn.primary} />
                                     }
                                 </View>
                             </TouchableOpacity>
