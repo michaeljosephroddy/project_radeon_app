@@ -257,7 +257,6 @@ const styles = StyleSheet.create({
     divider: {
         height: StyleSheet.hairlineWidth,
         backgroundColor: Colors.border.default,
-        marginLeft: Spacing.md,
     },
     rowDescription: {
         marginTop: Spacing.xs,

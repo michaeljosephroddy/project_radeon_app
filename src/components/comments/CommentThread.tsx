@@ -492,7 +492,6 @@ const styles = StyleSheet.create({
     separator: {
         height: 1,
         backgroundColor: Colors.border.emphasis,
-        marginLeft: Spacing.md + 34 + Spacing.sm,
     },
     empty: {
         fontSize: Typography.sizes.sm,

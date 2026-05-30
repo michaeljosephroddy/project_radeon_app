@@ -10,7 +10,7 @@ import { InfoNoticeCard } from '../../components/ui/InfoNoticeCard';
 import { PrimaryButton } from '../../components/ui/PrimaryButton';
 import { TextField } from '../../components/ui/TextField';
 import { useAuth } from '../../hooks/useAuth';
-import { Colors, ControlSizes, Radius, Spacing, TextStyles } from '../../theme';
+import { Colors, ContentInsets, ControlSizes, Radius, Spacing, TextStyles } from '../../theme';
 import { getDeviceCoords, reverseGeocodePlace } from '../../utils/location';
 
 interface CreateSupportRequestScreenProps {
@@ -594,10 +594,12 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     reviewSection: {
+        marginHorizontal: -ContentInsets.screenHorizontal,
         borderTopWidth: 1,
         borderTopColor: Colors.border.emphasis,
     },
     reviewRow: {
+        paddingHorizontal: ContentInsets.screenHorizontal,
         paddingVertical: Spacing.md,
         borderBottomWidth: 1,
         borderBottomColor: Colors.border.emphasis,
