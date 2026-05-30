@@ -26,7 +26,7 @@ export function DatingPhotoCarousel({
     style,
     onPress,
 }: DatingPhotoCarouselProps): React.ReactElement {
-    const safePhotos = useMemo(() => photos ?? [], [photos]);
+    const safePhotos = useMemo(() => dedupeDatingPhotos(photos ?? []), [photos]);
     const [activeIndex, setActiveIndex] = useState(0);
     const activePhoto = safePhotos[Math.min(activeIndex, Math.max(safePhotos.length - 1, 0))];
     const canPage = safePhotos.length > 1;
@@ -76,7 +76,7 @@ export function DatingPhotoCarousel({
                     <View style={styles.dots}>
                         {safePhotos.map((photo, index) => (
                             <View
-                                key={photo.id}
+                                key={`${photo.id}-${index}`}
                                 style={[styles.dot, index === activeIndex ? styles.dotActive : styles.dotInactive]}
                             />
                         ))}
@@ -85,6 +85,15 @@ export function DatingPhotoCarousel({
             ) : null}
         </TouchableOpacity>
     );
+}
+
+function dedupeDatingPhotos(photos: api.DatingPhoto[]): api.DatingPhoto[] {
+    const seenPhotoIds = new Set<string>();
+    return photos.filter((photo) => {
+        if (seenPhotoIds.has(photo.id)) return false;
+        seenPhotoIds.add(photo.id);
+        return true;
+    });
 }
 
 const styles = StyleSheet.create({

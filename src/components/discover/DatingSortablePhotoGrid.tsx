@@ -71,7 +71,7 @@ export function DatingSortablePhotoGrid({
     onDeletePhoto,
     onReorderPhotos,
 }: DatingSortablePhotoGridProps): React.ReactElement {
-    const sortedPhotos = useMemo(() => [...photos].sort(compareDatingPhotos), [photos]);
+    const sortedPhotos = useMemo(() => dedupeDatingPhotos([...photos].sort(compareDatingPhotos)), [photos]);
     const [containerWidth, setContainerWidth] = useState(0);
     const [localPhotos, setLocalPhotos] = useState(sortedPhotos);
     const [draggingPhotoId, setDraggingPhotoId] = useState<string | null>(null);
@@ -138,7 +138,7 @@ export function DatingSortablePhotoGrid({
                     const isUploading = isOptimisticDatingPhoto(photo);
                     return (
                         <SortablePhotoTile
-                            key={photo.id}
+                            key={`${photo.id}-${index}`}
                             photo={photo}
                             index={index}
                             total={displayPhotos.length}
@@ -189,6 +189,15 @@ export function DatingSortablePhotoGrid({
             </View>
         </View>
     );
+}
+
+function dedupeDatingPhotos(photos: api.DatingPhoto[]): api.DatingPhoto[] {
+    const seenPhotoIds = new Set<string>();
+    return photos.filter((photo) => {
+        if (seenPhotoIds.has(photo.id)) return false;
+        seenPhotoIds.add(photo.id);
+        return true;
+    });
 }
 
 function SortablePhotoTile({
