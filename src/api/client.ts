@@ -830,6 +830,17 @@ export interface DiscoverFiltersPayload {
     distanceKm?: number;
     sobriety?: DiscoverSobrietyFilter;
     interests?: string[];
+    relationshipGoal?: DatingRelationshipGoal;
+    heightMinCm?: number;
+    heightMaxCm?: number;
+    familyPlans?: DatingFamilyPlans;
+    drinkingStatus?: DatingViceStatus;
+    smokingStatus?: DatingViceStatus;
+    drugUseStatus?: DatingViceStatus;
+    soberLifestyle?: DatingSoberLifestyle;
+    recoveryApproach?: DatingRecoveryApproach;
+    nightlifeComfort?: DatingNightlifeComfort;
+    substanceBoundary?: DatingSubstanceBoundaries;
 }
 
 export interface DiscoverPreviewResponse {
@@ -966,6 +977,26 @@ export interface DatingActionResponse {
     action: DatingAction;
     matched: boolean;
     match?: DatingMatch | null;
+}
+
+export type DatingSpotlightKind = 'spotlight' | 'super_spotlight';
+
+export interface DatingActiveSpotlight {
+    id: string;
+    inventory_id: string;
+    kind: DatingSpotlightKind;
+    starts_at: string;
+    ends_at: string;
+}
+
+export interface DatingSpotlightInventorySummary {
+    spotlights: number;
+    super_spotlights: number;
+}
+
+export interface DatingSpotlightStatus {
+    inventory: DatingSpotlightInventorySummary;
+    active?: DatingActiveSpotlight | null;
 }
 
 function normalizeDatingProfile(profile: DatingProfile): DatingProfile {
@@ -1677,6 +1708,17 @@ export async function previewDatingLikes(): Promise<DiscoverPreviewResponse> {
     return request('/dating/likes/preview');
 }
 
+export async function getDatingSpotlightStatus(): Promise<DatingSpotlightStatus> {
+    return request<DatingSpotlightStatus>('/dating/spotlights');
+}
+
+export async function activateDatingSpotlight(kind: DatingSpotlightKind): Promise<DatingSpotlightStatus> {
+    return request<DatingSpotlightStatus>('/dating/spotlights/activate', {
+        method: 'POST',
+        body: JSON.stringify({ kind }),
+    });
+}
+
 export async function getMyDatingProfile(): Promise<DatingProfile> {
     const profile = await request<DatingProfile>('/dating/profile');
     return normalizeDatingProfile(profile);
@@ -1821,6 +1863,17 @@ function buildDatingDiscoverSearchParams(params?: Omit<DiscoverFiltersPayload, '
     for (const interest of params?.interests ?? []) {
         if (interest.trim()) search.append('interest', interest.trim());
     }
+    if (params?.relationshipGoal?.trim()) search.set('relationship_goal', params.relationshipGoal.trim());
+    if (typeof params?.heightMinCm === 'number') search.set('height_min_cm', String(params.heightMinCm));
+    if (typeof params?.heightMaxCm === 'number') search.set('height_max_cm', String(params.heightMaxCm));
+    if (params?.familyPlans?.trim()) search.set('family_plans', params.familyPlans.trim());
+    if (params?.drinkingStatus?.trim()) search.set('drinking_status', params.drinkingStatus.trim());
+    if (params?.smokingStatus?.trim()) search.set('smoking_status', params.smokingStatus.trim());
+    if (params?.drugUseStatus?.trim()) search.set('drug_use_status', params.drugUseStatus.trim());
+    if (params?.soberLifestyle?.trim()) search.set('sober_lifestyle', params.soberLifestyle.trim());
+    if (params?.recoveryApproach?.trim()) search.set('recovery_approach', params.recoveryApproach.trim());
+    if (params?.nightlifeComfort?.trim()) search.set('nightlife_comfort', params.nightlifeComfort.trim());
+    if (params?.substanceBoundary?.trim()) search.set('substance_boundary', params.substanceBoundary.trim());
     if (typeof params?.lat === 'number') search.set('lat', String(params.lat));
     if (typeof params?.lng === 'number') search.set('lng', String(params.lng));
     if (params?.cursor) search.set('cursor', params.cursor);

@@ -12,7 +12,14 @@ import { Ionicons } from '@expo/vector-icons';
 import * as api from '../../api/client';
 import {
     DISCOVER_GENDER_OPTIONS,
+    DISCOVER_BOUNDARY_OPTIONS,
+    DISCOVER_DATING_GOAL_OPTIONS,
+    DISCOVER_FAMILY_PLANS_OPTIONS,
+    DISCOVER_NIGHTLIFE_OPTIONS,
+    DISCOVER_RECOVERY_APPROACH_OPTIONS,
     DISCOVER_SOBRIETY_OPTIONS,
+    DISCOVER_SOBER_LIFESTYLE_OPTIONS,
+    DISCOVER_VICE_OPTIONS,
     DiscoverDraftFilters,
     getDiscoverDistanceLabel,
 } from '../../hooks/useDiscoverFilters';
@@ -29,6 +36,9 @@ interface DiscoverFilterSheetProps {
     previewLoading: boolean;
     validationError?: string;
     interestOptions: string[];
+    isDatingContext: boolean;
+    isPlus: boolean;
+    onOpenPlus: () => void;
     onClose: () => void;
     onReset: () => void;
     onApply: () => void;
@@ -51,6 +61,50 @@ function FilterOptionChip({
         >
             <Text style={[styles.optionChipText, selected && styles.optionChipTextSelected]}>{label}</Text>
         </TouchableOpacity>
+    );
+}
+
+function PlusLockedRow({ title, onPress }: { title: string; onPress: () => void }): React.ReactElement {
+    return (
+        <TouchableOpacity style={styles.lockedRow} onPress={onPress} activeOpacity={0.86}>
+            <View style={styles.lockedCopy}>
+                <Text style={styles.lockedTitle}>{title}</Text>
+                <Text style={styles.lockedSubtitle}>Included with SoberSpace Plus</Text>
+            </View>
+            <View style={styles.lockedBadge}>
+                <Ionicons name="lock-closed" size={13} color={Colors.textOn.primary} />
+                <Text style={styles.lockedBadgeText}>Plus</Text>
+            </View>
+        </TouchableOpacity>
+    );
+}
+
+function AdvancedChoiceSection<T extends string>({
+    title,
+    value,
+    options,
+    onChange,
+}: {
+    title: string;
+    value: T | '';
+    options: { value: T; label: string }[];
+    onChange: (value: T | '') => void;
+}): React.ReactElement {
+    return (
+        <View style={styles.section}>
+            <Text style={styles.sectionTitle}>{title}</Text>
+            <View style={styles.optionWrap}>
+                <FilterOptionChip label="Any" selected={value === ''} onPress={() => onChange('')} />
+                {options.map((option) => (
+                    <FilterOptionChip
+                        key={option.value}
+                        label={option.label}
+                        selected={value === option.value}
+                        onPress={() => onChange(option.value)}
+                    />
+                ))}
+            </View>
+        </View>
     );
 }
 
@@ -104,6 +158,9 @@ export function DiscoverFilterSheet({
     previewLoading,
     validationError,
     interestOptions,
+    isDatingContext,
+    isPlus,
+    onOpenPlus,
     onClose,
     onReset,
     onApply,
@@ -227,6 +284,67 @@ export function DiscoverFilterSheet({
                         </View>
                     </View>
 
+                    {isDatingContext ? (
+                        <View style={styles.plusFiltersSection}>
+                            <View style={styles.sectionRow}>
+                                <Text style={styles.sectionTitle}>Plus dating filters</Text>
+                                {!isPlus ? (
+                                    <View style={styles.plusPill}>
+                                        <Ionicons name="sparkles" size={13} color={Colors.textOn.primary} />
+                                        <Text style={styles.plusPillText}>Plus</Text>
+                                    </View>
+                                ) : null}
+                            </View>
+                            {isPlus ? (
+                                <>
+                                    <AdvancedChoiceSection
+                                        title="Dating intentions"
+                                        value={draftFilters.relationshipGoal}
+                                        options={DISCOVER_DATING_GOAL_OPTIONS}
+                                        onChange={(value) => onChangeFilters((current) => ({ ...current, relationshipGoal: value }))}
+                                    />
+                                    <View style={styles.section}>
+                                        <Text style={styles.sectionTitle}>Height</Text>
+                                        <View style={styles.ageRow}>
+                                            <View style={styles.ageField}>
+                                                <Text style={styles.fieldLabel}>Min cm</Text>
+                                                <TextField
+                                                    value={draftFilters.heightMinCm}
+                                                    onChangeText={(value) => onChangeFilters((current) => ({ ...current, heightMinCm: value.replace(/[^0-9]/g, '').slice(0, 3) }))}
+                                                    placeholder="160"
+                                                    keyboardType="number-pad"
+                                                />
+                                            </View>
+                                            <View style={styles.ageField}>
+                                                <Text style={styles.fieldLabel}>Max cm</Text>
+                                                <TextField
+                                                    value={draftFilters.heightMaxCm}
+                                                    onChangeText={(value) => onChangeFilters((current) => ({ ...current, heightMaxCm: value.replace(/[^0-9]/g, '').slice(0, 3) }))}
+                                                    placeholder="190"
+                                                    keyboardType="number-pad"
+                                                />
+                                            </View>
+                                        </View>
+                                    </View>
+                                    <AdvancedChoiceSection title="Family plans" value={draftFilters.familyPlans} options={DISCOVER_FAMILY_PLANS_OPTIONS} onChange={(value) => onChangeFilters((current) => ({ ...current, familyPlans: value }))} />
+                                    <AdvancedChoiceSection title="Drinking" value={draftFilters.drinkingStatus} options={DISCOVER_VICE_OPTIONS} onChange={(value) => onChangeFilters((current) => ({ ...current, drinkingStatus: value }))} />
+                                    <AdvancedChoiceSection title="Smoking" value={draftFilters.smokingStatus} options={DISCOVER_VICE_OPTIONS} onChange={(value) => onChangeFilters((current) => ({ ...current, smokingStatus: value }))} />
+                                    <AdvancedChoiceSection title="Drug use" value={draftFilters.drugUseStatus} options={DISCOVER_VICE_OPTIONS} onChange={(value) => onChangeFilters((current) => ({ ...current, drugUseStatus: value }))} />
+                                    <AdvancedChoiceSection title="Sober lifestyle" value={draftFilters.soberLifestyle} options={DISCOVER_SOBER_LIFESTYLE_OPTIONS} onChange={(value) => onChangeFilters((current) => ({ ...current, soberLifestyle: value }))} />
+                                    <AdvancedChoiceSection title="Recovery approach" value={draftFilters.recoveryApproach} options={DISCOVER_RECOVERY_APPROACH_OPTIONS} onChange={(value) => onChangeFilters((current) => ({ ...current, recoveryApproach: value }))} />
+                                    <AdvancedChoiceSection title="Nightlife comfort" value={draftFilters.nightlifeComfort} options={DISCOVER_NIGHTLIFE_OPTIONS} onChange={(value) => onChangeFilters((current) => ({ ...current, nightlifeComfort: value }))} />
+                                    <AdvancedChoiceSection title="Substance boundaries" value={draftFilters.substanceBoundary} options={DISCOVER_BOUNDARY_OPTIONS} onChange={(value) => onChangeFilters((current) => ({ ...current, substanceBoundary: value }))} />
+                                </>
+                            ) : (
+                                <View style={styles.lockedRows}>
+                                    {['Dating intentions', 'Height', 'Family plans', 'Vices', 'Sober lifestyle', 'Recovery approach', 'Nightlife comfort', 'Substance boundaries'].map((title) => (
+                                        <PlusLockedRow key={title} title={title} onPress={onOpenPlus} />
+                                    ))}
+                                </View>
+                            )}
+                        </View>
+                    ) : null}
+
                     <TouchableOpacity
                         style={styles.toggleRow}
                         onPress={() => onChangeFilters((current) => ({
@@ -311,6 +429,65 @@ const styles = StyleSheet.create({
     sectionHint: {
         fontSize: Typography.sizes.sm,
         color: Colors.text.muted,
+    },
+    plusFiltersSection: {
+        gap: Spacing.lg,
+        paddingTop: Spacing.sm,
+    },
+    plusPill: {
+        minHeight: 26,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+        borderRadius: Radius.pill,
+        backgroundColor: Colors.primary,
+        paddingHorizontal: Spacing.sm,
+    },
+    plusPillText: {
+        ...TextStyles.caption,
+        color: Colors.textOn.primary,
+    },
+    lockedRows: {
+        gap: Spacing.sm,
+    },
+    lockedRow: {
+        minHeight: 58,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: Spacing.md,
+        borderRadius: Radius.md,
+        borderWidth: 1,
+        borderColor: Colors.border.default,
+        backgroundColor: Colors.bg.surface,
+        paddingHorizontal: Spacing.md,
+        paddingVertical: Spacing.sm,
+    },
+    lockedCopy: {
+        flex: 1,
+        minWidth: 0,
+        gap: 2,
+    },
+    lockedTitle: {
+        ...TextStyles.label,
+        color: Colors.text.primary,
+    },
+    lockedSubtitle: {
+        ...TextStyles.caption,
+        color: Colors.text.secondary,
+    },
+    lockedBadge: {
+        minHeight: 28,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+        borderRadius: Radius.pill,
+        backgroundColor: Colors.primary,
+        paddingHorizontal: Spacing.sm,
+    },
+    lockedBadgeText: {
+        ...TextStyles.caption,
+        color: Colors.textOn.primary,
     },
     optionWrap: {
         flexDirection: 'row',

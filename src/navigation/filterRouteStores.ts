@@ -45,6 +45,9 @@ export interface DiscoverFiltersRouteState {
     previewLoading: boolean;
     validationError?: string;
     interestOptions: string[];
+    isDatingContext: boolean;
+    isPlus: boolean;
+    onOpenPlus: () => void;
     onClose: () => void;
     onReset: () => void;
     onApply: () => boolean | void;

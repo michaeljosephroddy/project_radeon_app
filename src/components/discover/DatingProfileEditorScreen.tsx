@@ -15,9 +15,18 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { type KeyboardAwareScrollViewRef } from 'react-native-keyboard-controller';
 import { createNativeStackNavigator, type NativeStackScreenProps } from '@react-navigation/native-stack';
 import * as api from '../../api/client';
+import { useAuth } from '../../hooks/useAuth';
 import { useInterests } from '../../hooks/queries/useInterests';
+import { useActivateDatingSpotlight, useDatingSpotlights } from '../../hooks/queries/useDatingSpotlights';
 import { screenStandards } from '../../styles/screenStandards';
 import { Colors, ContentInsets, ControlSizes, Radius, Spacing, TextStyles, Typography } from '../../theme';
+import {
+    SOBERSPACE_PLUS_DISCLAIMER,
+    SOBERSPACE_PLUS_PLANS,
+    SOBERSPACE_SPOTLIGHT_PRODUCTS,
+    type PlusPlan,
+    type SpotlightProduct,
+} from '../../utils/datingMonetization';
 import { formatUsername } from '../../utils/identity';
 import { DatingPhotoCarousel } from './DatingPhotoCarousel';
 import { DatingSortablePhotoGrid } from './DatingSortablePhotoGrid';
@@ -282,7 +291,7 @@ type DatingEditSection =
     | 'education'
     | 'prompts';
 
-type DatingProfileEditorTab = 'edit' | 'preview';
+type DatingProfileEditorTab = 'edit' | 'preview' | 'get_more';
 type RequiredDatingProfileField = 'photos' | 'bio' | 'interests' | 'goal' | 'interested';
 type DatingProfileEditorStackParamList = {
     DatingProfileMain: undefined;
@@ -378,6 +387,7 @@ const DATING_PROMPT_CATEGORIES: DatingPromptCategory[] = [
 const DATING_PROFILE_TABS: { key: DatingProfileEditorTab; label: string }[] = [
     { key: 'edit', label: 'Edit' },
     { key: 'preview', label: 'Preview' },
+    { key: 'get_more', label: 'Get more' },
 ];
 
 const DATING_PROMPT_OPTIONS = DATING_PROMPT_CATEGORIES.flatMap((category) => category.prompts);
@@ -397,9 +407,11 @@ export function DatingProfileEditorScreen({
     onDeletePhoto,
     onReorderPhotos,
 }: DatingProfileEditorScreenProps) {
+    const { user } = useAuth();
     const scrollRef = useRef<KeyboardAwareScrollViewRef>(null);
     const requiredSectionY = useRef<Partial<Record<RequiredDatingProfileField, number>>>({});
     const [activeTab, setActiveTab] = useState<DatingProfileEditorTab>('edit');
+    const [activatingSpotlightKind, setActivatingSpotlightKind] = useState<api.DatingSpotlightKind | null>(null);
     const [validationAttempted, setValidationAttempted] = useState(false);
     const [bio, setBio] = useState(profile?.bio ?? '');
     const [goal, setGoal] = useState<api.DatingRelationshipGoal>(profile?.relationship_goal || 'long_term');
@@ -440,6 +452,8 @@ export function DatingProfileEditorScreen({
     const [showProfileNotice, setShowProfileNotice] = useState(true);
     const profileFormSignature = createProfileFormSignature(profile);
     const interestsQuery = useInterests(!loading);
+    const spotlightsQuery = useDatingSpotlights(!loading);
+    const activateSpotlightMutation = useActivateDatingSpotlight();
     const interestOptions = Array.from(new Set([...(interestsQuery.data ?? []), ...selectedInterests])).sort((a, b) => a.localeCompare(b));
     const isComplete = Boolean(profile?.completed_at);
     const completionErrors: Record<RequiredDatingProfileField, string | null> = {
@@ -622,6 +636,41 @@ export function DatingProfileEditorScreen({
         save(!isComplete);
     };
 
+    const handleSelectPlan = (plan: PlusPlan): void => {
+        Alert.alert(
+            'Purchase setup needed',
+            `${plan.durationLabel} is ready in the SoberSpace Plus catalogue. Connect the store product ${plan.id} to complete checkout.`,
+        );
+    };
+
+    const handleSelectSpotlightProduct = (product: SpotlightProduct): void => {
+        Alert.alert(
+            'Purchase setup needed',
+            `${product.title} is ready in the Spotlight catalogue. Connect the store product ${product.id} to complete checkout.`,
+        );
+    };
+
+    const handleActivateSpotlight = (kind: api.DatingSpotlightKind): void => {
+        setActivatingSpotlightKind(kind);
+        activateSpotlightMutation.mutate(kind, {
+            onSuccess: (status) => {
+                const activeKind = status.active?.kind === 'super_spotlight' ? 'Super Spotlight' : 'Spotlight';
+                Alert.alert('Spotlight active', `${activeKind} is now active on your Dating profile.`);
+            },
+            onError: (error) => {
+                const message = api.isApiErrorWithStatus(error, 402)
+                    ? 'You do not have a Spotlight available. Choose a pack once store checkout is connected.'
+                    : error instanceof Error
+                        ? error.message
+                        : 'Unable to activate this Spotlight right now.';
+                Alert.alert('Spotlight not activated', message);
+            },
+            onSettled: () => {
+                setActivatingSpotlightKind(null);
+            },
+        });
+    };
+
     const renderMainScreen = ({ navigation }: NativeStackScreenProps<DatingProfileEditorStackParamList, 'DatingProfileMain'>): React.ReactElement => (
         <>
             {onBack ? (
@@ -732,7 +781,7 @@ export function DatingProfileEditorScreen({
                         ) : null}
                     </View>
                 </AppKeyboardAwareScrollView>
-            ) : (
+            ) : activeTab === 'preview' ? (
                 <DatingProfilePreview
                     profile={profile}
                     bio={bio}
@@ -768,6 +817,17 @@ export function DatingProfileEditorScreen({
                     recoveryApproach={recoveryApproach}
                     nightlifeComfort={nightlifeComfort}
                     substanceBoundaries={substanceBoundaries}
+                />
+            ) : (
+                <DatingGetMoreTab
+                    isPlus={user?.is_plus === true}
+                    completionPercent={Math.round(((REQUIRED_DATING_PROFILE_FIELDS.length - missingCompletionItems.length) / REQUIRED_DATING_PROFILE_FIELDS.length) * 100)}
+                    spotlightStatus={spotlightsQuery.data}
+                    spotlightsLoading={spotlightsQuery.isLoading}
+                    activatingKind={activatingSpotlightKind}
+                    onSelectPlan={handleSelectPlan}
+                    onSelectSpotlightProduct={handleSelectSpotlightProduct}
+                    onActivateSpotlight={handleActivateSpotlight}
                 />
             )}
         </>
@@ -1546,6 +1606,250 @@ function PromptPickerScreen({
     );
 }
 
+interface DatingGetMoreTabProps {
+    isPlus: boolean;
+    completionPercent: number;
+    spotlightStatus?: api.DatingSpotlightStatus;
+    spotlightsLoading: boolean;
+    activatingKind: api.DatingSpotlightKind | null;
+    onSelectPlan: (plan: PlusPlan) => void;
+    onSelectSpotlightProduct: (product: SpotlightProduct) => void;
+    onActivateSpotlight: (kind: api.DatingSpotlightKind) => void;
+}
+
+function DatingGetMoreTab({
+    isPlus,
+    completionPercent,
+    spotlightStatus,
+    spotlightsLoading,
+    activatingKind,
+    onSelectPlan,
+    onSelectSpotlightProduct,
+    onActivateSpotlight,
+}: DatingGetMoreTabProps): React.ReactElement {
+    const activeSpotlight = spotlightStatus?.active ?? null;
+    const spotlightCount = spotlightStatus?.inventory.spotlights ?? 0;
+    const superSpotlightCount = spotlightStatus?.inventory.super_spotlights ?? 0;
+    const canActivateSpotlight = !activeSpotlight && spotlightCount > 0;
+    const canActivateSuperSpotlight = !activeSpotlight && superSpotlightCount > 0;
+    const hasActiveSpotlight = Boolean(activeSpotlight);
+    const featuredPlan = SOBERSPACE_PLUS_PLANS[2];
+
+    return (
+        <ScrollView contentContainerStyle={styles.getMoreContent} showsVerticalScrollIndicator={false}>
+            <View style={styles.getMoreProfileHeader}>
+                <View style={styles.getMoreProfileRow}>
+                    <View style={styles.getMoreProfileIcon}>
+                        <Ionicons name="heart" size={24} color={Colors.textOn.primary} />
+                    </View>
+                    <View style={styles.getMoreProfileCopy}>
+                        <Text style={styles.getMoreProfileTitle}>Dating</Text>
+                        <Text style={styles.getMoreProfileSubtitle}>Want more people to see you?</Text>
+                    </View>
+                    {isPlus ? (
+                        <View style={styles.currentPlanBadge}>
+                            <Ionicons name="checkmark" size={13} color={Colors.textOn.success} />
+                            <Text style={styles.currentPlanText}>Plus</Text>
+                        </View>
+                    ) : null}
+                </View>
+                <View style={styles.completionWrap}>
+                    <View style={styles.completionTrack}>
+                        <View style={[styles.completionFill, { width: `${completionPercent}%` }]} />
+                    </View>
+                    <Text style={styles.completionText}>{completionPercent}% complete</Text>
+                </View>
+                <Text style={styles.getMoreProfileHint}>Finish your profile and use Spotlights when you want a bit more visibility.</Text>
+            </View>
+
+            <View style={styles.quickTileRow}>
+                <GetMoreQuickTile
+                    iconName="radio"
+                    iconColor={Colors.primary}
+                    title={spotlightsLoading ? '...' : `${spotlightCount} Spotlight${spotlightCount === 1 ? '' : 's'}`}
+                    subtitle={activeSpotlight?.kind === 'spotlight' ? 'Active now' : canActivateSpotlight ? 'Use one' : 'Get more'}
+                    onPress={canActivateSpotlight ? () => onActivateSpotlight('spotlight') : () => onSelectSpotlightProduct(SOBERSPACE_SPOTLIGHT_PRODUCTS[0])}
+                    loading={activatingKind === 'spotlight'}
+                />
+                <GetMoreQuickTile
+                    iconName="flash"
+                    iconColor={Colors.warning}
+                    title={spotlightsLoading ? '...' : `${superSpotlightCount} Super`}
+                    subtitle={activeSpotlight?.kind === 'super_spotlight' ? 'Active now' : canActivateSuperSpotlight ? 'Use one' : 'Get more'}
+                    onPress={canActivateSuperSpotlight ? () => onActivateSpotlight('super_spotlight') : () => onSelectSpotlightProduct(SOBERSPACE_SPOTLIGHT_PRODUCTS[2])}
+                    loading={activatingKind === 'super_spotlight'}
+                />
+                <GetMoreQuickTile
+                    iconName="sparkles"
+                    iconColor={Colors.info}
+                    title={isPlus ? 'Plus active' : 'Plus'}
+                    subtitle={isPlus ? 'You are set' : 'Upgrade'}
+                    onPress={() => onSelectPlan(featuredPlan)}
+                />
+            </View>
+
+            {hasActiveSpotlight ? (
+                <View style={styles.activeSpotlightRow}>
+                    <View style={styles.activeSpotlightIcon}>
+                        <Ionicons name={activeSpotlight?.kind === 'super_spotlight' ? 'flash' : 'radio'} size={18} color={Colors.primary} />
+                    </View>
+                    <View style={styles.activeSpotlightCopy}>
+                        <Text style={styles.activeSpotlightTitle}>{activeSpotlight ? activeSpotlightLabel(activeSpotlight.kind) : 'Spotlight active'}</Text>
+                        <Text style={styles.activeSpotlightMeta}>{activeSpotlight ? `Ends ${formatDateTime(activeSpotlight.ends_at)}` : 'Active now'}</Text>
+                    </View>
+                </View>
+            ) : null}
+
+            <View style={styles.plusCompareCard}>
+                <View style={styles.plusCompareHeader}>
+                    <View style={styles.plusBrandRow}>
+                        <Ionicons name="sparkles" size={24} color={Colors.warning} />
+                        <Text style={styles.plusCompareTitle}>SoberSpace Plus</Text>
+                    </View>
+                    <TouchableOpacity style={styles.upgradeButton} onPress={() => onSelectPlan(featuredPlan)} activeOpacity={0.86}>
+                        <Text style={styles.upgradeButtonText}>{isPlus ? 'Manage' : 'Upgrade'}</Text>
+                    </TouchableOpacity>
+                </View>
+                <Text style={styles.plusCompareIntro}>More likes, more filters, and a simpler way to see who is interested.</Text>
+                <View style={styles.plusTableHeader}>
+                    <Text style={styles.plusTableLabel}>What's included</Text>
+                    <Text style={styles.plusTableColumn}>Free</Text>
+                    <Text style={styles.plusTableColumn}>Plus</Text>
+                </View>
+                <PlusComparisonRow label="See who likes you" free={false} />
+                <PlusComparisonRow label="Unlimited Dating likes" free={false} />
+                <PlusComparisonRow label="More Dating filters" free={false} />
+                <PlusComparisonRow label="Sort likes faster" free={false} />
+            </View>
+
+            <View style={styles.getMoreSection}>
+                <Text style={styles.getMoreSectionTitle}>Choose a plan</Text>
+                <View style={styles.planGrid}>
+                    {SOBERSPACE_PLUS_PLANS.map((plan) => (
+                        <TouchableOpacity key={plan.id} style={styles.planCard} onPress={() => onSelectPlan(plan)} activeOpacity={0.86}>
+                            <View style={styles.planBadgeRow}>
+                                {plan.savingsLabel ? (
+                                    <View style={styles.planSavingsBadge}>
+                                        <Text style={styles.planSavingsText}>{plan.savingsLabel}</Text>
+                                    </View>
+                                ) : null}
+                                {plan.badge ? (
+                                    <View style={styles.planBadge}>
+                                        <Text style={styles.planBadgeText}>{plan.badge}</Text>
+                                    </View>
+                                ) : null}
+                            </View>
+                            <Text style={styles.planDuration}>{plan.durationLabel}</Text>
+                            <Text style={styles.planPrice}>{plan.priceLabel}</Text>
+                            <Text style={styles.planCadence}>{plan.cadenceLabel}</Text>
+                        </TouchableOpacity>
+                    ))}
+                </View>
+                <Text style={styles.plusDisclaimer}>{SOBERSPACE_PLUS_DISCLAIMER}</Text>
+            </View>
+
+            <View style={styles.getMoreSection}>
+                <Text style={styles.getMoreSectionTitle}>Spotlights</Text>
+                <Text style={styles.getMoreSectionDescription}>Use one when you want your profile shown higher for a while.</Text>
+                <View style={styles.spotlightProductList}>
+                    {SOBERSPACE_SPOTLIGHT_PRODUCTS.map((product) => {
+                        const kind = spotlightKindForProduct(product);
+                        const canActivate = kind === 'super_spotlight' ? canActivateSuperSpotlight : canActivateSpotlight;
+                        const activating = activatingKind === kind;
+                        const durationText = kind === 'super_spotlight' ? 'Stay boosted for 24 hours' : 'Be shown higher for 1 hour';
+                        return (
+                            <View key={product.id} style={styles.spotlightProductRow}>
+                                <View style={styles.spotlightProductIcon}>
+                                    <Ionicons name={kind === 'super_spotlight' ? 'flash' : 'radio'} size={20} color={Colors.primary} />
+                                </View>
+                                <TouchableOpacity style={styles.spotlightProductCopy} onPress={() => onSelectSpotlightProduct(product)} activeOpacity={0.86}>
+                                    <Text style={styles.spotlightProductTitle}>{product.title}</Text>
+                                    <Text style={styles.spotlightProductMeta}>{durationText}</Text>
+                                    {product.unitLabel ? <Text style={styles.spotlightProductUnit}>{product.unitLabel}</Text> : null}
+                                </TouchableOpacity>
+                                <View style={styles.spotlightProductActions}>
+                                    <Text style={styles.spotlightProductPrice}>{product.priceLabel}</Text>
+                                    <TouchableOpacity
+                                        style={[styles.activateSpotlightButton, !canActivate && styles.activateSpotlightButtonDisabled]}
+                                        onPress={canActivate ? () => onActivateSpotlight(kind) : () => onSelectSpotlightProduct(product)}
+                                        disabled={Boolean(activatingKind)}
+                                        activeOpacity={0.84}
+                                    >
+                                        {activating ? (
+                                            <ActivityIndicator size="small" color={Colors.textOn.primary} />
+                                        ) : (
+                                            <Text style={[styles.activateSpotlightText, !canActivate && styles.activateSpotlightTextDisabled]}>
+                                                {canActivate ? 'Use' : 'Buy'}
+                                            </Text>
+                                        )}
+                                    </TouchableOpacity>
+                                </View>
+                            </View>
+                        );
+                    })}
+                </View>
+            </View>
+
+            <View style={styles.getMoreSection}>
+                <Text style={styles.getMoreSectionTitle}>Standout likes</Text>
+                <View style={styles.standoutRow}>
+                    <View style={styles.standoutIcon}>
+                        <Ionicons name="rose-outline" size={20} color={Colors.danger} />
+                    </View>
+                    <View style={styles.standoutCopy}>
+                        <Text style={styles.standoutTitle}>Send a stronger like</Text>
+                        <Text style={styles.standoutMeta}>Coming later. For now, Spotlights are the way to get extra visibility.</Text>
+                    </View>
+                </View>
+            </View>
+        </ScrollView>
+    );
+}
+
+function GetMoreQuickTile({
+    iconName,
+    iconColor,
+    title,
+    subtitle,
+    loading = false,
+    onPress,
+}: {
+    iconName: keyof typeof Ionicons.glyphMap;
+    iconColor: string;
+    title: string;
+    subtitle: string;
+    loading?: boolean;
+    onPress: () => void;
+}): React.ReactElement {
+    return (
+        <TouchableOpacity style={styles.quickTile} onPress={onPress} activeOpacity={0.86}>
+            <View style={styles.quickTileIcon}>
+                <Ionicons name={iconName} size={24} color={iconColor} />
+            </View>
+            <Text style={styles.quickTileTitle} numberOfLines={2}>{title}</Text>
+            {loading ? (
+                <ActivityIndicator size="small" color={Colors.primary} />
+            ) : (
+                <Text style={styles.quickTileSubtitle} numberOfLines={1}>{subtitle}</Text>
+            )}
+        </TouchableOpacity>
+    );
+}
+
+function PlusComparisonRow({ label, free }: { label: string; free: boolean }): React.ReactElement {
+    return (
+        <View style={styles.plusCompareRow}>
+            <Text style={styles.plusCompareLabel}>{label}</Text>
+            <View style={styles.plusCompareStatus}>
+                <Ionicons name={free ? 'checkmark' : 'lock-closed'} size={18} color={free ? Colors.success : Colors.text.muted} />
+            </View>
+            <View style={styles.plusCompareStatus}>
+                <Ionicons name="checkmark" size={20} color={Colors.success} />
+            </View>
+        </View>
+    );
+}
+
 interface DatingProfilePreviewProps {
     profile: api.DatingProfile | null;
     bio: string;
@@ -1953,6 +2257,25 @@ function formatHeight(rawHeightCm: string): string | null {
     return `${heightCm} cm`;
 }
 
+function spotlightKindForProduct(product: SpotlightProduct): api.DatingSpotlightKind {
+    return product.id.startsWith('super') ? 'super_spotlight' : 'spotlight';
+}
+
+function activeSpotlightLabel(kind: api.DatingSpotlightKind): string {
+    return kind === 'super_spotlight' ? 'Super Spotlight active' : 'Spotlight active';
+}
+
+function formatDateTime(value: string): string {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return value;
+    return new Intl.DateTimeFormat(undefined, {
+        month: 'short',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+    }).format(date);
+}
+
 const styles = StyleSheet.create({
     container: {
         flex: 1,
@@ -2187,6 +2510,485 @@ const styles = StyleSheet.create({
     },
     chipTextActive: {
         color: Colors.textOn.primary,
+    },
+    getMoreContent: {
+        paddingHorizontal: ContentInsets.screenHorizontal,
+        paddingTop: Spacing.md,
+        paddingBottom: ContentInsets.listBottom,
+        gap: Spacing.lg,
+    },
+    getMoreProfileHeader: {
+        gap: Spacing.sm,
+    },
+    getMoreProfileRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: Spacing.md,
+    },
+    getMoreProfileIcon: {
+        width: 58,
+        height: 58,
+        borderRadius: Radius.pill,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: Colors.primary,
+    },
+    getMoreProfileCopy: {
+        flex: 1,
+        minWidth: 0,
+        gap: 2,
+    },
+    getMoreProfileTitle: {
+        fontSize: Typography.sizes.xxl,
+        lineHeight: 30,
+        fontWeight: Typography.weights.bold,
+        color: Colors.text.primary,
+    },
+    getMoreProfileSubtitle: {
+        ...TextStyles.secondary,
+        color: Colors.text.secondary,
+    },
+    completionWrap: {
+        gap: 4,
+    },
+    completionTrack: {
+        height: 7,
+        overflow: 'hidden',
+        borderRadius: Radius.pill,
+        backgroundColor: Colors.border.emphasis,
+    },
+    completionFill: {
+        height: '100%',
+        borderRadius: Radius.pill,
+        backgroundColor: Colors.primary,
+    },
+    completionText: {
+        ...TextStyles.caption,
+        color: Colors.text.secondary,
+        alignSelf: 'flex-end',
+    },
+    getMoreProfileHint: {
+        ...TextStyles.secondary,
+        color: Colors.text.secondary,
+    },
+    quickTileRow: {
+        flexDirection: 'row',
+        gap: Spacing.sm,
+    },
+    quickTile: {
+        flex: 1,
+        minHeight: 116,
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: Spacing.xs,
+        borderRadius: Radius.md,
+        borderWidth: 1,
+        borderColor: Colors.border.default,
+        backgroundColor: Colors.bg.surface,
+        paddingHorizontal: Spacing.sm,
+        paddingVertical: Spacing.sm,
+    },
+    quickTileIcon: {
+        width: 40,
+        height: 40,
+        borderRadius: Radius.pill,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: Colors.bg.raised,
+    },
+    quickTileTitle: {
+        minHeight: 34,
+        ...TextStyles.label,
+        color: Colors.text.primary,
+        textAlign: 'center',
+    },
+    quickTileSubtitle: {
+        ...TextStyles.caption,
+        color: Colors.text.secondary,
+        textAlign: 'center',
+        textTransform: 'uppercase',
+    },
+    plusCompareCard: {
+        gap: Spacing.sm,
+        borderRadius: Radius.md,
+        borderWidth: 1,
+        borderColor: Colors.border.emphasis,
+        backgroundColor: Colors.bg.surface,
+        padding: Spacing.md,
+    },
+    plusCompareHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: Spacing.md,
+    },
+    plusBrandRow: {
+        flex: 1,
+        minWidth: 0,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: Spacing.sm,
+    },
+    plusCompareTitle: {
+        fontSize: Typography.sizes.xl,
+        lineHeight: 26,
+        fontWeight: Typography.weights.bold,
+        color: Colors.text.primary,
+    },
+    upgradeButton: {
+        minHeight: 40,
+        borderRadius: Radius.pill,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: Colors.text.primary,
+        paddingHorizontal: Spacing.md,
+    },
+    upgradeButtonText: {
+        ...TextStyles.label,
+        color: Colors.bg.page,
+        textTransform: 'uppercase',
+    },
+    plusCompareIntro: {
+        ...TextStyles.secondary,
+        color: Colors.text.secondary,
+    },
+    plusTableHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: Spacing.sm,
+        paddingTop: 2,
+    },
+    plusTableLabel: {
+        flex: 1,
+        ...TextStyles.label,
+        color: Colors.text.primary,
+    },
+    plusTableColumn: {
+        width: 42,
+        ...TextStyles.caption,
+        color: Colors.text.secondary,
+        textAlign: 'center',
+    },
+    plusCompareRow: {
+        minHeight: 34,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: Spacing.sm,
+    },
+    plusCompareLabel: {
+        flex: 1,
+        ...TextStyles.secondary,
+        color: Colors.text.secondary,
+    },
+    plusCompareStatus: {
+        width: 42,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    getMoreHero: {
+        alignItems: 'center',
+        gap: Spacing.md,
+    },
+    getMoreHeroIcon: {
+        width: 58,
+        height: 58,
+        borderRadius: Radius.pill,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: Colors.warning,
+    },
+    getMoreTitle: {
+        ...TextStyles.displayTitle,
+        textAlign: 'center',
+    },
+    getMoreDescription: {
+        ...TextStyles.secondary,
+        maxWidth: 340,
+        textAlign: 'center',
+        color: Colors.text.secondary,
+    },
+    getMoreSection: {
+        gap: Spacing.sm,
+    },
+    sectionTitleRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: Spacing.md,
+    },
+    getMoreSectionTitle: {
+        ...TextStyles.cardTitle,
+        color: Colors.text.primary,
+        textTransform: 'uppercase',
+        letterSpacing: 0,
+    },
+    getMoreSectionDescription: {
+        ...TextStyles.secondary,
+        color: Colors.text.secondary,
+    },
+    inventoryGrid: {
+        flexDirection: 'row',
+        gap: Spacing.sm,
+    },
+    inventoryTile: {
+        flex: 1,
+        minHeight: 112,
+        justifyContent: 'space-between',
+        borderRadius: Radius.md,
+        borderWidth: 1,
+        borderColor: Colors.border.emphasis,
+        backgroundColor: Colors.bg.surface,
+        padding: Spacing.md,
+    },
+    inventoryTileHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: Spacing.xs,
+    },
+    inventoryTileLabel: {
+        ...TextStyles.caption,
+        color: Colors.text.secondary,
+    },
+    inventoryTileValue: {
+        fontSize: Typography.sizes.xxxl,
+        lineHeight: 34,
+        fontWeight: Typography.weights.bold,
+        color: Colors.text.primary,
+    },
+    activeSpotlightRow: {
+        minHeight: 60,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: Spacing.md,
+        borderRadius: Radius.md,
+        borderWidth: 1,
+        borderColor: Colors.border.emphasis,
+        backgroundColor: Colors.bg.page,
+        paddingHorizontal: Spacing.md,
+        paddingVertical: Spacing.xs,
+    },
+    activeSpotlightIcon: {
+        width: 38,
+        height: 38,
+        borderRadius: Radius.pill,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: Colors.primarySubtle,
+    },
+    activeSpotlightCopy: {
+        flex: 1,
+        minWidth: 0,
+        gap: 2,
+    },
+    activeSpotlightTitle: {
+        ...TextStyles.label,
+        color: Colors.text.primary,
+    },
+    activeSpotlightMeta: {
+        ...TextStyles.secondary,
+        color: Colors.text.secondary,
+    },
+    currentPlanBadge: {
+        minHeight: 26,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+        borderRadius: Radius.pill,
+        backgroundColor: Colors.success,
+        paddingHorizontal: Spacing.sm,
+    },
+    currentPlanText: {
+        ...TextStyles.caption,
+        color: Colors.textOn.success,
+    },
+    benefitsList: {
+        gap: Spacing.sm,
+    },
+    benefitRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: Spacing.sm,
+    },
+    benefitIcon: {
+        width: 24,
+        height: 24,
+        borderRadius: Radius.pill,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: Colors.primary,
+    },
+    benefitText: {
+        flex: 1,
+        ...TextStyles.secondary,
+        color: Colors.text.secondary,
+    },
+    planGrid: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: Spacing.xs,
+    },
+    planCard: {
+        width: '48%',
+        minHeight: 126,
+        justifyContent: 'flex-end',
+        gap: 4,
+        borderRadius: Radius.md,
+        borderWidth: 1,
+        borderColor: Colors.border.emphasis,
+        backgroundColor: Colors.bg.surface,
+        padding: Spacing.sm,
+        paddingTop: 42,
+    },
+    planBadgeRow: {
+        position: 'absolute',
+        top: Spacing.sm,
+        left: Spacing.sm,
+        right: Spacing.sm,
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 4,
+    },
+    planSavingsBadge: {
+        borderRadius: Radius.pill,
+        backgroundColor: Colors.primarySubtle,
+        paddingHorizontal: Spacing.sm,
+        paddingVertical: 3,
+    },
+    planSavingsText: {
+        ...TextStyles.caption,
+        color: Colors.primary,
+    },
+    planBadge: {
+        borderRadius: Radius.pill,
+        backgroundColor: Colors.warningSubtle,
+        paddingHorizontal: Spacing.sm,
+        paddingVertical: 3,
+    },
+    planBadgeText: {
+        ...TextStyles.caption,
+        color: Colors.warning,
+        fontWeight: '800',
+    },
+    planDuration: {
+        ...TextStyles.label,
+        color: Colors.text.primary,
+    },
+    planPrice: {
+        fontSize: Typography.sizes.xl,
+        lineHeight: 26,
+        fontWeight: Typography.weights.bold,
+        color: Colors.text.primary,
+    },
+    planCadence: {
+        ...TextStyles.caption,
+        color: Colors.text.secondary,
+    },
+    plusDisclaimer: {
+        ...TextStyles.caption,
+        color: Colors.text.muted,
+        lineHeight: 17,
+    },
+    spotlightProductList: {
+        marginHorizontal: -ContentInsets.screenHorizontal,
+        borderTopWidth: 1,
+        borderTopColor: Colors.border.emphasis,
+    },
+    spotlightProductRow: {
+        minHeight: 74,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: Spacing.sm,
+        borderBottomWidth: 1,
+        borderBottomColor: Colors.border.emphasis,
+        backgroundColor: Colors.bg.page,
+        paddingHorizontal: ContentInsets.screenHorizontal,
+        paddingVertical: Spacing.sm,
+    },
+    spotlightProductIcon: {
+        width: 38,
+        height: 38,
+        borderRadius: Radius.pill,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: Colors.primarySubtle,
+    },
+    spotlightProductCopy: {
+        flex: 1,
+        minWidth: 0,
+        gap: 2,
+    },
+    spotlightProductTitle: {
+        ...TextStyles.label,
+        color: Colors.text.primary,
+    },
+    spotlightProductMeta: {
+        ...TextStyles.secondary,
+        color: Colors.text.secondary,
+    },
+    spotlightProductUnit: {
+        ...TextStyles.caption,
+        color: Colors.text.muted,
+    },
+    spotlightProductActions: {
+        alignItems: 'flex-end',
+        gap: Spacing.xs,
+    },
+    spotlightProductPrice: {
+        ...TextStyles.label,
+        color: Colors.text.primary,
+    },
+    activateSpotlightButton: {
+        minWidth: 82,
+        minHeight: 34,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderRadius: Radius.pill,
+        backgroundColor: Colors.primary,
+        paddingHorizontal: Spacing.md,
+    },
+    activateSpotlightButtonDisabled: {
+        borderWidth: 1,
+        borderColor: Colors.border.emphasis,
+        backgroundColor: Colors.bg.surface,
+    },
+    activateSpotlightText: {
+        ...TextStyles.caption,
+        color: Colors.textOn.primary,
+    },
+    activateSpotlightTextDisabled: {
+        color: Colors.text.secondary,
+    },
+    standoutRow: {
+        minHeight: 76,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: Spacing.md,
+        borderRadius: Radius.md,
+        borderWidth: 1,
+        borderColor: Colors.border.emphasis,
+        backgroundColor: Colors.bg.surface,
+        padding: Spacing.md,
+    },
+    standoutIcon: {
+        width: 42,
+        height: 42,
+        borderRadius: Radius.pill,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: Colors.dangerSubtle,
+    },
+    standoutCopy: {
+        flex: 1,
+        minWidth: 0,
+        gap: 2,
+    },
+    standoutTitle: {
+        ...TextStyles.label,
+        color: Colors.text.primary,
+    },
+    standoutMeta: {
+        ...TextStyles.secondary,
+        color: Colors.text.secondary,
     },
     previewContent: {
         paddingTop: Spacing.sm,
