@@ -1,13 +1,21 @@
-import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-    View, Text, TouchableOpacity, StyleSheet, Keyboard, Platform, AppState,
+    AppState,
+    Keyboard,
+    Platform,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from 'react-native';
-import { getDeviceCoords, reverseGeocodePlace } from '../utils/location';
+import { BottomTabBarProps, createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { useIsFocused, useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { getDeviceCoords, reverseGeocodePlace } from '../utils/location';
 import type { CommentThreadTarget } from '../screens/main/feed/FeedCommentsScreen';
 import { FeedScreen } from '../screens/main/FeedScreen';
 import { DiscoverScreen } from '../screens/main/DiscoverScreen';
@@ -19,12 +27,12 @@ import { CenterCreateButton } from '../components/create/CenterCreateButton';
 import { CreateActionSheet, type GlobalCreateAction } from '../components/create/CreateActionSheet';
 import type { ProfileContentTabKey } from '../components/profile/ProfileContentTabs';
 import * as api from '../api/client';
-import { Colors, ControlSizes, Radius, TextStyles, Typography, Spacing } from '../theme';
+import { Colors, ControlSizes, Radius, Spacing, TextStyles, Typography } from '../theme';
 import { useAuth } from '../hooks/useAuth';
 import { useNotificationSummary } from '../hooks/queries/useNotificationSummary';
 import { useNotificationIntent } from '../notifications/NotificationProvider';
 import type { Chat } from '../api/client';
-import type { RootStackParamList } from './types';
+import type { MainTabParamList, RootStackParamList } from './types';
 
 interface OpenUserProfile {
     userId: string;
@@ -32,263 +40,437 @@ interface OpenUserProfile {
     avatarUrl?: string;
 }
 
-type MainTab = 'feed' | 'discover' | 'community' | 'chats';
-type ContentTab = MainTab | 'profile';
+type PrimaryTabRouteName = 'FeedTab' | 'DiscoverTab' | 'CommunityTab' | 'ChatsTab';
+type MainTabsRouteParam = NonNullable<NonNullable<RootStackParamList['MainTabs']>['tab']>;
 
-const TABS: { key: MainTab; label: string; icon: keyof typeof Ionicons.glyphMap; iconActive: keyof typeof Ionicons.glyphMap }[] = [
-    { key: 'feed',      label: 'feed',      icon: 'newspaper-outline', iconActive: 'newspaper' },
-    { key: 'discover',  label: 'discover',  icon: 'grid-outline', iconActive: 'grid' },
-    { key: 'community', label: 'community', icon: 'people-outline', iconActive: 'people' },
-    { key: 'chats',     label: 'chats',     icon: 'chatbubble-outline', iconActive: 'chatbubble' },
+const MainTabs = createBottomTabNavigator<MainTabParamList>();
+const FeedStack = createNativeStackNavigator<{ FeedHome: undefined }>();
+const DiscoverStack = createNativeStackNavigator<{ DiscoverHome: undefined }>();
+const CommunityStack = createNativeStackNavigator<{ CommunityHome: undefined }>();
+const ChatsStack = createNativeStackNavigator<{ ChatsHome: undefined }>();
+const ProfileStack = createNativeStackNavigator<{ ProfileHome: undefined }>();
+
+const PRIMARY_TABS: Array<{
+    key: PrimaryTabRouteName;
+    label: string;
+    icon: keyof typeof Ionicons.glyphMap;
+    iconActive: keyof typeof Ionicons.glyphMap;
+}> = [
+    { key: 'FeedTab', label: 'feed', icon: 'newspaper-outline', iconActive: 'newspaper' },
+    { key: 'DiscoverTab', label: 'discover', icon: 'grid-outline', iconActive: 'grid' },
+    { key: 'CommunityTab', label: 'community', icon: 'people-outline', iconActive: 'people' },
+    { key: 'ChatsTab', label: 'chats', icon: 'chatbubble-outline', iconActive: 'chatbubble' },
 ];
+
+const ROOT_TAB_TO_ROUTE: Record<MainTabsRouteParam, PrimaryTabRouteName> = {
+    feed: 'FeedTab',
+    discover: 'DiscoverTab',
+    community: 'CommunityTab',
+    chats: 'ChatsTab',
+};
 
 function badgeLabel(count: number): string {
     return count > 99 ? '99+' : String(count);
 }
 
-function isMainTab(tab: ContentTab): tab is MainTab {
-    return tab === 'feed' || tab === 'discover' || tab === 'community' || tab === 'chats';
+interface SharedTabProps {
+    user?: api.User | null;
+    notificationCount: number;
+    onOpenNotifications: () => void;
+    onOpenOwnProfile: (from: PrimaryTabRouteName) => void;
+    onOpenUserProfile: (profile: OpenUserProfile) => void;
+    onOpenComments: (thread: CommentThreadTarget, focusComposer: boolean, onCommentCreated?: (comment: api.Comment) => void) => void;
 }
 
-// Each tab is its own memoized component so React skips reconciliation for the
-// three tabs that didn't change when the active tab switches.
-const DiscoverTab = React.memo(function DiscoverTab({
-    isActive,
-    onOpenUserProfile,
-    onOpenChat,
-    onOpenRecoveryMeeting,
-    onOpenDatingLikes,
-    onOpenDatingMatches,
-    onOpenDatingProfileEditor,
-}: {
-    isActive: boolean;
-    onOpenUserProfile: (p: OpenUserProfile) => void;
-    onOpenChat: (chat: Chat) => void;
-    onOpenRecoveryMeeting: (meeting: api.RecoveryMeeting) => void;
-    onOpenDatingLikes: () => void;
-    onOpenDatingMatches: () => void;
-    onOpenDatingProfileEditor: () => void;
-}) {
-    return (
-        <View style={isActive ? styles.tabVisible : styles.tabHidden}>
-            <DiscoverScreen
-                isActive={isActive}
-                onOpenUserProfile={onOpenUserProfile}
-                onOpenChat={onOpenChat}
-                onOpenRecoveryMeeting={onOpenRecoveryMeeting}
-                onOpenDatingLikes={onOpenDatingLikes}
-                onOpenDatingMatches={onOpenDatingMatches}
-                onOpenDatingProfileEditor={onOpenDatingProfileEditor}
-            />
-        </View>
-    );
-});
+interface MainTabFrameProps {
+    routeName: PrimaryTabRouteName;
+    title: React.ReactNode;
+    children: React.ReactNode;
+    user?: api.User | null;
+    notificationCount: number;
+    onOpenNotifications: () => void;
+    onOpenOwnProfile: (from: PrimaryTabRouteName) => void;
+}
 
-const FeedTab = React.memo(function FeedTab({
-    isActive,
-    onOpenUserProfile,
-    onOpenComments,
+function MainTabFrame({
+    routeName,
+    title,
+    children,
+    user,
+    notificationCount,
+    onOpenNotifications,
+    onOpenOwnProfile,
+}: MainTabFrameProps): React.ReactElement {
+    return (
+        <SafeAreaView style={styles.container} edges={['top']}>
+            <View style={styles.topBar}>
+                {title}
+                <View style={styles.topBarActions}>
+                    <TouchableOpacity
+                        style={styles.headerIconButton}
+                        onPress={onOpenNotifications}
+                        disabled={!user}
+                        accessibilityRole="button"
+                        accessibilityLabel="Open notifications"
+                    >
+                        <Ionicons name="notifications-outline" size={22} color={Colors.text.primary} />
+                        {notificationCount > 0 ? (
+                            <View style={styles.notificationBadge}>
+                                <Text style={styles.notificationBadgeText}>{badgeLabel(notificationCount)}</Text>
+                            </View>
+                        ) : null}
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                        onPress={() => onOpenOwnProfile(routeName)}
+                        disabled={!user}
+                        accessibilityRole="button"
+                        accessibilityLabel="Open profile"
+                    >
+                        <Avatar
+                            username={user?.username ?? 'me'}
+                            avatarUrl={user?.avatar_url}
+                            size={34}
+                            fontSize={12}
+                        />
+                    </TouchableOpacity>
+                </View>
+            </View>
+            <View style={styles.content}>
+                {children}
+            </View>
+        </SafeAreaView>
+    );
+}
+
+function FeedHomeScreen({
+    shared,
     focusRequest,
     onFocusRequestConsumed,
 }: {
-    isActive: boolean;
-    onOpenUserProfile: (p: OpenUserProfile) => void;
-    onOpenComments: (thread: CommentThreadTarget, focusComposer: boolean, onCommentCreated?: (comment: api.Comment) => void) => void;
+    shared: SharedTabProps;
     focusRequest: { postId: string; commentId?: string; nonce: number } | null;
     onFocusRequestConsumed: (nonce: number) => void;
-}) {
+}): React.ReactElement {
+    const isFocused = useIsFocused();
+
     return (
-        <View style={isActive ? styles.tabVisible : styles.tabHidden}>
+        <MainTabFrame
+            routeName="FeedTab"
+            title={(
+                <Text style={styles.wordmark}>
+                    Sober<Text style={styles.wordmarkAccent}>Space</Text>
+                </Text>
+            )}
+            user={shared.user}
+            notificationCount={shared.notificationCount}
+            onOpenNotifications={shared.onOpenNotifications}
+            onOpenOwnProfile={shared.onOpenOwnProfile}
+        >
             <FeedScreen
-                isActive={isActive}
-                onOpenUserProfile={onOpenUserProfile}
-                onOpenComments={onOpenComments}
+                isActive={isFocused}
+                onOpenUserProfile={shared.onOpenUserProfile}
+                onOpenComments={shared.onOpenComments}
                 focusRequest={focusRequest}
                 onFocusRequestConsumed={onFocusRequestConsumed}
             />
-        </View>
+        </MainTabFrame>
     );
-});
+}
 
-const CommunityTab = React.memo(function CommunityTab({
-    isActive,
+function DiscoverHomeScreen({
+    shared,
+    onOpenChat,
+    onOpenRecoveryMeeting,
+}: {
+    shared: SharedTabProps;
+    onOpenChat: (chat: Chat) => void;
+    onOpenRecoveryMeeting: (meeting: api.RecoveryMeeting) => void;
+}): React.ReactElement {
+    const rootNavigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+    const isFocused = useIsFocused();
+
+    return (
+        <MainTabFrame
+            routeName="DiscoverTab"
+            title={<Text style={styles.pageTitle}>Discover</Text>}
+            user={shared.user}
+            notificationCount={shared.notificationCount}
+            onOpenNotifications={shared.onOpenNotifications}
+            onOpenOwnProfile={shared.onOpenOwnProfile}
+        >
+            <DiscoverScreen
+                isActive={isFocused}
+                onOpenUserProfile={shared.onOpenUserProfile}
+                onOpenChat={onOpenChat}
+                onOpenRecoveryMeeting={onOpenRecoveryMeeting}
+                onOpenDatingLikes={() => rootNavigation.navigate('DatingLikes')}
+                onOpenDatingMatches={() => rootNavigation.navigate('DatingMatches')}
+                onOpenDatingProfileEditor={() => rootNavigation.navigate('DatingProfileEditor')}
+                onOpenDatingProfile={(profile) => rootNavigation.navigate('DatingProfileDetail', {
+                    profileId: profile.id,
+                    initialProfile: profile,
+                })}
+            />
+        </MainTabFrame>
+    );
+}
+
+function CommunityHomeScreen({
+    shared,
     activeSurface,
     onChangeSurface,
     onOpenGroup,
     onOpenMeetup,
     onOpenManageMeetup,
 }: {
-    isActive: boolean;
+    shared: SharedTabProps;
     activeSurface: CommunityHubSurface;
     onChangeSurface: (surface: CommunityHubSurface) => void;
     onOpenGroup: (groupId: string) => void;
     onOpenMeetup: (meetup: api.Meetup) => void;
     onOpenManageMeetup: (meetup: api.Meetup) => void;
-}) {
+}): React.ReactElement {
+    const isFocused = useIsFocused();
+
     return (
-        <View style={isActive ? styles.tabVisible : styles.tabHidden}>
+        <MainTabFrame
+            routeName="CommunityTab"
+            title={<Text style={styles.pageTitle}>Community</Text>}
+            user={shared.user}
+            notificationCount={shared.notificationCount}
+            onOpenNotifications={shared.onOpenNotifications}
+            onOpenOwnProfile={shared.onOpenOwnProfile}
+        >
             <CommunityHubScreen
-                isActive={isActive}
+                isActive={isFocused}
                 activeSurface={activeSurface}
                 onChangeSurface={onChangeSurface}
                 onOpenGroup={onOpenGroup}
                 onOpenMeetup={onOpenMeetup}
                 onOpenManageMeetup={onOpenManageMeetup}
             />
-        </View>
+        </MainTabFrame>
     );
-});
+}
 
-const ChatsTab = React.memo(function ChatsTab({ isActive, onOpenChat }: { isActive: boolean; onOpenChat: (c: Chat) => void }) {
-    return <View style={isActive ? styles.tabVisible : styles.tabHidden}><ChatsScreen isActive={isActive} onOpenChat={onOpenChat} /></View>;
-});
+function ChatsHomeScreen({
+    shared,
+    onOpenChat,
+}: {
+    shared: SharedTabProps;
+    onOpenChat: (chat: Chat) => void;
+}): React.ReactElement {
+    const isFocused = useIsFocused();
 
-const ProfileTab = React.memo(function ProfileTab({
-    isActive,
+    return (
+        <MainTabFrame
+            routeName="ChatsTab"
+            title={<Text style={styles.pageTitle}>Chats</Text>}
+            user={shared.user}
+            notificationCount={shared.notificationCount}
+            onOpenNotifications={shared.onOpenNotifications}
+            onOpenOwnProfile={shared.onOpenOwnProfile}
+        >
+            <ChatsScreen isActive={isFocused} onOpenChat={onOpenChat} />
+        </MainTabFrame>
+    );
+}
+
+function ProfileHomeScreen({
     initialContentTab,
     resetKey,
     onBack,
     onOpenUserProfile,
     onOpenComments,
 }: {
-    isActive: boolean;
     initialContentTab: ProfileContentTabKey;
     resetKey: number;
     onBack: () => void;
-    onOpenUserProfile: (p: OpenUserProfile) => void;
+    onOpenUserProfile: (profile: OpenUserProfile) => void;
     onOpenComments: (thread: CommentThreadTarget, focusComposer: boolean, onCommentCreated?: (comment: api.Comment) => void) => void;
-}) {
+}): React.ReactElement {
+    const isFocused = useIsFocused();
+
     return (
-        <View style={isActive ? styles.tabVisible : styles.tabHidden}>
+        <SafeAreaView style={styles.container} edges={['top']}>
             <ProfileTabScreen
-                isActive={isActive}
+                isActive={isFocused}
                 initialContentTab={initialContentTab}
                 resetKey={resetKey}
                 onBack={onBack}
                 onOpenUserProfile={onOpenUserProfile}
                 onOpenComments={onOpenComments}
             />
+        </SafeAreaView>
+    );
+}
+
+function MainTabBar({
+    state,
+    navigation,
+    keyboardVisible,
+    canShowGlobalCreate,
+    onOpenCreate,
+    bottomPadding,
+}: BottomTabBarProps & {
+    keyboardVisible: boolean;
+    canShowGlobalCreate: boolean;
+    onOpenCreate: () => void;
+    bottomPadding: number;
+}): React.ReactElement | null {
+    const activeRouteName = state.routes[state.index]?.name as keyof MainTabParamList | undefined;
+    if (keyboardVisible || activeRouteName === 'ProfileTab') {
+        return null;
+    }
+
+    const renderTab = (tab: typeof PRIMARY_TABS[number]): React.ReactElement => {
+        const active = activeRouteName === tab.key;
+        return (
+            <TouchableOpacity
+                key={tab.key}
+                style={styles.tabItem}
+                onPress={() => navigation.navigate(tab.key)}
+                accessibilityRole="button"
+                accessibilityLabel={`Open ${tab.label}`}
+            >
+                <Ionicons
+                    name={active ? tab.iconActive : tab.icon}
+                    size={22}
+                    color={active ? Colors.primary : Colors.text.muted}
+                />
+                <Text style={[styles.tabLabel, active && styles.tabLabelActive]}>
+                    {tab.label}
+                </Text>
+            </TouchableOpacity>
+        );
+    };
+
+    return (
+        <View style={[styles.tabBar, { paddingBottom: bottomPadding }]}>
+            {PRIMARY_TABS.slice(0, 2).map(renderTab)}
+            <View style={styles.createTabSlot}>
+                <CenterCreateButton
+                    visible={canShowGlobalCreate}
+                    onPress={onOpenCreate}
+                />
+            </View>
+            {PRIMARY_TABS.slice(2).map(renderTab)}
         </View>
     );
-});
+}
 
-export function AppNavigator() {
-    const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+export function AppNavigator(): React.ReactElement {
+    const rootNavigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
     const route = useRoute<RouteProp<RootStackParamList, 'MainTabs'>>();
+    const tabNavigationRef = useRef<BottomTabBarProps['navigation'] | null>(null);
+    const syncingLocation = useRef(false);
     const { user, refreshUser } = useAuth();
     const { intent, consumeIntent } = useNotificationIntent();
     const notificationSummaryQuery = useNotificationSummary(Boolean(user?.id));
     const notificationSummary = notificationSummaryQuery.data;
-    const [activeTab, setActiveTab] = useState<ContentTab>('feed');
-    const [previousMainTab, setPreviousMainTab] = useState<MainTab>('feed');
+    const insets = useSafeAreaInsets();
     const [communitySurface, setCommunitySurface] = useState<CommunityHubSurface>('groups');
     const [createMenuOpen, setCreateMenuOpen] = useState(false);
     const [ownProfileInitialContentTab, setOwnProfileInitialContentTab] = useState<ProfileContentTabKey>('posts');
     const [ownProfileResetKey, setOwnProfileResetKey] = useState(0);
+    const [previousMainTab, setPreviousMainTab] = useState<PrimaryTabRouteName>('FeedTab');
     const [keyboardVisible, setKeyboardVisible] = useState(false);
     const [feedFocusRequest, setFeedFocusRequest] = useState<{ postId: string; commentId?: string; nonce: number } | null>(null);
-    const insets = useSafeAreaInsets();
+
+    const navigateMainTab = useCallback((tab: PrimaryTabRouteName | 'ProfileTab'): void => {
+        tabNavigationRef.current?.navigate(tab);
+    }, []);
 
     const openChatScreen = useCallback((chat: Chat): void => {
         Keyboard.dismiss();
         setCreateMenuOpen(false);
-        navigation.navigate('Chat', { chat });
-    }, [navigation]);
+        rootNavigation.navigate('Chat', { chat });
+    }, [rootNavigation]);
 
-    const handleOpenUserProfile = useCallback((profile: OpenUserProfile) => {
+    const handleOpenUserProfile = useCallback((profile: OpenUserProfile): void => {
         setCreateMenuOpen(false);
-        navigation.navigate('UserProfile', profile);
-    }, [navigation]);
+        rootNavigation.navigate('UserProfile', profile);
+    }, [rootNavigation]);
 
-    const handleOpenMeetup = useCallback((meetup: api.Meetup) => {
+    const handleOpenMeetup = useCallback((meetup: api.Meetup): void => {
         setCreateMenuOpen(false);
-        navigation.navigate('MeetupDetail', { meetup });
-    }, [navigation]);
+        rootNavigation.navigate('MeetupDetail', { meetup });
+    }, [rootNavigation]);
 
-    const handleOpenRecoveryMeeting = useCallback((meeting: api.RecoveryMeeting) => {
+    const handleOpenRecoveryMeeting = useCallback((meeting: api.RecoveryMeeting): void => {
         setCreateMenuOpen(false);
-        navigation.navigate('RecoveryMeetingDetail', { meeting });
-    }, [navigation]);
+        rootNavigation.navigate('RecoveryMeetingDetail', { meeting });
+    }, [rootNavigation]);
 
-    const openNotifications = useCallback(() => {
+    const openNotifications = useCallback((): void => {
         setCreateMenuOpen(false);
-        navigation.navigate('Notifications');
-    }, [navigation]);
+        rootNavigation.navigate('Notifications');
+    }, [rootNavigation]);
 
-    const handleOpenGroup = useCallback((groupId: string, postId?: string) => {
+    const handleOpenGroup = useCallback((groupId: string, postId?: string): void => {
         setCreateMenuOpen(false);
-        navigation.navigate('GroupDetail', {
+        rootNavigation.navigate('GroupDetail', {
             groupId,
             focusPostRequest: postId ? { postId, nonce: Date.now() } : undefined,
         });
-    }, [navigation]);
+    }, [rootNavigation]);
 
     const handleOpenComments = useCallback((
         thread: CommentThreadTarget,
         focusComposer: boolean,
         _onCommentCreated?: (comment: api.Comment) => void,
-    ) => {
+    ): void => {
         setCreateMenuOpen(false);
-        navigation.navigate('FeedComments', { thread, focusComposer });
-    }, [navigation]);
+        rootNavigation.navigate('FeedComments', { thread, focusComposer });
+    }, [rootNavigation]);
 
-    const openCreatePost = useCallback(() => {
+    const openCreatePost = useCallback((): void => {
         setCreateMenuOpen(false);
-        navigation.navigate('CreatePost');
-    }, [navigation]);
+        rootNavigation.navigate('CreatePost');
+    }, [rootNavigation]);
 
-    const openCreateGroup = useCallback(() => {
+    const openCreateGroup = useCallback((): void => {
         setCreateMenuOpen(false);
-        navigation.navigate('CreateGroup');
-    }, [navigation]);
+        rootNavigation.navigate('CreateGroup');
+    }, [rootNavigation]);
 
-    const openCreateSupportRequest = useCallback(() => {
+    const openCreateSupportRequest = useCallback((): void => {
         setCreateMenuOpen(false);
-        navigation.navigate('CreateSupportRequest');
-    }, [navigation]);
+        rootNavigation.navigate('CreateSupportRequest');
+    }, [rootNavigation]);
 
-    const openCreateMeetup = useCallback(() => {
+    const openCreateMeetup = useCallback((): void => {
         setCreateMenuOpen(false);
-        navigation.navigate('CreateMeetup');
-    }, [navigation]);
+        rootNavigation.navigate('CreateMeetup');
+    }, [rootNavigation]);
 
-    const openManageMeetup = useCallback((meetup: api.Meetup) => {
+    const openManageMeetup = useCallback((meetup: api.Meetup): void => {
         setCreateMenuOpen(false);
-        navigation.navigate('CreateMeetup', { meetup });
-    }, [navigation]);
+        rootNavigation.navigate('CreateMeetup', { meetup });
+    }, [rootNavigation]);
 
-    const handleFeedFocusRequestConsumed = useCallback((nonce: number) => {
+    const handleOpenOwnProfile = useCallback((from: PrimaryTabRouteName): void => {
+        setCreateMenuOpen(false);
+        setPreviousMainTab(from);
+        setOwnProfileInitialContentTab('posts');
+        setOwnProfileResetKey((current) => current + 1);
+        navigateMainTab('ProfileTab');
+    }, [navigateMainTab]);
+
+    const closeOwnProfile = useCallback((): void => {
+        navigateMainTab(previousMainTab);
+    }, [navigateMainTab, previousMainTab]);
+
+    const handleFeedFocusRequestConsumed = useCallback((nonce: number): void => {
         setFeedFocusRequest((current) => (
             current?.nonce === nonce ? null : current
         ));
     }, []);
 
-    const openOwnProfile = useCallback(() => {
-        setCreateMenuOpen(false);
-        setOwnProfileInitialContentTab('posts');
-        if (isMainTab(activeTab)) {
-            setPreviousMainTab(activeTab);
-        }
-        setActiveTab('profile');
-        setOwnProfileResetKey((current) => current + 1);
-    }, [activeTab]);
-
-    const closeOwnProfile = useCallback(() => {
-        setActiveTab(previousMainTab);
-    }, [previousMainTab]);
-
-    const handleTabPress = useCallback((tab: MainTab) => {
-        setCreateMenuOpen(false);
-        setPreviousMainTab(tab);
-        setActiveTab(tab);
-    }, []);
-
-    const syncingLocation = useRef(false);
-
     useEffect(() => {
         if (!user?.id) return;
 
-        const syncLocation = async () => {
+        const syncLocation = async (): Promise<void> => {
             if (syncingLocation.current) return;
             syncingLocation.current = true;
             try {
@@ -304,7 +486,7 @@ export function AppNavigator() {
                 });
                 await refreshUser();
             } catch {
-                // background sync — failures are non-critical
+                // Background sync failures are non-critical.
             } finally {
                 syncingLocation.current = false;
             }
@@ -341,7 +523,7 @@ export function AppNavigator() {
         user?.id,
     ]);
 
-    React.useEffect(() => {
+    useEffect(() => {
         const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
         const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
 
@@ -361,27 +543,25 @@ export function AppNavigator() {
 
         setCreateMenuOpen(false);
         if (requestedTab) {
-            setActiveTab(requestedTab);
-            setPreviousMainTab(requestedTab);
+            navigateMainTab(ROOT_TAB_TO_ROUTE[requestedTab]);
         }
         if (requestedFocus) {
-            setActiveTab('feed');
-            setPreviousMainTab('feed');
+            navigateMainTab('FeedTab');
             setFeedFocusRequest(requestedFocus);
         }
-        navigation.setParams({ tab: undefined, feedFocusRequest: undefined });
-    }, [navigation, route.params?.feedFocusRequest, route.params?.tab]);
+        rootNavigation.setParams({ tab: undefined, feedFocusRequest: undefined });
+    }, [navigateMainTab, rootNavigation, route.params?.feedFocusRequest, route.params?.tab]);
 
-    React.useEffect(() => {
+    useEffect(() => {
         if (!intent) return;
 
         if (intent.kind === 'chat') {
             let cancelled = false;
-            void (async () => {
+            void (async (): Promise<void> => {
                 try {
                     const chat = await api.getChat(intent.chatId);
                     if (cancelled) return;
-                    setActiveTab('chats');
+                    navigateMainTab('ChatsTab');
                     openChatScreen(chat);
                 } finally {
                     if (!cancelled) consumeIntent();
@@ -394,8 +574,8 @@ export function AppNavigator() {
 
         if (intent.kind === 'group') {
             setCommunitySurface('groups');
-            setActiveTab('community');
-            navigation.navigate('GroupDetail', {
+            navigateMainTab('CommunityTab');
+            rootNavigation.navigate('GroupDetail', {
                 groupId: intent.groupId,
                 focusPostRequest: intent.postId ? { postId: intent.postId, nonce: Date.now() } : undefined,
             });
@@ -405,16 +585,16 @@ export function AppNavigator() {
 
         if (intent.kind === 'group_admin_inbox') {
             setCommunitySurface('groups');
-            setActiveTab('community');
+            navigateMainTab('CommunityTab');
             if (intent.threadId) {
-                navigation.navigate('GroupAdminThread', {
+                rootNavigation.navigate('GroupAdminThread', {
                     groupId: intent.groupId,
                     threadId: intent.threadId,
                 });
                 consumeIntent();
                 return;
             }
-            navigation.navigate('GroupDetail', {
+            rootNavigation.navigate('GroupDetail', {
                 groupId: intent.groupId,
                 initialAdminTab: 'inbox',
             });
@@ -424,8 +604,8 @@ export function AppNavigator() {
 
         if (intent.kind === 'group_report') {
             setCommunitySurface('groups');
-            setActiveTab('community');
-            navigation.navigate('GroupDetail', {
+            navigateMainTab('CommunityTab');
+            rootNavigation.navigate('GroupDetail', {
                 groupId: intent.groupId,
                 initialAdminTab: 'reports',
             });
@@ -435,8 +615,8 @@ export function AppNavigator() {
 
         if (intent.kind === 'support_request') {
             setCommunitySurface('groups');
-            setActiveTab('community');
-            navigation.navigate('GroupDetail', {
+            navigateMainTab('CommunityTab');
+            rootNavigation.navigate('GroupDetail', {
                 groupId: intent.groupId,
                 focusSupportRequest: {
                     requestId: intent.supportRequestId,
@@ -448,74 +628,21 @@ export function AppNavigator() {
             return;
         }
 
-        setActiveTab('feed');
+        navigateMainTab('FeedTab');
         setFeedFocusRequest({
             postId: intent.postId,
             commentId: intent.commentId,
             nonce: Date.now(),
         });
         consumeIntent();
-    }, [consumeIntent, intent, navigation, openChatScreen]);
-
-    const header = useMemo(() => {
-        if (activeTab === 'profile') return null;
-
-        const titles: Record<MainTab, React.ReactNode> = {
-            feed: (
-                <Text style={styles.wordmark}>
-                    Sober<Text style={styles.wordmarkAccent}>Space</Text>
-                </Text>
-            ),
-            discover: <Text style={styles.pageTitle}>Discover</Text>,
-            community: <Text style={styles.pageTitle}>Community</Text>,
-            chats: <Text style={styles.pageTitle}>Chats</Text>,
-        };
-
-        return (
-            <View style={styles.topBar}>
-                {titles[activeTab]}
-                <View style={styles.topBarActions}>
-                    <TouchableOpacity
-                        style={styles.headerIconButton}
-                        onPress={openNotifications}
-                        disabled={!user}
-                    >
-                        <Ionicons name="notifications-outline" size={22} color={Colors.text.primary} />
-                        {(notificationSummary?.unread_count ?? 0) > 0 ? (
-                            <View style={styles.notificationBadge}>
-                                <Text style={styles.notificationBadgeText}>{badgeLabel(notificationSummary?.unread_count ?? 0)}</Text>
-                            </View>
-                        ) : null}
-                    </TouchableOpacity>
-                    <TouchableOpacity onPress={openOwnProfile} disabled={!user}>
-                        <Avatar
-                            username={user?.username ?? 'me'}
-                            avatarUrl={user?.avatar_url}
-                            size={34}
-                            fontSize={12}
-                        />
-                    </TouchableOpacity>
-                </View>
-            </View>
-        );
-    }, [
-        activeTab, notificationSummary?.unread_count,
-        openNotifications, openOwnProfile, user,
-    ]);
-
-    const isOverlayOpen = false;
-    const hidesBottomNav = false;
-    const canShowGlobalCreate = Boolean(user) && !hidesBottomNav && !keyboardVisible;
-    const tabBarBottomPadding = Platform.OS === 'android'
-        ? Math.max(insets.bottom - 12, Spacing.xs)
-        : Math.max(insets.bottom, Spacing.sm);
-
-    const openGlobalCreateMenu = useCallback((): void => {
-        setCreateMenuOpen(true);
-    }, []);
+    }, [consumeIntent, intent, navigateMainTab, openChatScreen, rootNavigation]);
 
     const closeGlobalCreateMenu = useCallback((): void => {
         setCreateMenuOpen(false);
+    }, []);
+
+    const openGlobalCreateMenu = useCallback((): void => {
+        setCreateMenuOpen(true);
     }, []);
 
     const globalCreateActions = useMemo<GlobalCreateAction[]>(() => [
@@ -549,6 +676,27 @@ export function AppNavigator() {
         },
     ], [openCreateGroup, openCreateMeetup, openCreatePost, openCreateSupportRequest]);
 
+    const canShowGlobalCreate = Boolean(user) && !keyboardVisible;
+    const tabBarBottomPadding = Platform.OS === 'android'
+        ? Math.max(insets.bottom - 12, Spacing.xs)
+        : Math.max(insets.bottom, Spacing.sm);
+    const notificationCount = notificationSummary?.unread_count ?? 0;
+    const sharedTabProps = useMemo<SharedTabProps>(() => ({
+        user,
+        notificationCount,
+        onOpenNotifications: openNotifications,
+        onOpenOwnProfile: handleOpenOwnProfile,
+        onOpenUserProfile: handleOpenUserProfile,
+        onOpenComments: handleOpenComments,
+    }), [
+        handleOpenComments,
+        handleOpenOwnProfile,
+        handleOpenUserProfile,
+        notificationCount,
+        openNotifications,
+        user,
+    ]);
+
     useEffect(() => {
         if (!canShowGlobalCreate && createMenuOpen) {
             setCreateMenuOpen(false);
@@ -558,103 +706,123 @@ export function AppNavigator() {
     return (
         <>
             <StatusBar style="light" />
-            <SafeAreaView style={styles.container} edges={['top']}>
-                {header}
-                <View style={styles.content}>
-                    <FeedTab
-                        isActive={activeTab === 'feed' && !isOverlayOpen}
-                        onOpenUserProfile={handleOpenUserProfile}
-                        onOpenComments={handleOpenComments}
-                        focusRequest={feedFocusRequest}
-                        onFocusRequestConsumed={handleFeedFocusRequestConsumed}
-                    />
-                    <DiscoverTab
-                        isActive={activeTab === 'discover' && !isOverlayOpen}
-                        onOpenUserProfile={handleOpenUserProfile}
-                        onOpenChat={openChatScreen}
-                        onOpenRecoveryMeeting={handleOpenRecoveryMeeting}
-                        onOpenDatingLikes={() => navigation.navigate('DatingLikes')}
-                        onOpenDatingMatches={() => navigation.navigate('DatingMatches')}
-                        onOpenDatingProfileEditor={() => navigation.navigate('DatingProfileEditor')}
-                    />
-                    <CommunityTab
-                        isActive={activeTab === 'community' && !isOverlayOpen}
-                        activeSurface={communitySurface}
-                        onChangeSurface={setCommunitySurface}
-                        onOpenGroup={handleOpenGroup}
-                        onOpenMeetup={handleOpenMeetup}
-                        onOpenManageMeetup={openManageMeetup}
-                    />
-                    <ChatsTab isActive={activeTab === 'chats' && !isOverlayOpen} onOpenChat={openChatScreen} />
-                    <ProfileTab
-                        isActive={activeTab === 'profile' && !isOverlayOpen}
-                        initialContentTab={ownProfileInitialContentTab}
-                        resetKey={ownProfileResetKey}
-                        onBack={closeOwnProfile}
-                        onOpenUserProfile={handleOpenUserProfile}
-                        onOpenComments={handleOpenComments}
-                    />
-                </View>
-
-                {!hidesBottomNav && !keyboardVisible && (
-                    <View style={[styles.tabBar, { paddingBottom: tabBarBottomPadding }]}>
-                        {TABS.slice(0, 2).map(tab => (
-                            <TouchableOpacity
-                                key={tab.key}
-                                style={styles.tabItem}
-                                onPress={() => handleTabPress(tab.key)}
-                            >
-                                <Ionicons
-                                    name={activeTab === tab.key ? tab.iconActive : tab.icon}
-                                    size={22}
-                                    color={activeTab === tab.key ? Colors.primary : Colors.text.muted}
-                                />
-                                <Text style={[styles.tabLabel, activeTab === tab.key && styles.tabLabelActive]}>
-                                    {tab.label}
-                                </Text>
-                            </TouchableOpacity>
-                        ))}
-                        <View style={styles.createTabSlot}>
-                            <CenterCreateButton
-                                visible={canShowGlobalCreate}
-                                onPress={openGlobalCreateMenu}
-                            />
-                        </View>
-                        {TABS.slice(2).map(tab => (
-                            <TouchableOpacity
-                                key={tab.key}
-                                style={styles.tabItem}
-                                onPress={() => handleTabPress(tab.key)}
-                            >
-                                <Ionicons
-                                    name={activeTab === tab.key ? tab.iconActive : tab.icon}
-                                    size={22}
-                                    color={activeTab === tab.key ? Colors.primary : Colors.text.muted}
-                                />
-                                <Text style={[styles.tabLabel, activeTab === tab.key && styles.tabLabelActive]}>
-                                    {tab.label}
-                                </Text>
-                            </TouchableOpacity>
-                        ))}
-                    </View>
-                )}
-            </SafeAreaView>
-
+            <MainTabs.Navigator
+                initialRouteName="FeedTab"
+                detachInactiveScreens={false}
+                screenOptions={{
+                    headerShown: false,
+                    lazy: false,
+                }}
+                tabBar={(props) => {
+                    tabNavigationRef.current = props.navigation;
+                    return (
+                        <MainTabBar
+                            {...props}
+                            keyboardVisible={keyboardVisible}
+                            canShowGlobalCreate={canShowGlobalCreate}
+                            onOpenCreate={openGlobalCreateMenu}
+                            bottomPadding={tabBarBottomPadding}
+                        />
+                    );
+                }}
+            >
+                <MainTabs.Screen name="FeedTab">
+                    {() => (
+                        <FeedStack.Navigator screenOptions={{ headerShown: false }}>
+                            <FeedStack.Screen name="FeedHome">
+                                {() => (
+                                    <FeedHomeScreen
+                                        shared={sharedTabProps}
+                                        focusRequest={feedFocusRequest}
+                                        onFocusRequestConsumed={handleFeedFocusRequestConsumed}
+                                    />
+                                )}
+                            </FeedStack.Screen>
+                        </FeedStack.Navigator>
+                    )}
+                </MainTabs.Screen>
+                <MainTabs.Screen name="DiscoverTab">
+                    {() => (
+                        <DiscoverStack.Navigator screenOptions={{ headerShown: false }}>
+                            <DiscoverStack.Screen name="DiscoverHome">
+                                {() => (
+                                    <DiscoverHomeScreen
+                                        shared={sharedTabProps}
+                                        onOpenChat={openChatScreen}
+                                        onOpenRecoveryMeeting={handleOpenRecoveryMeeting}
+                                    />
+                                )}
+                            </DiscoverStack.Screen>
+                        </DiscoverStack.Navigator>
+                    )}
+                </MainTabs.Screen>
+                <MainTabs.Screen name="CommunityTab">
+                    {() => (
+                        <CommunityStack.Navigator screenOptions={{ headerShown: false }}>
+                            <CommunityStack.Screen name="CommunityHome">
+                                {() => (
+                                    <CommunityHomeScreen
+                                        shared={sharedTabProps}
+                                        activeSurface={communitySurface}
+                                        onChangeSurface={setCommunitySurface}
+                                        onOpenGroup={handleOpenGroup}
+                                        onOpenMeetup={handleOpenMeetup}
+                                        onOpenManageMeetup={openManageMeetup}
+                                    />
+                                )}
+                            </CommunityStack.Screen>
+                        </CommunityStack.Navigator>
+                    )}
+                </MainTabs.Screen>
+                <MainTabs.Screen name="ChatsTab">
+                    {() => (
+                        <ChatsStack.Navigator screenOptions={{ headerShown: false }}>
+                            <ChatsStack.Screen name="ChatsHome">
+                                {() => (
+                                    <ChatsHomeScreen
+                                        shared={sharedTabProps}
+                                        onOpenChat={openChatScreen}
+                                    />
+                                )}
+                            </ChatsStack.Screen>
+                        </ChatsStack.Navigator>
+                    )}
+                </MainTabs.Screen>
+                <MainTabs.Screen name="ProfileTab">
+                    {() => (
+                        <ProfileStack.Navigator screenOptions={{ headerShown: false }}>
+                            <ProfileStack.Screen name="ProfileHome">
+                                {() => (
+                                    <ProfileHomeScreen
+                                        initialContentTab={ownProfileInitialContentTab}
+                                        resetKey={ownProfileResetKey}
+                                        onBack={closeOwnProfile}
+                                        onOpenUserProfile={handleOpenUserProfile}
+                                        onOpenComments={handleOpenComments}
+                                    />
+                                )}
+                            </ProfileStack.Screen>
+                        </ProfileStack.Navigator>
+                    )}
+                </MainTabs.Screen>
+            </MainTabs.Navigator>
             <CreateActionSheet
                 visible={createMenuOpen && canShowGlobalCreate}
                 actions={globalCreateActions}
                 onClose={closeGlobalCreateMenu}
             />
-
         </>
     );
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: Colors.bg.page },
-    content: { flex: 1 },
-    tabVisible: { flex: 1, display: 'flex' },
-    tabHidden: { flex: 1, display: 'none' },
+    container: {
+        flex: 1,
+        backgroundColor: Colors.bg.page,
+    },
+    content: {
+        flex: 1,
+    },
     topBar: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -662,13 +830,16 @@ const styles = StyleSheet.create({
         paddingHorizontal: Spacing.md,
         paddingTop: Spacing.sm,
         paddingBottom: Spacing.sm,
+        backgroundColor: Colors.bg.page,
     },
     wordmark: {
         fontSize: Typography.sizes.xl,
         fontWeight: '500',
         color: Colors.text.primary,
     },
-    wordmarkAccent: { color: Colors.primary },
+    wordmarkAccent: {
+        color: Colors.primary,
+    },
     pageTitle: {
         ...Typography.screenTitle,
         color: Colors.text.primary,
@@ -703,7 +874,6 @@ const styles = StyleSheet.create({
         ...TextStyles.badge,
         color: Colors.textOn.danger,
     },
-
     tabBar: {
         flexDirection: 'row',
         alignItems: 'flex-start',
@@ -713,13 +883,23 @@ const styles = StyleSheet.create({
         backgroundColor: Colors.bg.page,
         overflow: 'visible',
     },
-    tabItem: { flex: 1, alignItems: 'center', gap: 4, minHeight: 44 },
+    tabItem: {
+        flex: 1,
+        alignItems: 'center',
+        gap: 4,
+        minHeight: 44,
+    },
     createTabSlot: {
         width: 74,
         alignItems: 'center',
         minHeight: 44,
         overflow: 'visible',
     },
-    tabLabel: { fontSize: Typography.sizes.sm, color: Colors.text.muted },
-    tabLabelActive: { color: Colors.primary },
+    tabLabel: {
+        fontSize: Typography.sizes.sm,
+        color: Colors.text.muted,
+    },
+    tabLabelActive: {
+        color: Colors.primary,
+    },
 });

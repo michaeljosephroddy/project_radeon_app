@@ -8,7 +8,6 @@ import {
     Linking,
     Modal,
     RefreshControl,
-    ScrollView,
     StyleSheet,
     Text,
     TouchableOpacity,
@@ -17,13 +16,11 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useQueryClient } from '@tanstack/react-query';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { Avatar } from '../../components/Avatar';
 import { DiscoverActiveFiltersBar } from '../../components/discover/DiscoverActiveFiltersBar';
 import { DiscoverEmptyState } from '../../components/discover/DiscoverEmptyState';
 import { DiscoverFilterSheet } from '../../components/discover/DiscoverFilterSheet';
 import { DatingDeck } from '../../components/discover/DatingDeck';
-import { DatingPhotoCarousel } from '../../components/discover/DatingPhotoCarousel';
 import { InfoNoticeCard } from '../../components/ui/InfoNoticeCard';
 import { PrimaryButton } from '../../components/ui/PrimaryButton';
 import { SearchBar } from '../../components/ui/SearchBar';
@@ -80,6 +77,7 @@ interface DiscoverScreenProps {
     onOpenDatingLikes?: () => void;
     onOpenDatingMatches?: () => void;
     onOpenDatingProfileEditor?: () => void;
+    onOpenDatingProfile: (profile: api.DatingProfile) => void;
 }
 
 type DiscoverLocationState =
@@ -248,205 +246,6 @@ function MatchModal({
     );
 }
 
-const DATING_GOAL_OPTIONS: { value: api.DatingRelationshipGoal; label: string }[] = [
-    { value: 'long_term', label: 'Long-term relationship' },
-    { value: 'life_partner', label: 'Life partner' },
-    { value: 'short_term_open_to_long_term', label: 'Short-term, open to long-term' },
-    { value: 'still_figuring_it_out', label: 'Still figuring it out' },
-    { value: 'new_sober_connections', label: 'New sober connections' },
-];
-
-const DATING_KIDS_OPTIONS: { value: api.DatingKidsStatus; label: string }[] = [
-    { value: 'have_kids', label: 'Have kids' },
-    { value: 'dont_have_kids', label: "Don't have kids" },
-    { value: 'prefer_not_to_say', label: 'Prefer not to say' },
-];
-
-const DATING_REPORT_OPTIONS: { reason: api.UserReportReason; label: string }[] = [
-    { reason: 'unwanted_advances', label: 'Unwanted advances' },
-    { reason: 'harassment', label: 'Harassment' },
-    { reason: 'spam', label: 'Spam' },
-    { reason: 'safety_concern', label: 'Safety concern' },
-    { reason: 'other', label: 'Other' },
-];
-
-function relationshipGoalLabel(goal: api.DatingRelationshipGoal): string {
-    return DATING_GOAL_OPTIONS.find((option) => option.value === goal)?.label ?? 'Dating';
-}
-
-function kidsStatusLabel(status?: api.DatingKidsStatus): string | null {
-    return DATING_KIDS_OPTIONS.find((option) => option.value === status)?.label ?? null;
-}
-
-function heightLabel(heightCm?: number | null): string | null {
-    return heightCm ? `${heightCm} cm` : null;
-}
-
-function datingWorkLabel(profile?: api.DatingProfile | null): string | null {
-    const title = profile?.job_title?.trim() ?? '';
-    const company = profile?.company?.trim() ?? '';
-    if (title && company) return `${title} @ ${company}`;
-    return title || company || profile?.work?.trim() || null;
-}
-
-function datingEducationLabel(profile?: api.DatingProfile | null): string | null {
-    const course = profile?.course?.trim() ?? '';
-    const school = profile?.school?.trim() ?? '';
-    if (course && school) return `${course} @ ${school}`;
-    return course || school || profile?.education?.trim() || null;
-}
-
-function DatingProfileDetailModal({
-    profile,
-    onClose,
-    onReport,
-    onBlock,
-}: {
-    profile: api.DatingProfile | null;
-    onClose: () => void;
-    onReport: (profile: api.DatingProfile) => void;
-    onBlock: (profile: api.DatingProfile) => void;
-}) {
-    const locationLabel = profile?.city
-        ? `${profile.city}${profile.country ? `, ${profile.country}` : ''}`
-        : profile?.country ?? null;
-    const detailRows = profile ? [
-        heightLabel(profile.height_cm),
-        datingWorkLabel(profile),
-        datingEducationLabel(profile),
-        kidsStatusLabel(profile.kids_status),
-    ].filter(Boolean) : [];
-    return (
-        <Modal visible={profile !== null} animationType="slide" onRequestClose={onClose}>
-            <SafeAreaView style={styles.datingDetailContainer} edges={['top', 'bottom']}>
-                <View style={styles.datingDetailHeader}>
-                    <TouchableOpacity style={styles.datingDetailClose} onPress={onClose} activeOpacity={0.85}>
-                        <Ionicons name="close" size={22} color={Colors.text.primary} />
-                    </TouchableOpacity>
-                </View>
-                {profile ? (
-                    <ScrollView contentContainerStyle={styles.datingDetailContent}>
-                        <DatingPhotoCarousel
-                            username={profile.username}
-                            photos={profile.photos ?? []}
-                            style={styles.datingDetailPhoto}
-                        />
-                        <Text style={styles.datingDetailName}>
-                            {profile.age ? `${formatUsername(profile.username)}, ${profile.age}` : formatUsername(profile.username)}
-                        </Text>
-                        {locationLabel ? <Text style={styles.datingDetailMeta}>{locationLabel}</Text> : null}
-                        <Text style={styles.datingDetailGoal}>{relationshipGoalLabel(profile.relationship_goal)}</Text>
-                        {profile.interests.length > 0 ? (
-                            <View style={styles.datingDetailInterests}>
-                                {profile.interests.map((interest, index) => (
-                                    <View key={`${interest}-${index}`} style={styles.datingDetailInterestChip}>
-                                        <Text style={styles.datingDetailInterestText}>{interest}</Text>
-                                    </View>
-                                ))}
-                            </View>
-                        ) : null}
-                        {detailRows.length > 0 ? (
-                            <View style={styles.datingDetailFacts}>
-                                {detailRows.map((detail, index) => (
-                                    <Text key={`${detail}-${index}`} style={styles.datingDetailFactText}>{detail}</Text>
-                                ))}
-                            </View>
-                        ) : null}
-                        {profile.bio ? <Text style={styles.datingDetailBio}>{profile.bio}</Text> : null}
-                        {profile.prompt_answers?.length ? (
-                            <View style={styles.datingDetailPromptStack}>
-                                {profile.prompt_answers.map((answer, index) => (
-                                    <View key={`${answer.id ?? answer.prompt_key}-${index}`} style={styles.datingDetailPrompt}>
-                                        <Text style={styles.datingDetailPromptLabel}>{datingPromptLabel(answer.prompt_key)}</Text>
-                                        <Text style={styles.datingDetailPromptAnswer}>{answer.answer}</Text>
-                                    </View>
-                                ))}
-                            </View>
-                        ) : null}
-                        <View style={styles.datingDetailSafetyRow}>
-                            <TouchableOpacity style={styles.datingDetailSafetyButton} onPress={() => onReport(profile)} activeOpacity={0.84}>
-                                <Ionicons name="flag-outline" size={18} color={Colors.danger} />
-                                <Text style={styles.datingDetailSafetyText}>Report</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity style={styles.datingDetailSafetyButton} onPress={() => onBlock(profile)} activeOpacity={0.84}>
-                                <Ionicons name="ban-outline" size={18} color={Colors.danger} />
-                                <Text style={styles.datingDetailSafetyText}>Block</Text>
-                            </TouchableOpacity>
-                        </View>
-                    </ScrollView>
-                ) : null}
-            </SafeAreaView>
-        </Modal>
-    );
-}
-
-function datingPromptLabel(promptKey: string): string {
-    switch (promptKey) {
-        case 'small_thing_about_me':
-            return 'A small thing that says a lot about me';
-        case 'friends_describe_me':
-            return 'My friends would describe me as';
-        case 'proud_of':
-            return "One thing I'm proud of";
-        case 'happiest_when':
-            return "I'm happiest when";
-        case 'simple_pleasure':
-            return 'A simple pleasure I never get tired of';
-        case 'ideal_sober_date':
-            return 'My ideal alcohol-free night out';
-        case 'best_part_sobriety':
-            return 'The best part of sobriety is';
-        case 'sober_weekend':
-            return "A weekend plan I'll always say yes to";
-        case 'recovery_lifestyle':
-            return 'My sober life looks like';
-        case 'sober_win':
-            return "A sober win I'm proud of";
-        case 'how_i_reset':
-            return 'How I like to reset';
-        case 'looking_for':
-            return "I'm looking for someone who";
-        case 'green_flag':
-            return 'The green flag I notice first';
-        case 'great_first_date':
-            return 'A great first date would be';
-        case 'chemistry_when':
-            return "I know there's chemistry when";
-        case 'dating_intention':
-            return 'My dating intention is';
-        case 'make_time_for':
-            return 'Something I will always make time for';
-        case 'value_i_live_by':
-            return 'A value I live by';
-        case 'matters_most':
-            return 'What matters most to me right now';
-        case 'feel_connected_when':
-            return 'I feel most connected when';
-        case 'relationship_works_when':
-            return 'A relationship works best when';
-        case 'perfect_sunday':
-            return 'My perfect Sunday';
-        case 'usually_find_me':
-            return "You'll usually find me";
-        case 'recharge':
-            return 'My favourite way to recharge';
-        case 'next_adventure':
-            return 'The next little adventure I want';
-        case 'ask_me_about':
-            return 'Ask me about';
-        case 'teach_me_about':
-            return 'Teach me something about';
-        case 'lets_debate':
-            return "Let's debate";
-        case 'make_me_laugh':
-            return 'The quickest way to make me laugh';
-        case 'voice_note_includes':
-            return 'A voice note from me probably includes';
-        default:
-            return 'Prompt';
-    }
-}
-
 function getResultsHeading(
     isSearching: boolean,
     hasFilters: boolean,
@@ -557,6 +356,7 @@ export function DiscoverScreen({
     onOpenDatingLikes,
     onOpenDatingMatches,
     onOpenDatingProfileEditor,
+    onOpenDatingProfile,
 }: DiscoverScreenProps) {
     const { user } = useAuth();
     const queryClient = useQueryClient();
@@ -572,7 +372,6 @@ export function DiscoverScreen({
     const [dismissedDatingIds, setDismissedDatingIds] = useState<Set<string>>(new Set());
     const [pendingDatingActionIds, setPendingDatingActionIds] = useState<Set<string>>(new Set());
     const [matchModal, setMatchModal] = useState<{ match: api.DatingMatch; chatId?: string | null } | null>(null);
-    const [selectedDatingProfile, setSelectedDatingProfile] = useState<api.DatingProfile | null>(null);
     const [openingMatchChat, setOpeningMatchChat] = useState(false);
     const loggedDatingSetupStartedRef = useRef(false);
     const listRef = useRef<FlatList<api.User>>(null);
@@ -862,9 +661,9 @@ export function DiscoverScreen({
     }, []);
 
     const handleOpenDatingProfile = useCallback((profile: api.DatingProfile): void => {
-        setSelectedDatingProfile(profile);
+        onOpenDatingProfile(profile);
         logDatingEvent({ event_type: 'profile_opened', profile_id: profile.id });
-    }, [logDatingEvent]);
+    }, [logDatingEvent, onOpenDatingProfile]);
 
     const handleDatingAction = useCallback(async (profile: api.DatingProfile, action: api.DatingAction): Promise<void> => {
         if (pendingDatingActionIds.has(profile.id)) return;
@@ -933,58 +732,6 @@ export function DiscoverScreen({
             setOpeningMatchChat(false);
         }
     }, [logDatingEvent, matchModal, onOpenChat]);
-
-    const handleReportDatingProfile = useCallback((profile: api.DatingProfile): void => {
-        if (!profile.user_id) return;
-        appAlert.alert('Report profile', 'Choose the closest reason.', [
-            { text: 'Cancel', style: 'cancel' },
-            ...DATING_REPORT_OPTIONS.map((option) => ({
-                text: option.label,
-                onPress: () => {
-                    void (async () => {
-                        try {
-                            await api.reportUser(profile.user_id as string, { reason: option.reason });
-                            logDatingEvent({ event_type: 'report', profile_id: profile.id, payload: { reason: option.reason } });
-                            appAlert.alert('Report sent', 'Thanks for helping keep Dating safe.');
-                        } catch (error: unknown) {
-                            appAlert.alert('Report failed', error instanceof Error ? error.message : 'Please try again.');
-                        }
-                    })();
-                },
-            })),
-        ]);
-    }, [logDatingEvent]);
-
-    const handleBlockDatingProfile = useCallback((profile: api.DatingProfile): void => {
-        if (!profile.user_id) return;
-        appAlert.alert(
-            'Block profile?',
-            `${formatUsername(profile.username)} will no longer be able to message you, and you will stop seeing them in Dating.`,
-            [
-                { text: 'Cancel', style: 'cancel' },
-                {
-                    text: 'Block',
-                    style: 'destructive',
-                    onPress: () => {
-                        void (async () => {
-                            try {
-                                await api.blockUser(profile.user_id as string);
-                                logDatingEvent({ event_type: 'block', profile_id: profile.id });
-                                setSelectedDatingProfile(null);
-                                setDismissedDatingIds((current) => new Set([...current, profile.id]));
-                                void queryClient.invalidateQueries({ queryKey: ['dating-discover'] });
-                                void queryClient.invalidateQueries({ queryKey: ['dating-likes'] });
-                                void queryClient.invalidateQueries({ queryKey: ['dating-matches'] });
-                                appAlert.alert('Profile blocked', `${formatUsername(profile.username)} has been blocked.`);
-                            } catch (error: unknown) {
-                                appAlert.alert('Block failed', error instanceof Error ? error.message : 'Please try again.');
-                            }
-                        })();
-                    },
-                },
-            ],
-        );
-    }, [logDatingEvent, queryClient]);
 
     const resultsHeading = getResultsHeading(isSearching, hasAppliedFilters, appliedState.broadened, isDatingTab);
     const noResultsCopy = getNoResultsCopy(
@@ -1235,13 +982,6 @@ export function DiscoverScreen({
                     onClose={() => setMatchModal(null)}
                     onOpenChat={() => void handleOpenMatchChat()}
                 />
-                <DatingProfileDetailModal
-                    profile={selectedDatingProfile}
-                    onClose={() => setSelectedDatingProfile(null)}
-                    onReport={handleReportDatingProfile}
-                    onBlock={handleBlockDatingProfile}
-                />
-
                 <DiscoverFilterSheet
                     visible={filterSheetVisible}
                     draftFilters={draftFilters}
@@ -1674,118 +1414,6 @@ const styles = StyleSheet.create({
     },
     listFooter: {
         marginVertical: Spacing.lg,
-    },
-    datingDetailContainer: {
-        flex: 1,
-        backgroundColor: Colors.bg.page,
-    },
-    datingDetailHeader: {
-        alignItems: 'flex-end',
-        padding: Spacing.md,
-    },
-    datingDetailClose: {
-        width: ControlSizes.iconButton,
-        height: ControlSizes.iconButton,
-        borderRadius: Radius.pill,
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: Colors.bg.surface,
-    },
-    datingDetailContent: {
-        paddingHorizontal: Spacing.md,
-        paddingBottom: Spacing.xxl,
-        gap: Spacing.md,
-    },
-    datingDetailPhoto: {
-        width: '100%',
-        aspectRatio: 0.78,
-        borderRadius: Radius.lg,
-        overflow: 'hidden',
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: Colors.bg.raised,
-    },
-    datingDetailName: {
-        fontSize: Typography.sizes.xxl,
-        fontWeight: '800',
-        color: Colors.text.primary,
-    },
-    datingDetailMeta: {
-        ...TextStyles.secondary,
-        color: Colors.text.secondary,
-    },
-    datingDetailGoal: {
-        ...TextStyles.label,
-        color: Colors.primary,
-    },
-    datingDetailInterests: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        gap: Spacing.xs,
-    },
-    datingDetailInterestChip: {
-        borderRadius: Radius.pill,
-        paddingHorizontal: Spacing.sm,
-        paddingVertical: 5,
-        backgroundColor: Colors.bg.raised,
-    },
-    datingDetailInterestText: {
-        ...TextStyles.caption,
-        color: Colors.text.secondary,
-    },
-    datingDetailFacts: {
-        gap: 4,
-    },
-    datingDetailFactText: {
-        ...TextStyles.secondary,
-        color: Colors.text.secondary,
-    },
-    datingDetailBio: {
-        fontSize: Typography.sizes.base,
-        lineHeight: 22,
-        color: Colors.text.primary,
-    },
-    datingDetailPromptStack: {
-        gap: Spacing.sm,
-    },
-    datingDetailPrompt: {
-        gap: 4,
-        borderRadius: Radius.md,
-        padding: Spacing.md,
-        backgroundColor: Colors.bg.surface,
-        borderWidth: 1,
-        borderColor: Colors.border.subtle,
-    },
-    datingDetailPromptLabel: {
-        ...TextStyles.caption,
-        color: Colors.text.secondary,
-        fontWeight: '700',
-    },
-    datingDetailPromptAnswer: {
-        ...TextStyles.body,
-        color: Colors.text.primary,
-        lineHeight: 21,
-    },
-    datingDetailSafetyRow: {
-        flexDirection: 'row',
-        gap: Spacing.sm,
-        paddingTop: Spacing.sm,
-    },
-    datingDetailSafetyButton: {
-        flex: 1,
-        minHeight: 44,
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: Spacing.xs,
-        borderRadius: Radius.pill,
-        backgroundColor: Colors.dangerSubtle,
-        borderWidth: 1,
-        borderColor: Colors.danger,
-    },
-    datingDetailSafetyText: {
-        ...TextStyles.label,
-        color: Colors.danger,
     },
     matchModalBackdrop: {
         flex: 1,
