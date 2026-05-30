@@ -26,11 +26,11 @@ import { screenStandards } from '../../../styles/screenStandards';
 import { Colors, ContentInsets, ControlSizes, Radius, Spacing, TextStyles, Typography } from '../../../theme';
 import { formatReadableTimestamp } from '../../../utils/date';
 import { formatUsername } from '../../../utils/identity';
-import { GroupAdminThreadScreen } from './GroupAdminThreadScreen';
 
 interface GroupAdminScreenProps {
     group: api.Group;
     onBack: () => void;
+    onOpenThread: (threadId: string) => void;
     initialTab?: AdminTab;
     initialThreadId?: string;
 }
@@ -40,11 +40,12 @@ type AdminTab = 'inbox' | 'reports';
 export function GroupAdminScreen({
     group,
     onBack,
+    onOpenThread,
     initialTab,
     initialThreadId,
 }: GroupAdminScreenProps): React.ReactElement {
     const [activeTab, setActiveTab] = useState<AdminTab>(initialTab ?? 'inbox');
-    const [openThreadId, setOpenThreadId] = useState<string | null>(initialThreadId ?? null);
+    const consumedInitialThreadIdRef = useRef<string | undefined>(undefined);
 
     useEffect(() => {
         if (!initialTab) return;
@@ -52,20 +53,11 @@ export function GroupAdminScreen({
     }, [initialTab]);
 
     useEffect(() => {
-        if (!initialThreadId) return;
+        if (!initialThreadId || consumedInitialThreadIdRef.current === initialThreadId) return;
+        consumedInitialThreadIdRef.current = initialThreadId;
         setActiveTab('inbox');
-        setOpenThreadId(initialThreadId);
-    }, [initialThreadId]);
-
-    if (openThreadId) {
-        return (
-            <GroupAdminThreadScreen
-                group={group}
-                threadId={openThreadId}
-                onBack={() => setOpenThreadId(null)}
-            />
-        );
-    }
+        onOpenThread(initialThreadId);
+    }, [initialThreadId, onOpenThread]);
 
     return (
         <SafeAreaView style={styles.container} edges={['bottom']}>
@@ -88,7 +80,7 @@ export function GroupAdminScreen({
                 />
             </View>
             {activeTab === 'inbox' ? (
-                <AdminInboxPanel group={group} onOpenThread={setOpenThreadId} />
+                <AdminInboxPanel group={group} onOpenThread={onOpenThread} />
             ) : (
                 <ReportsPanel group={group} />
             )}

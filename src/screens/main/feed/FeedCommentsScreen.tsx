@@ -6,7 +6,7 @@ import {
     displayCommentToFeedComment,
     feedCommentToDisplayModel,
 } from '../../../components/comments/commentTypes';
-import { CommentThreadModal } from '../../../components/comments/CommentThreadModal';
+import { CommentThreadScreen } from '../../../components/comments/CommentThreadScreen';
 import type { CardActionMenuAction } from '../../../components/ui/CardActionMenu';
 
 export interface CommentThreadTarget {
@@ -16,23 +16,23 @@ export interface CommentThreadTarget {
     title?: string;
 }
 
-interface FeedCommentsModalProps {
+interface FeedCommentsScreenProps {
     thread: CommentThreadTarget;
     currentUser: api.User;
     focusComposer: boolean;
-    onClose: () => void;
+    onBack: () => void;
     onPressUser: (profile: { userId: string; username: string; avatarUrl?: string }) => void;
     onCommentCreated?: (comment: api.Comment) => void;
 }
 
-export function FeedCommentsModal({
+export function FeedCommentsScreen({
     thread,
     currentUser,
     focusComposer,
-    onClose,
+    onBack,
     onPressUser,
     onCommentCreated,
-}: FeedCommentsModalProps): React.ReactElement {
+}: FeedCommentsScreenProps): React.ReactElement {
     const adapter = useMemo<CommentThreadAdapter>(() => ({
         loadComments: async (cursor?: string) => {
             const result = await api.getFeedItemComments(thread.itemId, thread.itemKind, cursor);
@@ -86,12 +86,12 @@ export function FeedCommentsModal({
     };
 
     return (
-        <CommentThreadModal
+        <CommentThreadScreen
             title={title}
             adapter={adapter}
             currentUser={currentUser}
             focusComposer={focusComposer}
-            onClose={onClose}
+            onBack={onBack}
             onPressUser={onPressUser}
             onCommentCreated={(comment) => onCommentCreated?.(displayCommentToFeedComment(comment))}
             getCommentActions={getCommentActions}

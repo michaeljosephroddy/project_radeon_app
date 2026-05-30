@@ -2,23 +2,23 @@ import React, { useMemo } from 'react';
 import { appAlert } from '@/components/ui/appAlert';
 import { useQueryClient } from '@tanstack/react-query';
 import * as api from '../../../api/client';
-import { CommentThreadModal } from '../../../components/comments/CommentThreadModal';
+import { CommentThreadScreen } from '../../../components/comments/CommentThreadScreen';
 import { CommentThreadAdapter, groupCommentToDisplayModel } from '../../../components/comments/commentTypes';
 import type { CardActionMenuAction } from '../../../components/ui/CardActionMenu';
 
-interface GroupCommentsModalProps {
+interface GroupCommentsScreenProps {
     post: api.GroupPost;
     currentUser: api.User;
-    onClose: () => void;
+    onBack: () => void;
     onPressUser: (profile: { userId: string; username: string; avatarUrl?: string }) => void;
 }
 
-export function GroupCommentsModal({
+export function GroupCommentsScreen({
     post,
     currentUser,
-    onClose,
+    onBack,
     onPressUser,
-}: GroupCommentsModalProps): React.ReactElement {
+}: GroupCommentsScreenProps): React.ReactElement {
     const queryClient = useQueryClient();
     const adapter = useMemo<CommentThreadAdapter>(() => ({
         loadComments: async (cursor?: string) => {
@@ -67,12 +67,12 @@ export function GroupCommentsModal({
     };
 
     return (
-        <CommentThreadModal
+        <CommentThreadScreen
             title={title}
             adapter={adapter}
             currentUser={currentUser}
             focusComposer={false}
-            onClose={onClose}
+            onBack={onBack}
             onPressUser={onPressUser}
             onCommentCreated={() => {
                 void queryClient.invalidateQueries({ queryKey: ['groups', 'posts', post.group_id] });

@@ -8,7 +8,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { FeedCommentsModal, type CommentThreadTarget } from '../screens/main/feed/FeedCommentsModal';
+import type { CommentThreadTarget } from '../screens/main/feed/FeedCommentsScreen';
 import { FeedScreen } from '../screens/main/FeedScreen';
 import { DiscoverScreen } from '../screens/main/DiscoverScreen';
 import { CommunityHubScreen, type CommunityHubSurface } from '../screens/main/CommunityHubScreen';
@@ -185,20 +185,13 @@ export function AppNavigator() {
     const [createMenuOpen, setCreateMenuOpen] = useState(false);
     const [ownProfileInitialContentTab, setOwnProfileInitialContentTab] = useState<ProfileContentTabKey>('posts');
     const [ownProfileResetKey, setOwnProfileResetKey] = useState(0);
-    const [openComments, setOpenComments] = useState<{
-        thread: CommentThreadTarget;
-        focusComposer: boolean;
-        onCommentCreated?: (comment: api.Comment) => void;
-    } | null>(null);
     const [keyboardVisible, setKeyboardVisible] = useState(false);
     const [feedFocusRequest, setFeedFocusRequest] = useState<{ postId: string; commentId?: string; nonce: number } | null>(null);
     const insets = useSafeAreaInsets();
 
-    const inComments = openComments !== null;
     const openChatScreen = useCallback((chat: Chat): void => {
         Keyboard.dismiss();
         setCreateMenuOpen(false);
-        setOpenComments(null);
         navigation.navigate('Chat', { chat });
     }, [navigation]);
 
@@ -233,10 +226,11 @@ export function AppNavigator() {
     const handleOpenComments = useCallback((
         thread: CommentThreadTarget,
         focusComposer: boolean,
-        onCommentCreated?: (comment: api.Comment) => void,
+        _onCommentCreated?: (comment: api.Comment) => void,
     ) => {
-        setOpenComments({ thread, focusComposer, onCommentCreated });
-    }, []);
+        setCreateMenuOpen(false);
+        navigation.navigate('FeedComments', { thread, focusComposer });
+    }, [navigation]);
 
     const openCreatePost = useCallback(() => {
         setCreateMenuOpen(false);
@@ -412,10 +406,17 @@ export function AppNavigator() {
         if (intent.kind === 'group_admin_inbox') {
             setCommunitySurface('groups');
             setActiveTab('community');
+            if (intent.threadId) {
+                navigation.navigate('GroupAdminThread', {
+                    groupId: intent.groupId,
+                    threadId: intent.threadId,
+                });
+                consumeIntent();
+                return;
+            }
             navigation.navigate('GroupDetail', {
                 groupId: intent.groupId,
                 initialAdminTab: 'inbox',
-                initialAdminThreadId: intent.threadId ?? undefined,
             });
             consumeIntent();
             return;
@@ -457,7 +458,7 @@ export function AppNavigator() {
     }, [consumeIntent, intent, navigation, openChatScreen]);
 
     const header = useMemo(() => {
-        if (activeTab === 'profile' || inComments) return null;
+        if (activeTab === 'profile') return null;
 
         const titles: Record<MainTab, React.ReactNode> = {
             feed: (
@@ -498,12 +499,12 @@ export function AppNavigator() {
             </View>
         );
     }, [
-        activeTab, inComments, notificationSummary?.unread_count,
+        activeTab, notificationSummary?.unread_count,
         openNotifications, openOwnProfile, user,
     ]);
 
-    const isOverlayOpen = inComments;
-    const hidesBottomNav = inComments;
+    const isOverlayOpen = false;
+    const hidesBottomNav = false;
     const canShowGlobalCreate = Boolean(user) && !hidesBottomNav && !keyboardVisible;
     const tabBarBottomPadding = Platform.OS === 'android'
         ? Math.max(insets.bottom - 12, Spacing.xs)
@@ -644,19 +645,6 @@ export function AppNavigator() {
                 actions={globalCreateActions}
                 onClose={closeGlobalCreateMenu}
             />
-
-            {inComments && user && (
-                <View style={StyleSheet.absoluteFillObject}>
-                    <FeedCommentsModal
-                        thread={openComments!.thread}
-                        currentUser={user}
-                        focusComposer={openComments!.focusComposer}
-                        onCommentCreated={openComments!.onCommentCreated}
-                        onClose={() => setOpenComments(null)}
-                        onPressUser={handleOpenUserProfile}
-                    />
-                </View>
-            )}
 
         </>
     );
