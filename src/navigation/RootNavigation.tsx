@@ -10,6 +10,7 @@ import { OnboardingNavigator } from './OnboardingNavigator';
 import { ChatScreen } from '../screens/main/ChatScreen';
 import { UserProfileScreen } from '../screens/main/UserProfileScreen';
 import { ComposeDMScreen } from '../screens/main/ComposeDMScreen';
+import { CreateMenuScreen } from '../screens/main/CreateMenuScreen';
 import { CreatePostScreen } from '../screens/main/CreatePostScreen';
 import { GroupCreateScreen } from '../screens/main/groups/GroupCreateScreen';
 import { CreateSupportRequestScreen } from '../screens/main/CreateSupportRequestScreen';
@@ -74,6 +75,15 @@ export function RootNavigation(): React.ReactElement {
                             <RootStack.Screen name="Chat" component={RootChatScreen} />
                             <RootStack.Screen name="UserProfile" component={RootUserProfileScreen} />
                             <RootStack.Screen name="ComposeDM" component={RootComposeDMScreen} />
+                            <RootStack.Screen
+                                name="CreateMenu"
+                                component={RootCreateMenuScreen}
+                                options={{
+                                    presentation: 'transparentModal',
+                                    animation: 'fade',
+                                    contentStyle: styles.transparentScreen,
+                                }}
+                            />
                             <RootStack.Screen name="CreatePost" component={RootCreatePostScreen} />
                             <RootStack.Screen name="CreateGroup" component={RootCreateGroupScreen} />
                             <RootStack.Screen name="CreateSupportRequest" component={RootCreateSupportRequestScreen} />
@@ -149,6 +159,18 @@ function RootComposeDMScreen({ route, navigation }: NativeStackScreenProps<RootS
                 onComplete={(chat) => navigation.replace('Chat', { chat })}
             />
         </RootStackScreenFrame>
+    );
+}
+
+function RootCreateMenuScreen({ navigation }: NativeStackScreenProps<RootStackParamList, 'CreateMenu'>): React.ReactElement {
+    return (
+        <CreateMenuScreen
+            onClose={() => navigation.goBack()}
+            onCreatePost={() => navigation.replace('CreatePost')}
+            onCreateSupportRequest={() => navigation.replace('CreateSupportRequest')}
+            onCreateMeetup={() => navigation.replace('CreateMeetup')}
+            onCreateGroup={() => navigation.replace('CreateGroup')}
+        />
     );
 }
 
@@ -426,5 +448,8 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
         backgroundColor: Colors.bg.page,
+    },
+    transparentScreen: {
+        backgroundColor: 'transparent',
     },
 });

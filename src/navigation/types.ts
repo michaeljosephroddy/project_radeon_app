@@ -11,6 +11,7 @@ export type RootStackParamList = {
     Chat: { chatId: string } | { chat: Chat };
     FeedComments: { thread: CommentThreadTarget; focusComposer?: boolean };
     ComposeDM: { recipientId: string; username: string; avatarUrl?: string };
+    CreateMenu: undefined;
     CreatePost: undefined;
     CreateGroup: undefined;
     CreateSupportRequest: undefined;

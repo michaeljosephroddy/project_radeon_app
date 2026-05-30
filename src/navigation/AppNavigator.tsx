@@ -24,7 +24,6 @@ import { ChatsScreen } from '../screens/main/ChatsScreen';
 import { ProfileTabScreen } from '../screens/main/ProfileTabScreen';
 import { Avatar } from '../components/Avatar';
 import { CenterCreateButton } from '../components/create/CenterCreateButton';
-import { CreateActionSheet, type GlobalCreateAction } from '../components/create/CreateActionSheet';
 import type { ProfileContentTabKey } from '../components/profile/ProfileContentTabs';
 import * as api from '../api/client';
 import { Colors, ControlSizes, Radius, Spacing, TextStyles, Typography } from '../theme';
@@ -370,7 +369,6 @@ export function AppNavigator(): React.ReactElement {
     const notificationSummary = notificationSummaryQuery.data;
     const insets = useSafeAreaInsets();
     const [communitySurface, setCommunitySurface] = useState<CommunityHubSurface>('groups');
-    const [createMenuOpen, setCreateMenuOpen] = useState(false);
     const [ownProfileInitialContentTab, setOwnProfileInitialContentTab] = useState<ProfileContentTabKey>('posts');
     const [ownProfileResetKey, setOwnProfileResetKey] = useState(0);
     const [previousMainTab, setPreviousMainTab] = useState<PrimaryTabRouteName>('FeedTab');
@@ -383,32 +381,26 @@ export function AppNavigator(): React.ReactElement {
 
     const openChatScreen = useCallback((chat: Chat): void => {
         Keyboard.dismiss();
-        setCreateMenuOpen(false);
         rootNavigation.navigate('Chat', { chat });
     }, [rootNavigation]);
 
     const handleOpenUserProfile = useCallback((profile: OpenUserProfile): void => {
-        setCreateMenuOpen(false);
         rootNavigation.navigate('UserProfile', profile);
     }, [rootNavigation]);
 
     const handleOpenMeetup = useCallback((meetup: api.Meetup): void => {
-        setCreateMenuOpen(false);
         rootNavigation.navigate('MeetupDetail', { meetup });
     }, [rootNavigation]);
 
     const handleOpenRecoveryMeeting = useCallback((meeting: api.RecoveryMeeting): void => {
-        setCreateMenuOpen(false);
         rootNavigation.navigate('RecoveryMeetingDetail', { meeting });
     }, [rootNavigation]);
 
     const openNotifications = useCallback((): void => {
-        setCreateMenuOpen(false);
         rootNavigation.navigate('Notifications');
     }, [rootNavigation]);
 
     const handleOpenGroup = useCallback((groupId: string, postId?: string): void => {
-        setCreateMenuOpen(false);
         rootNavigation.navigate('GroupDetail', {
             groupId,
             focusPostRequest: postId ? { postId, nonce: Date.now() } : undefined,
@@ -420,37 +412,14 @@ export function AppNavigator(): React.ReactElement {
         focusComposer: boolean,
         _onCommentCreated?: (comment: api.Comment) => void,
     ): void => {
-        setCreateMenuOpen(false);
         rootNavigation.navigate('FeedComments', { thread, focusComposer });
     }, [rootNavigation]);
 
-    const openCreatePost = useCallback((): void => {
-        setCreateMenuOpen(false);
-        rootNavigation.navigate('CreatePost');
-    }, [rootNavigation]);
-
-    const openCreateGroup = useCallback((): void => {
-        setCreateMenuOpen(false);
-        rootNavigation.navigate('CreateGroup');
-    }, [rootNavigation]);
-
-    const openCreateSupportRequest = useCallback((): void => {
-        setCreateMenuOpen(false);
-        rootNavigation.navigate('CreateSupportRequest');
-    }, [rootNavigation]);
-
-    const openCreateMeetup = useCallback((): void => {
-        setCreateMenuOpen(false);
-        rootNavigation.navigate('CreateMeetup');
-    }, [rootNavigation]);
-
     const openManageMeetup = useCallback((meetup: api.Meetup): void => {
-        setCreateMenuOpen(false);
         rootNavigation.navigate('CreateMeetup', { meetup });
     }, [rootNavigation]);
 
     const handleOpenOwnProfile = useCallback((from: PrimaryTabRouteName): void => {
-        setCreateMenuOpen(false);
         setPreviousMainTab(from);
         setOwnProfileInitialContentTab('posts');
         setOwnProfileResetKey((current) => current + 1);
@@ -541,7 +510,6 @@ export function AppNavigator(): React.ReactElement {
         const requestedFocus = route.params?.feedFocusRequest;
         if (!requestedTab && !requestedFocus) return;
 
-        setCreateMenuOpen(false);
         if (requestedTab) {
             navigateMainTab(ROOT_TAB_TO_ROUTE[requestedTab]);
         }
@@ -637,44 +605,10 @@ export function AppNavigator(): React.ReactElement {
         consumeIntent();
     }, [consumeIntent, intent, navigateMainTab, openChatScreen, rootNavigation]);
 
-    const closeGlobalCreateMenu = useCallback((): void => {
-        setCreateMenuOpen(false);
-    }, []);
-
     const openGlobalCreateMenu = useCallback((): void => {
-        setCreateMenuOpen(true);
-    }, []);
-
-    const globalCreateActions = useMemo<GlobalCreateAction[]>(() => [
-        {
-            key: 'post',
-            title: 'Post',
-            description: 'Share an update with the community.',
-            icon: 'create-outline',
-            onPress: openCreatePost,
-        },
-        {
-            key: 'support_request',
-            title: 'Support request',
-            description: 'Ask the community for help right now.',
-            icon: 'heart-outline',
-            onPress: openCreateSupportRequest,
-        },
-        {
-            key: 'meetup',
-            title: 'Meetup',
-            description: 'Host a sober event or gathering.',
-            icon: 'calendar-outline',
-            onPress: openCreateMeetup,
-        },
-        {
-            key: 'group',
-            title: 'Group',
-            description: 'Start a focused recovery space.',
-            icon: 'people-outline',
-            onPress: openCreateGroup,
-        },
-    ], [openCreateGroup, openCreateMeetup, openCreatePost, openCreateSupportRequest]);
+        Keyboard.dismiss();
+        rootNavigation.navigate('CreateMenu');
+    }, [rootNavigation]);
 
     const canShowGlobalCreate = Boolean(user) && !keyboardVisible;
     const tabBarBottomPadding = Platform.OS === 'android'
@@ -696,12 +630,6 @@ export function AppNavigator(): React.ReactElement {
         openNotifications,
         user,
     ]);
-
-    useEffect(() => {
-        if (!canShowGlobalCreate && createMenuOpen) {
-            setCreateMenuOpen(false);
-        }
-    }, [canShowGlobalCreate, createMenuOpen]);
 
     return (
         <>
@@ -806,11 +734,6 @@ export function AppNavigator(): React.ReactElement {
                     )}
                 </MainTabs.Screen>
             </MainTabs.Navigator>
-            <CreateActionSheet
-                visible={createMenuOpen && canShowGlobalCreate}
-                actions={globalCreateActions}
-                onClose={closeGlobalCreateMenu}
-            />
         </>
     );
 }
