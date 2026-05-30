@@ -24,6 +24,12 @@ import { DiscoverScreen } from '../screens/main/DiscoverScreen';
 import { CommunityHubScreen, type CommunityHubSurface } from '../screens/main/CommunityHubScreen';
 import { ChatsScreen } from '../screens/main/ChatsScreen';
 import { ProfileTabScreen } from '../screens/main/ProfileTabScreen';
+import { SettingsScreen } from '../screens/main/SettingsScreen';
+import { HiddenContentScreen } from '../screens/main/HiddenContentScreen';
+import { MutedAuthorsScreen } from '../screens/main/MutedAuthorsScreen';
+import { BlockedUsersScreen } from '../screens/main/BlockedUsersScreen';
+import { NotificationPreferencesScreen } from '../screens/main/NotificationPreferencesScreen';
+import { LegalDocumentScreen } from '../components/ui/LegalDocumentScreen';
 import { Avatar } from '../components/Avatar';
 import { CenterCreateButton } from '../components/create/CenterCreateButton';
 import type { ProfileContentTabKey } from '../components/profile/ProfileContentTabs';
@@ -34,6 +40,7 @@ import { useNotificationSummary } from '../hooks/queries/useNotificationSummary'
 import { useNotificationIntent } from '../notifications/NotificationProvider';
 import type { Chat } from '../api/client';
 import type { MainTabParamList, RootStackParamList } from './types';
+import type { LegalDocumentKey } from '../utils/legalDocuments';
 
 interface OpenUserProfile {
     userId: string;
@@ -49,7 +56,19 @@ const FeedStack = createNativeStackNavigator<{ FeedHome: undefined }>();
 const DiscoverStack = createNativeStackNavigator<{ DiscoverHome: undefined }>();
 const CommunityStack = createNativeStackNavigator<{ CommunityHome: undefined }>();
 const ChatsStack = createNativeStackNavigator<{ ChatsHome: undefined }>();
-const ProfileStack = createNativeStackNavigator<{ ProfileHome: undefined }>();
+type ProfileStackParamList = {
+    ProfileHome: undefined;
+    ProfileEdit: undefined;
+    ProfileFriends: undefined;
+    ProfileRequests: undefined;
+    Settings: undefined;
+    HiddenContent: undefined;
+    MutedAuthors: undefined;
+    BlockedUsers: undefined;
+    NotificationPreferences: undefined;
+    LegalDocument: { documentKey: LegalDocumentKey };
+};
+const ProfileStack = createNativeStackNavigator<ProfileStackParamList>();
 
 const PRIMARY_TABS: Array<{
     key: PrimaryTabRouteName;
@@ -297,6 +316,7 @@ function ProfileHomeScreen({
     onOpenComments: (thread: CommentThreadTarget, focusComposer: boolean, onCommentCreated?: (comment: api.Comment) => void) => void;
 }): React.ReactElement {
     const isFocused = useIsFocused();
+    const profileNavigation = useNavigation<NativeStackNavigationProp<ProfileStackParamList>>();
 
     return (
         <SafeAreaView style={styles.container} edges={['top']}>
@@ -307,9 +327,163 @@ function ProfileHomeScreen({
                 onBack={onBack}
                 onOpenUserProfile={onOpenUserProfile}
                 onOpenComments={onOpenComments}
+                onOpenSettings={() => profileNavigation.navigate('Settings')}
+                onOpenEditProfile={() => profileNavigation.navigate('ProfileEdit')}
+                onOpenFriends={() => profileNavigation.navigate('ProfileFriends')}
+                onOpenRequests={() => profileNavigation.navigate('ProfileRequests')}
             />
         </SafeAreaView>
     );
+}
+
+function ProfileEditScreen({
+    onOpenUserProfile,
+    onOpenComments,
+}: {
+    onOpenUserProfile: (profile: OpenUserProfile) => void;
+    onOpenComments: (thread: CommentThreadTarget, focusComposer: boolean, onCommentCreated?: (comment: api.Comment) => void) => void;
+}): React.ReactElement {
+    const isFocused = useIsFocused();
+    const profileNavigation = useNavigation<NativeStackNavigationProp<ProfileStackParamList>>();
+
+    return (
+        <SafeAreaView style={styles.container} edges={['top']}>
+            <ProfileTabScreen
+                isActive={isFocused}
+                mode="edit-profile"
+                onBack={() => profileNavigation.goBack()}
+                onOpenUserProfile={onOpenUserProfile}
+                onOpenComments={onOpenComments}
+                onOpenSettings={() => profileNavigation.navigate('Settings')}
+                onOpenEditProfile={() => undefined}
+                onOpenFriends={() => profileNavigation.navigate('ProfileFriends')}
+                onOpenRequests={() => profileNavigation.navigate('ProfileRequests')}
+            />
+        </SafeAreaView>
+    );
+}
+
+function ProfileFriendsScreen({
+    onOpenUserProfile,
+    onOpenComments,
+}: {
+    onOpenUserProfile: (profile: OpenUserProfile) => void;
+    onOpenComments: (thread: CommentThreadTarget, focusComposer: boolean, onCommentCreated?: (comment: api.Comment) => void) => void;
+}): React.ReactElement {
+    const isFocused = useIsFocused();
+    const profileNavigation = useNavigation<NativeStackNavigationProp<ProfileStackParamList>>();
+
+    return (
+        <SafeAreaView style={styles.container} edges={['top']}>
+            <ProfileTabScreen
+                isActive={isFocused}
+                mode="friends"
+                onBack={() => profileNavigation.goBack()}
+                onOpenUserProfile={onOpenUserProfile}
+                onOpenComments={onOpenComments}
+                onOpenSettings={() => profileNavigation.navigate('Settings')}
+                onOpenEditProfile={() => profileNavigation.navigate('ProfileEdit')}
+                onOpenFriends={() => undefined}
+                onOpenRequests={() => profileNavigation.navigate('ProfileRequests')}
+            />
+        </SafeAreaView>
+    );
+}
+
+function ProfileRequestsScreen({
+    onOpenUserProfile,
+    onOpenComments,
+}: {
+    onOpenUserProfile: (profile: OpenUserProfile) => void;
+    onOpenComments: (thread: CommentThreadTarget, focusComposer: boolean, onCommentCreated?: (comment: api.Comment) => void) => void;
+}): React.ReactElement {
+    const isFocused = useIsFocused();
+    const profileNavigation = useNavigation<NativeStackNavigationProp<ProfileStackParamList>>();
+
+    return (
+        <SafeAreaView style={styles.container} edges={['top']}>
+            <ProfileTabScreen
+                isActive={isFocused}
+                mode="requests"
+                onBack={() => profileNavigation.goBack()}
+                onOpenUserProfile={onOpenUserProfile}
+                onOpenComments={onOpenComments}
+                onOpenSettings={() => profileNavigation.navigate('Settings')}
+                onOpenEditProfile={() => profileNavigation.navigate('ProfileEdit')}
+                onOpenFriends={() => profileNavigation.navigate('ProfileFriends')}
+                onOpenRequests={() => undefined}
+            />
+        </SafeAreaView>
+    );
+}
+
+function ProfileSettingsScreen(): React.ReactElement {
+    const profileNavigation = useNavigation<NativeStackNavigationProp<ProfileStackParamList>>();
+    const { logout } = useAuth();
+
+    const handleLogout = async (): Promise<void> => {
+        try {
+            await logout();
+        } catch {
+            // Logout failures leave the user on the settings screen.
+        }
+    };
+
+    return (
+        <SettingsScreen
+            onBack={() => profileNavigation.goBack()}
+            onLogout={handleLogout}
+            onOpenHiddenContent={() => profileNavigation.navigate('HiddenContent')}
+            onOpenMutedAuthors={() => profileNavigation.navigate('MutedAuthors')}
+            onOpenBlockedUsers={() => profileNavigation.navigate('BlockedUsers')}
+            onOpenNotificationPreferences={() => profileNavigation.navigate('NotificationPreferences')}
+            onOpenLegalDocument={(documentKey) => profileNavigation.navigate('LegalDocument', { documentKey })}
+        />
+    );
+}
+
+function ProfileLegalDocumentScreen({
+    route,
+}: {
+    route: { params: ProfileStackParamList['LegalDocument'] };
+}): React.ReactElement {
+    const profileNavigation = useNavigation<NativeStackNavigationProp<ProfileStackParamList>>();
+
+    return (
+        <LegalDocumentScreen
+            documentKey={route.params.documentKey}
+            onBack={() => profileNavigation.goBack()}
+        />
+    );
+}
+
+function ProfileHiddenContentScreen({ onOpenUserProfile }: { onOpenUserProfile: (profile: OpenUserProfile) => void }): React.ReactElement {
+    const profileNavigation = useNavigation<NativeStackNavigationProp<ProfileStackParamList>>();
+
+    return (
+        <HiddenContentScreen
+            onBack={() => profileNavigation.goBack()}
+            onOpenUserProfile={onOpenUserProfile}
+        />
+    );
+}
+
+function ProfileMutedAuthorsScreen(): React.ReactElement {
+    const profileNavigation = useNavigation<NativeStackNavigationProp<ProfileStackParamList>>();
+
+    return <MutedAuthorsScreen onBack={() => profileNavigation.goBack()} />;
+}
+
+function ProfileBlockedUsersScreen(): React.ReactElement {
+    const profileNavigation = useNavigation<NativeStackNavigationProp<ProfileStackParamList>>();
+
+    return <BlockedUsersScreen onBack={() => profileNavigation.goBack()} />;
+}
+
+function ProfileNotificationPreferencesScreen(): React.ReactElement {
+    const profileNavigation = useNavigation<NativeStackNavigationProp<ProfileStackParamList>>();
+
+    return <NotificationPreferencesScreen onBack={() => profileNavigation.goBack()} />;
 }
 
 function MainTabBar({
@@ -592,9 +766,9 @@ export function AppNavigator(): React.ReactElement {
                 consumeIntent();
                 return;
             }
-            rootNavigation.navigate('GroupDetail', {
+            rootNavigation.navigate('GroupAdmin', {
                 groupId: intent.groupId,
-                initialAdminTab: 'inbox',
+                initialTab: 'inbox',
             });
             consumeIntent();
             return;
@@ -603,9 +777,9 @@ export function AppNavigator(): React.ReactElement {
         if (intent.kind === 'group_report') {
             setCommunitySurface('groups');
             navigateMainTab('CommunityTab');
-            rootNavigation.navigate('GroupDetail', {
+            rootNavigation.navigate('GroupAdmin', {
                 groupId: intent.groupId,
-                initialAdminTab: 'reports',
+                initialTab: 'reports',
             });
             consumeIntent();
             return;
@@ -614,13 +788,9 @@ export function AppNavigator(): React.ReactElement {
         if (intent.kind === 'support_request') {
             setCommunitySurface('groups');
             navigateMainTab('CommunityTab');
-            rootNavigation.navigate('GroupDetail', {
+            rootNavigation.navigate('SupportRequestManagement', {
                 groupId: intent.groupId,
-                focusSupportRequest: {
-                    requestId: intent.supportRequestId,
-                    postId: intent.postId,
-                    nonce: Date.now(),
-                },
+                requestId: intent.supportRequestId,
             });
             consumeIntent();
             return;
@@ -789,6 +959,42 @@ export function AppNavigator(): React.ReactElement {
                                     />
                                 )}
                             </ProfileStack.Screen>
+                            <ProfileStack.Screen name="ProfileEdit">
+                                {() => (
+                                    <ProfileEditScreen
+                                        onOpenUserProfile={handleOpenUserProfile}
+                                        onOpenComments={handleOpenComments}
+                                    />
+                                )}
+                            </ProfileStack.Screen>
+                            <ProfileStack.Screen name="ProfileFriends">
+                                {() => (
+                                    <ProfileFriendsScreen
+                                        onOpenUserProfile={handleOpenUserProfile}
+                                        onOpenComments={handleOpenComments}
+                                    />
+                                )}
+                            </ProfileStack.Screen>
+                            <ProfileStack.Screen name="ProfileRequests">
+                                {() => (
+                                    <ProfileRequestsScreen
+                                        onOpenUserProfile={handleOpenUserProfile}
+                                        onOpenComments={handleOpenComments}
+                                    />
+                                )}
+                            </ProfileStack.Screen>
+                            <ProfileStack.Screen name="Settings" component={ProfileSettingsScreen} />
+                            <ProfileStack.Screen name="HiddenContent">
+                                {() => (
+                                    <ProfileHiddenContentScreen
+                                        onOpenUserProfile={handleOpenUserProfile}
+                                    />
+                                )}
+                            </ProfileStack.Screen>
+                            <ProfileStack.Screen name="MutedAuthors" component={ProfileMutedAuthorsScreen} />
+                            <ProfileStack.Screen name="BlockedUsers" component={ProfileBlockedUsersScreen} />
+                            <ProfileStack.Screen name="NotificationPreferences" component={ProfileNotificationPreferencesScreen} />
+                            <ProfileStack.Screen name="LegalDocument" component={ProfileLegalDocumentScreen} />
                         </ProfileStack.Navigator>
                     )}
                 </MainTabs.Screen>

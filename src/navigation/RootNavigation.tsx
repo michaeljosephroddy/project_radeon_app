@@ -19,6 +19,9 @@ import { MeetupDetailScreen } from '../screens/main/MeetupDetailScreen';
 import { RecoveryMeetingDetailScreen } from '../screens/main/support/RecoveryMeetingDetailScreen';
 import { GroupDetailScreen } from '../screens/main/groups/GroupDetailScreen';
 import { GroupFiltersScreen } from '../screens/main/GroupsScreen';
+import { GroupReportScreen } from '../screens/main/groups/GroupReportScreen';
+import { GroupAdminScreen } from '../screens/main/groups/GroupAdminScreen';
+import { SupportRequestManagementScreen } from '../screens/main/groups/SupportRequestManagementScreen';
 import { GroupAdminThreadScreen } from '../screens/main/groups/GroupAdminThreadScreen';
 import { GroupCommentsScreen } from '../screens/main/groups/GroupCommentsScreen';
 import { FeedCommentsScreen } from '../screens/main/feed/FeedCommentsScreen';
@@ -105,6 +108,9 @@ export function RootNavigation(): React.ReactElement {
                                 <RootStack.Screen name="MeetupDetail" component={RootMeetupDetailScreen} />
                                 <RootStack.Screen name="RecoveryMeetingDetail" component={RootRecoveryMeetingDetailScreen} />
                                 <RootStack.Screen name="GroupDetail" component={RootGroupDetailScreen} />
+                                <RootStack.Screen name="GroupReport" component={RootGroupReportScreen} />
+                                <RootStack.Screen name="GroupAdmin" component={RootGroupAdminScreen} />
+                                <RootStack.Screen name="SupportRequestManagement" component={RootSupportRequestManagementScreen} />
                                 <RootStack.Screen name="GroupAdminThread" component={RootGroupAdminThreadScreen} />
                                 <RootStack.Screen name="GroupComments" component={RootGroupCommentsScreen} />
                                 <RootStack.Screen name="Notifications" component={RootNotificationsScreen} />
@@ -402,16 +408,115 @@ function RootGroupDetailScreen({ route, navigation }: NativeStackScreenProps<Roo
                 onBack={() => navigation.goBack()}
                 onOpenComments={(post) => navigation.navigate('GroupComments', { post })}
                 onOpenChat={(chat) => navigation.navigate('Chat', { chat })}
-                onOpenAdminThread={(threadId) => navigation.navigate('GroupAdminThread', {
+                onOpenAdmin={() => navigation.navigate('GroupAdmin', { groupId: route.params.groupId })}
+                onOpenReport={() => navigation.navigate('GroupReport', { groupId: route.params.groupId })}
+                onManageSupportRequest={(request, post) => navigation.navigate('SupportRequestManagement', {
                     groupId: route.params.groupId,
-                    threadId,
+                    requestId: request.id,
+                    request,
+                    post,
                 })}
-                initialAdminTab={route.params.initialAdminTab}
-                initialAdminThreadId={route.params.initialAdminThreadId}
                 focusPostRequest={route.params.focusPostRequest ?? null}
                 onFocusPostConsumed={() => {}}
                 focusSupportRequest={route.params.focusSupportRequest ?? null}
                 onFocusSupportRequestConsumed={() => {}}
+            />
+        </RootStackScreenFrame>
+    );
+}
+
+function RootGroupAdminScreen({ route, navigation }: NativeStackScreenProps<RootStackParamList, 'GroupAdmin'>): React.ReactElement {
+    const groupQuery = useGroup(route.params.groupId, true);
+    const group = groupQuery.data;
+
+    if (!group) {
+        return (
+            <RootStackScreenFrame centered>
+                <ActivityIndicator color={Colors.primary} />
+            </RootStackScreenFrame>
+        );
+    }
+
+    return (
+        <RootStackScreenFrame>
+            <GroupAdminScreen
+                group={group}
+                onBack={() => navigation.goBack()}
+                onOpenThread={(threadId) => navigation.navigate('GroupAdminThread', {
+                    groupId: route.params.groupId,
+                    threadId,
+                })}
+                initialTab={route.params.initialTab}
+                initialThreadId={route.params.initialThreadId}
+            />
+        </RootStackScreenFrame>
+    );
+}
+
+function RootGroupReportScreen({ route, navigation }: NativeStackScreenProps<RootStackParamList, 'GroupReport'>): React.ReactElement {
+    const groupQuery = useGroup(route.params.groupId, true);
+    const group = groupQuery.data;
+
+    if (!group) {
+        return (
+            <RootStackScreenFrame centered>
+                <ActivityIndicator color={Colors.primary} />
+            </RootStackScreenFrame>
+        );
+    }
+
+    return (
+        <RootStackScreenFrame>
+            <GroupReportScreen
+                group={group}
+                onBack={() => navigation.goBack()}
+                onReported={() => navigation.goBack()}
+            />
+        </RootStackScreenFrame>
+    );
+}
+
+function RootSupportRequestManagementScreen({ route, navigation }: NativeStackScreenProps<RootStackParamList, 'SupportRequestManagement'>): React.ReactElement {
+    const [request, setRequest] = React.useState<api.SupportRequest | null>(route.params.request ?? null);
+
+    React.useEffect(() => {
+        if (route.params.request) {
+            setRequest(route.params.request);
+            return undefined;
+        }
+
+        let cancelled = false;
+        void api.getSupportRequest(route.params.requestId)
+            .then((loaded) => {
+                if (!cancelled) setRequest(loaded);
+            })
+            .catch(() => {
+                if (!cancelled) navigation.goBack();
+            });
+
+        return () => {
+            cancelled = true;
+        };
+    }, [navigation, route.params.request, route.params.requestId]);
+
+    if (!request) {
+        return (
+            <RootStackScreenFrame centered>
+                <ActivityIndicator color={Colors.primary} />
+            </RootStackScreenFrame>
+        );
+    }
+
+    return (
+        <RootStackScreenFrame>
+            <SupportRequestManagementScreen
+                groupId={route.params.groupId}
+                request={request}
+                post={route.params.post}
+                onBack={() => navigation.goBack()}
+                onOpenComments={(post) => navigation.navigate('GroupComments', { post })}
+                onOpenChat={(chat) => navigation.navigate('Chat', { chat })}
+                onChanged={() => navigation.goBack()}
             />
         </RootStackScreenFrame>
     );
@@ -502,20 +607,20 @@ function RootNotificationsScreen({ navigation }: NativeStackScreenProps<RootStac
                     groupId,
                     focusPostRequest: postId ? { postId, nonce: Date.now() } : undefined,
                 })}
-                onOpenGroupReports={(groupId) => navigation.navigate('GroupDetail', {
+                onOpenGroupReports={(groupId) => navigation.navigate('GroupAdmin', {
                     groupId,
-                    initialAdminTab: 'reports',
+                    initialTab: 'reports',
                 })}
                 onOpenGroupAdminInbox={(groupId, threadId) => {
                     if (threadId) {
                         navigation.navigate('GroupAdminThread', { groupId, threadId });
                         return;
                     }
-                    navigation.navigate('GroupDetail', { groupId, initialAdminTab: 'inbox' });
+                    navigation.navigate('GroupAdmin', { groupId, initialTab: 'inbox' });
                 }}
-                onOpenSupportRequestContext={(groupId, supportRequestId, postId) => navigation.navigate('GroupDetail', {
+                onOpenSupportRequestContext={(groupId, supportRequestId) => navigation.navigate('SupportRequestManagement', {
                     groupId,
-                    focusSupportRequest: { requestId: supportRequestId, postId, nonce: Date.now() },
+                    requestId: supportRequestId,
                 })}
                 onOpenReachOut={(signalId) => navigation.navigate('MainTabs', {
                     tab: 'community',

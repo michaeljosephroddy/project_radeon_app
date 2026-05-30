@@ -17,11 +17,6 @@ import { SobrietyCounter } from '../../components/SobrietyCounter';
 import type { CommentThreadTarget } from './feed/FeedCommentsScreen';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { TextField } from '../../components/ui/TextField';
-import { SettingsScreen } from './SettingsScreen';
-import { HiddenContentScreen } from './HiddenContentScreen';
-import { BlockedUsersScreen } from './BlockedUsersScreen';
-import { NotificationPreferencesScreen } from './NotificationPreferencesScreen';
-import { MutedAuthorsScreen } from './MutedAuthorsScreen';
 import { ProfileContentTabs, ProfileContentTabKey } from '../../components/profile/ProfileContentTabs';
 import { ProfileEmptyTabState } from '../../components/profile/ProfileEmptyTabState';
 import { ProfilePostCard } from '../../components/profile/ProfilePostCard';
@@ -38,16 +33,11 @@ import { formatSobrietyDate } from '../../utils/date';
 import { screenStandards } from '../../styles/screenStandards';
 import { dedupeById } from '../../utils/list';
 
-type SubView =
+export type ProfileTabMode =
     | 'profile'
     | 'edit-profile'
     | 'friends'
-    | 'requests'
-    | 'settings'
-    | 'hidden-content'
-    | 'muted-authors'
-    | 'blocked-users'
-    | 'notification-preferences';
+    | 'requests';
 type RequestsSubView = 'incoming' | 'outgoing';
 type EditableSection = 'bio' | 'location' | 'identity' | 'interests' | 'intent' | 'sobriety' | null;
 type EditableGender = api.UserGender | '';
@@ -56,27 +46,36 @@ const MAX_INTERESTS = 5;
 
 interface ProfileTabScreenProps {
     isActive: boolean;
+    mode?: ProfileTabMode;
     initialContentTab?: ProfileContentTabKey;
     resetKey?: number;
     onOpenUserProfile: (profile: { userId: string; username: string; avatarUrl?: string }) => void;
     onOpenComments: (thread: CommentThreadTarget, focusComposer: boolean, onCommentCreated?: (comment: api.Comment) => void) => void;
+    onOpenSettings: () => void;
+    onOpenEditProfile: () => void;
+    onOpenFriends: () => void;
+    onOpenRequests: () => void;
     onBack?: () => void;
 }
 
-// Renders the current user's profile tab plus friends, requests, and settings subviews.
+// Renders the current user's profile tab content for the profile stack route that owns it.
 export function ProfileTabScreen({
     isActive,
+    mode = 'profile',
     initialContentTab,
     resetKey,
     onOpenUserProfile,
     onOpenComments,
+    onOpenSettings,
+    onOpenEditProfile,
+    onOpenFriends,
+    onOpenRequests,
     onBack,
 }: ProfileTabScreenProps) {
-    const { user, refreshUser, logout } = useAuth();
+    const { user, refreshUser } = useAuth();
     const profileListRef = useRef<FlatList<api.Post> | null>(null);
     const profileScrollOffsetRef = useRef(0);
     const contentTabsYRef = useRef(0);
-    const [subView, setSubView] = useState<SubView>('profile');
     const [requestsSubView, setRequestsSubView] = useState<RequestsSubView>('incoming');
     const [activeContentTab, setActiveContentTab] = useState<ProfileContentTabKey>('posts');
 
@@ -109,7 +108,7 @@ export function ProfileTabScreen({
     const [loadingMoreOutgoing, setLoadingMoreOutgoing] = useState(false);
     const [pendingActionIds, setPendingActionIds] = useState<Set<string>>(new Set());
     const interestsQuery = useInterests(isActive);
-    const userPostsQuery = useUserPosts(user?.id ?? '', 20, isActive && subView === 'profile' && Boolean(user?.id));
+    const userPostsQuery = useUserPosts(user?.id ?? '', 20, isActive && mode === 'profile' && Boolean(user?.id));
     const availableInterests = interestsQuery.data ?? [];
     const ownPosts = useMemo(
         () => dedupeById((userPostsQuery.data?.pages ?? []).flatMap(page => page.items ?? [])),
@@ -200,7 +199,6 @@ export function ProfileTabScreen({
 
     useEffect(() => {
         if (resetKey === undefined && !initialContentTab) return;
-        setSubView('profile');
         setActiveContentTab(initialContentTab ?? 'posts');
     }, [initialContentTab, resetKey]);
 
@@ -387,15 +385,15 @@ export function ProfileTabScreen({
         }, false);
     }, [onOpenComments]);
 
-    const profilePostsData = subView === 'profile' && activeContentTab === 'posts' && !userPostsQuery.isLoading
+    const profilePostsData = mode === 'profile' && activeContentTab === 'posts' && !userPostsQuery.isLoading
         ? activeContentItems
         : [];
 
     const handleLoadMoreOwnPosts = useCallback((): void => {
-        if (subView !== 'profile' || activeContentTab !== 'posts') return;
+        if (mode !== 'profile' || activeContentTab !== 'posts') return;
         if (!userPostsQuery.hasNextPage || userPostsQuery.isFetchingNextPage) return;
         void userPostsQuery.fetchNextPage();
-    }, [activeContentTab, subView, userPostsQuery]);
+    }, [activeContentTab, mode, userPostsQuery]);
 
     const restoreContentTabAnchor = useCallback((): void => {
         const targetOffset = Math.max(contentTabsYRef.current, 0);
@@ -485,11 +483,6 @@ export function ProfileTabScreen({
         }
     };
 
-    // Signs the current user out from the profile area.
-    const handleLogout = async () => {
-        try { await logout(); } catch {}
-    };
-
     // Friends and requests are paged separately because these detail views can
     // grow much larger than the summary counts shown on the profile home.
     const handleLoadMoreFriends = async () => {
@@ -527,39 +520,10 @@ export function ProfileTabScreen({
 
     if (!user) return null;
 
-    if (subView === 'settings') {
-        return (
-            <SettingsScreen
-                onBack={() => setSubView('profile')}
-                onLogout={handleLogout}
-                onOpenHiddenContent={() => setSubView('hidden-content')}
-                onOpenMutedAuthors={() => setSubView('muted-authors')}
-                onOpenBlockedUsers={() => setSubView('blocked-users')}
-                onOpenNotificationPreferences={() => setSubView('notification-preferences')}
-            />
-        );
-    }
-
-    if (subView === 'hidden-content') {
-        return <HiddenContentScreen onBack={() => setSubView('settings')} onOpenUserProfile={onOpenUserProfile} />;
-    }
-
-    if (subView === 'muted-authors') {
-        return <MutedAuthorsScreen onBack={() => setSubView('settings')} />;
-    }
-
-    if (subView === 'blocked-users') {
-        return <BlockedUsersScreen onBack={() => setSubView('settings')} />;
-    }
-
-    if (subView === 'notification-preferences') {
-        return <NotificationPreferencesScreen onBack={() => setSubView('settings')} />;
-    }
-
-    if (subView === 'friends') {
+    if (mode === 'friends') {
         return (
             <SafeAreaView style={styles.container} edges={[]}>
-                <ScreenHeader onBack={() => setSubView('profile')} title="Friends" />
+                <ScreenHeader onBack={onBack} title="Friends" />
                 <FlatList
                     data={friends}
                     keyExtractor={item => item.user_id}
@@ -595,10 +559,10 @@ export function ProfileTabScreen({
         );
     }
 
-    if (subView === 'requests') {
+    if (mode === 'requests') {
         return (
             <SafeAreaView style={styles.container} edges={[]}>
-                <ScreenHeader onBack={() => setSubView('profile')} title="Requests" />
+                <ScreenHeader onBack={onBack} title="Requests" />
                 <View style={screenStandards.sectionTabsWrap}>
                     <SegmentedControl
                         activeKey={requestsSubView}
@@ -666,13 +630,13 @@ export function ProfileTabScreen({
     return (
         <SafeAreaView style={styles.container} edges={[]}>
             <ScreenHeader
-                onBack={subView === 'edit-profile' ? () => {
+                onBack={mode === 'edit-profile' ? () => {
                     handleCancelEditSection();
-                    setSubView('profile');
+                    onBack?.();
                 } : onBack}
-                title={subView === 'edit-profile' ? 'Edit Profile' : 'Profile'}
-                trailing={subView === 'profile' ? (
-                    <TouchableOpacity onPress={() => setSubView('settings')} style={styles.settingsBtn}>
+                title={mode === 'edit-profile' ? 'Edit Profile' : 'Profile'}
+                trailing={mode === 'profile' ? (
+                    <TouchableOpacity onPress={onOpenSettings} style={styles.settingsBtn}>
                         <Text style={styles.settingsIcon}>⚙</Text>
                     </TouchableOpacity>
                 ) : null}
@@ -689,13 +653,13 @@ export function ProfileTabScreen({
                 onScroll={handleProfileScroll}
                 scrollEventThrottle={16}
                 keyboardShouldPersistTaps="handled"
-                contentContainerStyle={[screenStandards.scrollContent, styles.content, subView === 'profile' && styles.profileContent]}
-                ListFooterComponent={subView === 'profile' && userPostsQuery.isFetchingNextPage ? (
+                contentContainerStyle={[screenStandards.scrollContent, styles.content, mode === 'profile' && styles.profileContent]}
+                ListFooterComponent={mode === 'profile' && userPostsQuery.isFetchingNextPage ? (
                     <ActivityIndicator color={Colors.primary} style={styles.profilePostsLoader} />
                 ) : null}
                 ListHeaderComponent={(
                     <>
-                {subView === 'profile' ? (
+                {mode === 'profile' ? (
                     <>
                         <View style={styles.profileTopRow}>
                             <TouchableOpacity onPress={handlePickAvatar} disabled={uploadingAvatar} style={styles.avatarWrap}>
@@ -715,12 +679,12 @@ export function ProfileTabScreen({
                                     <Text style={styles.statLabel}>Posts</Text>
                                 </View>
                                 <View style={styles.statDivider} />
-                                <TouchableOpacity style={styles.statItem} onPress={() => setSubView('friends')}>
+                                <TouchableOpacity style={styles.statItem} onPress={onOpenFriends}>
                                     <Text style={styles.statCount}>{user.friend_count}</Text>
                                     <Text style={styles.statLabel}>Friends</Text>
                                 </TouchableOpacity>
                                 <View style={styles.statDivider} />
-                                <TouchableOpacity style={styles.statItem} onPress={() => setSubView('requests')}>
+                                <TouchableOpacity style={styles.statItem} onPress={onOpenRequests}>
                                     <Text style={styles.statCount}>{user.incoming_friend_request_count + user.outgoing_friend_request_count}</Text>
                                     <Text style={styles.statLabel}>Requests</Text>
                                 </TouchableOpacity>
@@ -753,7 +717,7 @@ export function ProfileTabScreen({
                             <SobrietyCounter soberSince={user.sober_since} compact style={styles.profileSummarySobriety} />
 
                             <View style={styles.profileActionRow}>
-                                <TouchableOpacity style={styles.profileEditButton} onPress={() => setSubView('edit-profile')}>
+                                <TouchableOpacity style={styles.profileEditButton} onPress={onOpenEditProfile}>
                                     <Text style={styles.profileEditButtonText}>Edit Profile</Text>
                                 </TouchableOpacity>
                             </View>
@@ -778,7 +742,7 @@ export function ProfileTabScreen({
                     </>
                 ) : null}
 
-                {subView === 'edit-profile' ? (
+                {mode === 'edit-profile' ? (
                 <View style={styles.mainContent}>
                     <View style={screenStandards.sectionLabelBlock}>
                         <SectionLabel>BIO</SectionLabel>
