@@ -50,6 +50,16 @@ const PREFERENCE_ROWS: PreferenceRow[] = [
         label: 'Comment mentions',
         description: 'Receive notifications when someone mentions you in a comment.',
     },
+    {
+        key: 'reach_out_alerts',
+        label: 'Reach Out alerts',
+        description: 'Receive alerts when a friend asks for immediate sober support.',
+    },
+    {
+        key: 'reach_out_helper_alerts',
+        label: 'Helper alerts',
+        description: 'Opt in to Reach Out alerts from people who are not already friends.',
+    },
 ];
 
 const SWITCH_TRACK_COLORS = {
@@ -75,6 +85,8 @@ export function NotificationPreferencesScreen({ onBack }: NotificationPreference
             queryClient.setQueryData<api.NotificationPreferences>(queryKey, (current) => ({
                 chat_messages: current?.chat_messages ?? true,
                 comment_mentions: current?.comment_mentions ?? true,
+                reach_out_alerts: current?.reach_out_alerts ?? true,
+                reach_out_helper_alerts: current?.reach_out_helper_alerts ?? false,
                 ...input,
             }));
             return { previous };

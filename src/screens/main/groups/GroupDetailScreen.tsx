@@ -45,7 +45,6 @@ import { GroupReportScreen } from './GroupReportScreen';
 import { formatReadableTimestamp } from '../../../utils/date';
 import { formatUsername } from '../../../utils/identity';
 
-const COMMUNITY_SUPPORT_KEY = 'community_support';
 const SUPPORT_MANAGEMENT_PAGE_SIZE = 25;
 const OFFER_STATUS_FILTERS: Array<{ key: api.SupportOfferStatusFilter; label: string }> = [
     { key: 'pending', label: 'Pending' },
@@ -554,7 +553,7 @@ function GroupPostsTab({
     const insets = useSafeAreaInsets();
     const { user } = useAuth();
     const queryClient = useQueryClient();
-    const isCommunitySupport = group.system_key === COMMUNITY_SUPPORT_KEY;
+    const isCommunitySupport = false;
     const [supportSurface, setSupportSurface] = useState<GroupSupportSurface>('feed');
     const [pendingSupportIds, setPendingSupportIds] = useState<Set<string>>(new Set());
     const postsQuery = useGroupPosts(groupId, 20, true);

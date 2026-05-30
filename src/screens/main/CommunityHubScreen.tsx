@@ -5,14 +5,17 @@ import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { screenStandards } from '../../styles/screenStandards';
 import { GroupsScreen } from './GroupsScreen';
 import { MeetupsScreen } from './MeetupsScreen';
+import { ReachOutScreen } from './ReachOutScreen';
 
-export type CommunityHubSurface = 'groups' | 'meetups';
+export type CommunityHubSurface = 'reach_out' | 'groups' | 'meetups';
 
 interface CommunityHubScreenProps {
     isActive: boolean;
     activeSurface: CommunityHubSurface;
     onChangeSurface: (surface: CommunityHubSurface) => void;
     onOpenGroup: (groupId: string) => void;
+    onOpenChat: (chat: api.Chat) => void;
+    focusSignalId?: string | null;
     onOpenMeetup: (meetup: api.Meetup) => void;
     onOpenManageMeetup: (meetup: api.Meetup) => void;
     onGroupJoined?: (group: api.Group) => void;
@@ -24,11 +27,14 @@ export function CommunityHubScreen({
     activeSurface,
     onChangeSurface,
     onOpenGroup,
+    onOpenChat,
+    focusSignalId,
     onOpenMeetup,
     onOpenManageMeetup,
     onGroupJoined,
     onRsvpComplete,
 }: CommunityHubScreenProps): React.ReactElement {
+    const reachOutActive = isActive && activeSurface === 'reach_out';
     const groupsActive = isActive && activeSurface === 'groups';
     const meetupsActive = isActive && activeSurface === 'meetups';
 
@@ -36,6 +42,7 @@ export function CommunityHubScreen({
         <View style={screenStandards.pageTabsWrap}>
             <SegmentedControl
                 items={[
+                    { key: 'reach_out', label: 'Reach Out' },
                     { key: 'groups', label: 'Groups' },
                     { key: 'meetups', label: 'Meetups' },
                 ]}
@@ -57,6 +64,19 @@ export function CommunityHubScreen({
                     onOpenMeetup={onOpenMeetup}
                     onOpenManageMeetup={onOpenManageMeetup}
                     onRsvpComplete={onRsvpComplete}
+                />
+            </View>
+        );
+    }
+
+    if (activeSurface === 'reach_out') {
+        return (
+            <View style={styles.container}>
+                {surfaceTabs}
+                <ReachOutScreen
+                    isActive={reachOutActive}
+                    onOpenChat={onOpenChat}
+                    focusSignalId={focusSignalId ?? null}
                 />
             </View>
         );

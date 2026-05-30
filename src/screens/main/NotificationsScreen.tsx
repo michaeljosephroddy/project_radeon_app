@@ -32,6 +32,7 @@ interface NotificationsScreenProps {
     onOpenGroupReports: (groupId: string, reportId?: string) => void;
     onOpenGroupAdminInbox: (groupId: string, threadId?: string) => void;
     onOpenSupportRequestContext: (groupId: string, supportRequestId: string, postId?: string) => void;
+    onOpenReachOut: (signalId?: string) => void;
 }
 
 interface NotificationRowProps {
@@ -50,6 +51,8 @@ function readPayloadString(payload: Record<string, unknown>, key: string): strin
 function getNotificationIcon(type: string): keyof typeof Ionicons.glyphMap {
     if (type === 'chat.message') return 'chatbubble-outline';
     if (type === 'comment.mention') return 'at-outline';
+    if (type === 'support.signal') return 'radio-outline';
+    if (type === 'support.signal_response') return 'chatbubble-ellipses-outline';
     if (type === 'support.offer') return 'heart-outline';
     if (type.startsWith('group.')) return 'people-outline';
     return 'notifications-outline';
@@ -68,6 +71,8 @@ function getNotificationTitle(item: api.NotificationItem): string {
     if (item.type === 'group.admin_reply') return `Admin reply from ${item.title}`;
     if (item.type === 'group.report') return `New report in ${item.title}`;
     if (item.type === 'group.report_status') return `Report update in ${item.title}`;
+    if (item.type === 'support.signal') return 'Reach Out';
+    if (item.type === 'support.signal_response') return 'Someone replied';
     if (item.type === 'support.offer') return `Support offer in ${item.title}`;
     return item.title;
 }
@@ -113,6 +118,7 @@ export function NotificationsScreen({
     onOpenGroupReports,
     onOpenGroupAdminInbox,
     onOpenSupportRequestContext,
+    onOpenReachOut,
 }: NotificationsScreenProps) {
     const queryClient = useQueryClient();
     const notificationsQuery = useNotifications(PAGE_SIZE, isActive);
@@ -184,6 +190,16 @@ export function NotificationsScreen({
                     postId,
                     commentId: readPayloadString(item.payload, 'comment_id') ?? undefined,
                 });
+                return;
+            }
+
+            if (item.type === 'support.signal' || item.type === 'support.signal_response') {
+                const chatId = readPayloadString(item.payload, 'chat_id');
+                if (chatId) {
+                    await onOpenChat(chatId);
+                    return;
+                }
+                onOpenReachOut(readPayloadString(item.payload, 'support_signal_id') ?? undefined);
                 return;
             }
 
@@ -266,7 +282,7 @@ export function NotificationsScreen({
         } finally {
             setPendingId(null);
         }
-    }, [invalidateNotifications, onOpenChat, onOpenGroup, onOpenGroupAdminInbox, onOpenGroupReports, onOpenMention, onOpenSupportRequestContext, pendingId]);
+    }, [invalidateNotifications, onOpenChat, onOpenGroup, onOpenGroupAdminInbox, onOpenGroupReports, onOpenMention, onOpenReachOut, onOpenSupportRequestContext, pendingId]);
 
     const renderItem = useCallback(({ item }: { item: api.NotificationItem }) => (
         <NotificationRow item={item} pending={pendingId === item.id} onPress={handlePressNotification} />

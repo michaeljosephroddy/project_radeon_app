@@ -220,6 +220,8 @@ function CommunityHomeScreen({
     activeSurface,
     onChangeSurface,
     onOpenGroup,
+    onOpenChat,
+    focusSignalId,
     onOpenMeetup,
     onOpenManageMeetup,
 }: {
@@ -227,6 +229,8 @@ function CommunityHomeScreen({
     activeSurface: CommunityHubSurface;
     onChangeSurface: (surface: CommunityHubSurface) => void;
     onOpenGroup: (groupId: string) => void;
+    onOpenChat: (chat: api.Chat) => void;
+    focusSignalId: string | null;
     onOpenMeetup: (meetup: api.Meetup) => void;
     onOpenManageMeetup: (meetup: api.Meetup) => void;
 }): React.ReactElement {
@@ -246,6 +250,8 @@ function CommunityHomeScreen({
                 activeSurface={activeSurface}
                 onChangeSurface={onChangeSurface}
                 onOpenGroup={onOpenGroup}
+                onOpenChat={onOpenChat}
+                focusSignalId={focusSignalId}
                 onOpenMeetup={onOpenMeetup}
                 onOpenManageMeetup={onOpenManageMeetup}
             />
@@ -369,7 +375,8 @@ export function AppNavigator(): React.ReactElement {
     const notificationSummaryQuery = useNotificationSummary(Boolean(user?.id));
     const notificationSummary = notificationSummaryQuery.data;
     const insets = useSafeAreaInsets();
-    const [communitySurface, setCommunitySurface] = useState<CommunityHubSurface>('groups');
+    const [communitySurface, setCommunitySurface] = useState<CommunityHubSurface>('reach_out');
+    const [communityFocusSignalId, setCommunityFocusSignalId] = useState<string | null>(null);
     const [ownProfileInitialContentTab, setOwnProfileInitialContentTab] = useState<ProfileContentTabKey>('posts');
     const [ownProfileResetKey, setOwnProfileResetKey] = useState(0);
     const [previousMainTab, setPreviousMainTab] = useState<PrimaryTabRouteName>('FeedTab');
@@ -509,18 +516,38 @@ export function AppNavigator(): React.ReactElement {
 
     useEffect(() => {
         const requestedTab = route.params?.tab;
+        const requestedCommunitySurface = route.params?.communitySurface;
+        const requestedCommunityFocusSignalId = route.params?.communityFocusSignalId;
         const requestedFocus = route.params?.feedFocusRequest;
-        if (!requestedTab && !requestedFocus) return;
+        if (!requestedTab && !requestedFocus && !requestedCommunitySurface && !requestedCommunityFocusSignalId) return;
 
         if (requestedTab) {
             navigateMainTab(ROOT_TAB_TO_ROUTE[requestedTab]);
+        }
+        if (requestedCommunitySurface) {
+            setCommunitySurface(requestedCommunitySurface);
+        }
+        if (requestedCommunityFocusSignalId) {
+            setCommunityFocusSignalId(requestedCommunityFocusSignalId);
         }
         if (requestedFocus) {
             navigateMainTab('FeedTab');
             setFeedFocusRequest(requestedFocus);
         }
-        rootNavigation.setParams({ tab: undefined, feedFocusRequest: undefined });
-    }, [navigateMainTab, rootNavigation, route.params?.feedFocusRequest, route.params?.tab]);
+        rootNavigation.setParams({
+            tab: undefined,
+            communitySurface: undefined,
+            communityFocusSignalId: undefined,
+            feedFocusRequest: undefined,
+        });
+    }, [
+        navigateMainTab,
+        rootNavigation,
+        route.params?.communityFocusSignalId,
+        route.params?.communitySurface,
+        route.params?.feedFocusRequest,
+        route.params?.tab,
+    ]);
 
     useEffect(() => {
         if (!intent) return;
@@ -594,6 +621,30 @@ export function AppNavigator(): React.ReactElement {
                     nonce: Date.now(),
                 },
             });
+            consumeIntent();
+            return;
+        }
+
+        if (intent.kind === 'support_signal') {
+            if (intent.chatId) {
+                let cancelled = false;
+                void (async (): Promise<void> => {
+                    try {
+                        const chat = await api.getChat(intent.chatId ?? '');
+                        if (cancelled) return;
+                        navigateMainTab('ChatsTab');
+                        openChatScreen(chat);
+                    } finally {
+                        if (!cancelled) consumeIntent();
+                    }
+                })();
+                return () => {
+                    cancelled = true;
+                };
+            }
+            setCommunitySurface('reach_out');
+            setCommunityFocusSignalId(intent.signalId ?? null);
+            navigateMainTab('CommunityTab');
             consumeIntent();
             return;
         }
@@ -697,6 +748,8 @@ export function AppNavigator(): React.ReactElement {
                                         activeSurface={communitySurface}
                                         onChangeSurface={setCommunitySurface}
                                         onOpenGroup={handleOpenGroup}
+                                        onOpenChat={openChatScreen}
+                                        focusSignalId={communityFocusSignalId}
                                         onOpenMeetup={handleOpenMeetup}
                                         onOpenManageMeetup={openManageMeetup}
                                     />

@@ -5,6 +5,8 @@ import type { PlusSource } from '../utils/datingMonetization';
 export type RootStackParamList = {
     MainTabs: {
         tab?: 'feed' | 'discover' | 'community' | 'chats';
+        communitySurface?: 'reach_out' | 'groups' | 'meetups';
+        communityFocusSignalId?: string;
         feedFocusRequest?: { postId: string; commentId?: string; nonce: number };
     } | undefined;
     UserProfile: { userId: string; username?: string; avatarUrl?: string };
@@ -15,7 +17,7 @@ export type RootStackParamList = {
     CreateMenu: undefined;
     CreatePost: undefined;
     CreateGroup: undefined;
-    CreateSupportRequest: undefined;
+    CreateReachOut: undefined;
     CreateMeetup: { meetup?: Meetup } | undefined;
     DiscoverFilters: undefined;
     MeetupFilters: undefined;

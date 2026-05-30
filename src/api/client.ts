@@ -375,6 +375,8 @@ export interface NotificationSummary {
 export interface NotificationPreferences {
     chat_messages: boolean;
     comment_mentions: boolean;
+    reach_out_alerts: boolean;
+    reach_out_helper_alerts: boolean;
 }
 
 export interface MeetupCategory {
@@ -625,6 +627,13 @@ export type SupportTopic =
     | 'general';
 export type PreferredGender = 'woman' | 'man' | 'non_binary' | 'no_preference';
 export type SupportRequestFilter = 'all' | 'urgent' | 'unanswered';
+export type SupportSignalReason =
+    | 'cravings'
+    | 'relapse_risk'
+    | 'overwhelmed'
+    | 'lonely'
+    | 'risky_place'
+    | 'need_to_talk';
 
 export interface SupportLocation {
     city?: string | null;
@@ -694,6 +703,42 @@ export interface SupportReply {
     avatar_url?: string | null;
     body: string;
     created_at: string;
+}
+
+export interface SupportSignal {
+    id: string;
+    user_id: string;
+    username: string;
+    avatar_url?: string | null;
+    city?: string | null;
+    reason: SupportSignalReason;
+    status: 'active' | 'resolved' | 'cancelled' | 'expired';
+    expires_at: string;
+    response_count: number;
+    created_at: string;
+    resolved_at?: string | null;
+    cancelled_at?: string | null;
+    is_own_signal: boolean;
+    is_friend: boolean;
+}
+
+export interface ActiveSupportSignalSummary {
+    id: string;
+    reason: SupportSignalReason;
+    expires_at: string;
+}
+
+export interface CreateSupportSignalInput {
+    reason: SupportSignalReason;
+}
+
+export interface SupportSignalResponseResult {
+    signal: SupportSignal;
+    chat_id: string;
+}
+
+export interface MySupportSignalResponse {
+    signal: SupportSignal | null;
 }
 
 export interface CreateSupportRequestInput {
@@ -2264,6 +2309,40 @@ export async function getRecoveryMeetingCountrySuggestions(
 
 export async function createSupportRequest(data: CreateSupportRequestInput): Promise<SupportRequest> {
     return request('/support/requests', { method: 'POST', body: JSON.stringify(data) });
+}
+
+export async function getActiveSupportSignals(cursor?: string, limit = 20): Promise<CursorResponse<SupportSignal>> {
+    const search = new URLSearchParams({ limit: String(limit) });
+    if (cursor) search.set('before', cursor);
+    const suffix = search.toString() ? `?${search.toString()}` : '';
+    const page = await request<RawCursorResponse<SupportSignal>>(`/support/signals/active${suffix}`);
+    return {
+        limit: page.limit,
+        has_more: page.has_more,
+        next_cursor: page.next_cursor ?? page.next_before ?? null,
+        items: page.items ?? [],
+    };
+}
+
+export async function getMySupportSignal(): Promise<SupportSignal | null> {
+    const result = await request<MySupportSignalResponse>('/support/signals/mine');
+    return result.signal ?? null;
+}
+
+export async function createSupportSignal(data: CreateSupportSignalInput): Promise<SupportSignal> {
+    return request('/support/signals', { method: 'POST', body: JSON.stringify(data) });
+}
+
+export async function respondToSupportSignal(id: string): Promise<SupportSignalResponseResult> {
+    return request(`/support/signals/${id}/respond`, { method: 'POST' });
+}
+
+export async function resolveSupportSignal(id: string): Promise<SupportSignal> {
+    return request(`/support/signals/${id}/resolve`, { method: 'POST' });
+}
+
+export async function cancelSupportSignal(id: string): Promise<SupportSignal> {
+    return request(`/support/signals/${id}/cancel`, { method: 'POST' });
 }
 
 // Loads open support requests visible to the current user.

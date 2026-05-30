@@ -1,4 +1,4 @@
-import { useInfiniteQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import * as api from '../../api/client';
 import { getInfiniteQueryPolicy } from '../../query/queryPolicies';
 import { queryKeys } from '../../query/queryKeys';
@@ -31,6 +31,30 @@ export function useMySupportRequests(limit = 20, enabled = true) {
         getNextPageParam: (lastPage) => lastPage.next_cursor ?? undefined,
         staleTime: SUPPORT_REQUESTS_STALE_TIME,
         refetchOnMount: policy?.refetchOnMount,
+        enabled,
+    });
+}
+
+export function useActiveSupportSignals(limit = 20, enabled = true) {
+    const queryKey = queryKeys.supportSignals({ scope: 'active', limit });
+    const policy = getInfiniteQueryPolicy(queryKey);
+
+    return useInfiniteQuery({
+        queryKey,
+        queryFn: ({ pageParam }) => api.getActiveSupportSignals(pageParam as string | undefined, limit),
+        initialPageParam: undefined as string | undefined,
+        getNextPageParam: (lastPage) => lastPage.next_cursor ?? undefined,
+        staleTime: SUPPORT_REQUESTS_STALE_TIME,
+        refetchOnMount: policy?.refetchOnMount,
+        enabled,
+    });
+}
+
+export function useMySupportSignal(enabled = true) {
+    return useQuery({
+        queryKey: queryKeys.supportSignals({ scope: 'mine' }),
+        queryFn: () => api.getMySupportSignal(),
+        staleTime: SUPPORT_REQUESTS_STALE_TIME,
         enabled,
     });
 }

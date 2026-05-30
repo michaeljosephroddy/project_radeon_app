@@ -13,7 +13,7 @@ import { ComposeDMScreen } from '../screens/main/ComposeDMScreen';
 import { CreateMenuScreen } from '../screens/main/CreateMenuScreen';
 import { CreatePostScreen } from '../screens/main/CreatePostScreen';
 import { GroupCreateScreen } from '../screens/main/groups/GroupCreateScreen';
-import { CreateSupportRequestScreen } from '../screens/main/CreateSupportRequestScreen';
+import { CreateReachOutScreen } from '../screens/main/CreateReachOutScreen';
 import { CreateMeetupScreen } from '../screens/main/CreateMeetupScreen';
 import { MeetupDetailScreen } from '../screens/main/MeetupDetailScreen';
 import { RecoveryMeetingDetailScreen } from '../screens/main/support/RecoveryMeetingDetailScreen';
@@ -35,6 +35,7 @@ import { ChatRealtimeProvider } from '../hooks/chat/ChatRealtimeProvider';
 import { useAuth } from '../hooks/useAuth';
 import { useGroup } from '../hooks/queries/useGroups';
 import { NotificationProvider } from '../notifications/NotificationProvider';
+import { ReachOutStatusProvider } from '../support/ReachOutStatusProvider';
 import { Colors } from '../theme';
 import * as api from '../api/client';
 import { runAfterKeyboardDismiss } from '../utils/keyboardNavigation';
@@ -86,33 +87,35 @@ export function RootNavigation(): React.ReactElement {
             ) : (
                 <ChatRealtimeProvider>
                     <NotificationProvider>
-                        <RootStack.Navigator screenOptions={{ headerShown: false }}>
-                            <RootStack.Screen name="MainTabs" component={AppNavigator} />
-                            <RootStack.Screen name="Chat" component={RootChatScreen} />
-                            <RootStack.Screen name="UserProfile" component={RootUserProfileScreen} />
-                            <RootStack.Screen name="ComposeDM" component={RootComposeDMScreen} />
-                            <RootStack.Screen name="CreateMenu" component={RootCreateMenuScreen} />
-                            <RootStack.Screen name="CreatePost" component={RootCreatePostScreen} />
-                            <RootStack.Screen name="CreateGroup" component={RootCreateGroupScreen} />
-                            <RootStack.Screen name="CreateSupportRequest" component={RootCreateSupportRequestScreen} />
-                            <RootStack.Screen name="CreateMeetup" component={RootCreateMeetupScreen} />
-                            <RootStack.Screen name="DiscoverFilters" component={RootDiscoverFiltersScreen} />
-                            <RootStack.Screen name="MeetupFilters" component={RootMeetupFiltersScreen} />
-                            <RootStack.Screen name="RecoveryMeetingFilters" component={RootRecoveryMeetingFiltersScreen} />
-                            <RootStack.Screen name="GroupFilters" component={RootGroupFiltersScreen} />
-                            <RootStack.Screen name="MeetupDetail" component={RootMeetupDetailScreen} />
-                            <RootStack.Screen name="RecoveryMeetingDetail" component={RootRecoveryMeetingDetailScreen} />
-                            <RootStack.Screen name="GroupDetail" component={RootGroupDetailScreen} />
-                            <RootStack.Screen name="GroupAdminThread" component={RootGroupAdminThreadScreen} />
-                            <RootStack.Screen name="GroupComments" component={RootGroupCommentsScreen} />
-                            <RootStack.Screen name="Notifications" component={RootNotificationsScreen} />
-                            <RootStack.Screen name="FeedComments" component={RootFeedCommentsScreen} />
-                            <RootStack.Screen name="DatingLikes" component={RootDatingLikesScreen} />
-                            <RootStack.Screen name="DatingMatches" component={RootDatingMatchesScreen} />
-                            <RootStack.Screen name="SoberSpacePlus" component={RootSoberSpacePlusScreen} />
-                            <RootStack.Screen name="DatingProfileDetail" component={RootDatingProfileDetailScreen} />
-                            <RootStack.Screen name="DatingProfileEditor" component={RootDatingProfileEditorScreen} />
-                        </RootStack.Navigator>
+                        <ReachOutStatusProvider>
+                            <RootStack.Navigator screenOptions={{ headerShown: false }}>
+                                <RootStack.Screen name="MainTabs" component={AppNavigator} />
+                                <RootStack.Screen name="Chat" component={RootChatScreen} />
+                                <RootStack.Screen name="UserProfile" component={RootUserProfileScreen} />
+                                <RootStack.Screen name="ComposeDM" component={RootComposeDMScreen} />
+                                <RootStack.Screen name="CreateMenu" component={RootCreateMenuScreen} />
+                                <RootStack.Screen name="CreatePost" component={RootCreatePostScreen} />
+                                <RootStack.Screen name="CreateGroup" component={RootCreateGroupScreen} />
+                                <RootStack.Screen name="CreateReachOut" component={RootCreateReachOutScreen} />
+                                <RootStack.Screen name="CreateMeetup" component={RootCreateMeetupScreen} />
+                                <RootStack.Screen name="DiscoverFilters" component={RootDiscoverFiltersScreen} />
+                                <RootStack.Screen name="MeetupFilters" component={RootMeetupFiltersScreen} />
+                                <RootStack.Screen name="RecoveryMeetingFilters" component={RootRecoveryMeetingFiltersScreen} />
+                                <RootStack.Screen name="GroupFilters" component={RootGroupFiltersScreen} />
+                                <RootStack.Screen name="MeetupDetail" component={RootMeetupDetailScreen} />
+                                <RootStack.Screen name="RecoveryMeetingDetail" component={RootRecoveryMeetingDetailScreen} />
+                                <RootStack.Screen name="GroupDetail" component={RootGroupDetailScreen} />
+                                <RootStack.Screen name="GroupAdminThread" component={RootGroupAdminThreadScreen} />
+                                <RootStack.Screen name="GroupComments" component={RootGroupCommentsScreen} />
+                                <RootStack.Screen name="Notifications" component={RootNotificationsScreen} />
+                                <RootStack.Screen name="FeedComments" component={RootFeedCommentsScreen} />
+                                <RootStack.Screen name="DatingLikes" component={RootDatingLikesScreen} />
+                                <RootStack.Screen name="DatingMatches" component={RootDatingMatchesScreen} />
+                                <RootStack.Screen name="SoberSpacePlus" component={RootSoberSpacePlusScreen} />
+                                <RootStack.Screen name="DatingProfileDetail" component={RootDatingProfileDetailScreen} />
+                                <RootStack.Screen name="DatingProfileEditor" component={RootDatingProfileEditorScreen} />
+                            </RootStack.Navigator>
+                        </ReachOutStatusProvider>
                     </NotificationProvider>
                 </ChatRealtimeProvider>
             )}
@@ -180,7 +183,7 @@ function RootCreateMenuScreen({ navigation }: NativeStackScreenProps<RootStackPa
         <CreateMenuScreen
             onClose={() => runAfterKeyboardDismiss(() => navigation.goBack())}
             onCreatePost={() => navigation.replace('CreatePost')}
-            onCreateSupportRequest={() => navigation.replace('CreateSupportRequest')}
+            onCreateReachOut={() => navigation.replace('CreateReachOut')}
             onCreateMeetup={() => navigation.replace('CreateMeetup')}
             onCreateGroup={() => navigation.replace('CreateGroup')}
         />
@@ -206,10 +209,10 @@ function RootCreateGroupScreen({ navigation }: NativeStackScreenProps<RootStackP
     );
 }
 
-function RootCreateSupportRequestScreen({ navigation }: NativeStackScreenProps<RootStackParamList, 'CreateSupportRequest'>): React.ReactElement {
+function RootCreateReachOutScreen({ navigation }: NativeStackScreenProps<RootStackParamList, 'CreateReachOut'>): React.ReactElement {
     return (
         <RootStackScreenFrame>
-            <CreateSupportRequestScreen
+            <CreateReachOutScreen
                 onBack={() => runAfterKeyboardDismiss(() => navigation.goBack())}
                 onCreated={() => runAfterKeyboardDismiss(() => navigation.goBack())}
             />
@@ -513,6 +516,11 @@ function RootNotificationsScreen({ navigation }: NativeStackScreenProps<RootStac
                 onOpenSupportRequestContext={(groupId, supportRequestId, postId) => navigation.navigate('GroupDetail', {
                     groupId,
                     focusSupportRequest: { requestId: supportRequestId, postId, nonce: Date.now() },
+                })}
+                onOpenReachOut={(signalId) => navigation.navigate('MainTabs', {
+                    tab: 'community',
+                    communitySurface: 'reach_out',
+                    communityFocusSignalId: signalId,
                 })}
             />
         </RootStackScreenFrame>

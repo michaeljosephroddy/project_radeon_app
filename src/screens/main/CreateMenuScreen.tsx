@@ -14,7 +14,7 @@ import * as api from '../../api/client';
 import { queryKeys } from '../../query/queryKeys';
 import { Colors, ContentInsets, ControlSizes, IconSizes, Radius, Spacing, TextStyles, Typography } from '../../theme';
 
-type CreateActionKey = 'post' | 'support_request' | 'meetup' | 'group';
+type CreateActionKey = 'post' | 'reach_out' | 'meetup' | 'group';
 
 interface CreateAction {
     key: CreateActionKey;
@@ -27,7 +27,7 @@ interface CreateAction {
 interface CreateMenuScreenProps {
     onClose: () => void;
     onCreatePost: () => void;
-    onCreateSupportRequest: () => void;
+    onCreateReachOut: () => void;
     onCreateMeetup: () => void;
     onCreateGroup: () => void;
 }
@@ -35,7 +35,7 @@ interface CreateMenuScreenProps {
 export function CreateMenuScreen({
     onClose,
     onCreatePost,
-    onCreateSupportRequest,
+    onCreateReachOut,
     onCreateMeetup,
     onCreateGroup,
 }: CreateMenuScreenProps): React.ReactElement {
@@ -49,11 +49,11 @@ export function CreateMenuScreen({
             onPress: onCreatePost,
         },
         {
-            key: 'support_request',
-            title: 'Support request',
-            description: 'Ask the community for help right now.',
+            key: 'reach_out',
+            title: 'Reach Out',
+            description: 'Let sober friends know you could use a quick check-in.',
             icon: 'heart-outline',
-            onPress: onCreateSupportRequest,
+            onPress: onCreateReachOut,
         },
         {
             key: 'meetup',

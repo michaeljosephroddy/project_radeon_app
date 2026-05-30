@@ -14,7 +14,8 @@ type NotificationIntent =
     | { kind: 'group'; groupId: string; postId?: string; notificationId?: string }
     | { kind: 'group_admin_inbox'; groupId: string; threadId?: string; notificationId?: string }
     | { kind: 'group_report'; groupId: string; reportId?: string; notificationId?: string }
-    | { kind: 'support_request'; groupId: string; supportRequestId: string; postId?: string; notificationId?: string };
+    | { kind: 'support_request'; groupId: string; supportRequestId: string; postId?: string; notificationId?: string }
+    | { kind: 'support_signal'; signalId?: string; chatId?: string; notificationId?: string };
 
 interface NotificationContextValue {
     intent: NotificationIntent | null;
@@ -185,6 +186,7 @@ function notificationIntentKey(intent: NotificationIntent): string {
     if (intent.kind === 'group_report') return `group-report:${intent.groupId}:${intent.reportId ?? ''}`;
     if (intent.kind === 'group_admin_inbox') return `group-admin-inbox:${intent.groupId}:${intent.threadId ?? ''}`;
     if (intent.kind === 'support_request') return `support-request:${intent.groupId}:${intent.supportRequestId}:${intent.postId ?? ''}`;
+    if (intent.kind === 'support_signal') return `support-signal:${intent.signalId ?? ''}:${intent.chatId ?? ''}`;
     if (intent.kind === 'group') return `group:${intent.groupId}:${intent.postId ?? ''}`;
     return `mention:${intent.postId}:${intent.commentId ?? ''}`;
 }
@@ -199,6 +201,15 @@ function toIntent(response: Notifications.NotificationResponse | null): Notifica
         const chatId = readString(data, 'chat_id');
         if (!chatId) return null;
         return { kind: 'chat', chatId, notificationId: notificationId ?? undefined };
+    }
+    if (type === 'support.signal' || type === 'support.signal_response') {
+        const chatId = readString(data, 'chat_id');
+        return {
+            kind: 'support_signal',
+            signalId: readString(data, 'support_signal_id') ?? undefined,
+            chatId: chatId ?? undefined,
+            notificationId: notificationId ?? undefined,
+        };
     }
     if (type === 'comment.mention') {
         const postId = readString(data, 'post_id');
