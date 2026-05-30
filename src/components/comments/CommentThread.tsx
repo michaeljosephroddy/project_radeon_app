@@ -16,7 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Avatar } from '../Avatar';
 import { KEYBOARD_STICKY_FOOTER_KEYBOARD_GAP } from '../ui/KeyboardStickyFooter';
 import type { CommentMention, User } from '../../api/client';
-import { Colors, ControlSizes, Spacing, TextStyles, Typography } from '../../theme';
+import { Colors, ControlSizes, Radius, Spacing, TextStyles, Typography } from '../../theme';
 import { formatReadableTimestamp } from '../../utils/date';
 import { formatUsername } from '../../utils/identity';
 import { composerStandards } from '../../styles/composerStandards';
@@ -26,6 +26,8 @@ import { CardActionMenu, type CardActionMenuAction } from '../ui/CardActionMenu'
 const INITIAL_VISIBLE = 20;
 const PAGE_VISIBLE = 20;
 const EMPTY_SUGGESTIONS: User[] = [];
+const COMMENT_AVATAR_SIZE = 34;
+const COMMENT_AVATAR_FONT_SIZE = 12;
 
 interface ActiveMentionState {
     query: string;
@@ -176,16 +178,25 @@ const CommentItem = React.memo(function CommentItem({
 }) {
     return (
         <View style={styles.commentRow}>
-            <Avatar username={comment.username} avatarUrl={comment.avatarUrl} size={34} fontSize={12} />
+            <Avatar
+                username={comment.username}
+                avatarUrl={comment.avatarUrl}
+                size={COMMENT_AVATAR_SIZE}
+                fontSize={COMMENT_AVATAR_FONT_SIZE}
+            />
             <View style={styles.commentBodyWrap}>
                 <View style={styles.commentBubble}>
-                    <View style={styles.commentHeader}>
+                    <View style={[styles.commentHeader, actions?.length ? styles.commentHeaderWithActions : null]}>
                         <View style={styles.commentHeaderCopy}>
                             <Text style={styles.commentAuthor}>{formatUsername(comment.username)}</Text>
                             <Text style={styles.commentMeta}>{formatReadableTimestamp(comment.createdAt)}</Text>
                         </View>
-                        {actions?.length ? <CardActionMenu actions={actions} /> : null}
                     </View>
+                    {actions?.length ? (
+                        <View style={styles.commentActionSlot}>
+                            <CardActionMenu actions={actions} />
+                        </View>
+                    ) : null}
                     <Text style={styles.commentBody}>
                         {renderCommentBody(comment, onPressUser)}
                     </Text>
@@ -378,7 +389,6 @@ export function CommentThread({
     );
 
     const keyExtractor = useCallback((item: CommentDisplayModel) => item.id, []);
-    const ItemSeparator = useCallback(() => <View style={styles.separator} />, []);
 
     const listFooter = isLoadingMore
         ? <ActivityIndicator style={styles.loadingMore} color={Colors.primary} size="small" />
@@ -400,8 +410,7 @@ export function CommentThread({
                     data={visibleComments}
                     keyExtractor={keyExtractor}
                     renderItem={renderComment}
-                    ItemSeparatorComponent={ItemSeparator}
-                    contentContainerStyle={styles.list}
+                    contentContainerStyle={[styles.list, visibleComments.length === 0 && styles.emptyList]}
                     onEndReached={handleEndReached}
                     onEndReachedThreshold={0.4}
                     keyboardShouldPersistTaps="handled"
@@ -438,8 +447,8 @@ export function CommentThread({
                     <Avatar
                         username={currentUser.username}
                         avatarUrl={currentUser.avatar_url}
-                        size={34}
-                        fontSize={12}
+                        size={COMMENT_AVATAR_SIZE}
+                        fontSize={COMMENT_AVATAR_FONT_SIZE}
                     />
                     <TextInput
                         ref={inputRef}
@@ -485,19 +494,21 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
     },
     list: {
-        paddingTop: Spacing.sm,
+        paddingHorizontal: Spacing.md,
+        paddingTop: Spacing.md,
         paddingBottom: Spacing.md,
         flexGrow: 1,
+        gap: Spacing.sm,
     },
-    separator: {
-        height: 1,
-        backgroundColor: Colors.border.emphasis,
+    emptyList: {
+        justifyContent: 'center',
+        paddingBottom: Spacing.xxl,
     },
     empty: {
         fontSize: Typography.sizes.sm,
         color: Colors.text.muted,
         textAlign: 'center',
-        paddingTop: Spacing.xl,
+        paddingHorizontal: Spacing.lg,
     },
     loadingMore: {
         paddingVertical: Spacing.md,
@@ -543,22 +554,34 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'flex-start',
         gap: Spacing.sm,
-        paddingHorizontal: Spacing.md,
-        paddingVertical: Spacing.md,
+        paddingVertical: 0,
     },
     commentBodyWrap: {
         flex: 1,
         minWidth: 0,
     },
     commentBubble: {
-        backgroundColor: Colors.bg.page,
+        position: 'relative',
+        borderWidth: 1,
+        borderColor: Colors.border.default,
+        borderRadius: Radius.md,
+        backgroundColor: Colors.bg.surface,
+        paddingHorizontal: Spacing.sm,
+        paddingVertical: Spacing.xs,
     },
     commentHeader: {
         flexDirection: 'row',
-        alignItems: 'center',
+        alignItems: 'flex-start',
         justifyContent: 'space-between',
         gap: Spacing.sm,
-        marginBottom: 2,
+    },
+    commentHeaderWithActions: {
+        paddingRight: ControlSizes.iconButtonLarge - Spacing.sm,
+    },
+    commentActionSlot: {
+        position: 'absolute',
+        top: -Spacing.sm,
+        right: -Spacing.sm,
     },
     commentHeaderCopy: {
         flex: 1,
