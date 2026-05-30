@@ -17,6 +17,7 @@ import * as Haptics from 'expo-haptics';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { getDeviceCoords, reverseGeocodePlace } from '../utils/location';
+import { queryClient } from '../query/queryClient';
 import type { CommentThreadTarget } from '../screens/main/feed/FeedCommentsScreen';
 import { FeedScreen } from '../screens/main/FeedScreen';
 import { DiscoverScreen } from '../screens/main/DiscoverScreen';
@@ -626,6 +627,8 @@ export function AppNavigator(): React.ReactElement {
         }
 
         if (intent.kind === 'support_signal') {
+            void queryClient.invalidateQueries({ queryKey: ['support-signals'] });
+            void queryClient.refetchQueries({ queryKey: ['support-signals'], type: 'active' });
             if (intent.chatId) {
                 let cancelled = false;
                 void (async (): Promise<void> => {

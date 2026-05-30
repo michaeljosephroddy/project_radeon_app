@@ -13,9 +13,10 @@ import { useQueryClient } from '@tanstack/react-query';
 import * as api from '../../api/client';
 import { Avatar } from '../../components/Avatar';
 import { EmptyState } from '../../components/ui/EmptyState';
+import { InfoNoticeCard } from '../../components/ui/InfoNoticeCard';
 import { PrimaryButton } from '../../components/ui/PrimaryButton';
 import { appAlert } from '../../components/ui/appAlert';
-import { useActiveSupportSignals, useMySupportSignal } from '../../hooks/queries/useSupport';
+import { useActiveSupportSignals, useMySupportSignal, useSupportSignal } from '../../hooks/queries/useSupport';
 import { queryKeys } from '../../query/queryKeys';
 import { screenStandards } from '../../styles/screenStandards';
 import { AvatarSizes, Colors, ContentInsets, IconSizes, Radius, Spacing, TextStyles } from '../../theme';
@@ -39,19 +40,25 @@ export function ReachOutScreen({ isActive, onOpenChat, focusSignalId = null }: R
     const queryClient = useQueryClient();
     const activeSignalsQuery = useActiveSupportSignals(20, isActive);
     const mySignalQuery = useMySupportSignal(isActive);
+    const focusedSignalQuery = useSupportSignal(focusSignalId, isActive && Boolean(focusSignalId));
     const [pendingId, setPendingId] = useState<string | null>(null);
+    const [showInfoNotice, setShowInfoNotice] = useState(true);
 
     const signals = useMemo(
         () => {
             const items = activeSignalsQuery.data?.pages.flatMap((page) => page.items ?? []) ?? [];
-            if (!focusSignalId) return items;
-            return [...items].sort((a, b) => {
+            const focusedSignal = focusedSignalQuery.data ?? null;
+            const mergedItems = focusedSignal && !items.some((item) => item.id === focusedSignal.id)
+                ? [focusedSignal, ...items]
+                : items;
+            if (!focusSignalId) return mergedItems;
+            return [...mergedItems].sort((a, b) => {
                 if (a.id === focusSignalId) return -1;
                 if (b.id === focusSignalId) return 1;
                 return 0;
             });
         },
-        [activeSignalsQuery.data, focusSignalId],
+        [activeSignalsQuery.data, focusSignalId, focusedSignalQuery.data],
     );
     const mySignal = mySignalQuery.data ?? null;
     const isRefreshing = activeSignalsQuery.isRefetching || mySignalQuery.isRefetching;
@@ -139,9 +146,17 @@ export function ReachOutScreen({ isActive, onOpenChat, focusSignalId = null }: R
                                 onCancel={() => handleCloseOwnSignal('cancel')}
                             />
                         ) : (
-                            <View style={styles.infoPanel}>
-                                <Text style={styles.infoTitle}>Reach Out</Text>
-                                <Text style={styles.infoCopy}>When someone needs a quick sober check-in, their signal appears here for a short time.</Text>
+                            <View style={styles.infoStack}>
+                                {showInfoNotice ? (
+                                    <InfoNoticeCard
+                                        title="Reach Out"
+                                        description="When someone needs a quick sober check-in, their signal appears here for a short time."
+                                        onDismiss={() => setShowInfoNotice(false)}
+                                    />
+                                ) : null}
+                                {focusSignalId && focusedSignalQuery.isError ? (
+                                    <Text style={styles.focusNotice}>That Reach Out is no longer active.</Text>
+                                ) : null}
                             </View>
                         )}
                     </View>
@@ -225,7 +240,13 @@ function SupportSignalCard({
     return (
         <View style={[styles.card, focused && styles.cardFocused]}>
             <View style={styles.cardHeader}>
-                <Avatar username={signal.username} avatarUrl={signal.avatar_url ?? undefined} size={AvatarSizes.list} />
+                <Avatar
+                    userId={signal.user_id}
+                    username={signal.username}
+                    avatarUrl={signal.avatar_url ?? undefined}
+                    size={AvatarSizes.list}
+                    forceReachOutRing
+                />
                 <View style={styles.identity}>
                     <Text style={styles.username}>{signal.username}</Text>
                     <Text style={styles.meta}>{signal.city ?? 'SoberSpace'} · {REASON_LABELS[signal.reason]}</Text>
@@ -259,31 +280,25 @@ const styles = StyleSheet.create({
         flexGrow: 1,
     },
     headerStack: {
-        paddingTop: Spacing.sm,
-        paddingBottom: Spacing.md,
+        paddingTop: 0,
+        paddingBottom: Spacing.sm,
     },
-    infoPanel: {
-        borderWidth: StyleSheet.hairlineWidth,
-        borderColor: Colors.border.default,
-        borderRadius: Radius.md,
-        padding: Spacing.lg,
-        backgroundColor: Colors.bg.surface,
+    infoStack: {
+        gap: Spacing.sm,
     },
-    infoTitle: {
-        ...TextStyles.sectionTitle,
-    },
-    infoCopy: {
-        ...TextStyles.secondary,
-        marginTop: Spacing.xs,
+    focusNotice: {
+        ...TextStyles.rowDescription,
+        color: Colors.danger,
+        marginTop: Spacing.sm,
     },
     ownBanner: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: Spacing.md,
+        gap: Spacing.sm,
         borderWidth: StyleSheet.hairlineWidth,
         borderColor: Colors.primary,
         borderRadius: Radius.md,
-        padding: Spacing.md,
+        padding: Spacing.sm,
         backgroundColor: Colors.primarySubtle,
     },
     ownIcon: {
@@ -307,7 +322,7 @@ const styles = StyleSheet.create({
     ownActions: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: Spacing.sm,
+        gap: Spacing.xs,
     },
     textButton: {
         minHeight: 36,
@@ -328,13 +343,13 @@ const styles = StyleSheet.create({
         ...TextStyles.button,
     },
     separator: {
-        height: Spacing.md,
+        height: Spacing.sm,
     },
     card: {
         borderWidth: StyleSheet.hairlineWidth,
         borderColor: Colors.border.default,
         borderRadius: Radius.md,
-        padding: Spacing.md,
+        padding: Spacing.sm,
         backgroundColor: Colors.bg.surface,
     },
     cardFocused: {
@@ -344,7 +359,7 @@ const styles = StyleSheet.create({
     cardHeader: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: Spacing.md,
+        gap: Spacing.sm,
     },
     identity: {
         flex: 1,
@@ -370,8 +385,8 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        gap: Spacing.md,
-        marginTop: Spacing.md,
+        gap: Spacing.sm,
+        marginTop: Spacing.sm,
     },
     responseCount: {
         ...TextStyles.meta,

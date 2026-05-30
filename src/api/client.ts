@@ -2329,6 +2329,10 @@ export async function getMySupportSignal(): Promise<SupportSignal | null> {
     return result.signal ?? null;
 }
 
+export async function getSupportSignal(id: string): Promise<SupportSignal> {
+    return request(`/support/signals/${id}`);
+}
+
 export async function createSupportSignal(data: CreateSupportSignalInput): Promise<SupportSignal> {
     return request('/support/signals', { method: 'POST', body: JSON.stringify(data) });
 }
