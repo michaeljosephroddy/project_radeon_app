@@ -21,6 +21,7 @@ import { FeedCommentsModal } from '../screens/main/feed/FeedCommentsModal';
 import { NotificationsScreen } from '../screens/main/NotificationsScreen';
 import { DatingLikesRouteScreen } from '../screens/main/dating/DatingLikesRouteScreen';
 import { DatingMatchesRouteScreen } from '../screens/main/dating/DatingMatchesRouteScreen';
+import { DatingProfileDetailRouteScreen } from '../screens/main/dating/DatingProfileDetailRouteScreen';
 import { DatingProfileEditorRouteScreen } from '../screens/main/dating/DatingProfileEditorRouteScreen';
 import { ChatRealtimeProvider } from '../hooks/chat/ChatRealtimeProvider';
 import { useAuth } from '../hooks/useAuth';
@@ -82,6 +83,7 @@ export function RootNavigation(): React.ReactElement {
                             <RootStack.Screen name="FeedComments" component={RootFeedCommentsScreen} />
                             <RootStack.Screen name="DatingLikes" component={RootDatingLikesScreen} />
                             <RootStack.Screen name="DatingMatches" component={RootDatingMatchesScreen} />
+                            <RootStack.Screen name="DatingProfileDetail" component={RootDatingProfileDetailScreen} />
                             <RootStack.Screen name="DatingProfileEditor" component={RootDatingProfileEditorScreen} />
                         </RootStack.Navigator>
                     </NotificationProvider>
@@ -331,6 +333,17 @@ function RootDatingMatchesScreen(): React.ReactElement {
     return (
         <RootStackScreenFrame>
             <DatingMatchesRouteScreen />
+        </RootStackScreenFrame>
+    );
+}
+
+function RootDatingProfileDetailScreen({ route, navigation }: NativeStackScreenProps<RootStackParamList, 'DatingProfileDetail'>): React.ReactElement {
+    return (
+        <RootStackScreenFrame>
+            <DatingProfileDetailRouteScreen
+                route={route}
+                navigation={navigation}
+            />
         </RootStackScreenFrame>
     );
 }

@@ -1,4 +1,4 @@
-import type { Chat, GroupPost, Meetup, RecoveryMeeting } from '../api/client';
+import type { Chat, DatingProfile, GroupPost, Meetup, RecoveryMeeting } from '../api/client';
 import type { CommentThreadTarget } from '../screens/main/feed/FeedCommentsModal';
 
 export type RootStackParamList = {
@@ -27,6 +27,7 @@ export type RootStackParamList = {
     GroupComments: { post: GroupPost };
     DatingLikes: undefined;
     DatingMatches: undefined;
+    DatingProfileDetail: { profileId: string; initialProfile?: DatingProfile };
     DatingProfileEditor: undefined;
 };
 
