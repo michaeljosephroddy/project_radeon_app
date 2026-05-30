@@ -1,20 +1,18 @@
 import { appAlert } from '@/components/ui/appAlert';
 import React, { useState } from 'react';
 import {
-    ScrollView,
     StyleSheet,
     Text,
     TouchableOpacity,
     View,
 } from 'react-native';
-import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as api from '../../../api/client';
+import { AppKeyboardAwareScrollView } from '../../../components/ui/AppKeyboardAwareScrollView';
+import { KeyboardStickyFooter } from '../../../components/ui/KeyboardStickyFooter';
 import { ScreenHeader } from '../../../components/ui/ScreenHeader';
 import { TextField } from '../../../components/ui/TextField';
 import { useReportGroupTargetMutation } from '../../../hooks/queries/useGroups';
-import { useGradualKeyboardInset } from '../../../hooks/useGradualKeyboardInset';
 import { Colors, ControlSizes, Radius, Spacing, TextStyles } from '../../../theme';
 
 interface GroupReportScreenProps {
@@ -41,18 +39,15 @@ export function GroupReportScreen({
     onBack,
     onReported,
 }: GroupReportScreenProps): React.ReactElement {
-    const insets = useSafeAreaInsets();
     const [reason, setReason] = useState(REPORT_REASONS[0]);
     const [details, setDetails] = useState('');
+    const [footerHeight, setFooterHeight] = useState(0);
     const reportMutation = useReportGroupTargetMutation(group.id);
-    const bottomSafeSpace = Math.max(insets.bottom, Spacing.sm);
-    const { height: keyboardInsetHeight } = useGradualKeyboardInset({
-        closedHeight: bottomSafeSpace,
-        openedOffset: Spacing.sm,
-    });
-    const keyboardSpacerStyle = useAnimatedStyle((): { height: number } => ({
-        height: keyboardInsetHeight.value,
-    }));
+    const keyboardBottomOffset = footerHeight + Spacing.sm;
+    const scrollContentStyle = [
+        styles.content,
+        { paddingBottom: Spacing.md + footerHeight },
+    ];
 
     const submit = async (): Promise<void> => {
         try {
@@ -72,11 +67,9 @@ export function GroupReportScreen({
     return (
         <View style={styles.container}>
             <ScreenHeader title="Report group" onBack={onBack} />
-            <ScrollView
-                contentContainerStyle={styles.content}
-                keyboardShouldPersistTaps="handled"
-                keyboardDismissMode="interactive"
-                automaticallyAdjustKeyboardInsets={false}
+            <AppKeyboardAwareScrollView
+                contentContainerStyle={scrollContentStyle}
+                bottomOffset={keyboardBottomOffset}
             >
                 <View style={styles.summary}>
                     <Ionicons name="shield-checkmark-outline" size={22} color={Colors.primary} />
@@ -110,7 +103,9 @@ export function GroupReportScreen({
                     multiline
                     style={styles.detailsInput}
                 />
+            </AppKeyboardAwareScrollView>
 
+            <KeyboardStickyFooter onHeightChange={setFooterHeight}>
                 <TouchableOpacity
                     style={[styles.submitButton, reportMutation.isPending && styles.disabled]}
                     onPress={submit}
@@ -118,8 +113,7 @@ export function GroupReportScreen({
                 >
                     <Text style={styles.submitButtonText}>Submit report</Text>
                 </TouchableOpacity>
-            </ScrollView>
-            <Animated.View style={[styles.keyboardSpacer, keyboardSpacerStyle]} />
+            </KeyboardStickyFooter>
         </View>
     );
 }
@@ -199,10 +193,6 @@ const styles = StyleSheet.create({
         fontSize: TextStyles.chip.fontSize,
         fontWeight: '800',
         color: Colors.textOn.danger,
-    },
-    keyboardSpacer: {
-        flexShrink: 0,
-        backgroundColor: Colors.bg.page,
     },
     disabled: {
         opacity: 0.5,

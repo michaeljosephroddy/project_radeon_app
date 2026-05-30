@@ -4,14 +4,12 @@ import {
     ActivityIndicator,
     FlatList,
     Image,
-    ScrollView,
     StyleSheet,
     Text,
     TouchableOpacity,
     View,
 } from 'react-native';
 import { InfiniteData, QueryClient, useQueryClient } from '@tanstack/react-query';
-import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as api from '../../../api/client';
@@ -25,6 +23,7 @@ import { ScreenHeader } from '../../../components/ui/ScreenHeader';
 import { ScrollToTopButton } from '../../../components/ui/ScrollToTopButton';
 import { SegmentedControl } from '../../../components/ui/SegmentedControl';
 import { TextField } from '../../../components/ui/TextField';
+import { AppKeyboardAwareScrollView } from '../../../components/ui/AppKeyboardAwareScrollView';
 import {
     useContactGroupAdminsMutation,
     useDeleteGroupPostMutation,
@@ -37,7 +36,6 @@ import {
 } from '../../../hooks/queries/useGroups';
 import { useMySupportRequests, useSupportOffers, useSupportReplies } from '../../../hooks/queries/useSupport';
 import { useAuth } from '../../../hooks/useAuth';
-import { useGradualKeyboardInset } from '../../../hooks/useGradualKeyboardInset';
 import { useGuardedEndReached } from '../../../hooks/useGuardedEndReached';
 import { useScrollToTopButton } from '../../../hooks/useScrollToTopButton';
 import { screenStandards } from '../../../styles/screenStandards';
@@ -1043,15 +1041,6 @@ function GroupAboutTab({
 }): React.ReactElement {
     const [contactBody, setContactBody] = useState('');
     const contactMutation = useContactGroupAdminsMutation(group.id);
-    const insets = useSafeAreaInsets();
-    const bottomSafeSpace = Math.max(insets.bottom, Spacing.sm);
-    const { height: keyboardInsetHeight } = useGradualKeyboardInset({
-        closedHeight: bottomSafeSpace,
-        openedOffset: Spacing.sm,
-    });
-    const keyboardSpacerStyle = useAnimatedStyle((): { height: number } => ({
-        height: keyboardInsetHeight.value,
-    }));
 
     const handleContactAdmins = async (): Promise<void> => {
         const body = contactBody.trim();
@@ -1066,11 +1055,8 @@ function GroupAboutTab({
     };
 
     return (
-        <ScrollView
+        <AppKeyboardAwareScrollView
             contentContainerStyle={styles.aboutContent}
-            keyboardShouldPersistTaps="handled"
-            keyboardDismissMode="interactive"
-            automaticallyAdjustKeyboardInsets={false}
         >
             <GroupSummaryHeader group={group} />
             <View style={styles.aboutSections}>
@@ -1132,8 +1118,7 @@ function GroupAboutTab({
                     </TouchableOpacity>
                 </View>
             </View>
-            <Animated.View style={[styles.keyboardSpacer, keyboardSpacerStyle]} />
-        </ScrollView>
+        </AppKeyboardAwareScrollView>
     );
 }
 
@@ -1267,10 +1252,6 @@ const styles = StyleSheet.create({
     },
     aboutContent: {
         paddingBottom: Spacing.md,
-    },
-    keyboardSpacer: {
-        flexShrink: 0,
-        backgroundColor: Colors.bg.page,
     },
     manageListContent: {
         padding: Spacing.md,

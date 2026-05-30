@@ -18,6 +18,7 @@ import { CreateMeetupScreen } from '../screens/main/CreateMeetupScreen';
 import { MeetupDetailScreen } from '../screens/main/MeetupDetailScreen';
 import { RecoveryMeetingDetailScreen } from '../screens/main/support/RecoveryMeetingDetailScreen';
 import { GroupDetailScreen } from '../screens/main/groups/GroupDetailScreen';
+import { GroupFiltersScreen } from '../screens/main/GroupsScreen';
 import { GroupAdminThreadScreen } from '../screens/main/groups/GroupAdminThreadScreen';
 import { GroupCommentsScreen } from '../screens/main/groups/GroupCommentsScreen';
 import { FeedCommentsScreen } from '../screens/main/feed/FeedCommentsScreen';
@@ -26,12 +27,26 @@ import { DatingLikesRouteScreen } from '../screens/main/dating/DatingLikesRouteS
 import { DatingMatchesRouteScreen } from '../screens/main/dating/DatingMatchesRouteScreen';
 import { DatingProfileDetailRouteScreen } from '../screens/main/dating/DatingProfileDetailRouteScreen';
 import { DatingProfileEditorRouteScreen } from '../screens/main/dating/DatingProfileEditorRouteScreen';
+import { DiscoverFilterSheet } from '../components/discover/DiscoverFilterSheet';
+import { MeetupFilterSheet } from '../components/events/MeetupFilterSheet';
+import { RecoveryMeetingFilterSheet } from '../components/support/RecoveryMeetingFilterSheet';
 import { ChatRealtimeProvider } from '../hooks/chat/ChatRealtimeProvider';
 import { useAuth } from '../hooks/useAuth';
 import { useGroup } from '../hooks/queries/useGroups';
 import { NotificationProvider } from '../notifications/NotificationProvider';
 import { Colors } from '../theme';
 import * as api from '../api/client';
+import { runAfterKeyboardDismiss } from '../utils/keyboardNavigation';
+import {
+    getDiscoverFiltersRouteState,
+    getGroupFiltersRouteState,
+    getMeetupFiltersRouteState,
+    getRecoveryMeetingFiltersRouteState,
+    useDiscoverFiltersRouteState,
+    useGroupFiltersRouteState,
+    useMeetupFiltersRouteState,
+    useRecoveryMeetingFiltersRouteState,
+} from './filterRouteStores';
 import type { Chat } from '../api/client';
 import type { RootStackParamList } from './types';
 
@@ -75,19 +90,15 @@ export function RootNavigation(): React.ReactElement {
                             <RootStack.Screen name="Chat" component={RootChatScreen} />
                             <RootStack.Screen name="UserProfile" component={RootUserProfileScreen} />
                             <RootStack.Screen name="ComposeDM" component={RootComposeDMScreen} />
-                            <RootStack.Screen
-                                name="CreateMenu"
-                                component={RootCreateMenuScreen}
-                                options={{
-                                    presentation: 'transparentModal',
-                                    animation: 'slide_from_bottom',
-                                    contentStyle: styles.transparentScreen,
-                                }}
-                            />
+                            <RootStack.Screen name="CreateMenu" component={RootCreateMenuScreen} />
                             <RootStack.Screen name="CreatePost" component={RootCreatePostScreen} />
                             <RootStack.Screen name="CreateGroup" component={RootCreateGroupScreen} />
                             <RootStack.Screen name="CreateSupportRequest" component={RootCreateSupportRequestScreen} />
                             <RootStack.Screen name="CreateMeetup" component={RootCreateMeetupScreen} />
+                            <RootStack.Screen name="DiscoverFilters" component={RootDiscoverFiltersScreen} />
+                            <RootStack.Screen name="MeetupFilters" component={RootMeetupFiltersScreen} />
+                            <RootStack.Screen name="RecoveryMeetingFilters" component={RootRecoveryMeetingFiltersScreen} />
+                            <RootStack.Screen name="GroupFilters" component={RootGroupFiltersScreen} />
                             <RootStack.Screen name="MeetupDetail" component={RootMeetupDetailScreen} />
                             <RootStack.Screen name="RecoveryMeetingDetail" component={RootRecoveryMeetingDetailScreen} />
                             <RootStack.Screen name="GroupDetail" component={RootGroupDetailScreen} />
@@ -165,7 +176,7 @@ function RootComposeDMScreen({ route, navigation }: NativeStackScreenProps<RootS
 function RootCreateMenuScreen({ navigation }: NativeStackScreenProps<RootStackParamList, 'CreateMenu'>): React.ReactElement {
     return (
         <CreateMenuScreen
-            onClose={() => navigation.goBack()}
+            onClose={() => runAfterKeyboardDismiss(() => navigation.goBack())}
             onCreatePost={() => navigation.replace('CreatePost')}
             onCreateSupportRequest={() => navigation.replace('CreateSupportRequest')}
             onCreateMeetup={() => navigation.replace('CreateMeetup')}
@@ -177,7 +188,7 @@ function RootCreateMenuScreen({ navigation }: NativeStackScreenProps<RootStackPa
 function RootCreatePostScreen({ navigation }: NativeStackScreenProps<RootStackParamList, 'CreatePost'>): React.ReactElement {
     return (
         <RootStackScreenFrame>
-            <CreatePostScreen onBack={() => navigation.goBack()} />
+            <CreatePostScreen onBack={() => runAfterKeyboardDismiss(() => navigation.goBack())} />
         </RootStackScreenFrame>
     );
 }
@@ -186,8 +197,8 @@ function RootCreateGroupScreen({ navigation }: NativeStackScreenProps<RootStackP
     return (
         <RootStackScreenFrame>
             <GroupCreateScreen
-                onBack={() => navigation.goBack()}
-                onCreated={(group) => navigation.replace('GroupDetail', { groupId: group.id })}
+                onBack={() => runAfterKeyboardDismiss(() => navigation.goBack())}
+                onCreated={(group) => runAfterKeyboardDismiss(() => navigation.replace('GroupDetail', { groupId: group.id }))}
             />
         </RootStackScreenFrame>
     );
@@ -197,8 +208,8 @@ function RootCreateSupportRequestScreen({ navigation }: NativeStackScreenProps<R
     return (
         <RootStackScreenFrame>
             <CreateSupportRequestScreen
-                onBack={() => navigation.goBack()}
-                onCreated={() => navigation.goBack()}
+                onBack={() => runAfterKeyboardDismiss(() => navigation.goBack())}
+                onCreated={() => runAfterKeyboardDismiss(() => navigation.goBack())}
             />
         </RootStackScreenFrame>
     );
@@ -208,10 +219,148 @@ function RootCreateMeetupScreen({ route, navigation }: NativeStackScreenProps<Ro
     return (
         <RootStackScreenFrame>
             <CreateMeetupScreen
-                onBack={() => navigation.goBack()}
-                onCreated={() => navigation.goBack()}
+                onBack={() => runAfterKeyboardDismiss(() => navigation.goBack())}
+                onCreated={() => runAfterKeyboardDismiss(() => navigation.goBack())}
                 meetup={route.params?.meetup}
-                onUpdated={() => navigation.goBack()}
+                onUpdated={() => runAfterKeyboardDismiss(() => navigation.goBack())}
+            />
+        </RootStackScreenFrame>
+    );
+}
+
+function RootDiscoverFiltersScreen({ navigation }: NativeStackScreenProps<RootStackParamList, 'DiscoverFilters'>): React.ReactElement {
+    const state = useDiscoverFiltersRouteState();
+
+    React.useEffect(() => () => {
+        getDiscoverFiltersRouteState()?.onClose();
+    }, []);
+
+    if (!state) {
+        return <RootStackScreenFrame centered><ActivityIndicator color={Colors.primary} /></RootStackScreenFrame>;
+    }
+
+    const close = (): void => {
+        state.onClose();
+        navigation.goBack();
+    };
+    const apply = (): void => {
+        const shouldClose = state.onApply();
+        if (shouldClose !== false) {
+            navigation.goBack();
+        }
+    };
+
+    return (
+        <RootStackScreenFrame>
+            <DiscoverFilterSheet
+                {...state}
+                onClose={close}
+                onApply={apply}
+            />
+        </RootStackScreenFrame>
+    );
+}
+
+function RootMeetupFiltersScreen({ navigation }: NativeStackScreenProps<RootStackParamList, 'MeetupFilters'>): React.ReactElement {
+    const state = useMeetupFiltersRouteState();
+
+    React.useEffect(() => () => {
+        getMeetupFiltersRouteState()?.onClose();
+    }, []);
+
+    if (!state) {
+        return <RootStackScreenFrame centered><ActivityIndicator color={Colors.primary} /></RootStackScreenFrame>;
+    }
+
+    const close = (): void => {
+        state.onClose();
+        navigation.goBack();
+    };
+    const apply = (): void => {
+        const shouldClose = state.onApply();
+        if (shouldClose !== false) {
+            navigation.goBack();
+        }
+    };
+
+    return (
+        <RootStackScreenFrame>
+            <MeetupFilterSheet
+                {...state}
+                active
+                onClose={close}
+                onApply={apply}
+            />
+        </RootStackScreenFrame>
+    );
+}
+
+function RootRecoveryMeetingFiltersScreen({ navigation }: NativeStackScreenProps<RootStackParamList, 'RecoveryMeetingFilters'>): React.ReactElement {
+    const state = useRecoveryMeetingFiltersRouteState();
+
+    React.useEffect(() => () => {
+        getRecoveryMeetingFiltersRouteState()?.onClose();
+    }, []);
+
+    if (!state) {
+        return <RootStackScreenFrame centered><ActivityIndicator color={Colors.primary} /></RootStackScreenFrame>;
+    }
+
+    const close = (): void => {
+        state.onClose();
+        navigation.goBack();
+    };
+    const apply = (): void => {
+        const shouldClose = state.onApply();
+        if (shouldClose !== false) {
+            navigation.goBack();
+        }
+    };
+
+    return (
+        <RootStackScreenFrame>
+            <RecoveryMeetingFilterSheet
+                {...state}
+                active
+                onClose={close}
+                onApply={apply}
+            />
+        </RootStackScreenFrame>
+    );
+}
+
+function RootGroupFiltersScreen({ navigation }: NativeStackScreenProps<RootStackParamList, 'GroupFilters'>): React.ReactElement {
+    const state = useGroupFiltersRouteState();
+
+    React.useEffect(() => () => {
+        getGroupFiltersRouteState()?.onClose();
+    }, []);
+
+    if (!state) {
+        return <RootStackScreenFrame centered><ActivityIndicator color={Colors.primary} /></RootStackScreenFrame>;
+    }
+
+    const close = (): void => {
+        state.onClose();
+        navigation.goBack();
+    };
+    const apply = (): void => {
+        const shouldClose = state.onApply();
+        if (shouldClose !== false) {
+            navigation.goBack();
+        }
+    };
+
+    return (
+        <RootStackScreenFrame>
+            <GroupFiltersScreen
+                {...state}
+                onClose={close}
+                onReset={() => {
+                    state.onReset();
+                    navigation.goBack();
+                }}
+                onApply={apply}
             />
         </RootStackScreenFrame>
     );
@@ -448,8 +597,5 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
         backgroundColor: Colors.bg.page,
-    },
-    transparentScreen: {
-        backgroundColor: 'transparent',
     },
 });

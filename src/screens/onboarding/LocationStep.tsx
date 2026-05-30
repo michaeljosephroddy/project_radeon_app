@@ -2,12 +2,14 @@ import { appAlert } from '@/components/ui/appAlert';
 import React, { useState, useEffect } from 'react';
 import {
     View, Text,
-    StyleSheet, KeyboardAvoidingView, Platform, Keyboard, ActivityIndicator,
+    StyleSheet, Keyboard, ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { PrimaryButton } from '../../components/ui/PrimaryButton';
+import { AppKeyboardAwareScrollView } from '../../components/ui/AppKeyboardAwareScrollView';
+import { KeyboardStickyFooter } from '../../components/ui/KeyboardStickyFooter';
 import { OnboardingProgressHeader } from '../../components/onboarding/OnboardingProgressHeader';
 import { TextField } from '../../components/ui/TextField';
 import { useAuth } from '../../hooks/useAuth';
@@ -25,7 +27,13 @@ export function LocationStep({ onNext, onBack, dotIndex, dotTotal }: LocationSte
     const [detecting, setDetecting] = useState(false);
     const [saving, setSaving] = useState(false);
     const [detectedCoords, setDetectedCoords] = useState<{ lat: number; lng: number } | null>(null);
+    const [footerHeight, setFooterHeight] = useState(0);
     const canContinue = Boolean(city.trim() && country.trim());
+    const keyboardBottomOffset = footerHeight + Spacing.sm;
+    const scrollContentStyle = [
+        styles.inner,
+        { paddingBottom: Spacing.xl + footerHeight },
+    ];
 
     useEffect(() => {
         if (user?.city) return;
@@ -70,60 +78,59 @@ export function LocationStep({ onNext, onBack, dotIndex, dotTotal }: LocationSte
     };
 
     return (
-        <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+        <SafeAreaView style={styles.container} edges={['top']}>
             <StatusBar style="light" />
             <OnboardingProgressHeader dotIndex={dotIndex} dotTotal={dotTotal} onBack={onBack} />
 
-            <KeyboardAvoidingView
+            <AppKeyboardAwareScrollView
                 style={styles.flex}
-                behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+                contentContainerStyle={scrollContentStyle}
+                bottomOffset={keyboardBottomOffset}
             >
-                <View style={styles.inner}>
-                    <View style={styles.iconWrap}>
-                        {detecting
-                            ? <ActivityIndicator color={Colors.primary} />
-                            : <Ionicons name="location" size={32} color={Colors.primary} />
-                        }
-                    </View>
-                    <Text style={styles.title}>Where are you based?</Text>
-                    <Text style={styles.subtitle}>
-                        {detecting
-                            ? 'Detecting your location…'
-                            : 'Helps you find people and meetups near you.'}
-                    </Text>
-
-                    <View style={styles.form}>
-                        <Text style={styles.label}>City</Text>
-                        <TextField
-                            style={styles.input}
-                            placeholder="Dublin"
-                            placeholderTextColor={Colors.text.muted}
-                            value={city}
-                            onChangeText={setCity}
-                            autoCapitalize="words"
-                            returnKeyType="next"
-                            editable={!detecting}
-                        />
-
-                        <Text style={styles.label}>Country</Text>
-                        <TextField
-                            style={styles.input}
-                            placeholder="Ireland"
-                            placeholderTextColor={Colors.text.muted}
-                            value={country}
-                            onChangeText={setCountry}
-                            autoCapitalize="words"
-                            returnKeyType="done"
-                            onSubmitEditing={handleContinue}
-                            editable={!detecting}
-                        />
-                    </View>
+                <View style={styles.iconWrap}>
+                    {detecting
+                        ? <ActivityIndicator color={Colors.primary} />
+                        : <Ionicons name="location" size={32} color={Colors.primary} />
+                    }
                 </View>
+                <Text style={styles.title}>Where are you based?</Text>
+                <Text style={styles.subtitle}>
+                    {detecting
+                        ? 'Detecting your location…'
+                        : 'Helps you find people and meetups near you.'}
+                </Text>
 
-                <View style={styles.footer}>
-                    <PrimaryButton label="Continue" onPress={handleContinue} loading={saving} disabled={detecting || saving || !canContinue} />
+                <View style={styles.form}>
+                    <Text style={styles.label}>City</Text>
+                    <TextField
+                        style={styles.input}
+                        placeholder="Dublin"
+                        placeholderTextColor={Colors.text.muted}
+                        value={city}
+                        onChangeText={setCity}
+                        autoCapitalize="words"
+                        returnKeyType="next"
+                        editable={!detecting}
+                    />
+
+                    <Text style={styles.label}>Country</Text>
+                    <TextField
+                        style={styles.input}
+                        placeholder="Ireland"
+                        placeholderTextColor={Colors.text.muted}
+                        value={country}
+                        onChangeText={setCountry}
+                        autoCapitalize="words"
+                        returnKeyType="done"
+                        onSubmitEditing={handleContinue}
+                        editable={!detecting}
+                    />
                 </View>
-            </KeyboardAvoidingView>
+            </AppKeyboardAwareScrollView>
+
+            <KeyboardStickyFooter contentStyle={styles.footer} onHeightChange={setFooterHeight}>
+                <PrimaryButton label="Continue" onPress={handleContinue} loading={saving} disabled={detecting || saving || !canContinue} />
+            </KeyboardStickyFooter>
         </SafeAreaView>
     );
 }
@@ -145,9 +152,9 @@ const styles = StyleSheet.create({
     },
     dotActive: { backgroundColor: Colors.primary },
     inner: {
-        flex: 1,
         paddingHorizontal: Spacing.xl,
         paddingTop: Spacing.lg,
+        paddingBottom: Spacing.xl,
     },
     iconWrap: {
         width: 60,
@@ -178,8 +185,5 @@ const styles = StyleSheet.create({
         marginTop: Spacing.sm,
     },
     input: { fontSize: Typography.sizes.lg },
-    footer: {
-        paddingHorizontal: Spacing.xl,
-        paddingBottom: Spacing.lg,
-    },
+    footer: {},
 });

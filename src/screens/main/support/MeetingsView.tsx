@@ -10,8 +10,9 @@ import {
     View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RecoveryMeetingCard } from '../../../components/support/RecoveryMeetingCard';
-import { RecoveryMeetingFilterSheet } from '../../../components/support/RecoveryMeetingFilterSheet';
 import { EmptyState } from '../../../components/ui/EmptyState';
 import { PrimaryButton } from '../../../components/ui/PrimaryButton';
 import { SearchBar } from '../../../components/ui/SearchBar';
@@ -25,6 +26,8 @@ import { screenStandards } from '../../../styles/screenStandards';
 import { Colors, Radius, Spacing, Typography } from '../../../theme';
 import { getListPerformanceProps } from '../../../utils/listPerformance';
 import { getDeviceCoords, getPlaceLocationCandidates, reverseGeocodePlace, type ReverseGeocodedPlace } from '../../../utils/location';
+import { setRecoveryMeetingFiltersRouteState } from '../../../navigation/filterRouteStores';
+import type { RootStackParamList } from '../../../navigation/types';
 import {
     DEFAULT_LOCAL_FELLOWSHIPS,
     RecoveryMeeting,
@@ -122,6 +125,7 @@ function buildLocalFallbacks(place: ReverseGeocodedPlace | null): LocalMeetingFa
 }
 
 export function MeetingsView({ isActive, onOpenMeeting }: MeetingsViewProps) {
+    const rootNavigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
     const { user, refreshUser } = useAuth();
     const listRef = useRef<FlatList<RecoveryMeeting> | null>(null);
     const didRequestLocalPlace = useRef(false);
@@ -192,6 +196,38 @@ export function MeetingsView({ isActive, onOpenMeeting }: MeetingsViewProps) {
         { ...activeApiFilters, limit: 20 },
         isActive && !shouldWaitForLocalPlace && !hasNoLocalPlace && (!canUseLocalMeetings || Boolean(activeLocalFallback)),
     );
+
+    const handleOpenFilters = useCallback((): void => {
+        setFilterOpen(true);
+        rootNavigation.navigate('RecoveryMeetingFilters');
+    }, [rootNavigation, setFilterOpen]);
+
+    const handleApplyFilterRoute = useCallback((): boolean => {
+        handleApplyFilters();
+        return true;
+    }, [handleApplyFilters]);
+
+    useEffect(() => {
+        if (!filterOpen) {
+            setRecoveryMeetingFiltersRouteState(null);
+            return;
+        }
+
+        setRecoveryMeetingFiltersRouteState({
+            draftFilters,
+            onChangeFilters: setDraftFilters,
+            onClose: () => setFilterOpen(false),
+            onReset: handleResetFilters,
+            onApply: handleApplyFilterRoute,
+        });
+    }, [
+        draftFilters,
+        filterOpen,
+        handleApplyFilterRoute,
+        handleResetFilters,
+        setDraftFilters,
+        setFilterOpen,
+    ]);
 
     useEffect(() => {
         setLocalFallbackIndex(0);
@@ -347,7 +383,7 @@ export function MeetingsView({ isActive, onOpenMeeting }: MeetingsViewProps) {
                     style={styles.searchBar}
                     leading={<Ionicons name="search-outline" size={18} color={Colors.text.muted} />}
                 />
-                <TouchableOpacity style={styles.filterButton} onPress={() => setFilterOpen(true)} activeOpacity={0.86}>
+                <TouchableOpacity style={styles.filterButton} onPress={handleOpenFilters} activeOpacity={0.86}>
                     <Ionicons name="options-outline" size={20} color={Colors.text.primary} />
                     {activeFilterChips.length ? (
                         <View style={styles.filterBadge}>
@@ -468,15 +504,6 @@ export function MeetingsView({ isActive, onOpenMeeting }: MeetingsViewProps) {
                 renderItem={({ item }) => (
                     <RecoveryMeetingCard meeting={item} onPress={onOpenMeeting ?? (() => undefined)} />
                 )}
-            />
-
-            <RecoveryMeetingFilterSheet
-                visible={filterOpen}
-                draftFilters={draftFilters}
-                onChangeFilters={setDraftFilters}
-                onClose={() => setFilterOpen(false)}
-                onReset={handleResetFilters}
-                onApply={handleApplyFilters}
             />
 
             {isActive && scrollToTop.isVisible ? (

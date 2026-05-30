@@ -494,15 +494,16 @@ export function AppNavigator(): React.ReactElement {
     ]);
 
     useEffect(() => {
-        const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
-        const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
-
-        const showSub = Keyboard.addListener(showEvent, () => setKeyboardVisible(true));
-        const hideSub = Keyboard.addListener(hideEvent, () => setKeyboardVisible(false));
+        const willShowSub = Keyboard.addListener('keyboardWillShow', () => setKeyboardVisible(true));
+        const didShowSub = Keyboard.addListener('keyboardDidShow', () => setKeyboardVisible(true));
+        const willHideSub = Keyboard.addListener('keyboardWillHide', () => setKeyboardVisible(false));
+        const didHideSub = Keyboard.addListener('keyboardDidHide', () => setKeyboardVisible(false));
 
         return () => {
-            showSub.remove();
-            hideSub.remove();
+            willShowSub.remove();
+            didShowSub.remove();
+            willHideSub.remove();
+            didHideSub.remove();
         };
     }, []);
 

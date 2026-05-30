@@ -2,14 +2,12 @@ import { appAlert } from '@/components/ui/appAlert';
 import React, { useCallback, useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
-import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 import * as api from '../../api/client';
 import { CreateFlowFrame } from '../../components/ui/CreateFlowFrame';
 import { InfoNoticeCard } from '../../components/ui/InfoNoticeCard';
 import { PrimaryButton } from '../../components/ui/PrimaryButton';
 import { TextField } from '../../components/ui/TextField';
 import { useAuth } from '../../hooks/useAuth';
-import { useGradualKeyboardInset } from '../../hooks/useGradualKeyboardInset';
 import { Colors, Radius, Spacing, TextStyles } from '../../theme';
 import { getDeviceCoords, reverseGeocodePlace } from '../../utils/location';
 
@@ -94,14 +92,6 @@ export function CreateSupportRequestScreen({
         || form.urgency !== 'low'
         || form.preferred_gender !== null
         || currentLocationCity !== defaultLocationCity;
-    const { height: keyboardInsetHeight } = useGradualKeyboardInset({
-        closedHeight: 0,
-        openedOffset: Spacing.sm,
-    });
-    const keyboardSpacerStyle = useAnimatedStyle((): { height: number } => ({
-        height: keyboardInsetHeight.value,
-    }));
-
     const handleBack = useCallback((): void => {
         if (!hasDraft || submitting) {
             onBack();
@@ -208,7 +198,6 @@ export function CreateSupportRequestScreen({
                     disabled={submitting}
                 />
             )}
-            keyboardSpacer={<Animated.View style={[styles.keyboardSpacer, keyboardSpacerStyle]} />}
         >
             {showNotice ? (
                 <InfoNoticeCard
@@ -333,10 +322,6 @@ export function CreateSupportRequestScreen({
 }
 
 const styles = StyleSheet.create({
-    keyboardSpacer: {
-        flexShrink: 0,
-        backgroundColor: Colors.bg.page,
-    },
     headerCard: { marginBottom: Spacing.md },
     formLabel: {
         ...TextStyles.label,

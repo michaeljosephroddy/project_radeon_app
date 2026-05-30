@@ -2,11 +2,11 @@ import { appAlert } from '@/components/ui/appAlert';
 import React, { useState } from 'react';
 import {
     View, Text, TouchableOpacity,
-    StyleSheet, KeyboardAvoidingView, Platform,
-    ScrollView,
+    StyleSheet,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { AppKeyboardAwareScrollView } from '../../components/ui/AppKeyboardAwareScrollView';
 import { PrimaryButton } from '../../components/ui/PrimaryButton';
 import { TextField } from '../../components/ui/TextField';
 import { useAuth } from '../../hooks/useAuth';
@@ -44,11 +44,7 @@ export function LoginScreen({ onGoToRegister }: LoginScreenProps) {
     return (
         <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
             <StatusBar style="light" />
-        <KeyboardAvoidingView
-            style={styles.flex}
-            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        >
-        <ScrollView contentContainerStyle={screenStandards.authContent} keyboardShouldPersistTaps="handled">
+            <AppKeyboardAwareScrollView style={styles.flex} contentContainerStyle={screenStandards.authContent}>
                 <View style={styles.header}>
                     <Text style={styles.wordmark}>
                         Sober<Text style={styles.wordmarkAccent}>Space</Text>
@@ -93,8 +89,7 @@ export function LoginScreen({ onGoToRegister }: LoginScreenProps) {
                         </Text>
                     </TouchableOpacity>
                 </View>
-            </ScrollView>
-        </KeyboardAvoidingView>
+            </AppKeyboardAwareScrollView>
         </SafeAreaView>
     );
 }

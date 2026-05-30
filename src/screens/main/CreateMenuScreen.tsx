@@ -3,15 +3,16 @@ import {
     Pressable,
     StyleSheet,
     Text,
+    TouchableOpacity,
     View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useQueryClient } from '@tanstack/react-query';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import * as api from '../../api/client';
 import { queryKeys } from '../../query/queryKeys';
-import { Colors, Radius, Spacing, TextStyles, Typography } from '../../theme';
+import { Colors, ContentInsets, ControlSizes, Radius, Spacing, TextStyles, Typography } from '../../theme';
 
 type CreateActionKey = 'post' | 'support_request' | 'meetup' | 'group';
 
@@ -38,7 +39,6 @@ export function CreateMenuScreen({
     onCreateMeetup,
     onCreateGroup,
 }: CreateMenuScreenProps): React.ReactElement {
-    const insets = useSafeAreaInsets();
     const queryClient = useQueryClient();
     const actions: CreateAction[] = [
         {
@@ -98,40 +98,47 @@ export function CreateMenuScreen({
     };
 
     return (
-        <View style={styles.screen}>
-            <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Close create menu"
-                style={styles.scrim}
-                onPress={handleClose}
-            />
-            <View style={[styles.sheet, { paddingBottom: insets.bottom + Spacing.xl }]}>
-                <View style={styles.dragHeader}>
-                    <View style={styles.handle} />
-                    <Text style={styles.title}>Create</Text>
-                </View>
-                <View style={styles.actionList}>
-                    {actions.map((action) => (
-                        <Pressable
-                            key={action.key}
-                            accessibilityRole="button"
-                            accessibilityLabel={action.title}
-                            style={({ pressed }) => [styles.actionRow, pressed && styles.actionRowPressed]}
-                            onPress={() => handleActionPress(action)}
-                        >
-                            <View style={styles.iconWrap}>
-                                <Ionicons name={action.icon} size={22} color={Colors.primary} />
-                            </View>
-                            <View style={styles.actionCopy}>
-                                <Text style={styles.actionTitle}>{action.title}</Text>
-                                <Text style={styles.actionDescription}>{action.description}</Text>
-                            </View>
-                            <Ionicons name="chevron-forward" size={18} color={Colors.text.muted} />
-                        </Pressable>
-                    ))}
-                </View>
+        <SafeAreaView style={styles.screen} edges={['top', 'bottom']}>
+            <View style={styles.header}>
+                <TouchableOpacity
+                    style={styles.headerButton}
+                    onPress={handleClose}
+                    accessibilityRole="button"
+                    accessibilityLabel="Close create menu"
+                    hitSlop={10}
+                >
+                    <Ionicons name="arrow-back" size={26} color={Colors.primary} />
+                </TouchableOpacity>
+                <Text style={styles.title}>Create</Text>
+                <View style={styles.headerButton} />
             </View>
-        </View>
+
+            <View style={styles.intro}>
+                <Text style={styles.introTitle}>What would you like to create?</Text>
+                <Text style={styles.introCopy}>Choose the best format for what you want to share with the sober community.</Text>
+            </View>
+
+            <View style={styles.actionList}>
+                {actions.map((action) => (
+                    <Pressable
+                        key={action.key}
+                        accessibilityRole="button"
+                        accessibilityLabel={action.title}
+                        style={({ pressed }) => [styles.actionRow, pressed && styles.actionRowPressed]}
+                        onPress={() => handleActionPress(action)}
+                    >
+                        <View style={styles.iconWrap}>
+                            <Ionicons name={action.icon} size={22} color={Colors.primary} />
+                        </View>
+                        <View style={styles.actionCopy}>
+                            <Text style={styles.actionTitle}>{action.title}</Text>
+                            <Text style={styles.actionDescription}>{action.description}</Text>
+                        </View>
+                        <Ionicons name="chevron-forward" size={18} color={Colors.text.muted} />
+                    </Pressable>
+                ))}
+            </View>
+        </SafeAreaView>
     );
 }
 
@@ -146,51 +153,53 @@ function triggerHaptic(style: Haptics.ImpactFeedbackStyle): void {
 const styles = StyleSheet.create({
     screen: {
         flex: 1,
-        justifyContent: 'flex-end',
+        backgroundColor: Colors.bg.page,
     },
-    scrim: {
-        ...StyleSheet.absoluteFillObject,
-        backgroundColor: Colors.overlay,
+    header: {
+        minHeight: 56,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        borderBottomWidth: 1,
+        borderBottomColor: Colors.border.emphasis,
+        paddingHorizontal: ContentInsets.screenHorizontal,
     },
-    sheet: {
-        backgroundColor: Colors.bg.raised,
-        borderTopLeftRadius: Radius.xl,
-        borderTopRightRadius: Radius.xl,
-        paddingHorizontal: Spacing.lg,
-        paddingBottom: Spacing.xl,
-        borderWidth: 1,
-        borderColor: Colors.border.subtle,
+    headerButton: {
+        width: ControlSizes.iconButtonLarge,
+        height: ControlSizes.iconButtonLarge,
+        alignItems: 'center',
+        justifyContent: 'center',
     },
-    dragHeader: {
-        paddingTop: Spacing.sm,
-        paddingBottom: Spacing.md,
-    },
-    handle: {
-        alignSelf: 'center',
-        width: 42,
-        height: 4,
-        borderRadius: Radius.pill,
-        backgroundColor: Colors.border.emphasis,
-        marginBottom: Spacing.lg,
+    intro: {
+        paddingHorizontal: ContentInsets.screenHorizontal,
+        paddingTop: Spacing.lg,
+        paddingBottom: Spacing.sm,
+        gap: Spacing.xs,
     },
     title: {
+        ...TextStyles.caption,
+        color: Colors.text.primary,
+        textTransform: 'uppercase',
+    },
+    introTitle: {
         ...Typography.screenTitle,
         color: Colors.text.primary,
     },
+    introCopy: {
+        ...TextStyles.secondary,
+    },
     actionList: {
-        gap: Spacing.sm,
+        paddingHorizontal: ContentInsets.screenHorizontal,
+        paddingTop: Spacing.md,
     },
     actionRow: {
         minHeight: 64,
-        borderRadius: Radius.md,
-        backgroundColor: Colors.bg.surface,
-        borderWidth: 1,
-        borderColor: Colors.border.subtle,
-        paddingHorizontal: Spacing.md,
-        paddingVertical: Spacing.sm,
         flexDirection: 'row',
         alignItems: 'center',
         gap: Spacing.md,
+        borderBottomWidth: 1,
+        borderBottomColor: Colors.border.emphasis,
+        paddingVertical: Spacing.md,
     },
     actionRowPressed: {
         backgroundColor: Colors.bg.hover,

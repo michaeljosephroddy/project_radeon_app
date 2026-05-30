@@ -3,7 +3,6 @@ import {
     ActivityIndicator,
     Alert,
     type LayoutChangeEvent,
-    Modal,
     ScrollView,
     StyleSheet,
     Text,
@@ -181,6 +180,7 @@ type RequiredDatingProfileField = 'photos' | 'bio' | 'interests' | 'goal' | 'int
 type DatingProfileEditorStackParamList = {
     DatingProfileMain: undefined;
     DatingProfileSection: { section: DatingEditSection };
+    DatingPromptPicker: undefined;
 };
 
 const MAX_DATING_INTERESTS = 5;
@@ -316,7 +316,6 @@ export function DatingProfileEditorScreen({
     const [selectedPromptKeys, setSelectedPromptKeys] = useState<string[]>(() => createPromptKeyList(profile?.prompt_answers ?? []));
     const [promptAnswers, setPromptAnswers] = useState<Record<string, string>>(() => createPromptAnswerMap(profile?.prompt_answers ?? []));
     const [editingPromptKey, setEditingPromptKey] = useState<string | null>(null);
-    const [promptPickerVisible, setPromptPickerVisible] = useState(false);
     const [activePromptCategory, setActivePromptCategory] = useState(DATING_PROMPT_CATEGORIES[0].key);
     const [showProfileNotice, setShowProfileNotice] = useState(true);
     const profileFormSignature = createProfileFormSignature(profile);
@@ -412,7 +411,6 @@ export function DatingProfileEditorScreen({
         });
         setPromptAnswers((current) => ({ ...current, [promptKey]: current[promptKey] ?? '' }));
         setEditingPromptKey(promptKey);
-        setPromptPickerVisible(false);
     };
 
     const removePrompt = (promptKey: string): void => {
@@ -661,9 +659,24 @@ export function DatingProfileEditorScreen({
                 updatePromptAnswer={updatePromptAnswer}
                 savePromptDraft={savePromptDraft}
                 removePrompt={removePrompt}
-                setPromptPickerVisible={setPromptPickerVisible}
+                setPromptPickerVisible={(visible) => {
+                    if (visible) navigation.navigate('DatingPromptPicker');
+                }}
             />
         </>
+    );
+
+    const renderPromptPickerScreen = ({ navigation }: NativeStackScreenProps<DatingProfileEditorStackParamList, 'DatingPromptPicker'>): React.ReactElement => (
+        <PromptPickerScreen
+            activeCategory={activePromptCategory}
+            selectedPromptKeys={selectedPromptKeys}
+            onChangeCategory={setActivePromptCategory}
+            onSelectPrompt={(promptKey) => {
+                addPrompt(promptKey);
+                navigation.goBack();
+            }}
+            onClose={() => navigation.goBack()}
+        />
     );
 
     return (
@@ -687,17 +700,12 @@ export function DatingProfileEditorScreen({
                         <DatingProfileEditorStack.Screen name="DatingProfileSection">
                             {renderSectionScreen}
                         </DatingProfileEditorStack.Screen>
+                        <DatingProfileEditorStack.Screen name="DatingPromptPicker">
+                            {renderPromptPickerScreen}
+                        </DatingProfileEditorStack.Screen>
                     </DatingProfileEditorStack.Navigator>
                 )}
             </View>
-            <PromptPickerModal
-                visible={promptPickerVisible}
-                activeCategory={activePromptCategory}
-                selectedPromptKeys={selectedPromptKeys}
-                onChangeCategory={setActivePromptCategory}
-                onSelectPrompt={addPrompt}
-                onClose={() => setPromptPickerVisible(false)}
-            />
         </SafeAreaView>
     );
 }
@@ -1152,8 +1160,7 @@ function PromptEditor({
     );
 }
 
-interface PromptPickerModalProps {
-    visible: boolean;
+interface PromptPickerScreenProps {
     activeCategory: string;
     selectedPromptKeys: string[];
     onChangeCategory: (categoryKey: string) => void;
@@ -1161,75 +1168,67 @@ interface PromptPickerModalProps {
     onClose: () => void;
 }
 
-function PromptPickerModal({
-    visible,
+function PromptPickerScreen({
     activeCategory,
     selectedPromptKeys,
     onChangeCategory,
     onSelectPrompt,
     onClose,
-}: PromptPickerModalProps): React.ReactElement {
+}: PromptPickerScreenProps): React.ReactElement {
     const selectedSet = new Set(selectedPromptKeys);
     const category = DATING_PROMPT_CATEGORIES.find((item) => item.key === activeCategory) ?? DATING_PROMPT_CATEGORIES[0];
     const atLimit = selectedPromptKeys.length >= MAX_DATING_PROMPTS;
 
     return (
-        <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
-            <SafeAreaView style={styles.promptPickerContainer} edges={['top', 'bottom']}>
-                <View style={styles.promptPickerHeader}>
-                    <Text style={styles.promptPickerTitle}>Add prompt</Text>
-                    <TouchableOpacity style={styles.promptPickerClose} onPress={onClose} activeOpacity={0.85}>
-                        <Ionicons name="close" size={22} color={Colors.text.primary} />
-                    </TouchableOpacity>
-                </View>
+        <View style={styles.promptPickerContainer}>
+            <ScreenHeader title="Add prompt" onBack={onClose} />
 
-                <View style={[screenStandards.pageTabsWrap, styles.promptCategoryTabsWrap]}>
-                    <View style={styles.promptCategoryHintRow}>
-                        <Text style={styles.promptCategoryHintText}>Scroll for more</Text>
-                        <Ionicons name="chevron-forward" size={14} color={Colors.text.muted} />
-                    </View>
-                    <ScrollView
-                        horizontal
-                        showsHorizontalScrollIndicator={false}
-                        contentContainerStyle={styles.promptCategoryTabsContent}
-                    >
-                        <SegmentedControl
-                            items={DATING_PROMPT_CATEGORIES.map((item) => ({ key: item.key, label: item.label }))}
-                            activeKey={category.key}
-                            onChange={onChangeCategory}
-                            layer="page"
-                            tone="primary"
-                            style={[screenStandards.pageTabsControl, styles.promptCategoryControl]}
-                        />
-                    </ScrollView>
+            <View style={[screenStandards.pageTabsWrap, styles.promptCategoryTabsWrap]}>
+                <View style={styles.promptCategoryHintRow}>
+                    <Text style={styles.promptCategoryHintText}>Scroll for more</Text>
+                    <Ionicons name="chevron-forward" size={14} color={Colors.text.muted} />
                 </View>
-
-                <ScrollView contentContainerStyle={styles.promptPickerList} showsVerticalScrollIndicator={false}>
-                    {category.prompts.map((prompt) => {
-                        const selected = selectedSet.has(prompt.key);
-                        const disabled = selected || atLimit;
-                        return (
-                            <TouchableOpacity
-                                key={prompt.key}
-                                style={[styles.promptPickerRow, selected && styles.promptPickerRowSelected]}
-                                onPress={() => onSelectPrompt(prompt.key)}
-                                disabled={disabled}
-                                activeOpacity={0.85}
-                                accessibilityRole="button"
-                                accessibilityState={{ disabled, selected }}
-                            >
-                                <Text style={[styles.promptPickerRowText, selected && styles.promptPickerRowTextSelected]}>{prompt.label}</Text>
-                                {selected ? (
-                                    <Ionicons name="checkmark-circle" size={20} color={Colors.primary} />
-                                ) : (
-                                    <Ionicons name="add-circle-outline" size={20} color={atLimit ? Colors.text.disabled : Colors.primary} />
-                                )}
-                            </TouchableOpacity>
-                        );
-                    })}
+                <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.promptCategoryTabsContent}
+                >
+                    <SegmentedControl
+                        items={DATING_PROMPT_CATEGORIES.map((item) => ({ key: item.key, label: item.label }))}
+                        activeKey={category.key}
+                        onChange={onChangeCategory}
+                        layer="page"
+                        tone="primary"
+                        style={[screenStandards.pageTabsControl, styles.promptCategoryControl]}
+                    />
                 </ScrollView>
-            </SafeAreaView>
-        </Modal>
+            </View>
+
+            <ScrollView contentContainerStyle={styles.promptPickerList} showsVerticalScrollIndicator={false}>
+                {category.prompts.map((prompt) => {
+                    const selected = selectedSet.has(prompt.key);
+                    const disabled = selected || atLimit;
+                    return (
+                        <TouchableOpacity
+                            key={prompt.key}
+                            style={[styles.promptPickerRow, selected && styles.promptPickerRowSelected]}
+                            onPress={() => onSelectPrompt(prompt.key)}
+                            disabled={disabled}
+                            activeOpacity={0.85}
+                            accessibilityRole="button"
+                            accessibilityState={{ disabled, selected }}
+                        >
+                            <Text style={[styles.promptPickerRowText, selected && styles.promptPickerRowTextSelected]}>{prompt.label}</Text>
+                            {selected ? (
+                                <Ionicons name="checkmark-circle" size={20} color={Colors.primary} />
+                            ) : (
+                                <Ionicons name="add-circle-outline" size={20} color={atLimit ? Colors.text.disabled : Colors.primary} />
+                            )}
+                        </TouchableOpacity>
+                    );
+                })}
+            </ScrollView>
+        </View>
     );
 }
 

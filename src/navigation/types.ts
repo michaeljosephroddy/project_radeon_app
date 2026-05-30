@@ -16,6 +16,10 @@ export type RootStackParamList = {
     CreateGroup: undefined;
     CreateSupportRequest: undefined;
     CreateMeetup: { meetup?: Meetup } | undefined;
+    DiscoverFilters: undefined;
+    MeetupFilters: undefined;
+    RecoveryMeetingFilters: undefined;
+    GroupFilters: undefined;
     MeetupDetail: { meetup: Meetup };
     RecoveryMeetingDetail: { meeting: RecoveryMeeting };
     GroupDetail: {

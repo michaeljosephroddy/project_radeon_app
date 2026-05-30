@@ -3,8 +3,9 @@ import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react'
 import {
     View, Text, FlatList, TouchableOpacity, TextInput, Image,
     StyleSheet, RefreshControl, ActivityIndicator, Modal,
-    Platform, KeyboardAvoidingView,
+    Platform,
 } from 'react-native';
+import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -199,7 +200,6 @@ export function FeedScreen({
     focusRequest,
     onFocusRequestConsumed,
 }: FeedScreenProps) {
-    const ScreenContainer = Platform.OS === 'ios' ? KeyboardAvoidingView : View;
     const { user } = useAuth();
     const queryClient = useQueryClient();
     const hasActivated = useLazyActivation(isActive);
@@ -726,9 +726,9 @@ export function FeedScreen({
     }
 
     return (
-        <ScreenContainer
+        <KeyboardAvoidingView
+            behavior="padding"
             style={styles.container}
-            {...(Platform.OS === 'ios' ? { behavior: 'padding' as const, keyboardVerticalOffset: 0 } : {})}
         >
             <FlatList
                 ref={flatListRef}
@@ -843,7 +843,7 @@ export function FeedScreen({
                     </View>
                 </View>
             </Modal>
-        </ScreenContainer>
+        </KeyboardAvoidingView>
     );
 }
 

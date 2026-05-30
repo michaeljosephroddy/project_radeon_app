@@ -16,10 +16,11 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useQueryClient } from '@tanstack/react-query';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Avatar } from '../../components/Avatar';
 import { DiscoverActiveFiltersBar } from '../../components/discover/DiscoverActiveFiltersBar';
 import { DiscoverEmptyState } from '../../components/discover/DiscoverEmptyState';
-import { DiscoverFilterSheet } from '../../components/discover/DiscoverFilterSheet';
 import { DatingDeck } from '../../components/discover/DatingDeck';
 import { InfoNoticeCard } from '../../components/ui/InfoNoticeCard';
 import { PrimaryButton } from '../../components/ui/PrimaryButton';
@@ -59,6 +60,8 @@ import { getRecoveryMilestone } from '../../utils/date';
 import { formatUsername } from '../../utils/identity';
 import { Colors, ControlSizes, Spacing, TextStyles, Typography, Radius, getAvatarColors } from '../../theme';
 import { screenStandards } from '../../styles/screenStandards';
+import { setDiscoverFiltersRouteState } from '../../navigation/filterRouteStores';
+import type { RootStackParamList } from '../../navigation/types';
 import { MeetingsView } from './support/MeetingsView';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -358,6 +361,7 @@ export function DiscoverScreen({
     onOpenDatingProfileEditor,
     onOpenDatingProfile,
 }: DiscoverScreenProps) {
+    const rootNavigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
     const { user } = useAuth();
     const queryClient = useQueryClient();
     const hasActivated = useLazyActivation(isActive);
@@ -602,20 +606,21 @@ export function DiscoverScreen({
     const handleOpenFilters = useCallback(() => {
         syncDraftToApplied();
         setFilterSheetVisible(true);
-    }, [syncDraftToApplied]);
+        rootNavigation.navigate('DiscoverFilters');
+    }, [rootNavigation, syncDraftToApplied]);
 
     const handleCloseFilters = useCallback(() => {
         setFilterSheetVisible(false);
     }, []);
 
-    const handleApplyFilters = useCallback(() => {
+    const handleApplyFilters = useCallback((): boolean => {
         if (validatedDraft.error) {
             appAlert.alert('Invalid filters', validatedDraft.error);
-            return;
+            return false;
         }
 
         if (!validatedDraft.normalized) {
-            return;
+            return false;
         }
 
         const preview = isDatingTab ? datingPreviewQuery.data : previewQuery.data;
@@ -623,6 +628,7 @@ export function DiscoverScreen({
         setAppliedState(nextState);
         setDraftFilters(createDiscoverDraftFromApplied(validatedDraft.normalized));
         setFilterSheetVisible(false);
+        return true;
     }, [datingPreviewQuery.data, isDatingTab, previewQuery.data, setAppliedState, setDraftFilters, validatedDraft]);
 
     const handleClearAllFilters = useCallback(() => {
@@ -659,6 +665,38 @@ export function DiscoverScreen({
             appAlert.alert('Could not open settings', 'Open your device settings and turn on location services for this app.');
         });
     }, []);
+
+    useEffect(() => {
+        if (!filterSheetVisible) {
+            setDiscoverFiltersRouteState(null);
+            return;
+        }
+
+        setDiscoverFiltersRouteState({
+            draftFilters,
+            onChangeFilters: setDraftFilters,
+            preview: isDatingTab ? datingPreviewQuery.data : previewQuery.data,
+            previewLoading: isDatingTab ? datingPreviewQuery.isFetching : previewQuery.isFetching,
+            validationError: validatedDraft.error,
+            interestOptions: interestOptionsQuery.data ?? [],
+            onClose: handleCloseFilters,
+            onReset: () => setDraftFilters(createDefaultDiscoverDraftFilters()),
+            onApply: handleApplyFilters,
+        });
+    }, [
+        datingPreviewQuery.data,
+        datingPreviewQuery.isFetching,
+        draftFilters,
+        filterSheetVisible,
+        handleApplyFilters,
+        handleCloseFilters,
+        interestOptionsQuery.data,
+        isDatingTab,
+        previewQuery.data,
+        previewQuery.isFetching,
+        setDraftFilters,
+        validatedDraft.error,
+    ]);
 
     const handleOpenDatingProfile = useCallback((profile: api.DatingProfile): void => {
         onOpenDatingProfile(profile);
@@ -982,18 +1020,6 @@ export function DiscoverScreen({
                     onClose={() => setMatchModal(null)}
                     onOpenChat={() => void handleOpenMatchChat()}
                 />
-                <DiscoverFilterSheet
-                    visible={filterSheetVisible}
-                    draftFilters={draftFilters}
-                    onChangeFilters={setDraftFilters}
-                    preview={datingPreviewQuery.data}
-                    previewLoading={datingPreviewQuery.isFetching}
-                    validationError={validatedDraft.error}
-                    interestOptions={interestOptionsQuery.data ?? []}
-                    onClose={handleCloseFilters}
-                    onReset={() => setDraftFilters(createDefaultDiscoverDraftFilters())}
-                    onApply={handleApplyFilters}
-                />
             </View>
         );
     }
@@ -1131,18 +1157,6 @@ export function DiscoverScreen({
                 <ScrollToTopButton onPress={() => listRef.current?.scrollToOffset({ offset: 0, animated: true })} />
             ) : null}
 
-            <DiscoverFilterSheet
-                visible={filterSheetVisible}
-                draftFilters={draftFilters}
-                onChangeFilters={setDraftFilters}
-                preview={previewQuery.data}
-                previewLoading={previewQuery.isFetching}
-                validationError={validatedDraft.error}
-                interestOptions={interestOptionsQuery.data ?? []}
-                onClose={handleCloseFilters}
-                onReset={() => setDraftFilters(createDefaultDiscoverDraftFilters())}
-                onApply={handleApplyFilters}
-            />
         </View>
     );
 }

@@ -1,6 +1,5 @@
 import React from 'react';
 import {
-    Modal,
     ScrollView,
     StyleSheet,
     Switch,
@@ -23,7 +22,7 @@ import { ScreenHeader } from '../ui/ScreenHeader';
 import { TextField } from '../ui/TextField';
 
 interface MeetupFilterSheetProps {
-    visible: boolean;
+    active: boolean;
     draftFilters: MeetupDraftFilters;
     categories: api.MeetupCategory[];
     onChangeFilters: React.Dispatch<React.SetStateAction<MeetupDraftFilters>>;
@@ -64,7 +63,7 @@ function useDebouncedValue<T>(value: T, delayMs: number): T {
 }
 
 export function MeetupFilterSheet({
-    visible,
+    active,
     draftFilters,
     categories,
     onChangeFilters,
@@ -75,7 +74,7 @@ export function MeetupFilterSheet({
     const debouncedLocationQuery = useDebouncedValue(draftFilters.locationQuery.trim(), 250);
     const locationSuggestionsQuery = useMeetupLocationSuggestions(
         debouncedLocationQuery,
-        visible && debouncedLocationQuery.length >= 2,
+        active && debouncedLocationQuery.length >= 2,
     );
     const locationSuggestions = locationSuggestionsQuery.data ?? [];
     const selectedLocationLabel = draftFilters.locationCountry
@@ -85,11 +84,10 @@ export function MeetupFilterSheet({
         && selectedLocationLabel !== draftFilters.locationQuery.trim();
 
     return (
-        <Modal visible={visible} animationType="slide" transparent={false} onRequestClose={onClose}>
-            <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-                <ScreenHeader onBack={onClose} title="Event filters" />
+        <SafeAreaView style={styles.container} edges={['bottom']}>
+            <ScreenHeader onBack={onClose} title="Event filters" />
 
-                <ScrollView contentContainerStyle={[screenStandards.sheetContent, styles.content]} showsVerticalScrollIndicator={false}>
+            <ScrollView contentContainerStyle={[screenStandards.sheetContent, styles.content]} showsVerticalScrollIndicator={false}>
                     <View style={styles.section}>
                         <Text style={styles.sectionTitle}>Category</Text>
                         <View style={styles.wrap}>
@@ -192,16 +190,15 @@ export function MeetupFilterSheet({
                             thumbColor={Colors.bg.page}
                         />
                     </View>
-                </ScrollView>
+            </ScrollView>
 
-                <View style={styles.footer}>
-                    <TouchableOpacity onPress={onReset} style={styles.resetButton} activeOpacity={0.8}>
-                        <Text style={styles.resetText}>Reset</Text>
-                    </TouchableOpacity>
-                    <PrimaryButton label="Apply filters" onPress={onApply} style={styles.applyButton} />
-                </View>
-            </SafeAreaView>
-        </Modal>
+            <View style={styles.footer}>
+                <TouchableOpacity onPress={onReset} style={styles.resetButton} activeOpacity={0.8}>
+                    <Text style={styles.resetText}>Reset</Text>
+                </TouchableOpacity>
+                <PrimaryButton label="Apply filters" onPress={onApply} style={styles.applyButton} />
+            </View>
+        </SafeAreaView>
     );
 }
 

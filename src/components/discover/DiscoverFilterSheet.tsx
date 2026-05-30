@@ -1,6 +1,5 @@
 import React from 'react';
 import {
-    Modal,
     ScrollView,
     StyleSheet,
     Text,
@@ -24,7 +23,6 @@ import { ScreenHeader } from '../ui/ScreenHeader';
 import { TextField } from '../ui/TextField';
 
 interface DiscoverFilterSheetProps {
-    visible: boolean;
     draftFilters: DiscoverDraftFilters;
     onChangeFilters: React.Dispatch<React.SetStateAction<DiscoverDraftFilters>>;
     preview?: api.DiscoverPreviewResponse;
@@ -100,7 +98,6 @@ function getPreviewCopy(
 }
 
 export function DiscoverFilterSheet({
-    visible,
     draftFilters,
     onChangeFilters,
     preview,
@@ -115,15 +112,14 @@ export function DiscoverFilterSheet({
     const previewCopy = getPreviewCopy(preview, previewLoading, validationError);
 
     return (
-        <Modal visible={visible} animationType="slide" transparent={false} onRequestClose={onClose}>
-            <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-                <ScreenHeader onBack={onClose} title="Advanced filters" />
+        <SafeAreaView style={styles.container} edges={['bottom']}>
+            <ScreenHeader onBack={onClose} title="Advanced filters" />
 
-                <ScrollView contentContainerStyle={[screenStandards.sheetContent, styles.content]} showsVerticalScrollIndicator={false}>
-                    <View style={styles.previewCard}>
-                        <Ionicons name="sparkles-outline" size={18} color={Colors.primary} />
-                        <Text style={styles.previewText}>{previewCopy}</Text>
-                    </View>
+            <ScrollView contentContainerStyle={[screenStandards.sheetContent, styles.content]} showsVerticalScrollIndicator={false}>
+                <View style={styles.previewCard}>
+                    <Ionicons name="sparkles-outline" size={18} color={Colors.primary} />
+                    <Text style={styles.previewText}>{previewCopy}</Text>
+                </View>
 
                     <View style={styles.section}>
                         <Text style={styles.sectionTitle}>Gender</Text>
@@ -249,29 +245,28 @@ export function DiscoverFilterSheet({
                             ) : null}
                         </View>
                     </TouchableOpacity>
-                </ScrollView>
+            </ScrollView>
 
-                <View style={styles.footer}>
-                    <TouchableOpacity style={styles.resetButton} onPress={onReset} activeOpacity={0.8}>
-                        <Text style={styles.resetButtonText}>Reset</Text>
-                    </TouchableOpacity>
-                    <PrimaryButton
-                        label={primaryLabel}
-                        onPress={onApply}
-                        variant="primary"
-                        style={styles.applyButton}
-                        leftAdornment={
-                            <Ionicons
-                                name="options-outline"
-                                size={16}
-                                color={Colors.textOn.primary}
-                            />
-                        }
-                        loading={previewLoading}
-                    />
-                </View>
-            </SafeAreaView>
-        </Modal>
+            <View style={styles.footer}>
+                <TouchableOpacity style={styles.resetButton} onPress={onReset} activeOpacity={0.8}>
+                    <Text style={styles.resetButtonText}>Reset</Text>
+                </TouchableOpacity>
+                <PrimaryButton
+                    label={primaryLabel}
+                    onPress={onApply}
+                    variant="primary"
+                    style={styles.applyButton}
+                    leftAdornment={
+                        <Ionicons
+                            name="options-outline"
+                            size={16}
+                            color={Colors.textOn.primary}
+                        />
+                    }
+                    loading={previewLoading}
+                />
+            </View>
+        </SafeAreaView>
     );
 }
 
