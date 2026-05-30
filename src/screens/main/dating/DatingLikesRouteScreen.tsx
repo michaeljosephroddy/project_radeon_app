@@ -63,12 +63,10 @@ export function DatingLikesRouteScreen(): React.ReactElement {
     }, [logDatingEvent, pendingActionIds]);
 
     const handleOpenProfile = useCallback((profile: api.DatingProfile): void => {
-        if (!profile.user_id) return;
         logDatingEvent({ event_type: 'profile_opened', profile_id: profile.id });
-        navigation.navigate('UserProfile', {
-            userId: profile.user_id,
-            username: profile.username,
-            avatarUrl: profile.photos[0]?.image_url,
+        navigation.navigate('DatingProfileDetail', {
+            profileId: profile.id,
+            initialProfile: profile,
         });
     }, [logDatingEvent, navigation]);
 
