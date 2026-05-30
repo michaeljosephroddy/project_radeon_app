@@ -199,6 +199,8 @@ export function NotificationsScreen({
                     await onOpenChat(chatId);
                     return;
                 }
+                await queryClient.invalidateQueries({ queryKey: ['support-signals'] });
+                await queryClient.refetchQueries({ queryKey: ['support-signals'], type: 'active' });
                 onOpenReachOut(readPayloadString(item.payload, 'support_signal_id') ?? undefined);
                 return;
             }

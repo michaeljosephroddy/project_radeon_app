@@ -179,6 +179,7 @@ export const queryKeys = {
     },
     supportRequests: (params?: { scope?: 'open' | 'mine'; filter?: 'all' | 'urgent' | 'unanswered'; limit?: number }) => ['support-requests', params ?? {}] as const,
     supportSignals: (params?: { scope?: 'active' | 'mine'; limit?: number }) => ['support-signals', params ?? {}] as const,
+    supportSignal: (signalId: string) => ['support-signals', 'detail', signalId] as const,
     supportOffers: (requestId: string, params?: { status?: string; limit?: number }) => ['support-offers', requestId, params ?? {}] as const,
     supportReplies: (requestId: string, params?: { limit?: number }) => ['support-replies', requestId, params ?? {}] as const,
 };

@@ -67,6 +67,11 @@ const INFINITE_QUERY_POLICIES: Record<string, InfiniteQueryPolicy> = {
         persistedPages: 1,
         refetchOnMount: true,
     },
+    'support-signals': {
+        persist: true,
+        persistedPages: 1,
+        refetchOnMount: 'always',
+    },
     'user-posts': {
         persist: true,
         persistedPages: 1,

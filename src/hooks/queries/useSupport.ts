@@ -4,6 +4,7 @@ import { getInfiniteQueryPolicy } from '../../query/queryPolicies';
 import { queryKeys } from '../../query/queryKeys';
 
 const SUPPORT_REQUESTS_STALE_TIME = 1000 * 30;
+const SUPPORT_SIGNALS_STALE_TIME = 0;
 
 export function useSupportRequests(filter: api.SupportRequestFilter = 'all', limit = 20, enabled = true) {
     const queryKey = queryKeys.supportRequests({ scope: 'open', filter, limit });
@@ -44,7 +45,7 @@ export function useActiveSupportSignals(limit = 20, enabled = true) {
         queryFn: ({ pageParam }) => api.getActiveSupportSignals(pageParam as string | undefined, limit),
         initialPageParam: undefined as string | undefined,
         getNextPageParam: (lastPage) => lastPage.next_cursor ?? undefined,
-        staleTime: SUPPORT_REQUESTS_STALE_TIME,
+        staleTime: SUPPORT_SIGNALS_STALE_TIME,
         refetchOnMount: policy?.refetchOnMount,
         enabled,
     });
@@ -54,8 +55,18 @@ export function useMySupportSignal(enabled = true) {
     return useQuery({
         queryKey: queryKeys.supportSignals({ scope: 'mine' }),
         queryFn: () => api.getMySupportSignal(),
-        staleTime: SUPPORT_REQUESTS_STALE_TIME,
+        staleTime: SUPPORT_SIGNALS_STALE_TIME,
         enabled,
+    });
+}
+
+export function useSupportSignal(signalId: string | null | undefined, enabled = true) {
+    return useQuery({
+        queryKey: queryKeys.supportSignal(signalId ?? ''),
+        queryFn: () => api.getSupportSignal(signalId ?? ''),
+        staleTime: SUPPORT_SIGNALS_STALE_TIME,
+        retry: false,
+        enabled: enabled && Boolean(signalId),
     });
 }
 

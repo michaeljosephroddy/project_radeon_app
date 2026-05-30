@@ -9,18 +9,20 @@ interface AvatarProps {
   avatarUrl?: string;
   size?: number;
   fontSize?: number;
+  forceReachOutRing?: boolean;
 }
 
 // Renders either a remote avatar image or a deterministic initials fallback.
-export function Avatar({ userId, username, avatarUrl, size = AvatarSizes.compact, fontSize = TextStyles.chip.fontSize }: AvatarProps) {
+export function Avatar({ userId, username, avatarUrl, size = AvatarSizes.compact, fontSize = TextStyles.chip.fontSize, forceReachOutRing = false }: AvatarProps) {
   const colors = getAvatarColors(username);
   const initials = getInitials(username);
   const frameStyle = getAvatarFrameStyle(size);
   const { getSignalForIdentity } = useReachOutStatus();
   const signal = getSignalForIdentity({ userId, username });
-  const ringWidth = signal ? getReachOutRingWidth(size) : 0;
-  const outerFrameStyle = signal ? getAvatarFrameStyle(size + ringWidth * 2) : frameStyle;
-  const ringStyle = signal ? getReachOutRingStyle(ringWidth) : null;
+  const showReachOutRing = forceReachOutRing || Boolean(signal);
+  const ringWidth = showReachOutRing ? getReachOutRingWidth(size) : 0;
+  const outerFrameStyle = showReachOutRing ? getAvatarFrameStyle(size + ringWidth * 2) : frameStyle;
+  const ringStyle = showReachOutRing ? getReachOutRingStyle(ringWidth) : null;
 
   if (avatarUrl) {
     return (
