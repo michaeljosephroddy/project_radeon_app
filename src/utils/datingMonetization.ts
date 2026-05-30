@@ -53,7 +53,7 @@ export const SOBERSPACE_PLUS_BENEFITS = [
     'Unlimited Dating likes',
     'See everyone who likes you',
     'More Dating preferences',
-    'More standout profiles each day',
+    'More compatible profiles each day',
     'Sort incoming likes faster',
 ];
 

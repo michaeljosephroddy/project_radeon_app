@@ -21,13 +21,14 @@ The product inspiration is the screenshot sets at `/home/michaelroddy/Downloads/
 - [x] (2026-05-30T11:37Z) Added a SoberSpace Plus screen with target plan pricing, benefits, Spotlight catalogue, navigation, and 402 daily-like-limit routing.
 - [x] (2026-05-30T12:22Z) Reviewed `/home/michaelroddy/Downloads/k` screenshots and decided the next monetization surface should be a third Dating profile editor tab named `Get more`, not a new bottom tab.
 - [x] (2026-05-30T13:18Z) Created backend Spotlight purchase/inventory/activation migration, store APIs, routes, cache pass-through, discovery ranking weight, and tests.
-- [x] (2026-05-30T13:18Z) Added the Dating profile editor `Get more` tab with Plus plans, benefits, Spotlight/Super Spotlight inventory, activation state, setup-required purchase CTAs, and a future Standout Like section.
+- [x] (2026-05-30T13:18Z) Added the Dating profile editor `Get more` tab with Plus plans, benefits, Spotlight/Super Spotlight inventory, activation state, and setup-required purchase CTAs.
 - [x] (2026-05-30T13:18Z) Added app API types/functions and React Query hooks for Spotlight status and activation.
 - [x] (2026-05-30T13:18Z) Applied backend migration `106_dating_spotlights.sql` locally.
 - [x] (2026-05-30T13:42Z) Added backend Plus-gated advanced Dating filters for dating intentions, height, family plans, vices, sober lifestyle, recovery approach, nightlife comfort, and substance boundaries.
 - [x] (2026-05-30T13:42Z) Added app advanced Dating filter UI with Plus-locked rows for free users and usable filter controls for Plus users.
 - [x] (2026-05-30T14:05Z) Added subscription savings labels and the auto-renewal/cancellation disclaimer to the SoberSpace Plus surfaces.
 - [x] (2026-05-30T14:22Z) Redesigned the Dating profile editor `Get more` tab around a simpler profile-status header, quick action tiles, and Free versus Plus comparison card.
+- [x] (2026-05-30T14:35Z) Removed Standout Like references from the app plan, Get More UI, and Plus benefit copy.
 - [x] (2026-05-30T13:18Z) Add real Spotlight inventory and activation state to the `Get more` tab.
 - [ ] Integrate real App Store / Google Play products and receipt validation.
 - [x] (2026-05-30T13:18Z) Validate implemented backend/app slices with backend tests, app typecheck, and local migration.
@@ -95,7 +96,7 @@ Terms used in this plan:
 
 `Advanced filter` means a dating/discovery filter only available to Plus users. Free users can see locked rows and upgrade prompts, but backend requests using locked filters must be rejected or ignored with a clear entitlement response.
 
-`Get more` means the monetization hub shown as the third tab in the Dating profile editor, beside `Edit` and `Preview`. It is not a bottom tab. It should include subscription benefits, plan options, Spotlight inventory/purchase entries, Super Spotlight entries, and any future Standout Like inventory.
+`Get more` means the monetization hub shown as the third tab in the Dating profile editor, beside `Edit` and `Preview`. It is not a bottom tab. It should include subscription benefits, plan options, Spotlight inventory/purchase entries, and Super Spotlight entries.
 
 ## Product Definition
 
@@ -131,7 +132,7 @@ The `Get more` tab should include:
 
 - A concise profile-context header, using existing Dating profile data where available.
 - A profile completion prompt or progress row if the data is already available cheaply.
-- Quick inventory tiles for Spotlights, Super Spotlights, and a future Standout Like concept if product decides to include one.
+- Quick inventory tiles for Spotlights, Super Spotlights, and Plus.
 - A SoberSpace Plus comparison card showing Free versus Plus for core benefits.
 - Plan options using the existing target product IDs and target prices until live store metadata exists.
 - Spotlight and Super Spotlight product cards with inventory count and activation state once the backend supports it.

@@ -1789,19 +1789,6 @@ function DatingGetMoreTab({
                     })}
                 </View>
             </View>
-
-            <View style={styles.getMoreSection}>
-                <Text style={styles.getMoreSectionTitle}>Standout likes</Text>
-                <View style={styles.standoutRow}>
-                    <View style={styles.standoutIcon}>
-                        <Ionicons name="rose-outline" size={20} color={Colors.danger} />
-                    </View>
-                    <View style={styles.standoutCopy}>
-                        <Text style={styles.standoutTitle}>Send a stronger like</Text>
-                        <Text style={styles.standoutMeta}>Coming later. For now, Spotlights are the way to get extra visibility.</Text>
-                    </View>
-                </View>
-            </View>
         </ScrollView>
     );
 }
@@ -2956,38 +2943,6 @@ const styles = StyleSheet.create({
         color: Colors.textOn.primary,
     },
     activateSpotlightTextDisabled: {
-        color: Colors.text.secondary,
-    },
-    standoutRow: {
-        minHeight: 76,
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: Spacing.md,
-        borderRadius: Radius.md,
-        borderWidth: 1,
-        borderColor: Colors.border.emphasis,
-        backgroundColor: Colors.bg.surface,
-        padding: Spacing.md,
-    },
-    standoutIcon: {
-        width: 42,
-        height: 42,
-        borderRadius: Radius.pill,
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: Colors.dangerSubtle,
-    },
-    standoutCopy: {
-        flex: 1,
-        minWidth: 0,
-        gap: 2,
-    },
-    standoutTitle: {
-        ...TextStyles.label,
-        color: Colors.text.primary,
-    },
-    standoutMeta: {
-        ...TextStyles.secondary,
         color: Colors.text.secondary,
     },
     previewContent: {
