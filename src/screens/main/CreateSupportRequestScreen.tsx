@@ -1,14 +1,16 @@
 import { appAlert } from '@/components/ui/appAlert';
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
+import { Ionicons } from '@expo/vector-icons';
+import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import * as api from '../../api/client';
 import { CreateFlowFrame } from '../../components/ui/CreateFlowFrame';
 import { InfoNoticeCard } from '../../components/ui/InfoNoticeCard';
 import { PrimaryButton } from '../../components/ui/PrimaryButton';
 import { TextField } from '../../components/ui/TextField';
 import { useAuth } from '../../hooks/useAuth';
-import { Colors, Radius, Spacing, TextStyles } from '../../theme';
+import { Colors, ControlSizes, Radius, Spacing, TextStyles } from '../../theme';
 import { getDeviceCoords, reverseGeocodePlace } from '../../utils/location';
 
 interface CreateSupportRequestScreenProps {
@@ -55,6 +57,21 @@ const TOPICS: api.SupportTopic[] = [
     'practical_support',
 ];
 
+type SupportCreateStep = 'need' | 'message' | 'preferences' | 'review';
+
+interface SupportCreateStepMeta {
+    key: SupportCreateStep;
+    label: string;
+    icon: keyof typeof Ionicons.glyphMap;
+}
+
+const SUPPORT_CREATE_STEPS: SupportCreateStepMeta[] = [
+    { key: 'need', label: 'Need', icon: 'heart-outline' },
+    { key: 'message', label: 'Message', icon: 'chatbubble-ellipses-outline' },
+    { key: 'preferences', label: 'Preferences', icon: 'options-outline' },
+    { key: 'review', label: 'Review', icon: 'checkmark-circle-outline' },
+];
+
 function defaultSupportForm(city?: string | null): api.CreateSupportRequestInput {
     return {
         support_type: 'chat',
@@ -79,6 +96,7 @@ export function CreateSupportRequestScreen({
     const [submitting, setSubmitting] = useState(false);
     const [detectingLocation, setDetectingLocation] = useState(false);
     const [formError, setFormError] = useState<string | null>(null);
+    const [currentStep, setCurrentStep] = useState<SupportCreateStep>('need');
     const storedCity = user?.current_city ?? user?.city ?? null;
     const selectedLocationCity = form.location?.visibility === 'city' ? form.location.city ?? null : null;
     const locationCity = storedCity ?? selectedLocationCity;
@@ -92,6 +110,21 @@ export function CreateSupportRequestScreen({
         || form.urgency !== 'low'
         || form.preferred_gender !== null
         || currentLocationCity !== defaultLocationCity;
+    const currentStepIndex = SUPPORT_CREATE_STEPS.findIndex((step) => step.key === currentStep);
+    const safeStepIndex = currentStepIndex >= 0 ? currentStepIndex : 0;
+    const isReviewStep = currentStep === 'review';
+    const selectedTopicLabels = useMemo(
+        () => form.topics.map((topic) => TOPIC_LABELS[topic]).filter((label, index, labels) => labels.indexOf(label) === index),
+        [form.topics],
+    );
+    const preferredGenderLabel = useMemo(() => {
+        const preferredGender = form.preferred_gender ?? 'no_preference';
+        if (preferredGender === 'no_preference') return 'No preference';
+        if (preferredGender === 'non_binary') return 'Non-binary';
+        return preferredGender[0].toUpperCase() + preferredGender.slice(1);
+    }, [form.preferred_gender]);
+    const locationLabel = includeCity && locationCity ? locationCity : 'Hidden';
+
     const handleBack = useCallback((): void => {
         if (!hasDraft || submitting) {
             onBack();
@@ -153,6 +186,23 @@ export function CreateSupportRequestScreen({
         }
     }, [detectingLocation, refreshUser]);
 
+    const handleBackStep = useCallback((): void => {
+        if (safeStepIndex <= 0) {
+            handleBack();
+            return;
+        }
+        setCurrentStep(SUPPORT_CREATE_STEPS[safeStepIndex - 1]?.key ?? 'need');
+    }, [handleBack, safeStepIndex]);
+
+    const handleNextStep = useCallback((): void => {
+        if (currentStep === 'message' && !messageBody) {
+            setFormError('Please describe the support you need before continuing.');
+            return;
+        }
+        setFormError(null);
+        setCurrentStep(SUPPORT_CREATE_STEPS[Math.min(safeStepIndex + 1, SUPPORT_CREATE_STEPS.length - 1)]?.key ?? 'review');
+    }, [currentStep, messageBody, safeStepIndex]);
+
     const handleSubmit = useCallback(async () => {
         const trimmedMessage = form.message?.trim() ?? '';
         if (!trimmedMessage) {
@@ -186,17 +236,180 @@ export function CreateSupportRequestScreen({
         }
     }, [form, onCreated, queryClient]);
 
+    const renderStepContent = (): React.ReactNode => {
+        if (currentStep === 'need') {
+            return (
+                <>
+                    <FormSection label="Support type">
+                        <View style={styles.selectorWrap}>
+                            {SUPPORT_TYPES.map((type) => (
+                                <TouchableOpacity
+                                    key={type}
+                                    style={[styles.selectorChip, form.support_type === type && styles.selectorChipActive]}
+                                    onPress={() => setForm((current) => ({ ...current, support_type: type }))}
+                                >
+                                    <Text style={[styles.selectorChipText, form.support_type === type && styles.selectorChipTextActive]}>
+                                        {SUPPORT_TYPE_LABELS[type]}
+                                    </Text>
+                                </TouchableOpacity>
+                            ))}
+                        </View>
+                    </FormSection>
+
+                    <FormSection label="Urgency">
+                        <View style={styles.selectorWrap}>
+                            {URGENCIES.map((urgency) => (
+                                <TouchableOpacity
+                                    key={urgency}
+                                    style={[styles.selectorChip, form.urgency === urgency && styles.selectorChipActive]}
+                                    onPress={() => setForm((current) => ({ ...current, urgency }))}
+                                >
+                                    <Text style={[styles.selectorChipText, form.urgency === urgency && styles.selectorChipTextActive]}>
+                                        {URGENCY_LABELS[urgency]}
+                                    </Text>
+                                </TouchableOpacity>
+                            ))}
+                        </View>
+                    </FormSection>
+
+                    <FormSection label="Topics">
+                        <View style={styles.selectorWrap}>
+                            {TOPICS.map((topic) => {
+                                const active = form.topics.includes(topic);
+                                return (
+                                    <TouchableOpacity
+                                        key={topic}
+                                        style={[styles.selectorChip, active && styles.selectorChipActive]}
+                                        onPress={() => toggleTopic(topic)}
+                                    >
+                                        <Text style={[styles.selectorChipText, active && styles.selectorChipTextActive]}>
+                                            {TOPIC_LABELS[topic]}
+                                        </Text>
+                                    </TouchableOpacity>
+                                );
+                            })}
+                        </View>
+                    </FormSection>
+                </>
+            );
+        }
+
+        if (currentStep === 'message') {
+            return (
+                <FormSection label="What support do you need?">
+                    <TextField
+                        value={form.message ?? ''}
+                        onChangeText={(message) => {
+                            setForm((current) => ({ ...current, message }));
+                            if (formError) setFormError(null);
+                        }}
+                        placeholder="Share what is happening and what kind of support would help."
+                        multiline
+                        style={[styles.formInput, styles.inputMultiline, formError && styles.inputError]}
+                    />
+                    {formError ? (
+                        <Text style={styles.errorText}>{formError}</Text>
+                    ) : null}
+                </FormSection>
+            );
+        }
+
+        if (currentStep === 'preferences') {
+            return (
+                <>
+                    <FormSection label="Preferred gender">
+                        <View style={styles.selectorWrap}>
+                            {(['no_preference', 'woman', 'man', 'non_binary'] as api.PreferredGender[]).map((gender) => {
+                                const active = (form.preferred_gender ?? 'no_preference') === gender;
+                                const label = gender === 'no_preference'
+                                    ? 'No preference'
+                                    : gender === 'non_binary'
+                                        ? 'Non-binary'
+                                        : gender[0].toUpperCase() + gender.slice(1);
+                                return (
+                                    <TouchableOpacity
+                                        key={gender}
+                                        style={[styles.selectorChip, active && styles.selectorChipActive]}
+                                        onPress={() => setForm((current) => ({ ...current, preferred_gender: gender === 'no_preference' ? null : gender }))}
+                                    >
+                                        <Text style={[styles.selectorChipText, active && styles.selectorChipTextActive]}>{label}</Text>
+                                    </TouchableOpacity>
+                                );
+                            })}
+                        </View>
+                    </FormSection>
+
+                    <FormSection label="Location">
+                        <View style={styles.selectorWrap}>
+                            <TouchableOpacity
+                                style={[styles.selectorChip, !includeCity && styles.selectorChipActive]}
+                                onPress={() => setForm((current) => ({ ...current, location: null }))}
+                            >
+                                <Text style={[styles.selectorChipText, !includeCity && styles.selectorChipTextActive]}>Hidden</Text>
+                            </TouchableOpacity>
+                            {locationCity ? (
+                                <TouchableOpacity
+                                    style={[styles.selectorChip, includeCity && styles.selectorChipActive]}
+                                    onPress={() => setForm((current) => ({
+                                        ...current,
+                                        location: { city: locationCity, visibility: 'city' },
+                                    }))}
+                                >
+                                    <Text style={[styles.selectorChipText, includeCity && styles.selectorChipTextActive]}>Use {locationCity}</Text>
+                                </TouchableOpacity>
+                            ) : (
+                                <TouchableOpacity
+                                    style={[styles.selectorChip, detectingLocation && styles.selectorChipDisabled]}
+                                    onPress={() => void handleUseCurrentLocation()}
+                                    disabled={detectingLocation}
+                                >
+                                    <Text style={styles.selectorChipText}>
+                                        {detectingLocation ? 'Detecting...' : 'Use current location'}
+                                    </Text>
+                                </TouchableOpacity>
+                            )}
+                        </View>
+                    </FormSection>
+                </>
+            );
+        }
+
+        return (
+            <View style={styles.reviewSection}>
+                <ReviewRow label="Type" value={SUPPORT_TYPE_LABELS[form.support_type]} />
+                <ReviewRow label="Urgency" value={URGENCY_LABELS[form.urgency]} />
+                <ReviewRow label="Topics" value={selectedTopicLabels.join(', ') || 'No topics selected'} />
+                <ReviewRow label="Preferred gender" value={preferredGenderLabel} />
+                <ReviewRow label="Location" value={locationLabel} />
+                <ReviewRow label="Message" value={messageBody || 'No message added'} last />
+            </View>
+        );
+    };
+
     return (
         <CreateFlowFrame
             title="Create support request"
             onBack={handleBack}
             footer={(
-                <PrimaryButton
-                    label={submitting ? 'Posting...' : 'Post request'}
-                    onPress={() => void handleSubmit()}
-                    loading={submitting}
-                    disabled={submitting}
-                />
+                <View style={styles.footerActionRow}>
+                    <TouchableOpacity
+                        style={styles.backButton}
+                        onPress={safeStepIndex > 0 ? handleBackStep : handleBack}
+                        activeOpacity={0.84}
+                        disabled={submitting}
+                    >
+                        {safeStepIndex > 0 ? <Ionicons name="chevron-back" size={18} color={Colors.primary} /> : null}
+                        <Text style={styles.backButtonText}>{safeStepIndex > 0 ? 'Back' : 'Cancel'}</Text>
+                    </TouchableOpacity>
+                    <PrimaryButton
+                        label={isReviewStep ? 'Post request' : 'Next'}
+                        onPress={isReviewStep ? () => void handleSubmit() : handleNextStep}
+                        loading={submitting}
+                        disabled={submitting}
+                        style={styles.primaryAction}
+                        rightAdornment={!isReviewStep ? <Ionicons name="chevron-forward" size={18} color={Colors.textOn.primary} /> : null}
+                    />
+                </View>
             )}
         >
             {showNotice ? (
@@ -208,126 +421,127 @@ export function CreateSupportRequestScreen({
                 />
             ) : null}
 
-            <Text style={styles.formLabel}>Support type</Text>
-            <View style={styles.selectorWrap}>
-                {SUPPORT_TYPES.map((type) => (
-                    <TouchableOpacity
-                        key={type}
-                        style={[styles.selectorChip, form.support_type === type && styles.selectorChipActive]}
-                        onPress={() => setForm((current) => ({ ...current, support_type: type }))}
-                    >
-                        <Text style={[styles.selectorChipText, form.support_type === type && styles.selectorChipTextActive]}>
-                            {SUPPORT_TYPE_LABELS[type]}
-                        </Text>
-                    </TouchableOpacity>
-                ))}
+            <View style={styles.progressBlock}>
+                <Text style={styles.progressText}>{`${SUPPORT_CREATE_STEPS[safeStepIndex]?.label ?? 'Step'} ${safeStepIndex + 1} of ${SUPPORT_CREATE_STEPS.length}`}</Text>
+                <View style={styles.progressTrack}>
+                    {SUPPORT_CREATE_STEPS.map((item, index) => (
+                        <View
+                            key={item.key}
+                            style={[
+                                styles.progressSegment,
+                                index <= safeStepIndex && styles.progressSegmentActive,
+                            ]}
+                        />
+                    ))}
+                </View>
+                <View style={styles.stepTitleRow}>
+                    <View style={styles.stepIcon}>
+                        <Ionicons name={SUPPORT_CREATE_STEPS[safeStepIndex]?.icon ?? 'heart-outline'} size={18} color={Colors.primary} />
+                    </View>
+                    <View style={styles.stepCopy}>
+                        <Text style={styles.stepTitle}>{SUPPORT_CREATE_STEPS[safeStepIndex]?.label ?? 'Support'}</Text>
+                        <Text style={styles.stepSubtitle}>{getStepSubtitle(currentStep)}</Text>
+                    </View>
+                </View>
             </View>
 
-            <Text style={styles.formLabel}>Urgency</Text>
-            <View style={styles.selectorWrap}>
-                {URGENCIES.map((urgency) => (
-                    <TouchableOpacity
-                        key={urgency}
-                        style={[styles.selectorChip, form.urgency === urgency && styles.selectorChipActive]}
-                        onPress={() => setForm((current) => ({ ...current, urgency }))}
-                    >
-                        <Text style={[styles.selectorChipText, form.urgency === urgency && styles.selectorChipTextActive]}>
-                            {URGENCY_LABELS[urgency]}
-                        </Text>
-                    </TouchableOpacity>
-                ))}
-            </View>
-
-            <Text style={styles.formLabel}>Topics</Text>
-            <View style={styles.selectorWrap}>
-                {TOPICS.map((topic) => {
-                    const active = form.topics.includes(topic);
-                    return (
-                        <TouchableOpacity
-                            key={topic}
-                            style={[styles.selectorChip, active && styles.selectorChipActive]}
-                            onPress={() => toggleTopic(topic)}
-                        >
-                            <Text style={[styles.selectorChipText, active && styles.selectorChipTextActive]}>
-                                {TOPIC_LABELS[topic]}
-                            </Text>
-                        </TouchableOpacity>
-                    );
-                })}
-            </View>
-
-            <Text style={styles.formLabel}>Preferred gender</Text>
-            <View style={styles.selectorWrap}>
-                {(['no_preference', 'woman', 'man', 'non_binary'] as api.PreferredGender[]).map((gender) => {
-                    const active = (form.preferred_gender ?? 'no_preference') === gender;
-                    const label = gender === 'no_preference' ? 'No preference' : gender === 'non_binary' ? 'Non-binary' : gender[0].toUpperCase() + gender.slice(1);
-                    return (
-                        <TouchableOpacity
-                            key={gender}
-                            style={[styles.selectorChip, active && styles.selectorChipActive]}
-                            onPress={() => setForm((current) => ({ ...current, preferred_gender: gender === 'no_preference' ? null : gender }))}
-                        >
-                            <Text style={[styles.selectorChipText, active && styles.selectorChipTextActive]}>{label}</Text>
-                        </TouchableOpacity>
-                    );
-                })}
-            </View>
-
-            <Text style={styles.formLabel}>Location</Text>
-            <View style={styles.selectorWrap}>
-                <TouchableOpacity
-                    style={[styles.selectorChip, !includeCity && styles.selectorChipActive]}
-                    onPress={() => setForm((current) => ({ ...current, location: null }))}
-                >
-                    <Text style={[styles.selectorChipText, !includeCity && styles.selectorChipTextActive]}>Hidden</Text>
-                </TouchableOpacity>
-                {locationCity ? (
-                    <TouchableOpacity
-                        style={[styles.selectorChip, includeCity && styles.selectorChipActive]}
-                        onPress={() => setForm((current) => ({
-                            ...current,
-                            location: { city: locationCity, visibility: 'city' },
-                        }))}
-                    >
-                        <Text style={[styles.selectorChipText, includeCity && styles.selectorChipTextActive]}>Use {locationCity}</Text>
-                    </TouchableOpacity>
-                ) : (
-                    <TouchableOpacity
-                        style={[styles.selectorChip, detectingLocation && styles.selectorChipDisabled]}
-                        onPress={() => void handleUseCurrentLocation()}
-                        disabled={detectingLocation}
-                    >
-                        <Text style={styles.selectorChipText}>
-                            {detectingLocation ? 'Detecting...' : 'Use current location'}
-                        </Text>
-                    </TouchableOpacity>
-                )}
-            </View>
-
-            <TextField
-                value={form.message ?? ''}
-                onChangeText={(message) => {
-                    setForm((current) => ({ ...current, message }));
-                    if (formError) setFormError(null);
-                }}
-                placeholder="What support do you need right now?"
-                multiline
-                style={[styles.formInput, styles.inputMultiline, formError && styles.inputError]}
-            />
-            {formError ? (
-                <Text style={styles.errorText}>{formError}</Text>
-            ) : null}
+            <Animated.View
+                key={currentStep}
+                entering={FadeIn.duration(160)}
+                exiting={FadeOut.duration(100)}
+                style={styles.stepContent}
+            >
+                {renderStepContent()}
+            </Animated.View>
         </CreateFlowFrame>
     );
 }
 
+function FormSection({ label, children }: { label: string; children: React.ReactNode }): React.ReactElement {
+    return (
+        <View style={styles.formSection}>
+            <Text style={styles.formLabel}>{label}</Text>
+            {children}
+        </View>
+    );
+}
+
+function ReviewRow({ label, value, last = false }: { label: string; value: string; last?: boolean }): React.ReactElement {
+    return (
+        <View style={[styles.reviewRow, last && styles.reviewRowLast]}>
+            <Text style={styles.reviewLabel}>{label}</Text>
+            <Text style={styles.reviewValue}>{value}</Text>
+        </View>
+    );
+}
+
+function getStepSubtitle(step: SupportCreateStep): string {
+    switch (step) {
+        case 'need':
+            return 'Choose the kind of support and how urgent it feels.';
+        case 'message':
+            return 'Write a clear request so people know how to help.';
+        case 'preferences':
+            return 'Set who can respond and whether to show your city.';
+        case 'review':
+            return 'Check everything before posting it to the community.';
+    }
+}
+
 const styles = StyleSheet.create({
-    headerCard: { marginBottom: Spacing.md },
+    headerCard: {},
+    progressBlock: {
+        gap: Spacing.sm,
+    },
+    stepContent: {
+        gap: Spacing.md,
+    },
+    progressText: {
+        ...TextStyles.caption,
+        color: Colors.primary,
+    },
+    progressTrack: {
+        flexDirection: 'row',
+        gap: Spacing.xs,
+    },
+    progressSegment: {
+        flex: 1,
+        height: 4,
+        borderRadius: Radius.pill,
+        backgroundColor: Colors.border.default,
+    },
+    progressSegmentActive: {
+        backgroundColor: Colors.primary,
+    },
+    stepTitleRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: Spacing.md,
+    },
+    stepIcon: {
+        width: 38,
+        height: 38,
+        borderRadius: Radius.pill,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: Colors.primarySubtle,
+    },
+    stepCopy: {
+        flex: 1,
+        gap: 2,
+    },
+    stepTitle: {
+        ...TextStyles.sectionTitle,
+    },
+    stepSubtitle: {
+        ...TextStyles.secondary,
+    },
+    formSection: {
+        gap: Spacing.sm,
+    },
     formLabel: {
         ...TextStyles.label,
         color: Colors.text.secondary,
-        marginBottom: Spacing.sm,
-        marginTop: Spacing.md,
     },
     selectorWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
     selectorChip: {
@@ -342,7 +556,7 @@ const styles = StyleSheet.create({
     selectorChipDisabled: { opacity: 0.6 },
     selectorChipText: { ...TextStyles.chip },
     selectorChipTextActive: { color: Colors.textOn.primary, fontWeight: '700' },
-    formInput: { marginTop: Spacing.md },
+    formInput: {},
     inputMultiline: { minHeight: 110, textAlignVertical: 'top' },
     inputError: {
         borderColor: Colors.danger,
@@ -352,6 +566,53 @@ const styles = StyleSheet.create({
         ...TextStyles.caption,
         color: Colors.danger,
         fontWeight: '700',
-        marginTop: -Spacing.sm,
+    },
+    footerActionRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: Spacing.sm,
+    },
+    backButton: {
+        minHeight: ControlSizes.buttonMinHeight,
+        minWidth: 92,
+        borderRadius: Radius.md,
+        borderWidth: 1,
+        borderColor: Colors.primary,
+        backgroundColor: Colors.primarySubtle,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: Spacing.xs,
+        paddingHorizontal: Spacing.md,
+    },
+    backButtonText: {
+        color: Colors.primary,
+        fontSize: TextStyles.button.fontSize,
+        fontWeight: TextStyles.button.fontWeight,
+    },
+    primaryAction: {
+        flex: 1,
+    },
+    reviewSection: {
+        borderTopWidth: 1,
+        borderTopColor: Colors.border.emphasis,
+    },
+    reviewRow: {
+        paddingVertical: Spacing.md,
+        borderBottomWidth: 1,
+        borderBottomColor: Colors.border.emphasis,
+        gap: Spacing.xs,
+    },
+    reviewRowLast: {
+        borderBottomWidth: 0,
+    },
+    reviewLabel: {
+        ...TextStyles.caption,
+        color: Colors.text.muted,
+        textTransform: 'uppercase',
+    },
+    reviewValue: {
+        ...TextStyles.body,
+        color: Colors.text.primary,
     },
 });

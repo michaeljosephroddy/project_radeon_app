@@ -12,17 +12,12 @@ import * as Haptics from "expo-haptics";
 import * as api from "../../../api/client";
 import { Colors, Spacing } from "../../../theme";
 import { useAuth } from "../../../hooks/useAuth";
-import { useRecentTags } from "../../../hooks/useRecentTags";
 import { CREATE_SURFACE_HEADER_HEIGHT } from "../../../components/ui/CreateSurfaceHeader";
 import { KEYBOARD_STICKY_FOOTER_KEYBOARD_GAP } from "../../../components/ui/KeyboardStickyFooter";
-import { ComposerCanvas } from "./ComposerCanvas";
+import { COMPOSER_CANVAS_BOTTOM_RESERVE, ComposerCanvas } from "./ComposerCanvas";
 import { ComposerToolbar } from "./ComposerToolbar";
 import { CreatePostHeader } from "./CreatePostHeader";
 import { ImagePreviewSource } from "./ImagePreviewCard";
-import {
-  TagCategory,
-  TagPickerPanel,
-} from "./TagPickerPanel";
 
 export interface PostComposerSubmitInput {
   body?: string;
@@ -33,7 +28,6 @@ export interface PostComposerSubmitInput {
 interface PostComposerProps {
   title?: string;
   isSubmitting: boolean;
-  tagsEnabled?: boolean;
   closeOnSubmit?: boolean;
   onBack: () => void;
   onSubmit: (input: PostComposerSubmitInput) => Promise<void>;
@@ -53,25 +47,11 @@ interface ComposerImageState {
   uploadedImage?: api.PostImage;
 }
 
-interface TagValidationResult {
-  ok: boolean;
-  tag: string;
-  error: string | null;
-}
-
-const TAG_CATEGORIES: TagCategory[] = [
-  { label: "Status", tags: ["check-in", "milestone", "day1"] },
-  { label: "Asking for", tags: ["support", "question", "craving"] },
-  { label: "Sharing", tags: ["gratitude", "win"] },
-];
-const MAX_POST_TAGS = 5;
 const MAX_BODY_LENGTH = 500;
-const TAG_PATTERN = /^[a-z0-9_-]+$/;
 
 export function PostComposer({
   title,
   isSubmitting,
-  tagsEnabled = true,
   closeOnSubmit = true,
   onBack,
   onSubmit,
@@ -79,22 +59,14 @@ export function PostComposer({
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
   const [body, setBody] = useState("");
-  const [tags, setTags] = useState<string[]>([]);
-  const [customTag, setCustomTag] = useState("");
-  const [tagError, setTagError] = useState<string | null>(null);
   const [selectedImage, setSelectedImage] = useState<ComposerImageState | null>(
     null,
   );
-  const [isTagPickerOpen, setIsTagPickerOpen] = useState(false);
   const uploadPromiseRef = useRef<Promise<api.PostImage> | null>(null);
   const bottomSafeSpace = Math.max(insets.bottom, Spacing.sm);
 
-  const userId = user?.id ?? null;
-  const { recentTags, recordTag } = useRecentTags(userId);
-  const activeTags = tagsEnabled ? tags : [];
-
   const hasContent =
-    body.trim().length > 0 || activeTags.length > 0 || selectedImage !== null;
+    body.trim().length > 0 || selectedImage !== null;
   const canSubmit =
     (body.trim().length > 0 || selectedImage !== null) &&
     body.length <= MAX_BODY_LENGTH &&
@@ -173,48 +145,6 @@ export function PostComposer({
     });
   }, [beginImageUpload]);
 
-  const addTag = useCallback(
-    (rawTag: string): void => {
-      if (!tagsEnabled) return;
-      const validation = validateTag(rawTag);
-      if (!validation.ok) {
-        setTagError(validation.error);
-        return;
-      }
-
-      setTags((current) => {
-        if (current.includes(validation.tag)) return current;
-        if (current.length >= MAX_POST_TAGS) {
-          setTagError(`Add up to ${MAX_POST_TAGS} tags.`);
-          return current;
-        }
-        triggerHaptic(Haptics.ImpactFeedbackStyle.Light);
-        recordTag(validation.tag);
-        return [...current, validation.tag];
-      });
-      setCustomTag("");
-      setTagError(null);
-    },
-    [recordTag, tagsEnabled],
-  );
-
-  const removeTag = useCallback((tag: string): void => {
-    triggerHaptic(Haptics.ImpactFeedbackStyle.Light);
-    setTags((current) => current.filter((currentTag) => currentTag !== tag));
-    setTagError(null);
-  }, []);
-
-  const toggleTag = useCallback(
-    (tag: string): void => {
-      if (tags.includes(tag)) {
-        removeTag(tag);
-      } else {
-        addTag(tag);
-      }
-    },
-    [addTag, removeTag, tags],
-  );
-
   const handleBack = useCallback((): void => {
     if (!hasContent) {
       onBack();
@@ -256,7 +186,7 @@ export function PostComposer({
         await onSubmit({
           body: trimmedBody || undefined,
           images,
-          tags: activeTags,
+          tags: [],
         });
         if (closeOnSubmit) onBack();
       } catch (e: unknown) {
@@ -267,7 +197,6 @@ export function PostComposer({
       }
     })();
   }, [
-    activeTags,
     beginImageUpload,
     body,
     canSubmit,
@@ -292,43 +221,21 @@ export function PostComposer({
       <View style={styles.bodyWrap}>
         <ComposerCanvas
           body={body}
+          bottomInset={COMPOSER_CANVAS_BOTTOM_RESERVE}
           image={previewImage}
           imageStatus={selectedImage?.status ?? null}
-          tags={activeTags}
           maxBodyLength={MAX_BODY_LENGTH}
           onBodyChange={setBody}
           onRemoveImage={handleRemoveImage}
-          onRemoveTag={removeTag}
           onRetryImage={handleRetryImageUpload}
         />
 
         <KeyboardStickyView offset={{ closed: 0, opened: insets.bottom - KEYBOARD_STICKY_FOOTER_KEYBOARD_GAP }}>
           <View style={[styles.footerSurface, { paddingBottom: bottomSafeSpace }]}>
-            {isTagPickerOpen && tagsEnabled ? (
-              <TagPickerPanel
-                categories={TAG_CATEGORIES}
-                customTag={customTag}
-                error={tagError}
-                recentTags={recentTags}
-                selectedTags={activeTags}
-                tagCount={activeTags.length}
-                maxTags={MAX_POST_TAGS}
-                onAddTag={addTag}
-                onChangeCustomTag={setCustomTag}
-                onClose={() => setIsTagPickerOpen(false)}
-                onRemoveTag={removeTag}
-                onToggleTag={toggleTag}
-              />
-            ) : (
-              <ComposerToolbar
-                hasImage={selectedImage !== null}
-                tagCount={activeTags.length}
-                maxTags={MAX_POST_TAGS}
-                tagsEnabled={tagsEnabled}
-                onPickImage={handlePickImage}
-                onOpenTagPicker={() => setIsTagPickerOpen(true)}
-              />
-            )}
+            <ComposerToolbar
+              hasImage={selectedImage !== null}
+              onPickImage={handlePickImage}
+            />
           </View>
         </KeyboardStickyView>
       </View>
@@ -345,28 +252,6 @@ export function PostComposer({
       />
     </View>
   );
-}
-
-function validateTag(rawTag: string): TagValidationResult {
-  const tag = normalizeTag(rawTag);
-  if (!tag) {
-    return { ok: false, tag, error: null };
-  }
-  if (!TAG_PATTERN.test(tag)) {
-    return {
-      ok: false,
-      tag,
-      error: "Use letters, numbers, hyphen, or underscore.",
-    };
-  }
-  if (tag.length > 32) {
-    return { ok: false, tag, error: "Tags must be 32 characters or fewer." };
-  }
-  return { ok: true, tag, error: null };
-}
-
-function normalizeTag(rawTag: string): string {
-  return rawTag.trim().replace(/^#/, "").trim().toLowerCase();
 }
 
 function inferMimeType(

@@ -1,14 +1,11 @@
 import React from "react";
 import {
-  ScrollView,
   StyleSheet,
-  Text,
   TextInput,
-  TouchableOpacity,
-  View,
 } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
-import { Colors, ControlSizes, Radius, Spacing, TextStyles, Typography } from "../../../theme";
+import { AppKeyboardAwareScrollView } from "../../../components/ui/AppKeyboardAwareScrollView";
+import { KEYBOARD_STICKY_FOOTER_SINGLE_ACTION_RESERVE } from "../../../components/ui/KeyboardStickyFooter";
+import { Colors, Spacing, Typography } from "../../../theme";
 import {
   ImagePreviewCard,
   ImagePreviewSource,
@@ -17,54 +14,35 @@ import {
 
 interface ComposerCanvasProps {
   body: string;
+  bottomInset: number;
   image: ImagePreviewSource | null;
   imageStatus: ImagePreviewStatus | null;
   maxBodyLength: number;
-  tags: string[];
   onBodyChange: (body: string) => void;
   onRemoveImage: () => void;
-  onRemoveTag: (tag: string) => void;
   onRetryImage: () => void;
 }
 
 export function ComposerCanvas({
   body,
+  bottomInset,
   image,
   imageStatus,
   maxBodyLength,
-  tags,
   onBodyChange,
   onRemoveImage,
-  onRemoveTag,
   onRetryImage,
 }: ComposerCanvasProps): React.ReactElement {
   return (
-    <ScrollView
+    <AppKeyboardAwareScrollView
       style={styles.fill}
-      contentContainerStyle={styles.content}
-      keyboardShouldPersistTaps="handled"
-      keyboardDismissMode="interactive"
+      contentContainerStyle={[styles.content, { paddingBottom: bottomInset }]}
+      bottomOffset={bottomInset}
+      extraKeyboardSpace={Spacing.md}
       automaticallyAdjustContentInsets={false}
       automaticallyAdjustKeyboardInsets={false}
       contentInsetAdjustmentBehavior="never"
     >
-      {tags.length > 0 ? (
-        <View style={styles.selectedTags}>
-          {tags.map((tag) => (
-            <TouchableOpacity
-              key={tag}
-              style={styles.selectedTag}
-              onPress={() => onRemoveTag(tag)}
-              accessibilityRole="button"
-              accessibilityLabel={`Remove tag ${tag}`}
-            >
-              <Text style={styles.selectedTagText}>#{tag}</Text>
-              <Ionicons name="close" size={14} color={Colors.primary} />
-            </TouchableOpacity>
-          ))}
-        </View>
-      ) : null}
-
       {image && imageStatus ? (
         <ImagePreviewCard
           image={image}
@@ -86,9 +64,11 @@ export function ComposerCanvas({
         textAlignVertical="top"
         accessibilityLabel="Post text"
       />
-    </ScrollView>
+    </AppKeyboardAwareScrollView>
   );
 }
+
+export const COMPOSER_CANVAS_BOTTOM_RESERVE = KEYBOARD_STICKY_FOOTER_SINGLE_ACTION_RESERVE + Spacing.md;
 
 const styles = StyleSheet.create({
   fill: {
@@ -96,37 +76,16 @@ const styles = StyleSheet.create({
   },
   content: {
     flexGrow: 1,
-    paddingTop: Spacing.sm,
+    paddingTop: Spacing.xs,
     paddingBottom: Spacing.md,
   },
   bodyInput: {
     color: Colors.text.primary,
     fontSize: Typography.sizes.composer,
     lineHeight: 28,
-    minHeight: 180,
+    minHeight: 160,
     paddingHorizontal: Spacing.md,
-    paddingTop: Spacing.lg,
+    paddingTop: Spacing.md,
     paddingBottom: Spacing.sm,
-  },
-  selectedTags: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: Spacing.xs,
-    paddingHorizontal: Spacing.md,
-    paddingTop: Spacing.xs,
-  },
-  selectedTag: {
-    minHeight: ControlSizes.chipMinHeight,
-    borderRadius: Radius.pill,
-    paddingHorizontal: Spacing.sm,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.xs,
-    backgroundColor: Colors.primarySubtle,
-  },
-  selectedTagText: {
-    ...TextStyles.chip,
-    color: Colors.primary,
-    fontWeight: "700",
   },
 });
