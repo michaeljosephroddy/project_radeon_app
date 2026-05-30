@@ -4,8 +4,6 @@ import {
     Alert,
     type LayoutChangeEvent,
     Modal,
-    type NativeScrollEvent,
-    type NativeSyntheticEvent,
     ScrollView,
     StyleSheet,
     Text,
@@ -16,6 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { KeyboardAwareScrollView, type KeyboardAwareScrollViewRef } from 'react-native-keyboard-controller';
+import { createNativeStackNavigator, type NativeStackScreenProps } from '@react-navigation/native-stack';
 import * as api from '../../api/client';
 import { useInterests } from '../../hooks/queries/useInterests';
 import { screenStandards } from '../../styles/screenStandards';
@@ -179,6 +178,10 @@ type DatingEditSection =
 
 type DatingProfileEditorTab = 'edit' | 'preview';
 type RequiredDatingProfileField = 'photos' | 'bio' | 'interests' | 'goal' | 'interested';
+type DatingProfileEditorStackParamList = {
+    DatingProfileMain: undefined;
+    DatingProfileSection: { section: DatingEditSection };
+};
 
 const MAX_DATING_INTERESTS = 5;
 const MAX_DATING_PROMPTS = 3;
@@ -271,6 +274,7 @@ const DATING_PROFILE_TABS: { key: DatingProfileEditorTab; label: string }[] = [
 ];
 
 const DATING_PROMPT_OPTIONS = DATING_PROMPT_CATEGORIES.flatMap((category) => category.prompts);
+const DatingProfileEditorStack = createNativeStackNavigator<DatingProfileEditorStackParamList>();
 
 export function DatingProfileEditorScreen({
     profile,
@@ -288,10 +292,7 @@ export function DatingProfileEditorScreen({
 }: DatingProfileEditorScreenProps) {
     const scrollRef = useRef<KeyboardAwareScrollViewRef>(null);
     const requiredSectionY = useRef<Partial<Record<RequiredDatingProfileField, number>>>({});
-    const editScrollY = useRef(0);
-    const shouldRestoreEditScroll = useRef(false);
     const [activeTab, setActiveTab] = useState<DatingProfileEditorTab>('edit');
-    const [editingSection, setEditingSection] = useState<DatingEditSection | null>(null);
     const [validationAttempted, setValidationAttempted] = useState(false);
     const [bio, setBio] = useState(profile?.bio ?? '');
     const [goal, setGoal] = useState<api.DatingRelationshipGoal>(profile?.relationship_goal || 'long_term');
@@ -386,31 +387,6 @@ export function DatingProfileEditorScreen({
         setInterested(option.genders);
     };
 
-    const handleEditScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>): void => {
-        editScrollY.current = event.nativeEvent.contentOffset.y;
-    }, []);
-
-    const closeEditingSection = useCallback((): void => {
-        shouldRestoreEditScroll.current = true;
-        setEditingSection(null);
-    }, []);
-
-    useEffect(() => {
-        if (activeTab !== 'edit' || editingSection !== null || !shouldRestoreEditScroll.current) {
-            return;
-        }
-        shouldRestoreEditScroll.current = false;
-        requestAnimationFrame(() => {
-            scrollRef.current?.scrollTo({ y: editScrollY.current, animated: false });
-        });
-    }, [activeTab, editingSection]);
-
-    const ensureFocusedInputVisible = useCallback((): void => {
-        requestAnimationFrame(() => {
-            scrollRef.current?.assureFocusedInputVisible();
-        });
-    }, []);
-
     const recordRequiredSectionLayout = (field: RequiredDatingProfileField) => (event: LayoutChangeEvent): void => {
         requiredSectionY.current[field] = event.nativeEvent.layout.y;
     };
@@ -502,198 +478,216 @@ export function DatingProfileEditorScreen({
         save(!isComplete);
     };
 
-    return (
-        <SafeAreaView style={styles.container} edges={['bottom']}>
+    const renderMainScreen = ({ navigation }: NativeStackScreenProps<DatingProfileEditorStackParamList, 'DatingProfileMain'>): React.ReactElement => (
+        <>
             {onBack ? (
                 <ScreenHeader
-                    title={editingSection ? sectionTitle(editingSection) : isComplete ? 'Dating profile' : 'Set up Dating'}
-                    onBack={editingSection ? closeEditingSection : onBack}
+                    title={isComplete ? 'Dating profile' : 'Set up Dating'}
+                    onBack={onBack}
                 />
             ) : null}
 
+            <View style={screenStandards.pageTabsWrap}>
+                <SegmentedControl
+                    items={DATING_PROFILE_TABS}
+                    activeKey={activeTab}
+                    onChange={(next) => setActiveTab(next as DatingProfileEditorTab)}
+                    layer="page"
+                    tone="primary"
+                    style={screenStandards.pageTabsControl}
+                />
+            </View>
+
+            {activeTab === 'edit' ? (
+                <KeyboardAwareScrollView
+                    ref={scrollRef}
+                    bottomOffset={Spacing.xl}
+                    contentContainerStyle={styles.content}
+                    extraKeyboardSpace={Spacing.xl}
+                    keyboardDismissMode="interactive"
+                    keyboardShouldPersistTaps="handled"
+                    scrollEventThrottle={16}
+                    showsVerticalScrollIndicator={false}
+                >
+                    {showProfileNotice ? (
+                        <View style={styles.header}>
+                            <InfoNoticeCard
+                                title={isComplete ? 'Dating profile' : 'Set up Dating'}
+                                description={isComplete ? 'Edit the profile people see in Dating.' : 'Complete this profile before you appear in Dating.'}
+                                onDismiss={() => setShowProfileNotice(false)}
+                            />
+                        </View>
+                    ) : null}
+
+                    <View
+                        style={[styles.section, styles.firstSection, showCompletionErrors && completionErrors.photos && styles.sectionInvalid]}
+                        onLayout={recordRequiredSectionLayout('photos')}
+                    >
+                        <Text style={[styles.sectionLabel, showCompletionErrors && completionErrors.photos && styles.sectionLabelInvalid]}>Photos</Text>
+                        <DatingSortablePhotoGrid
+                            photos={photos}
+                            previewUris={photoPreviewUris}
+                            reordering={reorderingPhotos}
+                            deletingPhotoIds={deletingPhotoIds}
+                            onPickPhoto={onPickPhoto}
+                            onDeletePhoto={onDeletePhoto}
+                            onReorderPhotos={onReorderPhotos}
+                        />
+                        {showCompletionErrors && completionErrors.photos ? <Text style={styles.sectionErrorText}>{completionErrors.photos}</Text> : null}
+                    </View>
+
+                    <ProfileEditRows
+                        showCompletionErrors={showCompletionErrors}
+                        completionErrors={completionErrors}
+                        recordRequiredSectionLayout={recordRequiredSectionLayout}
+                        onOpenSection={(section) => navigation.navigate('DatingProfileSection', { section })}
+                        bio={bio}
+                        selectedInterests={selectedInterests}
+                        goal={goal}
+                        relationshipType={relationshipType}
+                        interested={interested}
+                        profileGender={profileGender}
+                        sexuality={sexuality}
+                        pronouns={pronouns}
+                        ethnicity={ethnicity}
+                        childrenStatus={childrenStatus}
+                        pets={pets}
+                        religiousBelief={religiousBelief}
+                        languagesSpoken={languagesSpoken}
+                        politicalView={politicalView}
+                        heightCm={heightCm}
+                        jobTitle={jobTitle}
+                        company={company}
+                        school={school}
+                        course={course}
+                        selectedPromptKeys={selectedPromptKeys}
+                    />
+
+                    <View style={styles.saveActions}>
+                        <PrimaryButton
+                            label={isComplete ? 'Save profile' : 'Complete profile'}
+                            onPress={handlePrimarySave}
+                            loading={saving}
+                            disabled={saving}
+                        />
+                        {saveSuccessMessage ? (
+                            <View style={styles.saveSuccessCard}>
+                                <Ionicons name="checkmark-circle" size={18} color={Colors.success} />
+                                <Text style={styles.saveSuccessText}>{saveSuccessMessage}</Text>
+                            </View>
+                        ) : null}
+                    </View>
+                </KeyboardAwareScrollView>
+            ) : (
+                <DatingProfilePreview
+                    profile={profile}
+                    bio={bio}
+                    goal={goal}
+                    interests={selectedInterests}
+                    selectedPromptKeys={selectedPromptKeys}
+                    promptAnswers={promptAnswers}
+                    heightCm={heightCm}
+                    jobTitle={jobTitle}
+                    company={company}
+                    school={school}
+                    course={course}
+                    childrenStatus={childrenStatus}
+                    relationshipType={relationshipType}
+                    profileGender={profileGender}
+                    sexuality={sexuality}
+                    pronouns={pronouns}
+                    ethnicity={ethnicity}
+                    pets={pets}
+                    religiousBelief={religiousBelief}
+                    languagesSpoken={languagesSpoken}
+                    politicalView={politicalView}
+                />
+            )}
+        </>
+    );
+
+    const renderSectionScreen = ({ route, navigation }: NativeStackScreenProps<DatingProfileEditorStackParamList, 'DatingProfileSection'>): React.ReactElement => (
+        <>
+            <ScreenHeader
+                title={sectionTitle(route.params.section)}
+                onBack={() => navigation.goBack()}
+            />
+            <DatingSectionEditor
+                section={route.params.section}
+                bio={bio}
+                setBio={setBio}
+                interestOptions={interestOptions}
+                selectedInterests={selectedInterests}
+                toggleInterest={toggleInterest}
+                interestsLoading={interestsQuery.isLoading}
+                goal={goal}
+                setGoal={setGoal}
+                relationshipType={relationshipType}
+                setRelationshipType={setRelationshipType}
+                interested={interested}
+                setInterestedOption={setInterestedOption}
+                profileGender={profileGender}
+                setProfileGender={setProfileGender}
+                sexuality={sexuality}
+                setSexuality={setSexuality}
+                pronouns={pronouns}
+                setPronouns={setPronouns}
+                ethnicity={ethnicity}
+                setEthnicity={setEthnicity}
+                childrenStatus={childrenStatus}
+                setChildrenStatus={setChildrenStatus}
+                pets={pets}
+                setPets={setPets}
+                religiousBelief={religiousBelief}
+                setReligiousBelief={setReligiousBelief}
+                languagesSpoken={languagesSpoken}
+                toggleLanguage={toggleLanguage}
+                politicalView={politicalView}
+                setPoliticalView={setPoliticalView}
+                heightCm={heightCm}
+                setHeightCm={setHeightCm}
+                jobTitle={jobTitle}
+                setJobTitle={setJobTitle}
+                company={company}
+                setCompany={setCompany}
+                school={school}
+                setSchool={setSchool}
+                course={course}
+                setCourse={setCourse}
+                selectedPromptKeys={selectedPromptKeys}
+                promptAnswers={promptAnswers}
+                editingPromptKey={editingPromptKey}
+                setEditingPromptKey={setEditingPromptKey}
+                updatePromptAnswer={updatePromptAnswer}
+                savePromptDraft={savePromptDraft}
+                removePrompt={removePrompt}
+                setPromptPickerVisible={setPromptPickerVisible}
+            />
+        </>
+    );
+
+    return (
+        <SafeAreaView style={styles.container} edges={['bottom']}>
             <View style={styles.keyboardWrap}>
                 {loading ? (
                     <View style={styles.center}>
                         <ActivityIndicator color={Colors.primary} size="large" />
                     </View>
                 ) : (
-                    <>
-                        {editingSection ? null : (
-                            <View style={screenStandards.pageTabsWrap}>
-                                <SegmentedControl
-                                    items={DATING_PROFILE_TABS}
-                                    activeKey={activeTab}
-                                    onChange={(next) => {
-                                        setEditingSection(null);
-                                        setActiveTab(next as DatingProfileEditorTab);
-                                    }}
-                                    layer="page"
-                                    tone="primary"
-                                    style={screenStandards.pageTabsControl}
-                                />
-                            </View>
-                        )}
-
-                        {activeTab === 'edit' ? editingSection ? (
-                            <DatingSectionEditor
-                                section={editingSection}
-                                bio={bio}
-                                setBio={setBio}
-                                interestOptions={interestOptions}
-                                selectedInterests={selectedInterests}
-                                toggleInterest={toggleInterest}
-                                interestsLoading={interestsQuery.isLoading}
-                                goal={goal}
-                                setGoal={setGoal}
-                                relationshipType={relationshipType}
-                                setRelationshipType={setRelationshipType}
-                                interested={interested}
-                                setInterestedOption={setInterestedOption}
-                                profileGender={profileGender}
-                                setProfileGender={setProfileGender}
-                                sexuality={sexuality}
-                                setSexuality={setSexuality}
-                                pronouns={pronouns}
-                                setPronouns={setPronouns}
-                                ethnicity={ethnicity}
-                                setEthnicity={setEthnicity}
-                                childrenStatus={childrenStatus}
-                                setChildrenStatus={setChildrenStatus}
-                                pets={pets}
-                                setPets={setPets}
-                                religiousBelief={religiousBelief}
-                                setReligiousBelief={setReligiousBelief}
-                                languagesSpoken={languagesSpoken}
-                                toggleLanguage={toggleLanguage}
-                                politicalView={politicalView}
-                                setPoliticalView={setPoliticalView}
-                                heightCm={heightCm}
-                                setHeightCm={setHeightCm}
-                                jobTitle={jobTitle}
-                                setJobTitle={setJobTitle}
-                                company={company}
-                                setCompany={setCompany}
-                                school={school}
-                                setSchool={setSchool}
-                                course={course}
-                                setCourse={setCourse}
-                                selectedPromptKeys={selectedPromptKeys}
-                                promptAnswers={promptAnswers}
-                                editingPromptKey={editingPromptKey}
-                                setEditingPromptKey={setEditingPromptKey}
-                                updatePromptAnswer={updatePromptAnswer}
-                                savePromptDraft={savePromptDraft}
-                                removePrompt={removePrompt}
-                                setPromptPickerVisible={setPromptPickerVisible}
-                                ensureFocusedInputVisible={ensureFocusedInputVisible}
-                            />
-                        ) : (
-                            <KeyboardAwareScrollView
-                                ref={scrollRef}
-                                bottomOffset={Spacing.xl}
-                                contentContainerStyle={styles.content}
-                                extraKeyboardSpace={Spacing.xl}
-                                keyboardDismissMode="interactive"
-                                keyboardShouldPersistTaps="handled"
-                                onScroll={handleEditScroll}
-                                scrollEventThrottle={16}
-                                showsVerticalScrollIndicator={false}
-                            >
-                            {showProfileNotice ? (
-                                <View style={styles.header}>
-                                    <InfoNoticeCard
-                                        title={isComplete ? 'Dating profile' : 'Set up Dating'}
-                                        description={isComplete ? 'Edit the profile people see in Dating.' : 'Complete this profile before you appear in Dating.'}
-                                        onDismiss={() => setShowProfileNotice(false)}
-                                    />
-                                </View>
-                            ) : null}
-
-                            <View
-                                style={[styles.section, styles.firstSection, showCompletionErrors && completionErrors.photos && styles.sectionInvalid]}
-                                onLayout={recordRequiredSectionLayout('photos')}
-                            >
-                                <Text style={[styles.sectionLabel, showCompletionErrors && completionErrors.photos && styles.sectionLabelInvalid]}>Photos</Text>
-                                <DatingSortablePhotoGrid
-                                    photos={photos}
-                                    previewUris={photoPreviewUris}
-                                    reordering={reorderingPhotos}
-                                    deletingPhotoIds={deletingPhotoIds}
-                                    onPickPhoto={onPickPhoto}
-                                    onDeletePhoto={onDeletePhoto}
-                                    onReorderPhotos={onReorderPhotos}
-                                />
-                                {showCompletionErrors && completionErrors.photos ? <Text style={styles.sectionErrorText}>{completionErrors.photos}</Text> : null}
-                            </View>
-
-                            <ProfileEditRows
-                                showCompletionErrors={showCompletionErrors}
-                                completionErrors={completionErrors}
-                                recordRequiredSectionLayout={recordRequiredSectionLayout}
-                                onOpenSection={setEditingSection}
-                                bio={bio}
-                                selectedInterests={selectedInterests}
-                                goal={goal}
-                                relationshipType={relationshipType}
-                                interested={interested}
-                                profileGender={profileGender}
-                                sexuality={sexuality}
-                                pronouns={pronouns}
-                                ethnicity={ethnicity}
-                                childrenStatus={childrenStatus}
-                                pets={pets}
-                                religiousBelief={religiousBelief}
-                                languagesSpoken={languagesSpoken}
-                                politicalView={politicalView}
-                                heightCm={heightCm}
-                                jobTitle={jobTitle}
-                                company={company}
-                                school={school}
-                                course={course}
-                                selectedPromptKeys={selectedPromptKeys}
-                            />
-
-                            <View style={styles.saveActions}>
-                                <PrimaryButton
-                                    label={isComplete ? 'Save profile' : 'Complete profile'}
-                                    onPress={handlePrimarySave}
-                                    loading={saving}
-                                    disabled={saving}
-                                />
-                                {saveSuccessMessage ? (
-                                    <View style={styles.saveSuccessCard}>
-                                        <Ionicons name="checkmark-circle" size={18} color={Colors.success} />
-                                        <Text style={styles.saveSuccessText}>{saveSuccessMessage}</Text>
-                                    </View>
-                                ) : null}
-                            </View>
-                            </KeyboardAwareScrollView>
-                        ) : (
-                            <DatingProfilePreview
-                                profile={profile}
-                                bio={bio}
-                                goal={goal}
-                                interests={selectedInterests}
-                                selectedPromptKeys={selectedPromptKeys}
-                                promptAnswers={promptAnswers}
-                                heightCm={heightCm}
-                                jobTitle={jobTitle}
-                                company={company}
-                                school={school}
-                                course={course}
-                                childrenStatus={childrenStatus}
-                                relationshipType={relationshipType}
-                                profileGender={profileGender}
-                                sexuality={sexuality}
-                                pronouns={pronouns}
-                                ethnicity={ethnicity}
-                                pets={pets}
-                                religiousBelief={religiousBelief}
-                                languagesSpoken={languagesSpoken}
-                                politicalView={politicalView}
-                            />
-                        )}
-                    </>
+                    <DatingProfileEditorStack.Navigator
+                        initialRouteName="DatingProfileMain"
+                        screenOptions={{
+                            headerShown: false,
+                            contentStyle: styles.container,
+                        }}
+                    >
+                        <DatingProfileEditorStack.Screen name="DatingProfileMain">
+                            {renderMainScreen}
+                        </DatingProfileEditorStack.Screen>
+                        <DatingProfileEditorStack.Screen name="DatingProfileSection">
+                            {renderSectionScreen}
+                        </DatingProfileEditorStack.Screen>
+                    </DatingProfileEditorStack.Navigator>
                 )}
             </View>
             <PromptPickerModal
@@ -898,12 +892,23 @@ interface DatingSectionEditorProps {
     savePromptDraft: (promptKey: string) => void;
     removePrompt: (promptKey: string) => void;
     setPromptPickerVisible: (value: boolean) => void;
+}
+
+interface DatingSectionEditorContentProps extends DatingSectionEditorProps {
     ensureFocusedInputVisible: () => void;
 }
 
 function DatingSectionEditor(props: DatingSectionEditorProps): React.ReactElement {
+    const sectionScrollRef = useRef<KeyboardAwareScrollViewRef>(null);
+    const ensureFocusedInputVisible = useCallback((): void => {
+        requestAnimationFrame(() => {
+            sectionScrollRef.current?.assureFocusedInputVisible();
+        });
+    }, []);
+
     return (
         <KeyboardAwareScrollView
+            ref={sectionScrollRef}
             bottomOffset={Spacing.xl}
             contentContainerStyle={styles.focusedContent}
             extraKeyboardSpace={Spacing.xl}
@@ -911,12 +916,12 @@ function DatingSectionEditor(props: DatingSectionEditorProps): React.ReactElemen
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
         >
-            {renderSectionEditorContent(props)}
+            {renderSectionEditorContent({ ...props, ensureFocusedInputVisible })}
         </KeyboardAwareScrollView>
     );
 }
 
-function renderSectionEditorContent(props: DatingSectionEditorProps): React.ReactElement {
+function renderSectionEditorContent(props: DatingSectionEditorContentProps): React.ReactElement {
     switch (props.section) {
         case 'bio':
             return (
