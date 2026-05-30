@@ -1387,7 +1387,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: Spacing.md,
         paddingBottom: Spacing.md,
     },
-    fieldDivider: { height: 1, backgroundColor: Colors.border.emphasis, marginLeft: Spacing.md },
+    fieldDivider: { height: 1, backgroundColor: Colors.border.emphasis },
     editFieldLabel: {
         ...Typography.formLabel,
         color: Colors.text.secondary,
