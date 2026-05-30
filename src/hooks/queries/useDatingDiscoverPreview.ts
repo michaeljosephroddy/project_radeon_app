@@ -4,7 +4,7 @@ import { queryKeys } from '../../query/queryKeys';
 
 const DATING_DISCOVER_PREVIEW_STALE_TIME = 1000 * 15;
 
-interface UseDatingDiscoverPreviewParams extends Omit<api.DiscoverFiltersPayload, 'intent'> {
+interface UseDatingDiscoverPreviewParams extends api.DiscoverFiltersPayload {
     lat?: number;
     lng?: number;
 }

@@ -766,30 +766,6 @@ const styles = StyleSheet.create({
         color: Colors.text.primary,
         fontWeight: '700',
     },
-    pendingPill: {
-        minHeight: ControlSizes.chipMinHeight,
-        alignItems: 'center',
-        justifyContent: 'center',
-        borderRadius: Radius.pill,
-        paddingHorizontal: Spacing.md,
-        backgroundColor: Colors.warningSubtle,
-    },
-    pendingPillText: {
-        ...TextStyles.chip,
-        fontWeight: '700',
-        color: Colors.warning,
-    },
-    visibilityPill: {
-        borderRadius: Radius.pill,
-        paddingHorizontal: Spacing.sm,
-        paddingVertical: 4,
-        backgroundColor: Colors.primarySubtle,
-    },
-    visibilityPillText: {
-        ...TextStyles.caption,
-        fontWeight: '700',
-        color: Colors.primary,
-    },
     systemPill: {
         flexDirection: 'row',
         alignItems: 'center',

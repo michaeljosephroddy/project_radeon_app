@@ -1,13 +1,12 @@
 import React from 'react';
 import { createNativeStackNavigator, type NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useAuth } from '../hooks/useAuth';
 import { WelcomeStep } from '../screens/onboarding/WelcomeStep';
 import { PhotoStep } from '../screens/onboarding/PhotoStep';
 import { IdentityStep } from '../screens/onboarding/IdentityStep';
 import { SobrietyStep } from '../screens/onboarding/SobrietyStep';
 import { LocationStep } from '../screens/onboarding/LocationStep';
 import { InterestsStep } from '../screens/onboarding/InterestsStep';
-import { IntentStep } from '../screens/onboarding/IntentStep';
+import { useAuth } from '../hooks/useAuth';
 
 export interface OnboardingStepProps {
     onNext: () => void;
@@ -17,7 +16,7 @@ export interface OnboardingStepProps {
     dotTotal: number;
 }
 
-const DOT_TOTAL = 6;
+const DOT_TOTAL = 5;
 
 type OnboardingStackParamList = {
     Welcome: undefined;
@@ -26,7 +25,6 @@ type OnboardingStackParamList = {
     Sobriety: undefined;
     Location: undefined;
     Interests: undefined;
-    Intent: undefined;
 };
 
 const OnboardingStack = createNativeStackNavigator<OnboardingStackParamList>();
@@ -37,7 +35,6 @@ const DOT_PROPS: Record<Exclude<keyof OnboardingStackParamList, 'Welcome'>, Omit
     Sobriety: { dotIndex: 2, dotTotal: DOT_TOTAL },
     Location: { dotIndex: 3, dotTotal: DOT_TOTAL },
     Interests: { dotIndex: 4, dotTotal: DOT_TOTAL },
-    Intent: { dotIndex: 5, dotTotal: DOT_TOTAL },
 };
 
 export function OnboardingNavigator(): React.ReactElement {
@@ -49,7 +46,6 @@ export function OnboardingNavigator(): React.ReactElement {
             <OnboardingStack.Screen name="Sobriety" component={OnboardingSobrietyScreen} />
             <OnboardingStack.Screen name="Location" component={OnboardingLocationScreen} />
             <OnboardingStack.Screen name="Interests" component={OnboardingInterestsScreen} />
-            <OnboardingStack.Screen name="Intent" component={OnboardingIntentScreen} />
         </OnboardingStack.Navigator>
     );
 }
@@ -99,26 +95,16 @@ function OnboardingLocationScreen({ navigation }: NativeStackScreenProps<Onboard
 }
 
 function OnboardingInterestsScreen({ navigation }: NativeStackScreenProps<OnboardingStackParamList, 'Interests'>): React.ReactElement {
-    return (
-        <InterestsStep
-            onNext={() => navigation.navigate('Intent')}
-            onBack={() => navigation.goBack()}
-            {...DOT_PROPS.Interests}
-        />
-    );
-}
-
-function OnboardingIntentScreen({ navigation }: NativeStackScreenProps<OnboardingStackParamList, 'Intent'>): React.ReactElement {
     const { completeOnboarding } = useAuth();
     const finish = () => {
         void completeOnboarding();
     };
 
     return (
-        <IntentStep
+        <InterestsStep
             onNext={finish}
             onBack={() => navigation.goBack()}
-            {...DOT_PROPS.Intent}
+            {...DOT_PROPS.Interests}
         />
     );
 }

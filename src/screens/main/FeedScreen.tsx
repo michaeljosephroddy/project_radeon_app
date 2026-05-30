@@ -939,7 +939,6 @@ const styles = StyleSheet.create({
     postName: { ...TextStyles.cardTitle },
     postContent: { paddingHorizontal: Spacing.md, paddingBottom: Spacing.sm },
     postMeta: { ...TextStyles.meta },
-    postSource: { ...TextStyles.caption, color: Colors.primary, marginTop: 2 },
     reshareLabel: { ...TextStyles.caption, color: Colors.primary },
     postBody: { ...TextStyles.postBody },
     reshareImage: {

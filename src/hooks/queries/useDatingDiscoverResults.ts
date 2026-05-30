@@ -7,7 +7,7 @@ import { dedupeById } from '../../utils/list';
 
 const DATING_DISCOVER_STALE_TIME = 1000 * 30;
 
-interface UseDatingDiscoverResultsParams extends Omit<api.DiscoverFiltersPayload, 'intent'> {
+interface UseDatingDiscoverResultsParams extends api.DiscoverFiltersPayload {
     lat?: number;
     lng?: number;
     limit?: number;

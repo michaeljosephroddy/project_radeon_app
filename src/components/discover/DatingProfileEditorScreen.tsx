@@ -2672,36 +2672,8 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
     },
-    getMoreHero: {
-        alignItems: 'center',
-        gap: Spacing.md,
-    },
-    getMoreHeroIcon: {
-        width: 58,
-        height: 58,
-        borderRadius: Radius.pill,
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: Colors.warning,
-    },
-    getMoreTitle: {
-        ...TextStyles.displayTitle,
-        textAlign: 'center',
-    },
-    getMoreDescription: {
-        ...TextStyles.secondary,
-        maxWidth: 340,
-        textAlign: 'center',
-        color: Colors.text.secondary,
-    },
     getMoreSection: {
         gap: Spacing.sm,
-    },
-    sectionTitleRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        gap: Spacing.md,
     },
     getMoreSectionTitle: {
         ...TextStyles.cardTitle,
@@ -2712,35 +2684,6 @@ const styles = StyleSheet.create({
     getMoreSectionDescription: {
         ...TextStyles.secondary,
         color: Colors.text.secondary,
-    },
-    inventoryGrid: {
-        flexDirection: 'row',
-        gap: Spacing.sm,
-    },
-    inventoryTile: {
-        flex: 1,
-        minHeight: 112,
-        justifyContent: 'space-between',
-        borderRadius: Radius.md,
-        borderWidth: 1,
-        borderColor: Colors.border.emphasis,
-        backgroundColor: Colors.bg.surface,
-        padding: Spacing.md,
-    },
-    inventoryTileHeader: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: Spacing.xs,
-    },
-    inventoryTileLabel: {
-        ...TextStyles.caption,
-        color: Colors.text.secondary,
-    },
-    inventoryTileValue: {
-        fontSize: Typography.sizes.xxxl,
-        lineHeight: 34,
-        fontWeight: Typography.weights.bold,
-        color: Colors.text.primary,
     },
     activeSpotlightRow: {
         minHeight: 60,
@@ -2787,27 +2730,6 @@ const styles = StyleSheet.create({
     currentPlanText: {
         ...TextStyles.caption,
         color: Colors.textOn.success,
-    },
-    benefitsList: {
-        gap: Spacing.sm,
-    },
-    benefitRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: Spacing.sm,
-    },
-    benefitIcon: {
-        width: 24,
-        height: 24,
-        borderRadius: Radius.pill,
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: Colors.primary,
-    },
-    benefitText: {
-        flex: 1,
-        ...TextStyles.secondary,
-        color: Colors.text.secondary,
     },
     planGrid: {
         flexDirection: 'row',
@@ -3072,28 +2994,6 @@ const styles = StyleSheet.create({
     promptPickerContainer: {
         flex: 1,
         backgroundColor: Colors.bg.page,
-    },
-    promptPickerHeader: {
-        minHeight: 56,
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        paddingHorizontal: Spacing.md,
-        borderBottomWidth: 1,
-        borderBottomColor: Colors.border.subtle,
-    },
-    promptPickerTitle: {
-        fontSize: Typography.sizes.lg,
-        fontWeight: '800',
-        color: Colors.text.primary,
-    },
-    promptPickerClose: {
-        width: 40,
-        height: 40,
-        borderRadius: Radius.pill,
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: Colors.bg.surface,
     },
     promptCategoryTabsWrap: {
         borderBottomWidth: 1,
