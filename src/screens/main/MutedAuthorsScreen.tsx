@@ -176,7 +176,7 @@ export function MutedAuthorsScreen({ onBack }: MutedAuthorsScreenProps) {
 
     if (isLoading) {
         return (
-            <SafeAreaView style={styles.container} edges={['bottom']}>
+            <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
                 <ScreenHeader onBack={onBack} title="Muted authors" />
                 <View style={styles.center}>
                     <ActivityIndicator color={Colors.primary} />
@@ -187,7 +187,7 @@ export function MutedAuthorsScreen({ onBack }: MutedAuthorsScreenProps) {
 
     if (loadError && items.length === 0) {
         return (
-            <SafeAreaView style={styles.container} edges={['bottom']}>
+            <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
                 <ScreenHeader onBack={onBack} title="Muted authors" />
                 <View style={styles.center}>
                     <Text style={styles.errorText}>Could not load muted authors.</Text>
@@ -200,7 +200,7 @@ export function MutedAuthorsScreen({ onBack }: MutedAuthorsScreenProps) {
     }
 
     return (
-        <SafeAreaView style={styles.container} edges={['bottom']}>
+        <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
             <ScreenHeader onBack={onBack} title="Muted authors" />
             <FlatList
                 data={items}

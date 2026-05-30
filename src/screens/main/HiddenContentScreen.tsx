@@ -124,7 +124,7 @@ export function HiddenContentScreen({ onBack, onOpenUserProfile }: HiddenContent
 
     if (isLoading) {
         return (
-            <SafeAreaView style={styles.container} edges={['bottom']}>
+            <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
                 <ScreenHeader onBack={onBack} title="Hidden content" />
                 <View style={styles.center}>
                     <ActivityIndicator color={Colors.primary} />
@@ -134,7 +134,7 @@ export function HiddenContentScreen({ onBack, onOpenUserProfile }: HiddenContent
     }
 
     return (
-        <SafeAreaView style={styles.container} edges={['bottom']}>
+        <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
             <ScreenHeader onBack={onBack} title="Hidden content" />
             <FlatList
                 data={items}

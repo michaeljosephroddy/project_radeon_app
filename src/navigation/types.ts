@@ -1,4 +1,4 @@
-import type { Chat, DatingProfile, GroupPost, Meetup, RecoveryMeeting } from '../api/client';
+import type { Chat, DatingProfile, GroupPost, Meetup, RecoveryMeeting, SupportRequest } from '../api/client';
 import type { CommentThreadTarget } from '../screens/main/feed/FeedCommentsScreen';
 import type { PlusSource } from '../utils/datingMonetization';
 
@@ -27,11 +27,12 @@ export type RootStackParamList = {
     RecoveryMeetingDetail: { meeting: RecoveryMeeting };
     GroupDetail: {
         groupId: string;
-        initialAdminTab?: 'inbox' | 'reports';
-        initialAdminThreadId?: string;
         focusPostRequest?: { postId: string; nonce: number };
         focusSupportRequest?: { requestId: string; postId?: string; nonce: number };
     };
+    GroupReport: { groupId: string };
+    GroupAdmin: { groupId: string; initialTab?: 'inbox' | 'reports'; initialThreadId?: string };
+    SupportRequestManagement: { groupId: string; requestId: string; request?: SupportRequest; post?: GroupPost };
     GroupAdminThread: { groupId: string; threadId: string };
     GroupComments: { post: GroupPost };
     DatingLikes: undefined;

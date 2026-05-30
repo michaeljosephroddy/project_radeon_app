@@ -3,7 +3,7 @@ import React, { useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { useQueryClient } from '@tanstack/react-query';
-import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
+import { createNativeStackNavigator, type NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as api from '../../api/client';
 import { MeetupForm, type MeetupFormStep } from '../../components/events/MeetupForm';
@@ -22,9 +22,13 @@ interface CreateMeetupScreenProps {
     onUpdated?: (meetup: api.Meetup) => void;
 }
 
-type CreateStage = 'form' | 'review';
 type MeetupFormMode = 'create' | 'published';
+type CreateMeetupStackParamList = {
+    Form: undefined;
+    Review: undefined;
+};
 const MEETUP_FORM_STEPS: MeetupFormStep[] = ['essentials', 'when_where', 'attendance'];
+const CreateMeetupStack = createNativeStackNavigator<CreateMeetupStackParamList>();
 
 function getStepForValidationError(error: string): MeetupFormStep {
     if (
@@ -252,7 +256,6 @@ export function CreateMeetupScreen({
     const coverUploadTokenRef = useRef(0);
     const initialFormValuesRef = useRef<MeetupFormValues>(meetup ? meetupToFormValues(meetup) : defaultFormValues(user));
     const [formValues, setFormValues] = useState<MeetupFormValues>(() => initialFormValuesRef.current);
-    const [createStage, setCreateStage] = useState<CreateStage>('form');
     const [currentStepIndex, setCurrentStepIndex] = useState(0);
     const [submitting, setSubmitting] = useState(false);
     const [uploadingCover, setUploadingCover] = useState(false);
@@ -288,15 +291,10 @@ export function CreateMeetupScreen({
     const goToValidationError = (error: string, step: MeetupFormStep): void => {
         setFormError(error);
         setCurrentStepIndex(Math.max(0, MEETUP_FORM_STEPS.indexOf(step)));
-        setCreateStage('form');
     };
 
     const handleClose = (): void => {
         if (submitting) return;
-        if (createStage === 'review') {
-            setCreateStage('form');
-            return;
-        }
         if (!hasDraft) {
             onBack();
             return;
@@ -312,7 +310,7 @@ export function CreateMeetupScreen({
         );
     };
 
-    const handleFormPrimaryAction = (): void => {
+    const handleFormPrimaryAction = (navigation: NativeStackNavigationProp<CreateMeetupStackParamList, 'Form'>): void => {
         if (!isFinalStep) {
             setCurrentStepIndex((index) => Math.min(MEETUP_FORM_STEPS.length - 1, index + 1));
             return;
@@ -324,7 +322,7 @@ export function CreateMeetupScreen({
             return;
         }
         setFormError('');
-        setCreateStage('review');
+        navigation.navigate('Review');
     };
 
     const handlePickCoverImage = async () => {
@@ -396,15 +394,17 @@ export function CreateMeetupScreen({
         }
     };
 
-    const submitMeetup = async () => {
+    const submitMeetup = async (onValidationError?: () => void) => {
         if (!user) {
             setFormError('Sign in before saving this event.');
+            onValidationError?.();
             return;
         }
 
         const validated = validateMeetupForm(formValues, 'published');
         if ('error' in validated) {
             goToValidationError(validated.error, validated.step);
+            onValidationError?.();
             return;
         }
 
@@ -449,60 +449,57 @@ export function CreateMeetupScreen({
 
     return (
         <View style={styles.container}>
-            {createStage === 'form' ? (
-                <Animated.View
-                    key={`form-${currentStep}`}
-                    entering={FadeIn.duration(160)}
-                    exiting={FadeOut.duration(100)}
-                    style={styles.stage}
-                >
-                    <CreateSurfaceHeader onBack={handleClose} title={headerTitle} />
-                    <MeetupForm
-                        title={formTitle}
-                        values={formValues}
-                        categories={categories}
-                        friends={friends}
-                        mode={formMode}
-                        step={currentStep}
-                        stepIndex={currentStepIndex}
-                        stepTotal={MEETUP_FORM_STEPS.length}
-                        loading={submitting}
-                        coverUploading={uploadingCover}
-                        coverPreviewUri={activeCoverPreviewUri}
-                        error={formError}
-                        primaryActionLabel={formActionLabel}
-                        primaryActionVariant={formMode === 'published' ? 'primary' : 'success'}
-                        onChange={handleChangeFormValue}
-                        onPickCover={handlePickCoverImage}
-                        onRemoveCover={handleRemoveCoverImage}
-                        onPrimaryAction={handleFormPrimaryAction}
-                        onBackStep={currentStepIndex > 0 ? () => setCurrentStepIndex((index) => Math.max(0, index - 1)) : undefined}
-                        onCancelEdit={handleClose}
-                        contentStyle={[styles.formContent, { paddingBottom: bottomSafePadding }]}
-                    />
-                </Animated.View>
-            ) : (
-                <Animated.View
-                    key="review"
-                    entering={FadeIn.duration(160)}
-                    exiting={FadeOut.duration(100)}
-                    style={styles.stage}
-                >
-                    <MeetupReviewScreen
-                    title={reviewTitle}
-                    values={formValues}
-                    categories={categories}
-                    friends={friends}
-                    coverPreviewUri={activeCoverPreviewUri}
-                    loading={submitting}
-                    error={formError}
-                    primaryActionLabel={formPrimaryActionLabel}
-                    primaryActionVariant={formMode === 'published' ? 'primary' : 'success'}
-                    onBack={() => setCreateStage('form')}
-                    onPrimaryAction={() => void submitMeetup()}
-                    />
-                </Animated.View>
-            )}
+            <CreateMeetupStack.Navigator screenOptions={{ headerShown: false }}>
+                <CreateMeetupStack.Screen name="Form">
+                    {({ navigation }) => (
+                        <View style={styles.stage}>
+                            <CreateSurfaceHeader onBack={handleClose} title={headerTitle} />
+                            <MeetupForm
+                                title={formTitle}
+                                values={formValues}
+                                categories={categories}
+                                friends={friends}
+                                mode={formMode}
+                                step={currentStep}
+                                stepIndex={currentStepIndex}
+                                stepTotal={MEETUP_FORM_STEPS.length}
+                                loading={submitting}
+                                coverUploading={uploadingCover}
+                                coverPreviewUri={activeCoverPreviewUri}
+                                error={formError}
+                                primaryActionLabel={formActionLabel}
+                                primaryActionVariant={formMode === 'published' ? 'primary' : 'success'}
+                                onChange={handleChangeFormValue}
+                                onPickCover={handlePickCoverImage}
+                                onRemoveCover={handleRemoveCoverImage}
+                                onPrimaryAction={() => handleFormPrimaryAction(navigation)}
+                                onBackStep={currentStepIndex > 0 ? () => setCurrentStepIndex((index) => Math.max(0, index - 1)) : undefined}
+                                onCancelEdit={handleClose}
+                                contentStyle={[styles.formContent, { paddingBottom: bottomSafePadding }]}
+                            />
+                        </View>
+                    )}
+                </CreateMeetupStack.Screen>
+                <CreateMeetupStack.Screen name="Review">
+                    {({ navigation }) => (
+                        <View style={styles.stage}>
+                            <MeetupReviewScreen
+                                title={reviewTitle}
+                                values={formValues}
+                                categories={categories}
+                                friends={friends}
+                                coverPreviewUri={activeCoverPreviewUri}
+                                loading={submitting}
+                                error={formError}
+                                primaryActionLabel={formPrimaryActionLabel}
+                                primaryActionVariant={formMode === 'published' ? 'primary' : 'success'}
+                                onBack={() => navigation.goBack()}
+                                onPrimaryAction={() => void submitMeetup(() => navigation.goBack())}
+                            />
+                        </View>
+                    )}
+                </CreateMeetupStack.Screen>
+            </CreateMeetupStack.Navigator>
         </View>
     );
 }

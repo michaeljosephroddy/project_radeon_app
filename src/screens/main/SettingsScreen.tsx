@@ -2,7 +2,6 @@ import { appAlert } from '@/components/ui/appAlert';
 import React, { useState } from 'react';
 import {
     Modal,
-    Linking,
     ScrollView,
     StyleSheet,
     Switch,
@@ -19,7 +18,7 @@ import { TextField } from '../../components/ui/TextField';
 import { useAuth } from '../../hooks/useAuth';
 import { screenStandards } from '../../styles/screenStandards';
 import { Colors, Radius, Spacing, TargetSizes, TextStyles } from '../../theme';
-import { LEGAL_LINKS, type LegalLink } from '../../utils/legalLinks';
+import { LEGAL_DOCUMENTS, type LegalDocumentKey } from '../../utils/legalDocuments';
 
 interface SettingsScreenProps {
     onBack: () => void;
@@ -28,6 +27,7 @@ interface SettingsScreenProps {
     onOpenMutedAuthors: () => void;
     onOpenBlockedUsers: () => void;
     onOpenNotificationPreferences: () => void;
+    onOpenLegalDocument: (documentKey: LegalDocumentKey) => void;
 }
 
 // Renders the settings screen and exposes account-level actions.
@@ -38,6 +38,7 @@ export function SettingsScreen({
     onOpenMutedAuthors,
     onOpenBlockedUsers,
     onOpenNotificationPreferences,
+    onOpenLegalDocument,
 }: SettingsScreenProps) {
     const { user, refreshUser, deleteAccount } = useAuth();
     const [savingDatingMode, setSavingDatingMode] = useState(false);
@@ -90,20 +91,12 @@ export function SettingsScreen({
         }
     };
 
-    const openLegalLink = async (link: LegalLink): Promise<void> => {
-        try {
-            await Linking.openURL(link.url);
-        } catch {
-            appAlert.alert('Could not open link', link.url);
-        }
-    };
-
     return (
-        <SafeAreaView style={styles.container} edges={['bottom']}>
+        <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
             <ScreenHeader onBack={onBack} title="Settings" />
 
             <ScrollView style={styles.scroll} contentContainerStyle={screenStandards.detailContent}>
-                <View style={screenStandards.sectionLabelBlockTight}>
+                <View style={styles.firstSectionLabel}>
                     <SectionLabel>DISCOVERY & CONNECTIONS</SectionLabel>
                 </View>
                 <View style={styles.group}>
@@ -124,7 +117,7 @@ export function SettingsScreen({
                         />
                     </View>
                 </View>
-                <View style={screenStandards.sectionLabelBlockTight}>
+                <View style={styles.sectionLabel}>
                     <SectionLabel>NOTIFICATIONS</SectionLabel>
                 </View>
                 <View style={styles.group}>
@@ -132,7 +125,7 @@ export function SettingsScreen({
                         <Text style={styles.rowText}>Notifications</Text>
                     </TouchableOpacity>
                 </View>
-                <View style={screenStandards.sectionLabelBlockTight}>
+                <View style={styles.sectionLabel}>
                     <SectionLabel>SAFETY</SectionLabel>
                 </View>
                 <View style={styles.group}>
@@ -140,27 +133,27 @@ export function SettingsScreen({
                         <Text style={styles.rowText}>Blocked users</Text>
                     </TouchableOpacity>
                 </View>
-                <View style={screenStandards.sectionLabelBlockTight}>
+                <View style={styles.sectionLabel}>
                     <SectionLabel>LEGAL & SUPPORT</SectionLabel>
                 </View>
                 <View style={styles.group}>
-                    <TouchableOpacity style={styles.row} onPress={() => { void openLegalLink(LEGAL_LINKS.terms); }}>
-                        <Text style={styles.rowText}>{LEGAL_LINKS.terms.label}</Text>
+                    <TouchableOpacity style={styles.row} onPress={() => onOpenLegalDocument('terms')}>
+                        <Text style={styles.rowText}>{LEGAL_DOCUMENTS.terms.label}</Text>
                     </TouchableOpacity>
                     <View style={styles.divider} />
-                    <TouchableOpacity style={styles.row} onPress={() => { void openLegalLink(LEGAL_LINKS.privacy); }}>
-                        <Text style={styles.rowText}>{LEGAL_LINKS.privacy.label}</Text>
+                    <TouchableOpacity style={styles.row} onPress={() => onOpenLegalDocument('privacy')}>
+                        <Text style={styles.rowText}>{LEGAL_DOCUMENTS.privacy.label}</Text>
                     </TouchableOpacity>
                     <View style={styles.divider} />
-                    <TouchableOpacity style={styles.row} onPress={() => { void openLegalLink(LEGAL_LINKS.guidelines); }}>
-                        <Text style={styles.rowText}>{LEGAL_LINKS.guidelines.label}</Text>
+                    <TouchableOpacity style={styles.row} onPress={() => onOpenLegalDocument('guidelines')}>
+                        <Text style={styles.rowText}>{LEGAL_DOCUMENTS.guidelines.label}</Text>
                     </TouchableOpacity>
                     <View style={styles.divider} />
-                    <TouchableOpacity style={styles.row} onPress={() => { void openLegalLink(LEGAL_LINKS.support); }}>
-                        <Text style={styles.rowText}>{LEGAL_LINKS.support.label}</Text>
+                    <TouchableOpacity style={styles.row} onPress={() => onOpenLegalDocument('support')}>
+                        <Text style={styles.rowText}>{LEGAL_DOCUMENTS.support.label}</Text>
                     </TouchableOpacity>
                 </View>
-                <View style={screenStandards.sectionLabelBlockTight}>
+                <View style={styles.sectionLabel}>
                     <SectionLabel>FEED</SectionLabel>
                 </View>
                 <View style={styles.group}>
@@ -172,7 +165,7 @@ export function SettingsScreen({
                         <Text style={styles.rowText}>Muted authors</Text>
                     </TouchableOpacity>
                 </View>
-                <View style={screenStandards.sectionLabelBlockTight}>
+                <View style={styles.sectionLabel}>
                     <SectionLabel>ACCOUNT</SectionLabel>
                 </View>
                 <View style={styles.group}>
@@ -236,6 +229,13 @@ export function SettingsScreen({
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: Colors.bg.page },
     scroll: { flex: 1 },
+    firstSectionLabel: {
+        marginBottom: Spacing.sm,
+    },
+    sectionLabel: {
+        marginTop: Spacing.lg,
+        marginBottom: Spacing.sm,
+    },
     group: {
         backgroundColor: Colors.bg.surface,
         borderRadius: Radius.lg,

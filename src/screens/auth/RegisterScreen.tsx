@@ -3,7 +3,6 @@ import React, { useState } from 'react';
 import {
     View, Text, TouchableOpacity,
     StyleSheet,
-    Linking,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
@@ -15,14 +14,15 @@ import { useAuth } from '../../hooks/useAuth';
 import { Colors, IconSizes, Typography, Spacing } from '../../theme';
 import { screenStandards } from '../../styles/screenStandards';
 import { isAtLeastAge, parseBirthDate } from '../../utils/age';
-import { LEGAL_LINKS } from '../../utils/legalLinks';
+import { type LegalDocumentKey } from '../../utils/legalDocuments';
 
 interface RegisterScreenProps {
     onGoToLogin: () => void;
+    onOpenLegalDocument: (documentKey: LegalDocumentKey) => void;
 }
 
 // Renders the registration screen and submits the create-account form.
-export function RegisterScreen({ onGoToLogin }: RegisterScreenProps) {
+export function RegisterScreen({ onGoToLogin, onOpenLegalDocument }: RegisterScreenProps) {
     const { register } = useAuth();
     const [form, setForm] = useState({
         username: '',
@@ -117,11 +117,11 @@ export function RegisterScreen({ onGoToLogin }: RegisterScreenProps) {
                         </View>
                         <Text style={styles.policyText}>
                             I agree to the{' '}
-                            <Text style={styles.policyLink} onPress={() => { void Linking.openURL(LEGAL_LINKS.terms.url); }}>
+                            <Text style={styles.policyLink} onPress={() => onOpenLegalDocument('terms')}>
                                 Terms of Use
                             </Text>
                             {' '}and{' '}
-                            <Text style={styles.policyLink} onPress={() => { void Linking.openURL(LEGAL_LINKS.guidelines.url); }}>
+                            <Text style={styles.policyLink} onPress={() => onOpenLegalDocument('guidelines')}>
                                 Community Guidelines
                             </Text>
                             .

@@ -121,7 +121,7 @@ export function NotificationPreferencesScreen({ onBack }: NotificationPreference
 
     if (preferencesQuery.isLoading) {
         return (
-            <SafeAreaView style={styles.container} edges={['bottom']}>
+            <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
                 <ScreenHeader onBack={onBack} title="Notifications" />
                 <View style={styles.center}>
                     <ActivityIndicator color={Colors.primary} />
@@ -132,7 +132,7 @@ export function NotificationPreferencesScreen({ onBack }: NotificationPreference
 
     if (preferencesQuery.isError || !preferencesQuery.data) {
         return (
-            <SafeAreaView style={styles.container} edges={['bottom']}>
+            <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
                 <ScreenHeader onBack={onBack} title="Notifications" />
                 <View style={styles.center}>
                     <Text style={styles.errorText}>Could not load notification preferences.</Text>
@@ -145,7 +145,7 @@ export function NotificationPreferencesScreen({ onBack }: NotificationPreference
     }
 
     return (
-        <SafeAreaView style={styles.container} edges={['bottom']}>
+        <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
             <ScreenHeader onBack={onBack} title="Notifications" />
             <ScrollView style={styles.scroll} contentContainerStyle={screenStandards.detailContent}>
                 <View style={screenStandards.sectionLabelBlockTight}>

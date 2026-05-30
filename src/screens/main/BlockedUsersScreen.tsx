@@ -182,7 +182,7 @@ export function BlockedUsersScreen({ onBack }: BlockedUsersScreenProps) {
 
     if (isLoading) {
         return (
-            <SafeAreaView style={styles.container} edges={['bottom']}>
+            <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
                 <ScreenHeader onBack={onBack} title="Blocked users" />
                 <View style={styles.center}>
                     <ActivityIndicator color={Colors.primary} />
@@ -193,7 +193,7 @@ export function BlockedUsersScreen({ onBack }: BlockedUsersScreenProps) {
 
     if (loadError && items.length === 0) {
         return (
-            <SafeAreaView style={styles.container} edges={['bottom']}>
+            <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
                 <ScreenHeader onBack={onBack} title="Blocked users" />
                 <View style={styles.center}>
                     <Text style={styles.errorText}>Could not load blocked users.</Text>
@@ -206,7 +206,7 @@ export function BlockedUsersScreen({ onBack }: BlockedUsersScreenProps) {
     }
 
     return (
-        <SafeAreaView style={styles.container} edges={['bottom']}>
+        <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
             <ScreenHeader onBack={onBack} title="Blocked users" />
             <FlatList
                 data={items}
