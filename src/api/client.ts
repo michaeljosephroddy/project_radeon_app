@@ -847,6 +847,7 @@ export type DatingChildrenStatus = '' | 'have_children' | 'have_children_want_mo
 export type DatingPetsStatus = '' | 'have_pets' | 'want_pets' | 'like_pets' | 'allergic_to_pets' | 'not_a_pet_person';
 export type DatingReligiousBelief = '' | 'agnostic' | 'atheist' | 'buddhist' | 'christian' | 'hindu' | 'jewish' | 'muslim' | 'sikh' | 'spiritual' | 'other';
 export type DatingPoliticalView = '' | 'liberal' | 'moderate' | 'conservative' | 'not_political' | 'other';
+export type DatingViceStatus = '' | 'yes' | 'sometimes' | 'no' | 'prefer_not_to_say';
 
 export interface DatingPhoto {
     id: string;
@@ -894,6 +895,9 @@ export interface DatingProfile {
     religious_belief?: DatingReligiousBelief;
     languages_spoken?: string[];
     political_view?: DatingPoliticalView;
+    drinking_status?: DatingViceStatus;
+    smoking_status?: DatingViceStatus;
+    drug_use_status?: DatingViceStatus;
     interests: string[];
     age_min?: number;
     age_max?: number;
@@ -945,6 +949,9 @@ function normalizeDatingProfile(profile: DatingProfile): DatingProfile {
         religious_belief: profile.religious_belief ?? '',
         languages_spoken: profile.languages_spoken ?? [],
         political_view: profile.political_view ?? '',
+        drinking_status: profile.drinking_status ?? '',
+        smoking_status: profile.smoking_status ?? '',
+        drug_use_status: profile.drug_use_status ?? '',
         interests: profile.interests ?? [],
         photos: profile.photos ?? [],
         prompt_answers: profile.prompt_answers ?? [],
@@ -1009,6 +1016,9 @@ export interface UpdateDatingProfileInput {
     religious_belief?: DatingReligiousBelief;
     languages_spoken?: string[];
     political_view?: DatingPoliticalView;
+    drinking_status?: DatingViceStatus;
+    smoking_status?: DatingViceStatus;
+    drug_use_status?: DatingViceStatus;
     interests?: string[];
     prompt_answers?: Array<{
         prompt_key: string;

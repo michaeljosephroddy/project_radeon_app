@@ -146,6 +146,13 @@ const POLITICAL_VIEW_OPTIONS: DatingOption<api.DatingPoliticalView>[] = [
     { value: 'other', label: 'Other' },
 ];
 
+const VICE_STATUS_OPTIONS: DatingOption<api.DatingViceStatus>[] = [
+    { value: 'yes', label: 'Yes' },
+    { value: 'sometimes', label: 'Sometimes' },
+    { value: 'no', label: 'No' },
+    { value: 'prefer_not_to_say', label: 'Prefer not to say' },
+];
+
 const LANGUAGE_OPTIONS: DatingOption<string>[] = [
     'English', 'Irish', 'Spanish', 'French', 'German', 'Italian', 'Portuguese', 'Dutch',
     'Polish', 'Romanian', 'Lithuanian', 'Latvian', 'Estonian', 'Russian', 'Ukrainian',
@@ -171,6 +178,7 @@ type DatingEditSection =
     | 'religion'
     | 'languages'
     | 'politics'
+    | 'vices'
     | 'height'
     | 'work'
     | 'education'
@@ -314,6 +322,9 @@ export function DatingProfileEditorScreen({
     const [religiousBelief, setReligiousBelief] = useState<api.DatingReligiousBelief>(profile?.religious_belief ?? '');
     const [languagesSpoken, setLanguagesSpoken] = useState<string[]>(profile?.languages_spoken ?? []);
     const [politicalView, setPoliticalView] = useState<api.DatingPoliticalView>(profile?.political_view ?? '');
+    const [drinkingStatus, setDrinkingStatus] = useState<api.DatingViceStatus>(profile?.drinking_status ?? '');
+    const [smokingStatus, setSmokingStatus] = useState<api.DatingViceStatus>(profile?.smoking_status ?? '');
+    const [drugUseStatus, setDrugUseStatus] = useState<api.DatingViceStatus>(profile?.drug_use_status ?? '');
     const [selectedPromptKeys, setSelectedPromptKeys] = useState<string[]>(() => createPromptKeyList(profile?.prompt_answers ?? []));
     const [promptAnswers, setPromptAnswers] = useState<Record<string, string>>(() => createPromptAnswerMap(profile?.prompt_answers ?? []));
     const [editingPromptKey, setEditingPromptKey] = useState<string | null>(null);
@@ -359,6 +370,9 @@ export function DatingProfileEditorScreen({
         setReligiousBelief(profile?.religious_belief ?? '');
         setLanguagesSpoken(profile?.languages_spoken ?? []);
         setPoliticalView(profile?.political_view ?? '');
+        setDrinkingStatus(profile?.drinking_status ?? '');
+        setSmokingStatus(profile?.smoking_status ?? '');
+        setDrugUseStatus(profile?.drug_use_status ?? '');
         setSelectedPromptKeys(createPromptKeyList(profile?.prompt_answers ?? []));
         setPromptAnswers(createPromptAnswerMap(profile?.prompt_answers ?? []));
         setEditingPromptKey(null);
@@ -463,6 +477,9 @@ export function DatingProfileEditorScreen({
             religious_belief: religiousBelief,
             languages_spoken: languagesSpoken,
             political_view: politicalView,
+            drinking_status: drinkingStatus,
+            smoking_status: smokingStatus,
+            drug_use_status: drugUseStatus,
             complete,
         });
     };
@@ -551,6 +568,9 @@ export function DatingProfileEditorScreen({
                         religiousBelief={religiousBelief}
                         languagesSpoken={languagesSpoken}
                         politicalView={politicalView}
+                        drinkingStatus={drinkingStatus}
+                        smokingStatus={smokingStatus}
+                        drugUseStatus={drugUseStatus}
                         heightCm={heightCm}
                         jobTitle={jobTitle}
                         company={company}
@@ -597,6 +617,9 @@ export function DatingProfileEditorScreen({
                     religiousBelief={religiousBelief}
                     languagesSpoken={languagesSpoken}
                     politicalView={politicalView}
+                    drinkingStatus={drinkingStatus}
+                    smokingStatus={smokingStatus}
+                    drugUseStatus={drugUseStatus}
                 />
             )}
         </>
@@ -640,6 +663,12 @@ export function DatingProfileEditorScreen({
                 toggleLanguage={toggleLanguage}
                 politicalView={politicalView}
                 setPoliticalView={setPoliticalView}
+                drinkingStatus={drinkingStatus}
+                setDrinkingStatus={setDrinkingStatus}
+                smokingStatus={smokingStatus}
+                setSmokingStatus={setSmokingStatus}
+                drugUseStatus={drugUseStatus}
+                setDrugUseStatus={setDrugUseStatus}
                 heightCm={heightCm}
                 setHeightCm={setHeightCm}
                 jobTitle={jobTitle}
@@ -727,6 +756,9 @@ interface ProfileEditRowsProps {
     religiousBelief: api.DatingReligiousBelief;
     languagesSpoken: string[];
     politicalView: api.DatingPoliticalView;
+    drinkingStatus: api.DatingViceStatus;
+    smokingStatus: api.DatingViceStatus;
+    drugUseStatus: api.DatingViceStatus;
     heightCm: string;
     jobTitle: string;
     company: string;
@@ -754,6 +786,9 @@ function ProfileEditRows({
     religiousBelief,
     languagesSpoken,
     politicalView,
+    drinkingStatus,
+    smokingStatus,
+    drugUseStatus,
     heightCm,
     jobTitle,
     company,
@@ -763,52 +798,78 @@ function ProfileEditRows({
 }: ProfileEditRowsProps): React.ReactElement {
     return (
         <View style={styles.editRows}>
-            <EditSummaryRow
-                title="Bio"
-                value={bio.trim() || 'Add'}
-                invalid={showCompletionErrors && Boolean(completionErrors.bio)}
-                error={showCompletionErrors ? completionErrors.bio : null}
-                onPress={() => onOpenSection('bio')}
-                onLayout={recordRequiredSectionLayout('bio')}
-            />
-            <EditSummaryRow
-                title="Interests"
-                value={selectedInterests.length > 0 ? `${selectedInterests.length}/${MAX_DATING_INTERESTS} selected` : 'Add'}
-                invalid={showCompletionErrors && Boolean(completionErrors.interests)}
-                error={showCompletionErrors ? completionErrors.interests : null}
-                onPress={() => onOpenSection('interests')}
-                onLayout={recordRequiredSectionLayout('interests')}
-            />
-            <EditSummaryRow
-                title="Dating intentions"
-                value={relationshipGoalLabel(goal) ?? 'Add'}
-                invalid={showCompletionErrors && Boolean(completionErrors.goal)}
-                error={showCompletionErrors ? completionErrors.goal : null}
-                onPress={() => onOpenSection('goal')}
-                onLayout={recordRequiredSectionLayout('goal')}
-            />
-            <EditSummaryRow title="Relationship type" value={labelForOption(RELATIONSHIP_TYPE_OPTIONS, relationshipType) || 'Add'} onPress={() => onOpenSection('relationship_type')} />
-            <EditSummaryRow
-                title="Interested in"
-                value={interestedInLabel(interested) || 'Add'}
-                invalid={showCompletionErrors && Boolean(completionErrors.interested)}
-                error={showCompletionErrors ? completionErrors.interested : null}
-                onPress={() => onOpenSection('interested')}
-                onLayout={recordRequiredSectionLayout('interested')}
-            />
-            <EditSummaryRow title="Gender" value={labelForOption(PROFILE_GENDER_OPTIONS, profileGender) || 'Add'} onPress={() => onOpenSection('gender')} />
-            <EditSummaryRow title="Sexuality" value={labelForOption(SEXUALITY_OPTIONS, sexuality) || 'Add'} onPress={() => onOpenSection('sexuality')} />
-            <EditSummaryRow title="Pronouns" value={labelForOption(PRONOUNS_OPTIONS, pronouns) || 'Add'} onPress={() => onOpenSection('pronouns')} />
-            <EditSummaryRow title="Ethnicity" value={labelForOption(ETHNICITY_OPTIONS, ethnicity) || 'Add'} onPress={() => onOpenSection('ethnicity')} />
-            <EditSummaryRow title="Children" value={labelForOption(CHILDREN_OPTIONS, childrenStatus) || 'Add'} onPress={() => onOpenSection('children')} />
-            <EditSummaryRow title="Pets" value={labelForOption(PETS_OPTIONS, pets) || 'Add'} onPress={() => onOpenSection('pets')} />
-            <EditSummaryRow title="Religious beliefs" value={labelForOption(RELIGIOUS_BELIEF_OPTIONS, religiousBelief) || 'Add'} onPress={() => onOpenSection('religion')} />
-            <EditSummaryRow title="Languages spoken" value={languageListLabel(languagesSpoken) || 'Add'} onPress={() => onOpenSection('languages')} />
-            <EditSummaryRow title="Political view" value={labelForOption(POLITICAL_VIEW_OPTIONS, politicalView) || 'Add'} onPress={() => onOpenSection('politics')} />
-            <EditSummaryRow title="Height" value={formatHeight(heightCm) || 'Add'} onPress={() => onOpenSection('height')} />
-            <EditSummaryRow title="Work" value={formatWork(jobTitle, company) || 'Add'} onPress={() => onOpenSection('work')} />
-            <EditSummaryRow title="Education" value={formatEducation(course, school) || 'Add'} onPress={() => onOpenSection('education')} />
-            <EditSummaryRow title="Prompts" value={selectedPromptKeys.length > 0 ? `${selectedPromptKeys.length}/${MAX_DATING_PROMPTS} added` : 'Add'} onPress={() => onOpenSection('prompts')} />
+            <EditSectionGroup title="Profile">
+                <EditSummaryRow
+                    title="Bio"
+                    value={bio.trim() || 'Add'}
+                    invalid={showCompletionErrors && Boolean(completionErrors.bio)}
+                    error={showCompletionErrors ? completionErrors.bio : null}
+                    onPress={() => onOpenSection('bio')}
+                    onLayout={recordRequiredSectionLayout('bio')}
+                />
+                <EditSummaryRow
+                    title="Interests"
+                    value={selectedInterests.length > 0 ? `${selectedInterests.length}/${MAX_DATING_INTERESTS} selected` : 'Add'}
+                    invalid={showCompletionErrors && Boolean(completionErrors.interests)}
+                    error={showCompletionErrors ? completionErrors.interests : null}
+                    onPress={() => onOpenSection('interests')}
+                    onLayout={recordRequiredSectionLayout('interests')}
+                />
+                <EditSummaryRow title="Prompts" value={selectedPromptKeys.length > 0 ? `${selectedPromptKeys.length}/${MAX_DATING_PROMPTS} added` : 'Add'} onPress={() => onOpenSection('prompts')} />
+            </EditSectionGroup>
+
+            <EditSectionGroup title="Dating">
+                <EditSummaryRow
+                    title="Dating intentions"
+                    value={relationshipGoalLabel(goal) ?? 'Add'}
+                    invalid={showCompletionErrors && Boolean(completionErrors.goal)}
+                    error={showCompletionErrors ? completionErrors.goal : null}
+                    onPress={() => onOpenSection('goal')}
+                    onLayout={recordRequiredSectionLayout('goal')}
+                />
+                <EditSummaryRow title="Relationship type" value={labelForOption(RELATIONSHIP_TYPE_OPTIONS, relationshipType) || 'Add'} onPress={() => onOpenSection('relationship_type')} />
+                <EditSummaryRow
+                    title="Interested in"
+                    value={interestedInLabel(interested) || 'Add'}
+                    invalid={showCompletionErrors && Boolean(completionErrors.interested)}
+                    error={showCompletionErrors ? completionErrors.interested : null}
+                    onPress={() => onOpenSection('interested')}
+                    onLayout={recordRequiredSectionLayout('interested')}
+                />
+            </EditSectionGroup>
+
+            <EditSectionGroup title="Identity">
+                <EditSummaryRow title="Gender" value={labelForOption(PROFILE_GENDER_OPTIONS, profileGender) || 'Add'} onPress={() => onOpenSection('gender')} />
+                <EditSummaryRow title="Sexuality" value={labelForOption(SEXUALITY_OPTIONS, sexuality) || 'Add'} onPress={() => onOpenSection('sexuality')} />
+                <EditSummaryRow title="Pronouns" value={labelForOption(PRONOUNS_OPTIONS, pronouns) || 'Add'} onPress={() => onOpenSection('pronouns')} />
+                <EditSummaryRow title="Ethnicity" value={labelForOption(ETHNICITY_OPTIONS, ethnicity) || 'Add'} onPress={() => onOpenSection('ethnicity')} />
+            </EditSectionGroup>
+
+            <EditSectionGroup title="Lifestyle">
+                <EditSummaryRow title="Children" value={labelForOption(CHILDREN_OPTIONS, childrenStatus) || 'Add'} onPress={() => onOpenSection('children')} />
+                <EditSummaryRow title="Pets" value={labelForOption(PETS_OPTIONS, pets) || 'Add'} onPress={() => onOpenSection('pets')} />
+                <EditSummaryRow title="Religious beliefs" value={labelForOption(RELIGIOUS_BELIEF_OPTIONS, religiousBelief) || 'Add'} onPress={() => onOpenSection('religion')} />
+                <EditSummaryRow title="Languages spoken" value={languageListLabel(languagesSpoken) || 'Add'} onPress={() => onOpenSection('languages')} />
+                <EditSummaryRow title="Political view" value={labelForOption(POLITICAL_VIEW_OPTIONS, politicalView) || 'Add'} onPress={() => onOpenSection('politics')} />
+                <EditSummaryRow title="My vices" value={vicesSummaryLabel(drinkingStatus, smokingStatus, drugUseStatus) || 'Add'} onPress={() => onOpenSection('vices')} />
+            </EditSectionGroup>
+
+            <EditSectionGroup title="Work & education">
+                <EditSummaryRow title="Height" value={formatHeight(heightCm) || 'Add'} onPress={() => onOpenSection('height')} />
+                <EditSummaryRow title="Work" value={formatWork(jobTitle, company) || 'Add'} onPress={() => onOpenSection('work')} />
+                <EditSummaryRow title="Education" value={formatEducation(course, school) || 'Add'} onPress={() => onOpenSection('education')} />
+            </EditSectionGroup>
+        </View>
+    );
+}
+
+function EditSectionGroup({ title, children }: { title: string; children: React.ReactNode }): React.ReactElement {
+    return (
+        <View style={styles.editSectionGroup}>
+            <Text style={styles.editSectionLabel}>{title}</Text>
+            <View style={styles.editSectionRows}>
+                {children}
+            </View>
         </View>
     );
 }
@@ -880,6 +941,12 @@ interface DatingSectionEditorProps {
     toggleLanguage: (value: string) => void;
     politicalView: api.DatingPoliticalView;
     setPoliticalView: (value: api.DatingPoliticalView) => void;
+    drinkingStatus: api.DatingViceStatus;
+    setDrinkingStatus: (value: api.DatingViceStatus) => void;
+    smokingStatus: api.DatingViceStatus;
+    setSmokingStatus: (value: api.DatingViceStatus) => void;
+    drugUseStatus: api.DatingViceStatus;
+    setDrugUseStatus: (value: api.DatingViceStatus) => void;
     heightCm: string;
     setHeightCm: (value: string) => void;
     jobTitle: string;
@@ -980,6 +1047,17 @@ function renderSectionEditorContent(props: DatingSectionEditorContentProps): Rea
             return <MultiChoice options={LANGUAGE_OPTIONS} values={props.languagesSpoken} onToggle={props.toggleLanguage} maxSelected={5} />;
         case 'politics':
             return <SingleChoice options={POLITICAL_VIEW_OPTIONS} value={props.politicalView} onChange={props.setPoliticalView} allowClear />;
+        case 'vices':
+            return (
+                <ViceChoice
+                    drinkingStatus={props.drinkingStatus}
+                    setDrinkingStatus={props.setDrinkingStatus}
+                    smokingStatus={props.smokingStatus}
+                    setSmokingStatus={props.setSmokingStatus}
+                    drugUseStatus={props.drugUseStatus}
+                    setDrugUseStatus={props.setDrugUseStatus}
+                />
+            );
         case 'height':
             return (
                 <View style={styles.section}>
@@ -1060,6 +1138,44 @@ function MultiChoice({ options, values, onToggle, maxSelected }: { options: Dati
             <View style={styles.chipWrap}>
                 {options.map((option) => (
                     <ChoiceChip key={option.value} label={option.label} active={values.includes(option.value)} onPress={() => onToggle(option.value)} />
+                ))}
+            </View>
+        </View>
+    );
+}
+
+function ViceChoice({
+    drinkingStatus,
+    setDrinkingStatus,
+    smokingStatus,
+    setSmokingStatus,
+    drugUseStatus,
+    setDrugUseStatus,
+}: {
+    drinkingStatus: api.DatingViceStatus;
+    setDrinkingStatus: (value: api.DatingViceStatus) => void;
+    smokingStatus: api.DatingViceStatus;
+    setSmokingStatus: (value: api.DatingViceStatus) => void;
+    drugUseStatus: api.DatingViceStatus;
+    setDrugUseStatus: (value: api.DatingViceStatus) => void;
+}): React.ReactElement {
+    return (
+        <View style={styles.section}>
+            <ViceChoiceGroup title="Drinking" value={drinkingStatus} onChange={setDrinkingStatus} />
+            <ViceChoiceGroup title="Smoking" value={smokingStatus} onChange={setSmokingStatus} />
+            <ViceChoiceGroup title="Drug use" value={drugUseStatus} onChange={setDrugUseStatus} />
+        </View>
+    );
+}
+
+function ViceChoiceGroup({ title, value, onChange }: { title: string; value: api.DatingViceStatus; onChange: (value: api.DatingViceStatus) => void }): React.ReactElement {
+    return (
+        <View style={styles.viceGroup}>
+            <Text style={styles.viceLabel}>{title}</Text>
+            <View style={styles.chipWrap}>
+                <ChoiceChip label="Skip" active={value === ''} onPress={() => onChange('')} />
+                {VICE_STATUS_OPTIONS.map((option) => (
+                    <ChoiceChip key={option.value} label={option.label} active={value === option.value} onPress={() => onChange(option.value)} />
                 ))}
             </View>
         </View>
@@ -1249,6 +1365,9 @@ interface DatingProfilePreviewProps {
     religiousBelief: api.DatingReligiousBelief;
     languagesSpoken: string[];
     politicalView: api.DatingPoliticalView;
+    drinkingStatus: api.DatingViceStatus;
+    smokingStatus: api.DatingViceStatus;
+    drugUseStatus: api.DatingViceStatus;
 }
 
 function DatingProfilePreview({
@@ -1273,6 +1392,9 @@ function DatingProfilePreview({
     religiousBelief,
     languagesSpoken,
     politicalView,
+    drinkingStatus,
+    smokingStatus,
+    drugUseStatus,
 }: DatingProfilePreviewProps): React.ReactElement {
     const username = profile?.username ?? 'Your profile';
     const displayName = profile?.age ? `${formatUsername(profile.username)}, ${profile.age}` : formatUsername(profile?.username);
@@ -1299,6 +1421,9 @@ function DatingProfilePreview({
         { icon: 'leaf-outline' as const, label: 'Religion', value: labelForOption(RELIGIOUS_BELIEF_OPTIONS, religiousBelief) },
         { icon: 'language-outline' as const, label: 'Languages', value: languageListLabel(languagesSpoken) },
         { icon: 'newspaper-outline' as const, label: 'Politics', value: labelForOption(POLITICAL_VIEW_OPTIONS, politicalView) },
+        { icon: 'wine-outline' as const, label: 'Drinking', value: labelForOption(VICE_STATUS_OPTIONS, drinkingStatus) },
+        { icon: 'flame-outline' as const, label: 'Smoking', value: labelForOption(VICE_STATUS_OPTIONS, smokingStatus) },
+        { icon: 'medical-outline' as const, label: 'Drug use', value: labelForOption(VICE_STATUS_OPTIONS, drugUseStatus) },
         { icon: 'resize-outline' as const, label: 'Height', value: formatHeight(heightCm) },
         { icon: 'briefcase-outline' as const, label: 'Work', value: formatWork(jobTitle, company) },
         { icon: 'school-outline' as const, label: 'Education', value: formatEducation(course, school) },
@@ -1402,6 +1527,24 @@ function languageListLabel(values: string[]): string | null {
     return values.map((value) => labelForOption(LANGUAGE_OPTIONS, value) ?? value).join(', ');
 }
 
+function vicesSummaryLabel(
+    drinkingStatus: api.DatingViceStatus,
+    smokingStatus: api.DatingViceStatus,
+    drugUseStatus: api.DatingViceStatus,
+): string | null {
+    const values = [
+        viceSummaryItem('Drinking', drinkingStatus),
+        viceSummaryItem('Smoking', smokingStatus),
+        viceSummaryItem('Drug use', drugUseStatus),
+    ].filter((item): item is string => Boolean(item));
+    return values.length > 0 ? values.join(', ') : null;
+}
+
+function viceSummaryItem(label: string, status: api.DatingViceStatus): string | null {
+    const value = labelForOption(VICE_STATUS_OPTIONS, status);
+    return value ? `${label}: ${value}` : null;
+}
+
 function interestedInLabel(values: api.UserGender[]): string | null {
     const match = DATING_INTERESTED_OPTIONS.find((option) => arraysEqual(values, option.genders));
     if (match) return match.label;
@@ -1431,6 +1574,7 @@ function sectionTitle(section: DatingEditSection): string {
         case 'religion': return 'Religious beliefs';
         case 'languages': return 'Languages spoken';
         case 'politics': return 'Political view';
+        case 'vices': return 'My vices';
         case 'height': return 'Height';
         case 'work': return 'Work';
         case 'education': return 'Education';
@@ -1483,6 +1627,9 @@ function createProfileFormSignature(profile: api.DatingProfile | null): string {
         profile.religious_belief ?? '',
         (profile.languages_spoken ?? []).join(','),
         profile.political_view ?? '',
+        profile.drinking_status ?? '',
+        profile.smoking_status ?? '',
+        profile.drug_use_status ?? '',
         (profile.prompt_answers ?? [])
             .map((answer) => `${answer.prompt_key}:${answer.answer}`)
             .join('|'),
@@ -1620,6 +1767,19 @@ const styles = StyleSheet.create({
     },
     editRows: {
         marginHorizontal: -ContentInsets.screenHorizontal,
+        gap: Spacing.xxl,
+    },
+    editSectionGroup: {
+        gap: Spacing.xs,
+    },
+    editSectionLabel: {
+        ...TextStyles.cardTitle,
+        color: Colors.text.primary,
+        textTransform: 'uppercase',
+        letterSpacing: 0,
+        paddingHorizontal: ContentInsets.screenHorizontal,
+    },
+    editSectionRows: {
         borderTopWidth: 1,
         borderTopColor: Colors.border.emphasis,
     },
@@ -1750,6 +1910,13 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         flexWrap: 'wrap',
         gap: Spacing.sm,
+    },
+    viceGroup: {
+        gap: Spacing.sm,
+    },
+    viceLabel: {
+        ...TextStyles.label,
+        color: Colors.text.primary,
     },
     chip: {
         minHeight: 40,
