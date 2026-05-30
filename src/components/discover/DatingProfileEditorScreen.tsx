@@ -10,7 +10,7 @@ import {
     View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { type KeyboardAwareScrollViewRef } from 'react-native-keyboard-controller';
 import { createNativeStackNavigator, type NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -153,6 +153,92 @@ const VICE_STATUS_OPTIONS: DatingOption<api.DatingViceStatus>[] = [
     { value: 'prefer_not_to_say', label: 'Prefer not to say' },
 ];
 
+const ZODIAC_OPTIONS: DatingOption<api.DatingZodiac>[] = [
+    { value: 'aries', label: 'Aries' },
+    { value: 'taurus', label: 'Taurus' },
+    { value: 'gemini', label: 'Gemini' },
+    { value: 'cancer', label: 'Cancer' },
+    { value: 'leo', label: 'Leo' },
+    { value: 'virgo', label: 'Virgo' },
+    { value: 'libra', label: 'Libra' },
+    { value: 'scorpio', label: 'Scorpio' },
+    { value: 'sagittarius', label: 'Sagittarius' },
+    { value: 'capricorn', label: 'Capricorn' },
+    { value: 'aquarius', label: 'Aquarius' },
+    { value: 'pisces', label: 'Pisces' },
+];
+
+const FAMILY_PLANS_OPTIONS: DatingOption<api.DatingFamilyPlans>[] = [
+    { value: 'want_children', label: 'Want children' },
+    { value: 'dont_want_children', label: 'Do not want children' },
+    { value: 'open_to_children', label: 'Open to children' },
+    { value: 'not_sure', label: 'Not sure' },
+    { value: 'prefer_not_to_say', label: 'Prefer not to say' },
+];
+
+const COMMUNICATION_STYLE_OPTIONS: DatingOption<api.DatingCommunicationStyle>[] = [
+    { value: 'big_time_texter', label: 'Big-time texter' },
+    { value: 'phone_caller', label: 'Phone caller' },
+    { value: 'video_chatter', label: 'Video chatter' },
+    { value: 'bad_texter', label: 'Bad texter' },
+    { value: 'better_in_person', label: 'Better in person' },
+];
+
+const LOVE_STYLE_OPTIONS: DatingOption<api.DatingLoveStyle>[] = [
+    { value: 'thoughtful_gestures', label: 'Thoughtful gestures' },
+    { value: 'quality_time', label: 'Quality time' },
+    { value: 'words_of_affirmation', label: 'Words of affirmation' },
+    { value: 'physical_touch', label: 'Physical touch' },
+    { value: 'acts_of_service', label: 'Acts of service' },
+];
+
+const WORKOUT_OPTIONS: DatingOption<api.DatingWorkout>[] = [
+    { value: 'every_day', label: 'Every day' },
+    { value: 'often', label: 'Often' },
+    { value: 'sometimes', label: 'Sometimes' },
+    { value: 'occasionally', label: 'Occasionally' },
+    { value: 'never', label: 'Never' },
+];
+
+const SOCIAL_MEDIA_OPTIONS: DatingOption<api.DatingSocialMedia>[] = [
+    { value: 'influencer_status', label: 'Influencer status' },
+    { value: 'socially_active', label: 'Socially active' },
+    { value: 'passive_scroller', label: 'Passive scroller' },
+    { value: 'off_the_grid', label: 'Off the grid' },
+];
+
+const SOBER_LIFESTYLE_OPTIONS: DatingOption<api.DatingSoberLifestyle>[] = [
+    { value: 'sober', label: 'Sober' },
+    { value: 'sober_curious', label: 'Sober curious' },
+    { value: 'in_recovery', label: 'In recovery' },
+    { value: 'supportive_ally', label: 'Supportive ally' },
+];
+
+const RECOVERY_APPROACH_OPTIONS: DatingOption<api.DatingRecoveryApproach>[] = [
+    { value: 'meetings', label: 'Meetings' },
+    { value: 'therapy', label: 'Therapy' },
+    { value: 'community', label: 'Community' },
+    { value: 'private', label: 'Private' },
+    { value: 'spiritual', label: 'Spiritual' },
+    { value: 'self_guided', label: 'Self-guided' },
+];
+
+const NIGHTLIFE_COMFORT_OPTIONS: DatingOption<api.DatingNightlifeComfort>[] = [
+    { value: 'dry_spaces_only', label: 'Dry spaces only' },
+    { value: 'calm_venues', label: 'Calm venues' },
+    { value: 'okay_with_bars', label: 'Okay with bars' },
+    { value: 'depends_on_company', label: 'Depends on company' },
+    { value: 'prefer_daytime', label: 'Prefer daytime' },
+];
+
+const SUBSTANCE_BOUNDARIES_OPTIONS: DatingOption<api.DatingSubstanceBoundaries>[] = [
+    { value: 'no_substances_around_me', label: 'No substances around me' },
+    { value: 'no_drugs', label: 'No drugs' },
+    { value: 'no_smoking', label: 'No smoking' },
+    { value: 'ask_me_first', label: 'Ask me first' },
+    { value: 'flexible', label: 'Flexible' },
+];
+
 const LANGUAGE_OPTIONS: DatingOption<string>[] = [
     'English', 'Irish', 'Spanish', 'French', 'German', 'Italian', 'Portuguese', 'Dutch',
     'Polish', 'Romanian', 'Lithuanian', 'Latvian', 'Estonian', 'Russian', 'Ukrainian',
@@ -178,7 +264,19 @@ type DatingEditSection =
     | 'religion'
     | 'languages'
     | 'politics'
-    | 'vices'
+    | 'drinking_status'
+    | 'smoking_status'
+    | 'drug_use_status'
+    | 'zodiac'
+    | 'family_plans'
+    | 'communication_style'
+    | 'love_style'
+    | 'workout'
+    | 'social_media'
+    | 'sober_lifestyle'
+    | 'recovery_approach'
+    | 'nightlife_comfort'
+    | 'substance_boundaries'
     | 'height'
     | 'work'
     | 'education'
@@ -325,6 +423,16 @@ export function DatingProfileEditorScreen({
     const [drinkingStatus, setDrinkingStatus] = useState<api.DatingViceStatus>(profile?.drinking_status ?? '');
     const [smokingStatus, setSmokingStatus] = useState<api.DatingViceStatus>(profile?.smoking_status ?? '');
     const [drugUseStatus, setDrugUseStatus] = useState<api.DatingViceStatus>(profile?.drug_use_status ?? '');
+    const [zodiac, setZodiac] = useState<api.DatingZodiac>(profile?.zodiac ?? '');
+    const [familyPlans, setFamilyPlans] = useState<api.DatingFamilyPlans>(profile?.family_plans ?? '');
+    const [communicationStyle, setCommunicationStyle] = useState<api.DatingCommunicationStyle>(profile?.communication_style ?? '');
+    const [loveStyle, setLoveStyle] = useState<api.DatingLoveStyle>(profile?.love_style ?? '');
+    const [workout, setWorkout] = useState<api.DatingWorkout>(profile?.workout ?? '');
+    const [socialMedia, setSocialMedia] = useState<api.DatingSocialMedia>(profile?.social_media ?? '');
+    const [soberLifestyle, setSoberLifestyle] = useState<api.DatingSoberLifestyle>(profile?.sober_lifestyle ?? '');
+    const [recoveryApproach, setRecoveryApproach] = useState<api.DatingRecoveryApproach>(profile?.recovery_approach ?? '');
+    const [nightlifeComfort, setNightlifeComfort] = useState<api.DatingNightlifeComfort>(profile?.nightlife_comfort ?? '');
+    const [substanceBoundaries, setSubstanceBoundaries] = useState<api.DatingSubstanceBoundaries>(profile?.substance_boundaries ?? '');
     const [selectedPromptKeys, setSelectedPromptKeys] = useState<string[]>(() => createPromptKeyList(profile?.prompt_answers ?? []));
     const [promptAnswers, setPromptAnswers] = useState<Record<string, string>>(() => createPromptAnswerMap(profile?.prompt_answers ?? []));
     const [editingPromptKey, setEditingPromptKey] = useState<string | null>(null);
@@ -373,6 +481,16 @@ export function DatingProfileEditorScreen({
         setDrinkingStatus(profile?.drinking_status ?? '');
         setSmokingStatus(profile?.smoking_status ?? '');
         setDrugUseStatus(profile?.drug_use_status ?? '');
+        setZodiac(profile?.zodiac ?? '');
+        setFamilyPlans(profile?.family_plans ?? '');
+        setCommunicationStyle(profile?.communication_style ?? '');
+        setLoveStyle(profile?.love_style ?? '');
+        setWorkout(profile?.workout ?? '');
+        setSocialMedia(profile?.social_media ?? '');
+        setSoberLifestyle(profile?.sober_lifestyle ?? '');
+        setRecoveryApproach(profile?.recovery_approach ?? '');
+        setNightlifeComfort(profile?.nightlife_comfort ?? '');
+        setSubstanceBoundaries(profile?.substance_boundaries ?? '');
         setSelectedPromptKeys(createPromptKeyList(profile?.prompt_answers ?? []));
         setPromptAnswers(createPromptAnswerMap(profile?.prompt_answers ?? []));
         setEditingPromptKey(null);
@@ -480,6 +598,16 @@ export function DatingProfileEditorScreen({
             drinking_status: drinkingStatus,
             smoking_status: smokingStatus,
             drug_use_status: drugUseStatus,
+            zodiac,
+            family_plans: familyPlans,
+            communication_style: communicationStyle,
+            love_style: loveStyle,
+            workout,
+            social_media: socialMedia,
+            sober_lifestyle: soberLifestyle,
+            recovery_approach: recoveryApproach,
+            nightlife_comfort: nightlifeComfort,
+            substance_boundaries: substanceBoundaries,
             complete,
         });
     };
@@ -571,6 +699,16 @@ export function DatingProfileEditorScreen({
                         drinkingStatus={drinkingStatus}
                         smokingStatus={smokingStatus}
                         drugUseStatus={drugUseStatus}
+                        zodiac={zodiac}
+                        familyPlans={familyPlans}
+                        communicationStyle={communicationStyle}
+                        loveStyle={loveStyle}
+                        workout={workout}
+                        socialMedia={socialMedia}
+                        soberLifestyle={soberLifestyle}
+                        recoveryApproach={recoveryApproach}
+                        nightlifeComfort={nightlifeComfort}
+                        substanceBoundaries={substanceBoundaries}
                         heightCm={heightCm}
                         jobTitle={jobTitle}
                         company={company}
@@ -620,6 +758,16 @@ export function DatingProfileEditorScreen({
                     drinkingStatus={drinkingStatus}
                     smokingStatus={smokingStatus}
                     drugUseStatus={drugUseStatus}
+                    zodiac={zodiac}
+                    familyPlans={familyPlans}
+                    communicationStyle={communicationStyle}
+                    loveStyle={loveStyle}
+                    workout={workout}
+                    socialMedia={socialMedia}
+                    soberLifestyle={soberLifestyle}
+                    recoveryApproach={recoveryApproach}
+                    nightlifeComfort={nightlifeComfort}
+                    substanceBoundaries={substanceBoundaries}
                 />
             )}
         </>
@@ -669,6 +817,26 @@ export function DatingProfileEditorScreen({
                 setSmokingStatus={setSmokingStatus}
                 drugUseStatus={drugUseStatus}
                 setDrugUseStatus={setDrugUseStatus}
+                zodiac={zodiac}
+                setZodiac={setZodiac}
+                familyPlans={familyPlans}
+                setFamilyPlans={setFamilyPlans}
+                communicationStyle={communicationStyle}
+                setCommunicationStyle={setCommunicationStyle}
+                loveStyle={loveStyle}
+                setLoveStyle={setLoveStyle}
+                workout={workout}
+                setWorkout={setWorkout}
+                socialMedia={socialMedia}
+                setSocialMedia={setSocialMedia}
+                soberLifestyle={soberLifestyle}
+                setSoberLifestyle={setSoberLifestyle}
+                recoveryApproach={recoveryApproach}
+                setRecoveryApproach={setRecoveryApproach}
+                nightlifeComfort={nightlifeComfort}
+                setNightlifeComfort={setNightlifeComfort}
+                substanceBoundaries={substanceBoundaries}
+                setSubstanceBoundaries={setSubstanceBoundaries}
                 heightCm={heightCm}
                 setHeightCm={setHeightCm}
                 jobTitle={jobTitle}
@@ -759,6 +927,16 @@ interface ProfileEditRowsProps {
     drinkingStatus: api.DatingViceStatus;
     smokingStatus: api.DatingViceStatus;
     drugUseStatus: api.DatingViceStatus;
+    zodiac: api.DatingZodiac;
+    familyPlans: api.DatingFamilyPlans;
+    communicationStyle: api.DatingCommunicationStyle;
+    loveStyle: api.DatingLoveStyle;
+    workout: api.DatingWorkout;
+    socialMedia: api.DatingSocialMedia;
+    soberLifestyle: api.DatingSoberLifestyle;
+    recoveryApproach: api.DatingRecoveryApproach;
+    nightlifeComfort: api.DatingNightlifeComfort;
+    substanceBoundaries: api.DatingSubstanceBoundaries;
     heightCm: string;
     jobTitle: string;
     company: string;
@@ -789,6 +967,16 @@ function ProfileEditRows({
     drinkingStatus,
     smokingStatus,
     drugUseStatus,
+    zodiac,
+    familyPlans,
+    communicationStyle,
+    loveStyle,
+    workout,
+    socialMedia,
+    soberLifestyle,
+    recoveryApproach,
+    nightlifeComfort,
+    substanceBoundaries,
     heightCm,
     jobTitle,
     company,
@@ -846,12 +1034,30 @@ function ProfileEditRows({
             </EditSectionGroup>
 
             <EditSectionGroup title="Lifestyle">
+                <EditSummaryRow title="Zodiac" value={labelForOption(ZODIAC_OPTIONS, zodiac) || 'Add'} onPress={() => onOpenSection('zodiac')} />
                 <EditSummaryRow title="Children" value={labelForOption(CHILDREN_OPTIONS, childrenStatus) || 'Add'} onPress={() => onOpenSection('children')} />
+                <EditSummaryRow title="Family plans" value={labelForOption(FAMILY_PLANS_OPTIONS, familyPlans) || 'Add'} onPress={() => onOpenSection('family_plans')} />
                 <EditSummaryRow title="Pets" value={labelForOption(PETS_OPTIONS, pets) || 'Add'} onPress={() => onOpenSection('pets')} />
                 <EditSummaryRow title="Religious beliefs" value={labelForOption(RELIGIOUS_BELIEF_OPTIONS, religiousBelief) || 'Add'} onPress={() => onOpenSection('religion')} />
                 <EditSummaryRow title="Languages spoken" value={languageListLabel(languagesSpoken) || 'Add'} onPress={() => onOpenSection('languages')} />
                 <EditSummaryRow title="Political view" value={labelForOption(POLITICAL_VIEW_OPTIONS, politicalView) || 'Add'} onPress={() => onOpenSection('politics')} />
-                <EditSummaryRow title="My vices" value={vicesSummaryLabel(drinkingStatus, smokingStatus, drugUseStatus) || 'Add'} onPress={() => onOpenSection('vices')} />
+                <EditSummaryRow title="Communication style" value={labelForOption(COMMUNICATION_STYLE_OPTIONS, communicationStyle) || 'Add'} onPress={() => onOpenSection('communication_style')} />
+                <EditSummaryRow title="Love style" value={labelForOption(LOVE_STYLE_OPTIONS, loveStyle) || 'Add'} onPress={() => onOpenSection('love_style')} />
+                <EditSummaryRow title="Workout" value={labelForOption(WORKOUT_OPTIONS, workout) || 'Add'} onPress={() => onOpenSection('workout')} />
+                <EditSummaryRow title="Social media" value={labelForOption(SOCIAL_MEDIA_OPTIONS, socialMedia) || 'Add'} onPress={() => onOpenSection('social_media')} />
+            </EditSectionGroup>
+
+            <EditSectionGroup title="Vices">
+                <EditSummaryRow title="Drinking" value={labelForOption(VICE_STATUS_OPTIONS, drinkingStatus) || 'Add'} onPress={() => onOpenSection('drinking_status')} />
+                <EditSummaryRow title="Smoking" value={labelForOption(VICE_STATUS_OPTIONS, smokingStatus) || 'Add'} onPress={() => onOpenSection('smoking_status')} />
+                <EditSummaryRow title="Drug use" value={labelForOption(VICE_STATUS_OPTIONS, drugUseStatus) || 'Add'} onPress={() => onOpenSection('drug_use_status')} />
+            </EditSectionGroup>
+
+            <EditSectionGroup title="Sober life">
+                <EditSummaryRow title="Sober lifestyle" value={labelForOption(SOBER_LIFESTYLE_OPTIONS, soberLifestyle) || 'Add'} onPress={() => onOpenSection('sober_lifestyle')} />
+                <EditSummaryRow title="Recovery approach" value={labelForOption(RECOVERY_APPROACH_OPTIONS, recoveryApproach) || 'Add'} onPress={() => onOpenSection('recovery_approach')} />
+                <EditSummaryRow title="Nightlife comfort" value={labelForOption(NIGHTLIFE_COMFORT_OPTIONS, nightlifeComfort) || 'Add'} onPress={() => onOpenSection('nightlife_comfort')} />
+                <EditSummaryRow title="Substance boundaries" value={labelForOption(SUBSTANCE_BOUNDARIES_OPTIONS, substanceBoundaries) || 'Add'} onPress={() => onOpenSection('substance_boundaries')} />
             </EditSectionGroup>
 
             <EditSectionGroup title="Work & education">
@@ -947,6 +1153,26 @@ interface DatingSectionEditorProps {
     setSmokingStatus: (value: api.DatingViceStatus) => void;
     drugUseStatus: api.DatingViceStatus;
     setDrugUseStatus: (value: api.DatingViceStatus) => void;
+    zodiac: api.DatingZodiac;
+    setZodiac: (value: api.DatingZodiac) => void;
+    familyPlans: api.DatingFamilyPlans;
+    setFamilyPlans: (value: api.DatingFamilyPlans) => void;
+    communicationStyle: api.DatingCommunicationStyle;
+    setCommunicationStyle: (value: api.DatingCommunicationStyle) => void;
+    loveStyle: api.DatingLoveStyle;
+    setLoveStyle: (value: api.DatingLoveStyle) => void;
+    workout: api.DatingWorkout;
+    setWorkout: (value: api.DatingWorkout) => void;
+    socialMedia: api.DatingSocialMedia;
+    setSocialMedia: (value: api.DatingSocialMedia) => void;
+    soberLifestyle: api.DatingSoberLifestyle;
+    setSoberLifestyle: (value: api.DatingSoberLifestyle) => void;
+    recoveryApproach: api.DatingRecoveryApproach;
+    setRecoveryApproach: (value: api.DatingRecoveryApproach) => void;
+    nightlifeComfort: api.DatingNightlifeComfort;
+    setNightlifeComfort: (value: api.DatingNightlifeComfort) => void;
+    substanceBoundaries: api.DatingSubstanceBoundaries;
+    setSubstanceBoundaries: (value: api.DatingSubstanceBoundaries) => void;
     heightCm: string;
     setHeightCm: (value: string) => void;
     jobTitle: string;
@@ -1047,17 +1273,32 @@ function renderSectionEditorContent(props: DatingSectionEditorContentProps): Rea
             return <MultiChoice options={LANGUAGE_OPTIONS} values={props.languagesSpoken} onToggle={props.toggleLanguage} maxSelected={5} />;
         case 'politics':
             return <SingleChoice options={POLITICAL_VIEW_OPTIONS} value={props.politicalView} onChange={props.setPoliticalView} allowClear />;
-        case 'vices':
-            return (
-                <ViceChoice
-                    drinkingStatus={props.drinkingStatus}
-                    setDrinkingStatus={props.setDrinkingStatus}
-                    smokingStatus={props.smokingStatus}
-                    setSmokingStatus={props.setSmokingStatus}
-                    drugUseStatus={props.drugUseStatus}
-                    setDrugUseStatus={props.setDrugUseStatus}
-                />
-            );
+        case 'zodiac':
+            return <SingleChoice options={ZODIAC_OPTIONS} value={props.zodiac} onChange={props.setZodiac} allowClear />;
+        case 'family_plans':
+            return <SingleChoice options={FAMILY_PLANS_OPTIONS} value={props.familyPlans} onChange={props.setFamilyPlans} allowClear />;
+        case 'communication_style':
+            return <SingleChoice options={COMMUNICATION_STYLE_OPTIONS} value={props.communicationStyle} onChange={props.setCommunicationStyle} allowClear />;
+        case 'love_style':
+            return <SingleChoice options={LOVE_STYLE_OPTIONS} value={props.loveStyle} onChange={props.setLoveStyle} allowClear />;
+        case 'workout':
+            return <SingleChoice options={WORKOUT_OPTIONS} value={props.workout} onChange={props.setWorkout} allowClear />;
+        case 'social_media':
+            return <SingleChoice options={SOCIAL_MEDIA_OPTIONS} value={props.socialMedia} onChange={props.setSocialMedia} allowClear />;
+        case 'sober_lifestyle':
+            return <SingleChoice options={SOBER_LIFESTYLE_OPTIONS} value={props.soberLifestyle} onChange={props.setSoberLifestyle} allowClear />;
+        case 'recovery_approach':
+            return <SingleChoice options={RECOVERY_APPROACH_OPTIONS} value={props.recoveryApproach} onChange={props.setRecoveryApproach} allowClear />;
+        case 'nightlife_comfort':
+            return <SingleChoice options={NIGHTLIFE_COMFORT_OPTIONS} value={props.nightlifeComfort} onChange={props.setNightlifeComfort} allowClear />;
+        case 'substance_boundaries':
+            return <SingleChoice options={SUBSTANCE_BOUNDARIES_OPTIONS} value={props.substanceBoundaries} onChange={props.setSubstanceBoundaries} allowClear />;
+        case 'drinking_status':
+            return <SingleChoice options={VICE_STATUS_OPTIONS} value={props.drinkingStatus} onChange={props.setDrinkingStatus} allowClear />;
+        case 'smoking_status':
+            return <SingleChoice options={VICE_STATUS_OPTIONS} value={props.smokingStatus} onChange={props.setSmokingStatus} allowClear />;
+        case 'drug_use_status':
+            return <SingleChoice options={VICE_STATUS_OPTIONS} value={props.drugUseStatus} onChange={props.setDrugUseStatus} allowClear />;
         case 'height':
             return (
                 <View style={styles.section}>
@@ -1138,44 +1379,6 @@ function MultiChoice({ options, values, onToggle, maxSelected }: { options: Dati
             <View style={styles.chipWrap}>
                 {options.map((option) => (
                     <ChoiceChip key={option.value} label={option.label} active={values.includes(option.value)} onPress={() => onToggle(option.value)} />
-                ))}
-            </View>
-        </View>
-    );
-}
-
-function ViceChoice({
-    drinkingStatus,
-    setDrinkingStatus,
-    smokingStatus,
-    setSmokingStatus,
-    drugUseStatus,
-    setDrugUseStatus,
-}: {
-    drinkingStatus: api.DatingViceStatus;
-    setDrinkingStatus: (value: api.DatingViceStatus) => void;
-    smokingStatus: api.DatingViceStatus;
-    setSmokingStatus: (value: api.DatingViceStatus) => void;
-    drugUseStatus: api.DatingViceStatus;
-    setDrugUseStatus: (value: api.DatingViceStatus) => void;
-}): React.ReactElement {
-    return (
-        <View style={styles.section}>
-            <ViceChoiceGroup title="Drinking" value={drinkingStatus} onChange={setDrinkingStatus} />
-            <ViceChoiceGroup title="Smoking" value={smokingStatus} onChange={setSmokingStatus} />
-            <ViceChoiceGroup title="Drug use" value={drugUseStatus} onChange={setDrugUseStatus} />
-        </View>
-    );
-}
-
-function ViceChoiceGroup({ title, value, onChange }: { title: string; value: api.DatingViceStatus; onChange: (value: api.DatingViceStatus) => void }): React.ReactElement {
-    return (
-        <View style={styles.viceGroup}>
-            <Text style={styles.viceLabel}>{title}</Text>
-            <View style={styles.chipWrap}>
-                <ChoiceChip label="Skip" active={value === ''} onPress={() => onChange('')} />
-                {VICE_STATUS_OPTIONS.map((option) => (
-                    <ChoiceChip key={option.value} label={option.label} active={value === option.value} onPress={() => onChange(option.value)} />
                 ))}
             </View>
         </View>
@@ -1368,7 +1571,21 @@ interface DatingProfilePreviewProps {
     drinkingStatus: api.DatingViceStatus;
     smokingStatus: api.DatingViceStatus;
     drugUseStatus: api.DatingViceStatus;
+    zodiac: api.DatingZodiac;
+    familyPlans: api.DatingFamilyPlans;
+    communicationStyle: api.DatingCommunicationStyle;
+    loveStyle: api.DatingLoveStyle;
+    workout: api.DatingWorkout;
+    socialMedia: api.DatingSocialMedia;
+    soberLifestyle: api.DatingSoberLifestyle;
+    recoveryApproach: api.DatingRecoveryApproach;
+    nightlifeComfort: api.DatingNightlifeComfort;
+    substanceBoundaries: api.DatingSubstanceBoundaries;
 }
+
+type PreviewDetailIcon =
+    | { family: 'ionicons'; name: keyof typeof Ionicons.glyphMap }
+    | { family: 'materialCommunity'; name: keyof typeof MaterialCommunityIcons.glyphMap };
 
 function DatingProfilePreview({
     profile,
@@ -1395,6 +1612,16 @@ function DatingProfilePreview({
     drinkingStatus,
     smokingStatus,
     drugUseStatus,
+    zodiac,
+    familyPlans,
+    communicationStyle,
+    loveStyle,
+    workout,
+    socialMedia,
+    soberLifestyle,
+    recoveryApproach,
+    nightlifeComfort,
+    substanceBoundaries,
 }: DatingProfilePreviewProps): React.ReactElement {
     const username = profile?.username ?? 'Your profile';
     const displayName = profile?.age ? `${formatUsername(profile.username)}, ${profile.age}` : formatUsername(profile?.username);
@@ -1410,25 +1637,35 @@ function DatingProfilePreview({
         })
         .filter((prompt) => prompt.answer.length > 0)
         .slice(0, MAX_DATING_PROMPTS);
-    const detailRows: Array<{ icon: keyof typeof Ionicons.glyphMap; label: string; value: string | null }> = [
-        { icon: 'heart-outline' as const, label: 'Relationship type', value: labelForOption(RELATIONSHIP_TYPE_OPTIONS, relationshipType) },
-        { icon: 'person-outline' as const, label: 'Gender', value: labelForOption(PROFILE_GENDER_OPTIONS, profileGender) },
-        { icon: 'sparkles-outline' as const, label: 'Sexuality', value: labelForOption(SEXUALITY_OPTIONS, sexuality) },
-        { icon: 'chatbubble-outline' as const, label: 'Pronouns', value: labelForOption(PRONOUNS_OPTIONS, pronouns) },
-        { icon: 'people-circle-outline' as const, label: 'Ethnicity', value: labelForOption(ETHNICITY_OPTIONS, ethnicity) },
-        { icon: 'people-outline' as const, label: 'Children', value: labelForOption(CHILDREN_OPTIONS, childrenStatus) },
-        { icon: 'paw-outline' as const, label: 'Pets', value: labelForOption(PETS_OPTIONS, pets) },
-        { icon: 'leaf-outline' as const, label: 'Religion', value: labelForOption(RELIGIOUS_BELIEF_OPTIONS, religiousBelief) },
-        { icon: 'language-outline' as const, label: 'Languages', value: languageListLabel(languagesSpoken) },
-        { icon: 'newspaper-outline' as const, label: 'Politics', value: labelForOption(POLITICAL_VIEW_OPTIONS, politicalView) },
-        { icon: 'wine-outline' as const, label: 'Drinking', value: labelForOption(VICE_STATUS_OPTIONS, drinkingStatus) },
-        { icon: 'flame-outline' as const, label: 'Smoking', value: labelForOption(VICE_STATUS_OPTIONS, smokingStatus) },
-        { icon: 'medical-outline' as const, label: 'Drug use', value: labelForOption(VICE_STATUS_OPTIONS, drugUseStatus) },
-        { icon: 'resize-outline' as const, label: 'Height', value: formatHeight(heightCm) },
-        { icon: 'briefcase-outline' as const, label: 'Work', value: formatWork(jobTitle, company) },
-        { icon: 'school-outline' as const, label: 'Education', value: formatEducation(course, school) },
+    const detailRows: Array<{ icon: PreviewDetailIcon; label: string; value: string | null }> = [
+        { icon: ionPreviewIcon('heart-outline'), label: 'Relationship type', value: labelForOption(RELATIONSHIP_TYPE_OPTIONS, relationshipType) },
+        { icon: ionPreviewIcon('person-outline'), label: 'Gender', value: labelForOption(PROFILE_GENDER_OPTIONS, profileGender) },
+        { icon: ionPreviewIcon('sparkles-outline'), label: 'Sexuality', value: labelForOption(SEXUALITY_OPTIONS, sexuality) },
+        { icon: ionPreviewIcon('chatbubble-outline'), label: 'Pronouns', value: labelForOption(PRONOUNS_OPTIONS, pronouns) },
+        { icon: ionPreviewIcon('people-circle-outline'), label: 'Ethnicity', value: labelForOption(ETHNICITY_OPTIONS, ethnicity) },
+        { icon: ionPreviewIcon('star-outline'), label: 'Zodiac', value: labelForOption(ZODIAC_OPTIONS, zodiac) },
+        { icon: ionPreviewIcon('people-outline'), label: 'Children', value: labelForOption(CHILDREN_OPTIONS, childrenStatus) },
+        { icon: ionPreviewIcon('home-outline'), label: 'Family plans', value: labelForOption(FAMILY_PLANS_OPTIONS, familyPlans) },
+        { icon: ionPreviewIcon('paw-outline'), label: 'Pets', value: labelForOption(PETS_OPTIONS, pets) },
+        { icon: ionPreviewIcon('leaf-outline'), label: 'Religion', value: labelForOption(RELIGIOUS_BELIEF_OPTIONS, religiousBelief) },
+        { icon: ionPreviewIcon('language-outline'), label: 'Languages', value: languageListLabel(languagesSpoken) },
+        { icon: ionPreviewIcon('newspaper-outline'), label: 'Politics', value: labelForOption(POLITICAL_VIEW_OPTIONS, politicalView) },
+        { icon: ionPreviewIcon('chatbubbles-outline'), label: 'Communication', value: labelForOption(COMMUNICATION_STYLE_OPTIONS, communicationStyle) },
+        { icon: ionPreviewIcon('heart-circle-outline'), label: 'Love style', value: labelForOption(LOVE_STYLE_OPTIONS, loveStyle) },
+        { icon: ionPreviewIcon('barbell-outline'), label: 'Workout', value: labelForOption(WORKOUT_OPTIONS, workout) },
+        { icon: ionPreviewIcon('phone-portrait-outline'), label: 'Social media', value: labelForOption(SOCIAL_MEDIA_OPTIONS, socialMedia) },
+        { icon: ionPreviewIcon('wine-outline'), label: 'Drinking', value: labelForOption(VICE_STATUS_OPTIONS, drinkingStatus) },
+        { icon: materialCommunityPreviewIcon('smoking'), label: 'Smoking', value: labelForOption(VICE_STATUS_OPTIONS, smokingStatus) },
+        { icon: materialCommunityPreviewIcon('pill'), label: 'Drug use', value: labelForOption(VICE_STATUS_OPTIONS, drugUseStatus) },
+        { icon: ionPreviewIcon('shield-checkmark-outline'), label: 'Sober lifestyle', value: labelForOption(SOBER_LIFESTYLE_OPTIONS, soberLifestyle) },
+        { icon: ionPreviewIcon('trail-sign-outline'), label: 'Recovery approach', value: labelForOption(RECOVERY_APPROACH_OPTIONS, recoveryApproach) },
+        { icon: ionPreviewIcon('moon-outline'), label: 'Nightlife comfort', value: labelForOption(NIGHTLIFE_COMFORT_OPTIONS, nightlifeComfort) },
+        { icon: ionPreviewIcon('lock-closed-outline'), label: 'Boundaries', value: labelForOption(SUBSTANCE_BOUNDARIES_OPTIONS, substanceBoundaries) },
+        { icon: ionPreviewIcon('resize-outline'), label: 'Height', value: formatHeight(heightCm) },
+        { icon: ionPreviewIcon('briefcase-outline'), label: 'Work', value: formatWork(jobTitle, company) },
+        { icon: ionPreviewIcon('school-outline'), label: 'Education', value: formatEducation(course, school) },
     ];
-    const visibleDetailRows = detailRows.filter((detail): detail is { icon: keyof typeof Ionicons.glyphMap; label: string; value: string } => Boolean(detail.value));
+    const visibleDetailRows = detailRows.filter((detail): detail is { icon: PreviewDetailIcon; label: string; value: string } => Boolean(detail.value));
 
     return (
         <ScrollView contentContainerStyle={styles.previewContent} showsVerticalScrollIndicator={false}>
@@ -1488,7 +1725,7 @@ function DatingProfilePreview({
                         <View style={styles.previewDetails}>
                             {visibleDetailRows.map((detail, index) => (
                                 <View key={`${detail.label}-${index}`} style={styles.previewDetailRow}>
-                                    <Ionicons name={detail.icon} size={17} color={Colors.text.secondary} />
+                                    <PreviewDetailIconView icon={detail.icon} />
                                     <Text style={styles.previewDetailText}>{detail.value}</Text>
                                 </View>
                             ))}
@@ -1517,6 +1754,21 @@ function relationshipGoalLabel(goal: api.DatingRelationshipGoal): string | null 
     return DATING_GOAL_OPTIONS.find((option) => option.value === goal)?.label ?? null;
 }
 
+function ionPreviewIcon(name: keyof typeof Ionicons.glyphMap): PreviewDetailIcon {
+    return { family: 'ionicons', name };
+}
+
+function materialCommunityPreviewIcon(name: keyof typeof MaterialCommunityIcons.glyphMap): PreviewDetailIcon {
+    return { family: 'materialCommunity', name };
+}
+
+function PreviewDetailIconView({ icon }: { icon: PreviewDetailIcon }): React.ReactElement {
+    if (icon.family === 'materialCommunity') {
+        return <MaterialCommunityIcons name={icon.name} size={17} color={Colors.text.secondary} />;
+    }
+    return <Ionicons name={icon.name} size={17} color={Colors.text.secondary} />;
+}
+
 function labelForOption<T extends string>(options: DatingOption<T>[], value: T | string): string | null {
     if (!value) return null;
     return options.find((option) => option.value === value)?.label ?? null;
@@ -1525,24 +1777,6 @@ function labelForOption<T extends string>(options: DatingOption<T>[], value: T |
 function languageListLabel(values: string[]): string | null {
     if (values.length === 0) return null;
     return values.map((value) => labelForOption(LANGUAGE_OPTIONS, value) ?? value).join(', ');
-}
-
-function vicesSummaryLabel(
-    drinkingStatus: api.DatingViceStatus,
-    smokingStatus: api.DatingViceStatus,
-    drugUseStatus: api.DatingViceStatus,
-): string | null {
-    const values = [
-        viceSummaryItem('Drinking', drinkingStatus),
-        viceSummaryItem('Smoking', smokingStatus),
-        viceSummaryItem('Drug use', drugUseStatus),
-    ].filter((item): item is string => Boolean(item));
-    return values.length > 0 ? values.join(', ') : null;
-}
-
-function viceSummaryItem(label: string, status: api.DatingViceStatus): string | null {
-    const value = labelForOption(VICE_STATUS_OPTIONS, status);
-    return value ? `${label}: ${value}` : null;
 }
 
 function interestedInLabel(values: api.UserGender[]): string | null {
@@ -1574,7 +1808,19 @@ function sectionTitle(section: DatingEditSection): string {
         case 'religion': return 'Religious beliefs';
         case 'languages': return 'Languages spoken';
         case 'politics': return 'Political view';
-        case 'vices': return 'My vices';
+        case 'drinking_status': return 'Drinking';
+        case 'smoking_status': return 'Smoking';
+        case 'drug_use_status': return 'Drug use';
+        case 'zodiac': return 'Zodiac';
+        case 'family_plans': return 'Family plans';
+        case 'communication_style': return 'Communication style';
+        case 'love_style': return 'Love style';
+        case 'workout': return 'Workout';
+        case 'social_media': return 'Social media';
+        case 'sober_lifestyle': return 'Sober lifestyle';
+        case 'recovery_approach': return 'Recovery approach';
+        case 'nightlife_comfort': return 'Nightlife comfort';
+        case 'substance_boundaries': return 'Substance boundaries';
         case 'height': return 'Height';
         case 'work': return 'Work';
         case 'education': return 'Education';
@@ -1630,6 +1876,16 @@ function createProfileFormSignature(profile: api.DatingProfile | null): string {
         profile.drinking_status ?? '',
         profile.smoking_status ?? '',
         profile.drug_use_status ?? '',
+        profile.zodiac ?? '',
+        profile.family_plans ?? '',
+        profile.communication_style ?? '',
+        profile.love_style ?? '',
+        profile.workout ?? '',
+        profile.social_media ?? '',
+        profile.sober_lifestyle ?? '',
+        profile.recovery_approach ?? '',
+        profile.nightlife_comfort ?? '',
+        profile.substance_boundaries ?? '',
         (profile.prompt_answers ?? [])
             .map((answer) => `${answer.prompt_key}:${answer.answer}`)
             .join('|'),
@@ -1911,13 +2167,6 @@ const styles = StyleSheet.create({
         flexWrap: 'wrap',
         gap: Spacing.sm,
     },
-    viceGroup: {
-        gap: Spacing.sm,
-    },
-    viceLabel: {
-        ...TextStyles.label,
-        color: Colors.text.primary,
-    },
     chip: {
         minHeight: 40,
         borderRadius: Radius.pill,
@@ -1978,10 +2227,10 @@ const styles = StyleSheet.create({
         gap: Spacing.sm,
     },
     previewSectionLabel: {
-        ...TextStyles.label,
+        ...TextStyles.cardTitle,
         color: Colors.text.primary,
         textTransform: 'uppercase',
-        fontWeight: '800',
+        letterSpacing: 0,
     },
     previewGoalPill: {
         flexDirection: 'row',

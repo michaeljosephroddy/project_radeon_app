@@ -12,6 +12,20 @@ export function setUnauthorizedHandler(handler: () => void): void {
     _onUnauthorized = handler;
 }
 
+export class ApiError extends Error {
+    status: number;
+
+    constructor(message: string, status: number) {
+        super(message);
+        this.name = 'ApiError';
+        this.status = status;
+    }
+}
+
+export function isApiErrorWithStatus(error: unknown, status: number): error is ApiError {
+    return error instanceof ApiError && error.status === status;
+}
+
 // Parses the standard API envelope and throws a useful error for non-OK responses.
 async function parseDataResponse<T>(res: Response): Promise<T> {
     const text = await res.text();
@@ -22,11 +36,11 @@ async function parseDataResponse<T>(res: Response): Promise<T> {
     if (res.status === 401) {
         await clearToken();
         _onUnauthorized?.();
-        throw new Error(json.error || 'Unauthorized');
+        throw new ApiError(json.error || 'Unauthorized', res.status);
     }
 
     if (!res.ok) {
-        throw new Error(json.error || `Request failed: ${res.status}`);
+        throw new ApiError(json.error || `Request failed: ${res.status}`, res.status);
     }
 
     return json.data as T;
@@ -848,6 +862,16 @@ export type DatingPetsStatus = '' | 'have_pets' | 'want_pets' | 'like_pets' | 'a
 export type DatingReligiousBelief = '' | 'agnostic' | 'atheist' | 'buddhist' | 'christian' | 'hindu' | 'jewish' | 'muslim' | 'sikh' | 'spiritual' | 'other';
 export type DatingPoliticalView = '' | 'liberal' | 'moderate' | 'conservative' | 'not_political' | 'other';
 export type DatingViceStatus = '' | 'yes' | 'sometimes' | 'no' | 'prefer_not_to_say';
+export type DatingZodiac = '' | 'aries' | 'taurus' | 'gemini' | 'cancer' | 'leo' | 'virgo' | 'libra' | 'scorpio' | 'sagittarius' | 'capricorn' | 'aquarius' | 'pisces';
+export type DatingFamilyPlans = '' | 'want_children' | 'dont_want_children' | 'open_to_children' | 'not_sure' | 'prefer_not_to_say';
+export type DatingCommunicationStyle = '' | 'big_time_texter' | 'phone_caller' | 'video_chatter' | 'bad_texter' | 'better_in_person';
+export type DatingLoveStyle = '' | 'thoughtful_gestures' | 'quality_time' | 'words_of_affirmation' | 'physical_touch' | 'acts_of_service';
+export type DatingWorkout = '' | 'every_day' | 'often' | 'sometimes' | 'occasionally' | 'never';
+export type DatingSocialMedia = '' | 'influencer_status' | 'socially_active' | 'passive_scroller' | 'off_the_grid';
+export type DatingSoberLifestyle = '' | 'sober' | 'sober_curious' | 'in_recovery' | 'supportive_ally';
+export type DatingRecoveryApproach = '' | 'meetings' | 'therapy' | 'community' | 'private' | 'spiritual' | 'self_guided';
+export type DatingNightlifeComfort = '' | 'dry_spaces_only' | 'calm_venues' | 'okay_with_bars' | 'depends_on_company' | 'prefer_daytime';
+export type DatingSubstanceBoundaries = '' | 'no_substances_around_me' | 'no_drugs' | 'no_smoking' | 'ask_me_first' | 'flexible';
 
 export interface DatingPhoto {
     id: string;
@@ -898,6 +922,16 @@ export interface DatingProfile {
     drinking_status?: DatingViceStatus;
     smoking_status?: DatingViceStatus;
     drug_use_status?: DatingViceStatus;
+    zodiac?: DatingZodiac;
+    family_plans?: DatingFamilyPlans;
+    communication_style?: DatingCommunicationStyle;
+    love_style?: DatingLoveStyle;
+    workout?: DatingWorkout;
+    social_media?: DatingSocialMedia;
+    sober_lifestyle?: DatingSoberLifestyle;
+    recovery_approach?: DatingRecoveryApproach;
+    nightlife_comfort?: DatingNightlifeComfort;
+    substance_boundaries?: DatingSubstanceBoundaries;
     interests: string[];
     age_min?: number;
     age_max?: number;
@@ -952,6 +986,16 @@ function normalizeDatingProfile(profile: DatingProfile): DatingProfile {
         drinking_status: profile.drinking_status ?? '',
         smoking_status: profile.smoking_status ?? '',
         drug_use_status: profile.drug_use_status ?? '',
+        zodiac: profile.zodiac ?? '',
+        family_plans: profile.family_plans ?? '',
+        communication_style: profile.communication_style ?? '',
+        love_style: profile.love_style ?? '',
+        workout: profile.workout ?? '',
+        social_media: profile.social_media ?? '',
+        sober_lifestyle: profile.sober_lifestyle ?? '',
+        recovery_approach: profile.recovery_approach ?? '',
+        nightlife_comfort: profile.nightlife_comfort ?? '',
+        substance_boundaries: profile.substance_boundaries ?? '',
         interests: profile.interests ?? [],
         photos: profile.photos ?? [],
         prompt_answers: profile.prompt_answers ?? [],
@@ -1019,6 +1063,16 @@ export interface UpdateDatingProfileInput {
     drinking_status?: DatingViceStatus;
     smoking_status?: DatingViceStatus;
     drug_use_status?: DatingViceStatus;
+    zodiac?: DatingZodiac;
+    family_plans?: DatingFamilyPlans;
+    communication_style?: DatingCommunicationStyle;
+    love_style?: DatingLoveStyle;
+    workout?: DatingWorkout;
+    social_media?: DatingSocialMedia;
+    sober_lifestyle?: DatingSoberLifestyle;
+    recovery_approach?: DatingRecoveryApproach;
+    nightlife_comfort?: DatingNightlifeComfort;
+    substance_boundaries?: DatingSubstanceBoundaries;
     interests?: string[];
     prompt_answers?: Array<{
         prompt_key: string;
