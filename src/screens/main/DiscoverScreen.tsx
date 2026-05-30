@@ -338,8 +338,8 @@ function DatingProfileDetailModal({
                         <Text style={styles.datingDetailGoal}>{relationshipGoalLabel(profile.relationship_goal)}</Text>
                         {profile.interests.length > 0 ? (
                             <View style={styles.datingDetailInterests}>
-                                {profile.interests.map((interest) => (
-                                    <View key={interest} style={styles.datingDetailInterestChip}>
+                                {profile.interests.map((interest, index) => (
+                                    <View key={`${interest}-${index}`} style={styles.datingDetailInterestChip}>
                                         <Text style={styles.datingDetailInterestText}>{interest}</Text>
                                     </View>
                                 ))}
@@ -347,16 +347,16 @@ function DatingProfileDetailModal({
                         ) : null}
                         {detailRows.length > 0 ? (
                             <View style={styles.datingDetailFacts}>
-                                {detailRows.map((detail) => (
-                                    <Text key={detail} style={styles.datingDetailFactText}>{detail}</Text>
+                                {detailRows.map((detail, index) => (
+                                    <Text key={`${detail}-${index}`} style={styles.datingDetailFactText}>{detail}</Text>
                                 ))}
                             </View>
                         ) : null}
                         {profile.bio ? <Text style={styles.datingDetailBio}>{profile.bio}</Text> : null}
                         {profile.prompt_answers?.length ? (
                             <View style={styles.datingDetailPromptStack}>
-                                {profile.prompt_answers.map((answer) => (
-                                    <View key={answer.id ?? answer.prompt_key} style={styles.datingDetailPrompt}>
+                                {profile.prompt_answers.map((answer, index) => (
+                                    <View key={`${answer.id ?? answer.prompt_key}-${index}`} style={styles.datingDetailPrompt}>
                                         <Text style={styles.datingDetailPromptLabel}>{datingPromptLabel(answer.prompt_key)}</Text>
                                         <Text style={styles.datingDetailPromptAnswer}>{answer.answer}</Text>
                                     </View>

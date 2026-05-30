@@ -1355,8 +1355,8 @@ function DatingProfilePreview({
                     <View style={styles.previewSection}>
                         <Text style={styles.previewSectionLabel}>Interests</Text>
                         <View style={styles.previewChipWrap}>
-                            {interests.map((interest) => (
-                                <View key={interest} style={styles.previewChip}>
+                            {interests.map((interest, index) => (
+                                <View key={`${interest}-${index}`} style={styles.previewChip}>
                                     <Text style={styles.previewChipText} numberOfLines={1}>{interest}</Text>
                                 </View>
                             ))}
@@ -1367,8 +1367,8 @@ function DatingProfilePreview({
                     <View style={styles.previewSection}>
                         <Text style={styles.previewSectionLabel}>Basics</Text>
                         <View style={styles.previewDetails}>
-                            {visibleDetailRows.map((detail) => (
-                                <View key={detail.label} style={styles.previewDetailRow}>
+                            {visibleDetailRows.map((detail, index) => (
+                                <View key={`${detail.label}-${index}`} style={styles.previewDetailRow}>
                                     <Ionicons name={detail.icon} size={17} color={Colors.text.secondary} />
                                     <Text style={styles.previewDetailText}>{detail.value}</Text>
                                 </View>
@@ -1380,8 +1380,8 @@ function DatingProfilePreview({
                     <View style={styles.previewSection}>
                         <Text style={styles.previewSectionLabel}>Prompts</Text>
                         <View style={styles.previewPrompts}>
-                            {visiblePromptAnswers.map((prompt) => (
-                                <View key={prompt.key} style={styles.previewPrompt}>
+                            {visiblePromptAnswers.map((prompt, index) => (
+                                <View key={`${prompt.key}-${index}`} style={styles.previewPrompt}>
                                     <Text style={styles.previewPromptLabel}>{prompt.label}</Text>
                                     <Text style={styles.previewPromptAnswer}>{prompt.answer}</Text>
                                 </View>

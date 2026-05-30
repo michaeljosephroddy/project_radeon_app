@@ -17,7 +17,7 @@ export default function App() {
         // handling, safe-area layout, and auth state are shared across every screen.
         <GestureHandlerRootView style={{ flex: 1 }}>
             <SafeAreaProvider>
-                <KeyboardProvider statusBarTranslucent navigationBarTranslucent>
+                <KeyboardProvider>
                     <StatusBar style="dark" />
                     <PersistQueryClientProvider
                         client={queryClient}

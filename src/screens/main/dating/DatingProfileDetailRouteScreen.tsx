@@ -311,8 +311,8 @@ function DatingProfileDetailContent({
                 {profile.interests.length > 0 ? (
                     <ProfileSection title="Interests">
                         <View style={styles.chipWrap}>
-                            {profile.interests.map((interest) => (
-                                <View key={interest} style={styles.chip}>
+                            {profile.interests.map((interest, index) => (
+                                <View key={`${interest}-${index}`} style={styles.chip}>
                                     <Text style={styles.chipText} numberOfLines={1}>{interest}</Text>
                                 </View>
                             ))}
@@ -323,8 +323,8 @@ function DatingProfileDetailContent({
                 {detailRows.length > 0 ? (
                     <ProfileSection title="Basics">
                         <View style={styles.detailStack}>
-                            {detailRows.map((detail) => (
-                                <View key={detail.label} style={styles.detailRow}>
+                            {detailRows.map((detail, index) => (
+                                <View key={`${detail.label}-${index}`} style={styles.detailRow}>
                                     <Ionicons name={detail.icon} size={17} color={Colors.text.secondary} />
                                     <Text style={styles.detailText}>{detail.value}</Text>
                                 </View>
@@ -338,7 +338,7 @@ function DatingProfileDetailContent({
                         <View style={styles.promptStack}>
                             {prompts.map((answer, index) => (
                                 <View
-                                    key={answer.id ?? answer.prompt_key}
+                                    key={`${answer.id ?? answer.prompt_key}-${index}`}
                                     style={[styles.promptCard, index === 0 && styles.firstPromptCard]}
                                 >
                                     <Text style={styles.promptLabel}>{datingPromptLabel(answer.prompt_key)}</Text>
