@@ -132,6 +132,81 @@ const VICE_STATUS_OPTIONS: DatingOption<api.DatingViceStatus>[] = [
     { value: 'prefer_not_to_say', label: 'Prefer not to say' },
 ];
 
+const ZODIAC_OPTIONS: DatingOption<api.DatingZodiac>[] = [
+    'Aries', 'Taurus', 'Gemini', 'Cancer', 'Leo', 'Virgo', 'Libra', 'Scorpio', 'Sagittarius', 'Capricorn', 'Aquarius', 'Pisces',
+].map((label) => ({ label, value: label.toLowerCase() as api.DatingZodiac }));
+
+const FAMILY_PLANS_OPTIONS: DatingOption<api.DatingFamilyPlans>[] = [
+    { value: 'want_children', label: 'Want children' },
+    { value: 'dont_want_children', label: 'Do not want children' },
+    { value: 'open_to_children', label: 'Open to children' },
+    { value: 'not_sure', label: 'Not sure' },
+    { value: 'prefer_not_to_say', label: 'Prefer not to say' },
+];
+
+const COMMUNICATION_STYLE_OPTIONS: DatingOption<api.DatingCommunicationStyle>[] = [
+    { value: 'big_time_texter', label: 'Big-time texter' },
+    { value: 'phone_caller', label: 'Phone caller' },
+    { value: 'video_chatter', label: 'Video chatter' },
+    { value: 'bad_texter', label: 'Bad texter' },
+    { value: 'better_in_person', label: 'Better in person' },
+];
+
+const LOVE_STYLE_OPTIONS: DatingOption<api.DatingLoveStyle>[] = [
+    { value: 'thoughtful_gestures', label: 'Thoughtful gestures' },
+    { value: 'quality_time', label: 'Quality time' },
+    { value: 'words_of_affirmation', label: 'Words of affirmation' },
+    { value: 'physical_touch', label: 'Physical touch' },
+    { value: 'acts_of_service', label: 'Acts of service' },
+];
+
+const WORKOUT_OPTIONS: DatingOption<api.DatingWorkout>[] = [
+    { value: 'every_day', label: 'Every day' },
+    { value: 'often', label: 'Often' },
+    { value: 'sometimes', label: 'Sometimes' },
+    { value: 'occasionally', label: 'Occasionally' },
+    { value: 'never', label: 'Never' },
+];
+
+const SOCIAL_MEDIA_OPTIONS: DatingOption<api.DatingSocialMedia>[] = [
+    { value: 'influencer_status', label: 'Influencer status' },
+    { value: 'socially_active', label: 'Socially active' },
+    { value: 'passive_scroller', label: 'Passive scroller' },
+    { value: 'off_the_grid', label: 'Off the grid' },
+];
+
+const SOBER_LIFESTYLE_OPTIONS: DatingOption<api.DatingSoberLifestyle>[] = [
+    { value: 'sober', label: 'Sober' },
+    { value: 'sober_curious', label: 'Sober curious' },
+    { value: 'in_recovery', label: 'In recovery' },
+    { value: 'supportive_ally', label: 'Supportive ally' },
+];
+
+const RECOVERY_APPROACH_OPTIONS: DatingOption<api.DatingRecoveryApproach>[] = [
+    { value: 'meetings', label: 'Meetings' },
+    { value: 'therapy', label: 'Therapy' },
+    { value: 'community', label: 'Community' },
+    { value: 'private', label: 'Private' },
+    { value: 'spiritual', label: 'Spiritual' },
+    { value: 'self_guided', label: 'Self-guided' },
+];
+
+const NIGHTLIFE_COMFORT_OPTIONS: DatingOption<api.DatingNightlifeComfort>[] = [
+    { value: 'dry_spaces_only', label: 'Dry spaces only' },
+    { value: 'calm_venues', label: 'Calm venues' },
+    { value: 'okay_with_bars', label: 'Okay with bars' },
+    { value: 'depends_on_company', label: 'Depends on company' },
+    { value: 'prefer_daytime', label: 'Prefer daytime' },
+];
+
+const SUBSTANCE_BOUNDARIES_OPTIONS: DatingOption<api.DatingSubstanceBoundaries>[] = [
+    { value: 'no_substances_around_me', label: 'No substances around me' },
+    { value: 'no_drugs', label: 'No drugs' },
+    { value: 'no_smoking', label: 'No smoking' },
+    { value: 'ask_me_first', label: 'Ask me first' },
+    { value: 'flexible', label: 'Flexible' },
+];
+
 const LANGUAGE_OPTIONS: DatingOption<string>[] = [
     'English', 'Irish', 'Spanish', 'French', 'German', 'Italian', 'Portuguese', 'Dutch',
     'Polish', 'Romanian', 'Lithuanian', 'Latvian', 'Estonian', 'Russian', 'Ukrainian',
@@ -393,14 +468,24 @@ function getDatingDetailRows(profile: api.DatingProfile): Array<{ icon: keyof ty
         { icon: 'sparkles-outline', label: 'Sexuality', value: labelForOption(SEXUALITY_OPTIONS, profile.sexuality ?? '') },
         { icon: 'chatbubble-outline', label: 'Pronouns', value: labelForOption(PRONOUNS_OPTIONS, profile.pronouns ?? '') },
         { icon: 'people-circle-outline', label: 'Ethnicity', value: labelForOption(ETHNICITY_OPTIONS, profile.ethnicity ?? '') },
+        { icon: 'star-outline', label: 'Zodiac', value: labelForOption(ZODIAC_OPTIONS, profile.zodiac ?? '') },
         { icon: 'people-outline', label: 'Children', value: labelForOption(CHILDREN_OPTIONS, profile.children_status ?? '') },
+        { icon: 'home-outline', label: 'Family plans', value: labelForOption(FAMILY_PLANS_OPTIONS, profile.family_plans ?? '') },
         { icon: 'paw-outline', label: 'Pets', value: labelForOption(PETS_OPTIONS, profile.pets ?? '') },
         { icon: 'leaf-outline', label: 'Religion', value: labelForOption(RELIGIOUS_BELIEF_OPTIONS, profile.religious_belief ?? '') },
         { icon: 'language-outline', label: 'Languages', value: languageListLabel(profile.languages_spoken ?? []) },
         { icon: 'newspaper-outline', label: 'Politics', value: labelForOption(POLITICAL_VIEW_OPTIONS, profile.political_view ?? '') },
+        { icon: 'chatbubbles-outline', label: 'Communication', value: labelForOption(COMMUNICATION_STYLE_OPTIONS, profile.communication_style ?? '') },
+        { icon: 'heart-circle-outline', label: 'Love style', value: labelForOption(LOVE_STYLE_OPTIONS, profile.love_style ?? '') },
+        { icon: 'barbell-outline', label: 'Workout', value: labelForOption(WORKOUT_OPTIONS, profile.workout ?? '') },
+        { icon: 'phone-portrait-outline', label: 'Social media', value: labelForOption(SOCIAL_MEDIA_OPTIONS, profile.social_media ?? '') },
         { icon: 'wine-outline', label: 'Drinking', value: labelForOption(VICE_STATUS_OPTIONS, profile.drinking_status ?? '') },
         { icon: 'flame-outline', label: 'Smoking', value: labelForOption(VICE_STATUS_OPTIONS, profile.smoking_status ?? '') },
         { icon: 'medical-outline', label: 'Drug use', value: labelForOption(VICE_STATUS_OPTIONS, profile.drug_use_status ?? '') },
+        { icon: 'shield-checkmark-outline', label: 'Sober lifestyle', value: labelForOption(SOBER_LIFESTYLE_OPTIONS, profile.sober_lifestyle ?? '') },
+        { icon: 'trail-sign-outline', label: 'Recovery approach', value: labelForOption(RECOVERY_APPROACH_OPTIONS, profile.recovery_approach ?? '') },
+        { icon: 'moon-outline', label: 'Nightlife comfort', value: labelForOption(NIGHTLIFE_COMFORT_OPTIONS, profile.nightlife_comfort ?? '') },
+        { icon: 'lock-closed-outline', label: 'Boundaries', value: labelForOption(SUBSTANCE_BOUNDARIES_OPTIONS, profile.substance_boundaries ?? '') },
         { icon: 'resize-outline', label: 'Height', value: heightLabel(profile.height_cm) },
         { icon: 'briefcase-outline', label: 'Work', value: workLabel(profile) },
         { icon: 'school-outline', label: 'Education', value: educationLabel(profile) },

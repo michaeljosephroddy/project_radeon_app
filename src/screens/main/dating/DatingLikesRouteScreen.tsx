@@ -2,8 +2,8 @@ import React, { useCallback, useState } from 'react';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { appAlert } from '../../../components/ui/appAlert';
-import { DiscoverEmptyState } from '../../../components/discover/DiscoverEmptyState';
 import { DatingLikesScreen } from '../../../components/discover/DatingLikesScreen';
+import { SoberSpacePlusScreen } from '../../../components/discover/SoberSpacePlusScreen';
 import * as api from '../../../api/client';
 import { queryClient } from '../../../query/queryClient';
 import { useDatingLikes } from '../../../hooks/queries/useDatingLikes';
@@ -49,6 +49,10 @@ export function DatingLikesRouteScreen(): React.ReactElement {
                 next.delete(profile.id);
                 return next;
             });
+            if (api.isApiErrorWithStatus(error, 402) && action === 'like') {
+                navigation.navigate('SoberSpacePlus', { source: 'daily_like_limit' });
+                return;
+            }
             appAlert.alert(
                 action === 'like' ? 'Could not like profile' : 'Could not pass profile',
                 error instanceof Error ? error.message : 'Please try again.',
@@ -60,7 +64,7 @@ export function DatingLikesRouteScreen(): React.ReactElement {
                 return next;
             });
         }
-    }, [logDatingEvent, pendingActionIds]);
+    }, [logDatingEvent, navigation, pendingActionIds]);
 
     const handleOpenProfile = useCallback((profile: api.DatingProfile): void => {
         logDatingEvent({ event_type: 'profile_opened', profile_id: profile.id });
@@ -72,11 +76,10 @@ export function DatingLikesRouteScreen(): React.ReactElement {
 
     if (!likesEntitled) {
         return (
-            <DiscoverEmptyState
-                title={previewCount > 0 ? `${previewCount} liked you` : 'See who likes you'}
-                description="Likes You is ready for SoberSpace Plus. You can keep discovering matches now, and this list unlocks when Plus is active."
-                primaryLabel="Back to Dating"
-                onPrimaryPress={() => navigation.goBack()}
+            <SoberSpacePlusScreen
+                source="likes"
+                previewCount={previewCount}
+                onBack={() => navigation.goBack()}
             />
         );
     }

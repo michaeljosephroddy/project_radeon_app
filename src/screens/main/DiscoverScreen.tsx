@@ -733,6 +733,10 @@ export function DiscoverScreen({
                 next.delete(profile.id);
                 return next;
             });
+            if (api.isApiErrorWithStatus(error, 402) && action === 'like') {
+                rootNavigation.navigate('SoberSpacePlus', { source: 'daily_like_limit' });
+                return;
+            }
             appAlert.alert(
                 action === 'like' ? 'Could not like profile' : 'Could not pass profile',
                 error instanceof Error ? error.message : 'Please try again.',
@@ -750,6 +754,7 @@ export function DiscoverScreen({
         logDatingEvent,
         pendingDatingActionIds,
         queryClient,
+        rootNavigation,
     ]);
 
     const handleOpenMatchChat = useCallback(async (): Promise<void> => {

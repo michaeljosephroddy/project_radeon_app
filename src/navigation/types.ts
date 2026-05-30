@@ -1,5 +1,6 @@
 import type { Chat, DatingProfile, GroupPost, Meetup, RecoveryMeeting } from '../api/client';
 import type { CommentThreadTarget } from '../screens/main/feed/FeedCommentsScreen';
+import type { PlusSource } from '../utils/datingMonetization';
 
 export type RootStackParamList = {
     MainTabs: {
@@ -33,6 +34,7 @@ export type RootStackParamList = {
     GroupComments: { post: GroupPost };
     DatingLikes: undefined;
     DatingMatches: undefined;
+    SoberSpacePlus: { source?: PlusSource; previewCount?: number } | undefined;
     DatingProfileDetail: { profileId: string; initialProfile?: DatingProfile };
     DatingProfileEditor: undefined;
 };

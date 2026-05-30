@@ -27,6 +27,7 @@ import { DatingLikesRouteScreen } from '../screens/main/dating/DatingLikesRouteS
 import { DatingMatchesRouteScreen } from '../screens/main/dating/DatingMatchesRouteScreen';
 import { DatingProfileDetailRouteScreen } from '../screens/main/dating/DatingProfileDetailRouteScreen';
 import { DatingProfileEditorRouteScreen } from '../screens/main/dating/DatingProfileEditorRouteScreen';
+import { SoberSpacePlusScreen } from '../components/discover/SoberSpacePlusScreen';
 import { DiscoverFilterSheet } from '../components/discover/DiscoverFilterSheet';
 import { MeetupFilterSheet } from '../components/events/MeetupFilterSheet';
 import { RecoveryMeetingFilterSheet } from '../components/support/RecoveryMeetingFilterSheet';
@@ -108,6 +109,7 @@ export function RootNavigation(): React.ReactElement {
                             <RootStack.Screen name="FeedComments" component={RootFeedCommentsScreen} />
                             <RootStack.Screen name="DatingLikes" component={RootDatingLikesScreen} />
                             <RootStack.Screen name="DatingMatches" component={RootDatingMatchesScreen} />
+                            <RootStack.Screen name="SoberSpacePlus" component={RootSoberSpacePlusScreen} />
                             <RootStack.Screen name="DatingProfileDetail" component={RootDatingProfileDetailScreen} />
                             <RootStack.Screen name="DatingProfileEditor" component={RootDatingProfileEditorScreen} />
                         </RootStack.Navigator>
@@ -546,6 +548,18 @@ function RootDatingMatchesScreen(): React.ReactElement {
     return (
         <RootStackScreenFrame>
             <DatingMatchesRouteScreen />
+        </RootStackScreenFrame>
+    );
+}
+
+function RootSoberSpacePlusScreen({ route, navigation }: NativeStackScreenProps<RootStackParamList, 'SoberSpacePlus'>): React.ReactElement {
+    return (
+        <RootStackScreenFrame>
+            <SoberSpacePlusScreen
+                source={route.params?.source}
+                previewCount={route.params?.previewCount}
+                onBack={() => navigation.goBack()}
+            />
         </RootStackScreenFrame>
     );
 }
