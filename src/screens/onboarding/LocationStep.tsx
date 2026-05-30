@@ -9,7 +9,7 @@ import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { PrimaryButton } from '../../components/ui/PrimaryButton';
 import { AppKeyboardAwareScrollView } from '../../components/ui/AppKeyboardAwareScrollView';
-import { KeyboardStickyFooter } from '../../components/ui/KeyboardStickyFooter';
+import { KEYBOARD_STICKY_FOOTER_SINGLE_ACTION_RESERVE, KeyboardStickyFooter } from '../../components/ui/KeyboardStickyFooter';
 import { OnboardingProgressHeader } from '../../components/onboarding/OnboardingProgressHeader';
 import { TextField } from '../../components/ui/TextField';
 import { useAuth } from '../../hooks/useAuth';
@@ -27,12 +27,11 @@ export function LocationStep({ onNext, onBack, dotIndex, dotTotal }: LocationSte
     const [detecting, setDetecting] = useState(false);
     const [saving, setSaving] = useState(false);
     const [detectedCoords, setDetectedCoords] = useState<{ lat: number; lng: number } | null>(null);
-    const [footerHeight, setFooterHeight] = useState(0);
     const canContinue = Boolean(city.trim() && country.trim());
-    const keyboardBottomOffset = footerHeight + Spacing.sm;
+    const keyboardBottomOffset = KEYBOARD_STICKY_FOOTER_SINGLE_ACTION_RESERVE;
     const scrollContentStyle = [
         styles.inner,
-        { paddingBottom: Spacing.xl + footerHeight },
+        { paddingBottom: Spacing.xl + KEYBOARD_STICKY_FOOTER_SINGLE_ACTION_RESERVE },
     ];
 
     useEffect(() => {
@@ -128,7 +127,7 @@ export function LocationStep({ onNext, onBack, dotIndex, dotTotal }: LocationSte
                 </View>
             </AppKeyboardAwareScrollView>
 
-            <KeyboardStickyFooter contentStyle={styles.footer} onHeightChange={setFooterHeight}>
+            <KeyboardStickyFooter contentStyle={styles.footer}>
                 <PrimaryButton label="Continue" onPress={handleContinue} loading={saving} disabled={detecting || saving || !canContinue} />
             </KeyboardStickyFooter>
         </SafeAreaView>

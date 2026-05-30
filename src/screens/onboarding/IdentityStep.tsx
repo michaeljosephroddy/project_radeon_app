@@ -13,7 +13,7 @@ import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/dat
 import { Ionicons } from '@expo/vector-icons';
 import { PrimaryButton } from '../../components/ui/PrimaryButton';
 import { AppKeyboardAwareScrollView } from '../../components/ui/AppKeyboardAwareScrollView';
-import { KeyboardStickyFooter } from '../../components/ui/KeyboardStickyFooter';
+import { KEYBOARD_STICKY_FOOTER_SINGLE_ACTION_RESERVE, KeyboardStickyFooter } from '../../components/ui/KeyboardStickyFooter';
 import { OnboardingProgressHeader } from '../../components/onboarding/OnboardingProgressHeader';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { useAuth } from '../../hooks/useAuth';
@@ -31,15 +31,14 @@ export function IdentityStep({ onNext, onBack, dotIndex, dotTotal }: IdentitySte
     const [birthDate, setBirthDate] = useState(user?.birth_date ?? '');
     const [showBirthDatePicker, setShowBirthDatePicker] = useState(Platform.OS === 'ios');
     const [saving, setSaving] = useState(false);
-    const [footerHeight, setFooterHeight] = useState(0);
 
     const birthDatePickerValue = birthDate ? new Date(`${birthDate}T12:00:00Z`) : new Date('1990-01-01T12:00:00Z');
     const formattedBirthDate = formatBirthDateValue(birthDate);
     const canContinue = Boolean(gender && birthDate);
-    const keyboardBottomOffset = footerHeight + Spacing.sm;
+    const keyboardBottomOffset = KEYBOARD_STICKY_FOOTER_SINGLE_ACTION_RESERVE;
     const scrollContentStyle = [
         styles.scrollContent,
-        { paddingBottom: Spacing.xl + footerHeight },
+        { paddingBottom: Spacing.xl + KEYBOARD_STICKY_FOOTER_SINGLE_ACTION_RESERVE },
     ];
 
     const handleBirthDateChange = (event: DateTimePickerEvent, selectedDate?: Date) => {
@@ -148,7 +147,7 @@ export function IdentityStep({ onNext, onBack, dotIndex, dotTotal }: IdentitySte
                 </View>
             </AppKeyboardAwareScrollView>
 
-            <KeyboardStickyFooter contentStyle={styles.footer} onHeightChange={setFooterHeight}>
+            <KeyboardStickyFooter contentStyle={styles.footer}>
                 <PrimaryButton label="Continue" onPress={handleContinue} loading={saving} disabled={saving || !canContinue} />
             </KeyboardStickyFooter>
         </SafeAreaView>

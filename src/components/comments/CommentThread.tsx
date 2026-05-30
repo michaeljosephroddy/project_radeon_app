@@ -10,11 +10,11 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
-import { KeyboardAvoidingView, useReanimatedKeyboardAnimation } from 'react-native-keyboard-controller';
-import Reanimated, { useAnimatedStyle } from 'react-native-reanimated';
+import { KeyboardStickyView } from 'react-native-keyboard-controller';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Avatar } from '../Avatar';
+import { KEYBOARD_STICKY_FOOTER_KEYBOARD_GAP } from '../ui/KeyboardStickyFooter';
 import type { CommentMention, User } from '../../api/client';
 import { Colors, ControlSizes, Spacing, TextStyles, Typography } from '../../theme';
 import { formatReadableTimestamp } from '../../utils/date';
@@ -194,14 +194,6 @@ const CommentItem = React.memo(function CommentItem({
         </View>
     );
 });
-
-function ComposerPadding({ basePadding, children }: { basePadding: number; children: React.ReactNode }): React.ReactElement {
-    const { height } = useReanimatedKeyboardAnimation();
-    const style = useAnimatedStyle(() => ({
-        paddingBottom: Math.max(basePadding + height.value, Spacing.sm),
-    }));
-    return <Reanimated.View style={[composerStandards.row, styles.composer, style]}>{children}</Reanimated.View>;
-}
 
 export function CommentThread({
     adapter,
@@ -391,10 +383,14 @@ export function CommentThread({
     const listFooter = isLoadingMore
         ? <ActivityIndicator style={styles.loadingMore} color={Colors.primary} size="small" />
         : null;
-    const bottomPad = insets.bottom + Spacing.sm;
+    const bottomPad = Math.max(insets.bottom, Spacing.sm);
+    const composerStyle = useMemo(
+        () => [composerStandards.row, styles.composer, { paddingBottom: bottomPad }],
+        [bottomPad],
+    );
 
     return (
-        <KeyboardAvoidingView behavior="padding" style={styles.fill}>
+        <View style={styles.fill}>
             {isLoadingInitial ? (
                 <View style={styles.loadingInitial}>
                     <ActivityIndicator color={Colors.primary} />
@@ -416,64 +412,66 @@ export function CommentThread({
                 />
             )}
 
-            {!!activeMention?.query.trim() && (
-                <View style={styles.mentionPanel}>
-                    {isMentionSearching ? (
-                        <ActivityIndicator size="small" color={Colors.primary} style={styles.mentionLoader} />
-                    ) : activeMentionSuggestions.length > 0 ? (
-                        activeMentionSuggestions.map(u => (
-                            <TouchableOpacity
-                                key={u.id}
-                                style={styles.mentionRow}
-                                onPress={() => handleSelectMention(u)}
-                            >
-                                <Avatar username={u.username} avatarUrl={u.avatar_url} size={32} fontSize={12} />
-                                <Text style={styles.mentionRowText}>{formatUsername(u.username)}</Text>
-                            </TouchableOpacity>
-                        ))
-                    ) : (
-                        <Text style={styles.mentionEmpty}>No matches for @{activeMention.query}</Text>
-                    )}
-                </View>
-            )}
+            <KeyboardStickyView offset={{ closed: 0, opened: insets.bottom - KEYBOARD_STICKY_FOOTER_KEYBOARD_GAP }}>
+                {!!activeMention?.query.trim() && (
+                    <View style={styles.mentionPanel}>
+                        {isMentionSearching ? (
+                            <ActivityIndicator size="small" color={Colors.primary} style={styles.mentionLoader} />
+                        ) : activeMentionSuggestions.length > 0 ? (
+                            activeMentionSuggestions.map(u => (
+                                <TouchableOpacity
+                                    key={u.id}
+                                    style={styles.mentionRow}
+                                    onPress={() => handleSelectMention(u)}
+                                >
+                                    <Avatar username={u.username} avatarUrl={u.avatar_url} size={32} fontSize={12} />
+                                    <Text style={styles.mentionRowText}>{formatUsername(u.username)}</Text>
+                                </TouchableOpacity>
+                            ))
+                        ) : (
+                            <Text style={styles.mentionEmpty}>No matches for @{activeMention.query}</Text>
+                        )}
+                    </View>
+                )}
 
-            <ComposerPadding basePadding={bottomPad}>
-                <Avatar
-                    username={currentUser.username}
-                    avatarUrl={currentUser.avatar_url}
-                    size={34}
-                    fontSize={12}
-                />
-                <TextInput
-                    ref={inputRef}
-                    style={[composerStandards.input, styles.composerInput]}
-                    placeholder="Write a comment..."
-                    placeholderTextColor={Colors.text.muted}
-                    value={draft}
-                    onChangeText={handleDraftChange}
-                    editable={!submitting}
-                    multiline
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                    maxLength={1000}
-                    textAlignVertical="top"
-                />
-                <TouchableOpacity
-                    style={[
-                        composerStandards.sendButton,
-                        (!draft.trim() || submitting) && composerStandards.sendButtonDisabled,
-                        (!draft.trim() || submitting) && styles.sendButtonDisabled,
-                    ]}
-                    onPress={handleSubmit}
-                    disabled={!draft.trim() || submitting}
-                >
-                    {submitting
-                        ? <ActivityIndicator size="small" color={Colors.textOn.primary} />
-                        : <Ionicons name="send" size={18} color={Colors.textOn.primary} />
-                    }
-                </TouchableOpacity>
-            </ComposerPadding>
-        </KeyboardAvoidingView>
+                <View style={composerStyle}>
+                    <Avatar
+                        username={currentUser.username}
+                        avatarUrl={currentUser.avatar_url}
+                        size={34}
+                        fontSize={12}
+                    />
+                    <TextInput
+                        ref={inputRef}
+                        style={[composerStandards.input, styles.composerInput]}
+                        placeholder="Write a comment..."
+                        placeholderTextColor={Colors.text.muted}
+                        value={draft}
+                        onChangeText={handleDraftChange}
+                        editable={!submitting}
+                        multiline
+                        autoCapitalize="none"
+                        autoCorrect={false}
+                        maxLength={1000}
+                        textAlignVertical="top"
+                    />
+                    <TouchableOpacity
+                        style={[
+                            composerStandards.sendButton,
+                            (!draft.trim() || submitting) && composerStandards.sendButtonDisabled,
+                            (!draft.trim() || submitting) && styles.sendButtonDisabled,
+                        ]}
+                        onPress={handleSubmit}
+                        disabled={!draft.trim() || submitting}
+                    >
+                        {submitting
+                            ? <ActivityIndicator size="small" color={Colors.textOn.primary} />
+                            : <Ionicons name="send" size={18} color={Colors.textOn.primary} />
+                        }
+                    </TouchableOpacity>
+                </View>
+            </KeyboardStickyView>
+        </View>
     );
 }
 

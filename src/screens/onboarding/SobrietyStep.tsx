@@ -10,7 +10,7 @@ import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/dat
 import { Ionicons } from '@expo/vector-icons';
 import { PrimaryButton } from '../../components/ui/PrimaryButton';
 import { AppKeyboardAwareScrollView } from '../../components/ui/AppKeyboardAwareScrollView';
-import { KeyboardStickyFooter } from '../../components/ui/KeyboardStickyFooter';
+import { KEYBOARD_STICKY_FOOTER_SINGLE_ACTION_RESERVE, KeyboardStickyFooter } from '../../components/ui/KeyboardStickyFooter';
 import { OnboardingProgressHeader } from '../../components/onboarding/OnboardingProgressHeader';
 import { TextField } from '../../components/ui/TextField';
 import { useAuth } from '../../hooks/useAuth';
@@ -29,15 +29,14 @@ export function SobrietyStep({ onNext, onBack, dotIndex, dotTotal }: SobrietySte
     const [bio, setBio] = useState(user?.bio ?? '');
     const [showPicker, setShowPicker] = useState(Platform.OS === 'ios');
     const [saving, setSaving] = useState(false);
-    const [footerHeight, setFooterHeight] = useState(0);
 
     const pickerValue = soberSince ? new Date(`${soberSince}T12:00:00Z`) : new Date();
     const formattedDate = formatSobrietyDate(soberSince);
     const canContinue = Boolean(soberSince && bio.trim().length > 0 && bio.length <= MAX_BIO);
-    const keyboardBottomOffset = footerHeight + Spacing.sm;
+    const keyboardBottomOffset = KEYBOARD_STICKY_FOOTER_SINGLE_ACTION_RESERVE;
     const scrollContentStyle = [
         styles.scrollContent,
-        { paddingBottom: Spacing.xl + footerHeight },
+        { paddingBottom: Spacing.xl + KEYBOARD_STICKY_FOOTER_SINGLE_ACTION_RESERVE },
     ];
 
     const handleDateChange = (event: DateTimePickerEvent, selectedDate?: Date) => {
@@ -140,7 +139,7 @@ export function SobrietyStep({ onNext, onBack, dotIndex, dotTotal }: SobrietySte
                 </View>
             </AppKeyboardAwareScrollView>
 
-            <KeyboardStickyFooter contentStyle={styles.footer} onHeightChange={setFooterHeight}>
+            <KeyboardStickyFooter contentStyle={styles.footer}>
                 <PrimaryButton label="Continue" onPress={handleContinue} loading={saving} disabled={!canContinue || saving} />
             </KeyboardStickyFooter>
         </SafeAreaView>

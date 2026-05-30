@@ -5,7 +5,7 @@ import React, {
   useState,
 } from "react";
 import { StyleSheet, View } from "react-native";
-import { KeyboardAvoidingView } from "react-native-keyboard-controller";
+import { KeyboardStickyView } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as ImagePicker from "expo-image-picker";
 import * as Haptics from "expo-haptics";
@@ -14,6 +14,7 @@ import { Colors, Spacing } from "../../../theme";
 import { useAuth } from "../../../hooks/useAuth";
 import { useRecentTags } from "../../../hooks/useRecentTags";
 import { CREATE_SURFACE_HEADER_HEIGHT } from "../../../components/ui/CreateSurfaceHeader";
+import { KEYBOARD_STICKY_FOOTER_KEYBOARD_GAP } from "../../../components/ui/KeyboardStickyFooter";
 import { ComposerCanvas } from "./ComposerCanvas";
 import { ComposerToolbar } from "./ComposerToolbar";
 import { CreatePostHeader } from "./CreatePostHeader";
@@ -288,7 +289,7 @@ export function PostComposer({
 
   return (
     <View style={styles.container}>
-      <KeyboardAvoidingView behavior="padding" style={styles.bodyWrap}>
+      <View style={styles.bodyWrap}>
         <ComposerCanvas
           body={body}
           image={previewImage}
@@ -301,34 +302,36 @@ export function PostComposer({
           onRetryImage={handleRetryImageUpload}
         />
 
-        <View style={[styles.footerSurface, { paddingBottom: bottomSafeSpace }]}>
-          {isTagPickerOpen && tagsEnabled ? (
-            <TagPickerPanel
-              categories={TAG_CATEGORIES}
-              customTag={customTag}
-              error={tagError}
-              recentTags={recentTags}
-              selectedTags={activeTags}
-              tagCount={activeTags.length}
-              maxTags={MAX_POST_TAGS}
-              onAddTag={addTag}
-              onChangeCustomTag={setCustomTag}
-              onClose={() => setIsTagPickerOpen(false)}
-              onRemoveTag={removeTag}
-              onToggleTag={toggleTag}
-            />
-          ) : (
-            <ComposerToolbar
-              hasImage={selectedImage !== null}
-              tagCount={activeTags.length}
-              maxTags={MAX_POST_TAGS}
-              tagsEnabled={tagsEnabled}
-              onPickImage={handlePickImage}
-              onOpenTagPicker={() => setIsTagPickerOpen(true)}
-            />
-          )}
-        </View>
-      </KeyboardAvoidingView>
+        <KeyboardStickyView offset={{ closed: 0, opened: insets.bottom - KEYBOARD_STICKY_FOOTER_KEYBOARD_GAP }}>
+          <View style={[styles.footerSurface, { paddingBottom: bottomSafeSpace }]}>
+            {isTagPickerOpen && tagsEnabled ? (
+              <TagPickerPanel
+                categories={TAG_CATEGORIES}
+                customTag={customTag}
+                error={tagError}
+                recentTags={recentTags}
+                selectedTags={activeTags}
+                tagCount={activeTags.length}
+                maxTags={MAX_POST_TAGS}
+                onAddTag={addTag}
+                onChangeCustomTag={setCustomTag}
+                onClose={() => setIsTagPickerOpen(false)}
+                onRemoveTag={removeTag}
+                onToggleTag={toggleTag}
+              />
+            ) : (
+              <ComposerToolbar
+                hasImage={selectedImage !== null}
+                tagCount={activeTags.length}
+                maxTags={MAX_POST_TAGS}
+                tagsEnabled={tagsEnabled}
+                onPickImage={handlePickImage}
+                onOpenTagPicker={() => setIsTagPickerOpen(true)}
+              />
+            )}
+          </View>
+        </KeyboardStickyView>
+      </View>
 
       <CreatePostHeader
         bodyLength={body.length}

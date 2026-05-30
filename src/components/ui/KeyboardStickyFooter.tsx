@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback } from 'react';
 import {
     LayoutChangeEvent,
     StyleProp,
@@ -6,9 +6,12 @@ import {
     View,
     ViewStyle,
 } from 'react-native';
-import { KeyboardController, KeyboardEvents, KeyboardStickyView } from 'react-native-keyboard-controller';
+import { KeyboardStickyView } from 'react-native-keyboard-controller';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors, ContentInsets, Spacing } from '../../theme';
+
+export const KEYBOARD_STICKY_FOOTER_SINGLE_ACTION_RESERVE = 96;
+export const KEYBOARD_STICKY_FOOTER_KEYBOARD_GAP = Spacing.sm;
 
 interface KeyboardStickyFooterProps {
     children: React.ReactNode;
@@ -24,26 +27,13 @@ export function KeyboardStickyFooter({
     onHeightChange,
 }: KeyboardStickyFooterProps): React.ReactElement {
     const insets = useSafeAreaInsets();
-    const [keyboardActive, setKeyboardActive] = useState(() => KeyboardController.isVisible());
-    const footerBottomPadding = keyboardActive ? Spacing.sm : Math.max(insets.bottom, Spacing.sm);
+    const footerBottomPadding = Math.max(insets.bottom, Spacing.sm);
     const handleLayout = useCallback((event: LayoutChangeEvent): void => {
         onHeightChange?.(event.nativeEvent.layout.height);
     }, [onHeightChange]);
 
-    useEffect(() => {
-        const willShowSubscription = KeyboardEvents.addListener('keyboardWillShow', () => setKeyboardActive(true));
-        const didShowSubscription = KeyboardEvents.addListener('keyboardDidShow', () => setKeyboardActive(true));
-        const didHideSubscription = KeyboardEvents.addListener('keyboardDidHide', () => setKeyboardActive(false));
-
-        return () => {
-            willShowSubscription.remove();
-            didShowSubscription.remove();
-            didHideSubscription.remove();
-        };
-    }, []);
-
     return (
-        <KeyboardStickyView offset={{ closed: 0, opened: 0 }} style={style}>
+        <KeyboardStickyView offset={{ closed: 0, opened: insets.bottom - KEYBOARD_STICKY_FOOTER_KEYBOARD_GAP }} style={style}>
             <View style={[styles.footer, { paddingBottom: footerBottomPadding }, contentStyle]} onLayout={handleLayout}>
                 {children}
             </View>

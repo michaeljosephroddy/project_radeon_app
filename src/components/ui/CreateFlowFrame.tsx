@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo } from 'react';
 import {
     StyleProp,
     StyleSheet,
@@ -8,7 +8,7 @@ import {
 import { Colors, ContentInsets, Spacing } from '../../theme';
 import { CREATE_SURFACE_HEADER_HEIGHT, CreateSurfaceHeader } from './CreateSurfaceHeader';
 import { AppKeyboardAwareScrollView } from './AppKeyboardAwareScrollView';
-import { KeyboardStickyFooter } from './KeyboardStickyFooter';
+import { KEYBOARD_STICKY_FOOTER_SINGLE_ACTION_RESERVE, KeyboardStickyFooter } from './KeyboardStickyFooter';
 
 interface CreateFlowFrameProps {
     title: string;
@@ -27,15 +27,15 @@ export function CreateFlowFrame({
     contentStyle,
     scrollStyle,
 }: CreateFlowFrameProps): React.ReactElement {
-    const [footerHeight, setFooterHeight] = useState(0);
-    const keyboardBottomOffset = footer ? footerHeight + Spacing.sm : Spacing.xl;
+    const footerReserve = footer ? KEYBOARD_STICKY_FOOTER_SINGLE_ACTION_RESERVE : 0;
+    const keyboardBottomOffset = footer ? footerReserve : Spacing.xl;
     const resolvedContentStyle = useMemo(
         () => [
             styles.content,
-            footer ? { paddingBottom: Spacing.xl + footerHeight } : null,
+            footer ? { paddingBottom: Spacing.xl + footerReserve } : null,
             contentStyle,
         ],
-        [contentStyle, footer, footerHeight],
+        [contentStyle, footer, footerReserve],
     );
 
     return (
@@ -49,7 +49,7 @@ export function CreateFlowFrame({
                 {children}
             </AppKeyboardAwareScrollView>
             {footer ? (
-                <KeyboardStickyFooter onHeightChange={setFooterHeight}>
+                <KeyboardStickyFooter>
                     {footer}
                 </KeyboardStickyFooter>
             ) : null}
