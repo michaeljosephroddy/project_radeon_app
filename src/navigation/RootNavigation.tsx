@@ -332,7 +332,6 @@ function RootRecoveryMeetingFiltersScreen({ navigation }: NativeStackScreenProps
         <RootStackScreenFrame>
             <RecoveryMeetingFilterSheet
                 {...state}
-                active
                 onClose={close}
                 onApply={apply}
             />

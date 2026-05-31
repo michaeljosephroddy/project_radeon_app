@@ -37,6 +37,7 @@ import * as api from '../api/client';
 import { AvatarSizes, Colors, ControlSizes, IconSizes, Radius, Spacing, TargetSizes, TextStyles, Typography } from '../theme';
 import { useAuth } from '../hooks/useAuth';
 import { useNotificationSummary } from '../hooks/queries/useNotificationSummary';
+import { prefetchRecoveryMeetings } from '../hooks/queries/useRecoveryMeetings';
 import { useNotificationIntent } from '../notifications/NotificationProvider';
 import type { Chat } from '../api/client';
 import type { MainTabParamList, RootStackParamList } from './types';
@@ -652,6 +653,16 @@ export function AppNavigator(): React.ReactElement {
 
         return () => sub.remove();
     }, [user?.id, refreshUser]);
+
+    useEffect(() => {
+        if (!user?.current_place_id) return;
+
+        void prefetchRecoveryMeetings({
+            fellowship: ['aa'],
+            place_id: user.current_place_id,
+            limit: 20,
+        }).catch(() => undefined);
+    }, [user?.current_place_id]);
 
     useEffect(() => {
         if (!user?.id) return undefined;

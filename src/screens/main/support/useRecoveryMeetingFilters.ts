@@ -9,8 +9,6 @@ import {
     getActiveFilterChips,
 } from './recoveryMeetings';
 
-const SEARCH_DEBOUNCE_MS = 350;
-
 interface UseRecoveryMeetingFiltersResult {
     draftFilters: RecoveryMeetingFilters;
     setDraftFilters: React.Dispatch<React.SetStateAction<RecoveryMeetingFilters>>;
@@ -19,58 +17,26 @@ interface UseRecoveryMeetingFiltersResult {
     activeFilterChips: ActiveFilterChip[];
     filterOpen: boolean;
     setFilterOpen: React.Dispatch<React.SetStateAction<boolean>>;
-    hasManualFinderIntent: boolean;
     handleApplyFilters: () => void;
     handleResetFilters: () => void;
+    applyFilterPatch: (patch: Partial<RecoveryMeetingFilters>) => void;
     clearAppliedFilter: (patch: Partial<RecoveryMeetingFilters>) => void;
     removeActiveFilter: (chip: ActiveFilterChip) => void;
-}
-
-function useDebounce<T>(value: T, delayMs: number): T {
-    const [debounced, setDebounced] = React.useState(value);
-
-    React.useEffect(() => {
-        const timer = setTimeout(() => setDebounced(value), delayMs);
-        return () => clearTimeout(timer);
-    }, [value, delayMs]);
-
-    return debounced;
 }
 
 function resetMeetingFilters(): RecoveryMeetingFilters {
     return cloneMeetingFilters(DEFAULT_MEETING_FILTERS);
 }
 
-function normalizeSearchQuery(value: string): string {
-    return value.trim();
-}
-
 export function useRecoveryMeetingFilters(): UseRecoveryMeetingFiltersResult {
     const [draftFilters, setDraftFilters] = React.useState<RecoveryMeetingFilters>(() => resetMeetingFilters());
     const [appliedFilters, setAppliedFilters] = React.useState<RecoveryMeetingFilters>(() => resetMeetingFilters());
     const [filterOpen, setFilterOpen] = React.useState(false);
-    const debouncedQuery = useDebounce(draftFilters.query, SEARCH_DEBOUNCE_MS);
-
-    React.useEffect(() => {
-        const nextQuery = normalizeSearchQuery(debouncedQuery);
-        setAppliedFilters((current) => (
-            current.query === nextQuery ? current : { ...current, query: nextQuery }
-        ));
-    }, [debouncedQuery]);
 
     const apiFilters = React.useMemo(() => filtersToApiParams(appliedFilters), [appliedFilters]);
     const activeFilterChips = React.useMemo(
         () => getActiveFilterChips(appliedFilters),
         [appliedFilters],
-    );
-    const hasManualFinderIntent = Boolean(
-        appliedFilters.query.trim()
-        || appliedFilters.location.trim()
-        || appliedFilters.country.trim()
-        || appliedFilters.region.trim()
-        || appliedFilters.fellowships.length
-        || appliedFilters.meetingType
-        || appliedFilters.dayOfWeek !== null
     );
 
     const handleApplyFilters = (): void => {
@@ -82,6 +48,11 @@ export function useRecoveryMeetingFilters(): UseRecoveryMeetingFiltersResult {
         const reset = resetMeetingFilters();
         setDraftFilters(reset);
         setAppliedFilters(reset);
+    };
+
+    const applyFilterPatch = (patch: Partial<RecoveryMeetingFilters>): void => {
+        setAppliedFilters((current) => ({ ...current, ...patch }));
+        setDraftFilters((current) => ({ ...current, ...patch }));
     };
 
     const clearAppliedFilter = (patch: Partial<RecoveryMeetingFilters>): void => {
@@ -103,9 +74,9 @@ export function useRecoveryMeetingFilters(): UseRecoveryMeetingFiltersResult {
         activeFilterChips,
         filterOpen,
         setFilterOpen,
-        hasManualFinderIntent,
         handleApplyFilters,
         handleResetFilters,
+        applyFilterPatch,
         clearAppliedFilter,
         removeActiveFilter,
     };

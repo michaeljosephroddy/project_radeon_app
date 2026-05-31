@@ -19,7 +19,7 @@ import { SearchBar } from '../../../components/ui/SearchBar';
 import { ScrollToTopButton } from '../../../components/ui/ScrollToTopButton';
 import { useGuardedEndReached } from '../../../hooks/useGuardedEndReached';
 import { useAuth } from '../../../hooks/useAuth';
-import { useRecoveryMeetings } from '../../../hooks/queries/useRecoveryMeetings';
+import { usePlaceAutocomplete, useRecoveryMeetings } from '../../../hooks/queries/useRecoveryMeetings';
 import { useScrollToTopButton } from '../../../hooks/useScrollToTopButton';
 import * as api from '../../../api/client';
 import { screenStandards } from '../../../styles/screenStandards';
@@ -30,7 +30,10 @@ import { setRecoveryMeetingFiltersRouteState } from '../../../navigation/filterR
 import type { RootStackParamList } from '../../../navigation/types';
 import {
     DEFAULT_LOCAL_FELLOWSHIPS,
+    PlaceSuggestion,
     RecoveryMeeting,
+    SelectedRecoveryPlace,
+    getFellowshipSummary,
 } from './recoveryMeetings';
 import { useRecoveryMeetingFilters } from './useRecoveryMeetingFilters';
 
@@ -48,6 +51,17 @@ interface LocalMeetingFallback {
     label: string;
 }
 
+function useDebouncedValue<T>(value: T, delayMs: number): T {
+    const [debounced, setDebounced] = useState(value);
+
+    useEffect(() => {
+        const timer = setTimeout(() => setDebounced(value), delayMs);
+        return () => clearTimeout(timer);
+    }, [delayMs, value]);
+
+    return debounced;
+}
+
 function normalizePlacePart(value: string | null | undefined): string | null {
     const trimmed = value?.trim();
     return trimmed ? trimmed : null;
@@ -60,12 +74,6 @@ function samePlace(a: string | null, b: string | null): boolean {
 
 function formatLocalPlaceLabel(location?: string, region?: string, country?: string): string {
     return [location, region, country].filter(Boolean).join(', ');
-}
-
-function getFallbackSignature(fallbacks: LocalMeetingFallback[]): string {
-    return fallbacks
-        .map((fallback) => [fallback.location ?? '', fallback.region ?? '', fallback.country ?? ''].join('|'))
-        .join('::');
 }
 
 function appendFallback(fallbacks: LocalMeetingFallback[], fallback: LocalMeetingFallback): void {
@@ -124,6 +132,20 @@ function buildLocalFallbacks(place: ReverseGeocodedPlace | null): LocalMeetingFa
     return fallbacks;
 }
 
+function toSelectedRecoveryPlace(place: PlaceSuggestion): SelectedRecoveryPlace {
+    return {
+        id: place.id,
+        label: place.label,
+        name: place.name,
+        country: place.country,
+        countryCode: place.country_code,
+        region: place.region,
+        regionCode: place.region_code,
+        latitude: place.latitude,
+        longitude: place.longitude,
+    };
+}
+
 export function MeetingsView({ isActive, onOpenMeeting }: MeetingsViewProps) {
     const rootNavigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
     const { user, refreshUser } = useAuth();
@@ -160,47 +182,129 @@ export function MeetingsView({ isActive, onOpenMeeting }: MeetingsViewProps) {
         activeFilterChips,
         filterOpen,
         setFilterOpen,
-        hasManualFinderIntent,
         handleApplyFilters,
         handleResetFilters,
+        applyFilterPatch,
         clearAppliedFilter,
         removeActiveFilter,
     } = useRecoveryMeetingFilters();
-    const [localPlaceStatus, setLocalPlaceStatus] = useState<LocalPlaceStatus>('idle');
-    const [localPlace, setLocalPlace] = useState<ReverseGeocodedPlace | null>(null);
-    const [localFallbackIndex, setLocalFallbackIndex] = useState(0);
+    const [localPlaceStatus, setLocalPlaceStatus] = useState<LocalPlaceStatus>(() => (
+        profilePlace ? 'resolved' : 'idle'
+    ));
+    const [localPlace, setLocalPlace] = useState<ReverseGeocodedPlace | null>(() => profilePlace);
     const listProps = getListPerformanceProps('detailList');
     const scrollToTop = useScrollToTopButton({ threshold: 320 });
     const localFallbacks = useMemo(() => buildLocalFallbacks(localPlace), [localPlace]);
-    const localFallbackSignature = useMemo(() => getFallbackSignature(localFallbacks), [localFallbacks]);
+    const hasManualLocationIntent = Boolean(
+        appliedFilters.selectedPlace
+        || appliedFilters.location.trim()
+        || appliedFilters.country.trim()
+        || appliedFilters.region.trim()
+    );
     const canUseLocalMeetings = localPlaceStatus === 'resolved'
-        && !hasManualFinderIntent
+        && !hasManualLocationIntent
         && localFallbacks.length > 0;
-    const activeLocalFallback = canUseLocalMeetings ? localFallbacks[localFallbackIndex] : undefined;
+    const activeLocalFallback = canUseLocalMeetings ? localFallbacks[0] : undefined;
     const activeApiFilters = useMemo((): api.RecoveryMeetingFilters => {
+        if (!hasManualLocationIntent && user?.current_place_id) {
+            return {
+                ...apiFilters,
+                fellowship: apiFilters.fellowship ?? [...DEFAULT_LOCAL_FELLOWSHIPS],
+                place_id: user.current_place_id,
+                country: undefined,
+                region: undefined,
+                location: undefined,
+            };
+        }
         if (!canUseLocalMeetings || !activeLocalFallback) {
             return apiFilters;
         }
         return {
-            fellowship: [...DEFAULT_LOCAL_FELLOWSHIPS],
+            ...apiFilters,
+            fellowship: apiFilters.fellowship ?? [...DEFAULT_LOCAL_FELLOWSHIPS],
             country: activeLocalFallback.country,
             region: activeLocalFallback.region,
             location: activeLocalFallback.location,
         };
-    }, [activeLocalFallback, apiFilters, canUseLocalMeetings]);
-    const shouldWaitForLocalPlace = !hasManualFinderIntent
-        && (localPlaceStatus === 'idle' || localPlaceStatus === 'loading');
-    const hasNoLocalPlace = !hasManualFinderIntent
+    }, [activeLocalFallback, apiFilters, canUseLocalMeetings, hasManualLocationIntent, user?.current_place_id]);
+    const hasNoLocalPlace = !hasManualLocationIntent
         && (localPlaceStatus === 'unavailable' || (localPlaceStatus === 'resolved' && localFallbacks.length === 0));
     const recoveryMeetingsQuery = useRecoveryMeetings(
         { ...activeApiFilters, limit: 20 },
-        isActive && !shouldWaitForLocalPlace && !hasNoLocalPlace && (!canUseLocalMeetings || Boolean(activeLocalFallback)),
+        isActive && (!canUseLocalMeetings || Boolean(activeLocalFallback)),
     );
+    const debouncedLocationQuery = useDebouncedValue(draftFilters.location.trim(), 250);
+    const selectedLocation = Boolean(
+        draftFilters.selectedPlace
+        && draftFilters.location.trim() === draftFilters.selectedPlace.label,
+    );
+    const placeSuggestionsQuery = usePlaceAutocomplete(
+        debouncedLocationQuery,
+        { country_code: draftFilters.countryCode ?? undefined, limit: 8 },
+        isActive && debouncedLocationQuery.length >= 2 && !selectedLocation,
+    );
+    const placeSuggestions = placeSuggestionsQuery.data ?? [];
+    const showLocationSuggestions = debouncedLocationQuery.length >= 2 && !selectedLocation;
+    const secondaryActiveFilterChips = useMemo(() => (
+        activeFilterChips.filter((chip) => !['selectedPlace', 'country', 'region', 'location'].includes(chip.key))
+    ), [activeFilterChips]);
 
     const handleOpenFilters = useCallback((): void => {
         setFilterOpen(true);
         rootNavigation.navigate('RecoveryMeetingFilters');
     }, [rootNavigation, setFilterOpen]);
+
+    const clearLocationPatch = useMemo(() => ({
+        selectedPlace: null,
+        location: '',
+        country: '',
+        countryCode: null,
+        region: '',
+        regionCode: null,
+    }), []);
+
+    const handleLocationTextChange = useCallback((location: string): void => {
+        if (!location.trim()) {
+            applyFilterPatch(clearLocationPatch);
+            return;
+        }
+        setDraftFilters((current) => ({
+            ...current,
+            location,
+            selectedPlace: null,
+            country: '',
+            countryCode: null,
+            region: '',
+            regionCode: null,
+        }));
+    }, [applyFilterPatch, clearLocationPatch, setDraftFilters]);
+
+    const applyTypedLocation = useCallback((): void => {
+        const location = draftFilters.location.trim();
+        if (!location) {
+            applyFilterPatch(clearLocationPatch);
+            return;
+        }
+        applyFilterPatch({
+            selectedPlace: null,
+            location,
+            country: '',
+            countryCode: null,
+            region: '',
+            regionCode: null,
+        });
+    }, [applyFilterPatch, clearLocationPatch, draftFilters.location]);
+
+    const handleSelectPlace = useCallback((place: PlaceSuggestion): void => {
+        applyFilterPatch({
+            selectedPlace: toSelectedRecoveryPlace(place),
+            location: place.label,
+            country: place.country,
+            countryCode: place.country_code,
+            region: place.region ?? '',
+            regionCode: place.region_code ?? null,
+        });
+    }, [applyFilterPatch]);
 
     const handleApplyFilterRoute = useCallback((): boolean => {
         handleApplyFilters();
@@ -229,15 +333,16 @@ export function MeetingsView({ isActive, onOpenMeeting }: MeetingsViewProps) {
         setFilterOpen,
     ]);
 
-    useEffect(() => {
-        setLocalFallbackIndex(0);
-    }, [localFallbackSignature]);
-
     const requestLocalPlace = useCallback(async (): Promise<void> => {
         const requestId = localPlaceRequestId.current + 1;
         localPlaceRequestId.current = requestId;
         const isCurrentRequest = (): boolean => localPlaceRequestId.current === requestId;
-        setLocalPlaceStatus('loading');
+        if (profilePlace) {
+            setLocalPlace(profilePlace);
+            setLocalPlaceStatus('resolved');
+        } else {
+            setLocalPlaceStatus('loading');
+        }
         const location = await getDeviceCoords();
         if (!isCurrentRequest()) return;
 
@@ -247,8 +352,10 @@ export function MeetingsView({ isActive, onOpenMeeting }: MeetingsViewProps) {
                 setLocalPlaceStatus('resolved');
                 return;
             }
-            setLocalPlace(null);
-            setLocalPlaceStatus('unavailable');
+            if (!profilePlace) {
+                setLocalPlace(null);
+                setLocalPlaceStatus('unavailable');
+            }
             return;
         }
 
@@ -275,9 +382,18 @@ export function MeetingsView({ isActive, onOpenMeeting }: MeetingsViewProps) {
             setLocalPlaceStatus('resolved');
             return;
         }
-        setLocalPlace(null);
-        setLocalPlaceStatus('unavailable');
+        if (!profilePlace) {
+            setLocalPlace(null);
+            setLocalPlaceStatus('unavailable');
+        }
     }, [profilePlace, refreshUser]);
+
+    useEffect(() => {
+        if (profilePlace && !hasManualLocationIntent && (localPlaceStatus === 'idle' || localPlaceStatus === 'unavailable')) {
+            setLocalPlace(profilePlace);
+            setLocalPlaceStatus('resolved');
+        }
+    }, [hasManualLocationIntent, localPlaceStatus, profilePlace]);
 
     useEffect(() => {
         if (!isActive || didRequestLocalPlace.current) {
@@ -303,40 +419,24 @@ export function MeetingsView({ isActive, onOpenMeeting }: MeetingsViewProps) {
         };
     }, [isActive, profilePlace, requestLocalPlace]);
 
-    useEffect(() => {
-        if (!canUseLocalMeetings || recoveryMeetingsQuery.isFetching || recoveryMeetingsQuery.isError) {
-            return;
-        }
-        const firstPageItems = recoveryMeetingsQuery.data?.pages[0]?.items ?? [];
-        if (recoveryMeetingsQuery.data && firstPageItems.length === 0 && localFallbackIndex < localFallbacks.length - 1) {
-            setLocalFallbackIndex((current) => Math.min(current + 1, localFallbacks.length - 1));
-        }
-    }, [
-        canUseLocalMeetings,
-        localFallbackIndex,
-        localFallbacks.length,
-        recoveryMeetingsQuery.data,
-        recoveryMeetingsQuery.isError,
-        recoveryMeetingsQuery.isFetching,
-    ]);
-
     const meetings = useMemo(() => (
         recoveryMeetingsQuery.data?.pages.flatMap((page) => page.items) ?? []
     ), [recoveryMeetingsQuery.data]);
 
     const localStatusText = useMemo(() => {
-        if (hasManualFinderIntent) {
+        if (hasManualLocationIntent) {
             return null;
         }
-        if (localPlaceStatus === 'loading' || localPlaceStatus === 'idle') {
+        if ((localPlaceStatus === 'loading' || localPlaceStatus === 'idle') && meetings.length === 0) {
             return 'Finding meetings in your area';
         }
         if (localPlaceStatus === 'unavailable') {
             return 'Choose a location to find nearby AA, NA and CA meetings';
         }
         const localLabel = localFallbacks.find((fallback) => fallback.location || fallback.country)?.label;
-        return localLabel ? `Local AA, CA and NA near ${localLabel}` : null;
-    }, [hasManualFinderIntent, localFallbacks, localPlaceStatus]);
+        const fellowshipSummary = getFellowshipSummary(appliedFilters.fellowships.length ? appliedFilters.fellowships : DEFAULT_LOCAL_FELLOWSHIPS);
+        return localLabel ? `Local ${fellowshipSummary} near ${localLabel}` : null;
+    }, [appliedFilters.fellowships, hasManualLocationIntent, localFallbacks, localPlaceStatus, meetings.length]);
 
     const loadNextPage = useCallback(async (): Promise<void> => {
         if (!recoveryMeetingsQuery.hasNextPage || recoveryMeetingsQuery.isFetchingNextPage) {
@@ -347,54 +447,79 @@ export function MeetingsView({ isActive, onOpenMeeting }: MeetingsViewProps) {
 
     const pagination = useGuardedEndReached(loadNextPage);
 
-    const isFindingLocalMeetings = isActive && shouldWaitForLocalPlace;
     const isLoadingMeetings = recoveryMeetingsQuery.isLoading;
     const isMeetingsError = recoveryMeetingsQuery.isError;
-    const emptyTitle = isFindingLocalMeetings
-        ? 'Finding local meetings'
-        : hasNoLocalPlace
+    const emptyLocationLabel = appliedFilters.selectedPlace?.label
+        || appliedFilters.location.trim()
+        || activeLocalFallback?.label
+        || null;
+    const emptyFellowshipLabel = getFellowshipSummary(appliedFilters.fellowships.length ? appliedFilters.fellowships : DEFAULT_LOCAL_FELLOWSHIPS);
+    const emptyTitle = hasNoLocalPlace
         ? 'Location needed'
         : isLoadingMeetings
         ? 'Loading recovery meetings'
         : isMeetingsError
             ? 'Could not load recovery meetings'
-            : 'No meetings match those filters';
-    const emptyDescription = isFindingLocalMeetings
-        ? 'SoberSpace is checking your town, region, and country before loading the first page.'
-        : hasNoLocalPlace
-        ? 'Allow device location or choose a country, region, and town in filters.'
+            : emptyLocationLabel
+                ? `No ${emptyFellowshipLabel} meetings near ${emptyLocationLabel}`
+                : `No ${emptyFellowshipLabel} meetings found`;
+    const emptyDescription = hasNoLocalPlace
+        ? 'Allow device location or choose a location in filters.'
         : isLoadingMeetings
         ? 'Real meeting data is loading from SoberSpace.'
         : isMeetingsError
-            ? 'Check your connection, then pull to refresh.'
-            : 'Try a wider location, another day, or clearing fellowship and mode filters.';
-    const showEmptyActions = !isFindingLocalMeetings && !isLoadingMeetings && !isMeetingsError;
+        ? 'Check your connection, then pull to refresh.'
+        : 'Try another location, day, or meeting mode.';
+    const showEmptyActions = !isLoadingMeetings && !isMeetingsError;
 
     const renderHeader = (): React.ReactElement => (
         <View style={styles.header}>
             <View style={styles.searchRow}>
                 <SearchBar
                     primaryField={{
-                        value: draftFilters.query,
-                        onChangeText: (value) => setDraftFilters((current) => ({ ...current, query: value })),
-                        placeholder: 'Search meetings, places, tags',
+                        value: draftFilters.location,
+                        onChangeText: handleLocationTextChange,
+                        onSubmitEditing: applyTypedLocation,
+                        placeholder: 'City, neighbourhood, or postcode',
                         returnKeyType: 'search',
+                        autoCapitalize: 'words',
                     }}
                     style={styles.searchBar}
-                    leading={<Ionicons name="search-outline" size={IconSizes.row} color={Colors.text.muted} />}
+                    leading={<Ionicons name="location-outline" size={IconSizes.row} color={Colors.text.muted} />}
                 />
                 <TouchableOpacity style={styles.filterButton} onPress={handleOpenFilters} activeOpacity={0.86}>
                     <Ionicons name="options-outline" size={IconSizes.tool} color={Colors.text.primary} />
-                    {activeFilterChips.length ? (
+                    {secondaryActiveFilterChips.length ? (
                         <View style={styles.filterBadge}>
-                            <Text style={styles.filterBadgeText}>{activeFilterChips.length}</Text>
+                            <Text style={styles.filterBadgeText}>{secondaryActiveFilterChips.length}</Text>
                         </View>
                     ) : null}
                 </TouchableOpacity>
             </View>
-            {activeFilterChips.length ? (
+            {showLocationSuggestions ? (
+                <View style={styles.suggestionList}>
+                    {placeSuggestionsQuery.isFetching ? (
+                        <Text style={styles.suggestionMeta}>Searching...</Text>
+                    ) : null}
+                    {placeSuggestions.map((place) => (
+                        <TouchableOpacity
+                            key={place.id}
+                            style={styles.suggestionItem}
+                            onPress={() => handleSelectPlace(place)}
+                            activeOpacity={0.82}
+                        >
+                            <Text style={styles.suggestionTitle}>{place.name}</Text>
+                            <Text style={styles.suggestionSubtitle}>{[place.region, place.country].filter(Boolean).join(', ')}</Text>
+                        </TouchableOpacity>
+                    ))}
+                    {!placeSuggestionsQuery.isFetching && placeSuggestions.length === 0 ? (
+                        <Text style={styles.suggestionMeta}>No matching places found</Text>
+                    ) : null}
+                </View>
+            ) : null}
+            {secondaryActiveFilterChips.length ? (
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.activeChipRow}>
-                    {activeFilterChips.map((chip) => (
+                    {secondaryActiveFilterChips.map((chip) => (
                         <TouchableOpacity
                             key={chip.key}
                             style={styles.activeChip}
@@ -433,10 +558,10 @@ export function MeetingsView({ isActive, onOpenMeeting }: MeetingsViewProps) {
                             textStyle={styles.emptyResetText}
                         />
                     ) : null}
-                    {appliedFilters.location.trim() ? (
+                    {appliedFilters.selectedPlace || appliedFilters.location.trim() ? (
                         <TouchableOpacity
                             style={styles.emptyAction}
-                            onPress={() => clearAppliedFilter({ location: '' })}
+                            onPress={() => clearAppliedFilter(clearLocationPatch)}
                             activeOpacity={0.85}
                         >
                             <Text style={styles.emptyActionText}>Clear location</Text>
@@ -575,6 +700,35 @@ const styles = StyleSheet.create({
         color: Colors.primary,
         fontSize: Typography.sizes.sm,
         fontWeight: '700',
+    },
+    suggestionList: {
+        borderRadius: Radius.md,
+        borderWidth: 1,
+        borderColor: Colors.border.subtle,
+        backgroundColor: Colors.bg.surface,
+        overflow: 'hidden',
+    },
+    suggestionItem: {
+        paddingHorizontal: Spacing.md,
+        paddingVertical: Spacing.sm,
+        borderBottomWidth: 1,
+        borderBottomColor: Colors.border.emphasis,
+    },
+    suggestionTitle: {
+        color: Colors.text.primary,
+        fontSize: Typography.sizes.md,
+        fontWeight: '700',
+    },
+    suggestionSubtitle: {
+        color: Colors.text.secondary,
+        fontSize: Typography.sizes.sm,
+        marginTop: 2,
+    },
+    suggestionMeta: {
+        color: Colors.text.secondary,
+        fontSize: Typography.sizes.sm,
+        paddingHorizontal: Spacing.md,
+        paddingVertical: Spacing.sm,
     },
     localStatusRow: {
         flexDirection: 'row',
