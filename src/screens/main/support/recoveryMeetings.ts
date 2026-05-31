@@ -2,11 +2,24 @@ import * as api from '../../../api/client';
 
 export type RecoveryMeeting = api.RecoveryMeeting;
 export type RecoveryMeetingType = api.RecoveryMeetingType;
+export type PlaceSuggestion = api.PlaceSuggestion;
 export type DayOfWeek = 0 | 1 | 2 | 3 | 4 | 5 | 6;
 
+export interface SelectedRecoveryPlace {
+    id: string;
+    label: string;
+    name: string;
+    country: string;
+    countryCode: string;
+    region?: string | null;
+    regionCode?: string | null;
+    latitude: number;
+    longitude: number;
+}
+
 export interface RecoveryMeetingFilters {
-    query: string;
     fellowships: string[];
+    selectedPlace: SelectedRecoveryPlace | null;
     country: string;
     countryCode: string | null;
     region: string;
@@ -28,8 +41,8 @@ export interface ActiveFilterChip {
 }
 
 export const DEFAULT_MEETING_FILTERS: RecoveryMeetingFilters = {
-    query: '',
-    fellowships: [],
+    fellowships: ['aa'],
+    selectedPlace: null,
     country: '',
     countryCode: null,
     region: '',
@@ -45,7 +58,7 @@ export const FELLOWSHIPS: FilterOption<string>[] = [
     { value: 'na', label: 'NA' },
 ];
 
-export const DEFAULT_LOCAL_FELLOWSHIPS = FELLOWSHIPS.map((option) => option.value);
+export const DEFAULT_LOCAL_FELLOWSHIPS = ['aa'];
 
 export const RECOVERY_MEETING_TYPES: FilterOption<RecoveryMeetingType>[] = [
     { value: 'in_person', label: 'In person' },
@@ -65,35 +78,48 @@ export const DAY_OPTIONS: Array<FilterOption<DayOfWeek> & { short: string; long:
 ];
 
 export function cloneMeetingFilters(filters: RecoveryMeetingFilters): RecoveryMeetingFilters {
-    return { ...filters, fellowships: [...filters.fellowships] };
+    return { ...filters, fellowships: [...filters.fellowships], selectedPlace: filters.selectedPlace ? { ...filters.selectedPlace } : null };
 }
 
 export function filtersToApiParams(filters: RecoveryMeetingFilters): api.RecoveryMeetingFilters {
+    const selectedPlace = filters.selectedPlace;
     return {
-        q: filters.query.trim() || undefined,
         fellowship: filters.fellowships.length ? filters.fellowships : undefined,
-        country: filters.country.trim() || undefined,
-        region: filters.region.trim() || undefined,
-        location: filters.location.trim() || undefined,
+        place_id: selectedPlace?.id,
+        country: selectedPlace ? undefined : filters.country.trim() || undefined,
+        region: selectedPlace ? undefined : filters.region.trim() || undefined,
+        location: selectedPlace ? undefined : filters.location.trim() || undefined,
         day_of_week: filters.dayOfWeek ?? undefined,
         meeting_type: filters.meetingType || undefined,
     };
 }
 
+export function hasDefaultFellowships(fellowships: string[]): boolean {
+    return fellowships.length === DEFAULT_MEETING_FILTERS.fellowships.length
+        && fellowships.every((fellowship, index) => fellowship === DEFAULT_MEETING_FILTERS.fellowships[index]);
+}
+
 export function getActiveFilterChips(filters: RecoveryMeetingFilters): ActiveFilterChip[] {
     const chips: ActiveFilterChip[] = [];
-    if (filters.fellowships.length) {
+    if (!hasDefaultFellowships(filters.fellowships)) {
         chips.push({
             key: 'fellowships',
-            label: getFellowshipSummary(filters.fellowships),
-            remove: (current) => ({ ...current, fellowships: [] }),
+            label: filters.fellowships.length ? getFellowshipSummary(filters.fellowships) : 'Any fellowship',
+            remove: (current) => ({ ...current, fellowships: [...DEFAULT_MEETING_FILTERS.fellowships] }),
         });
     }
-    if (filters.country.trim()) {
+    if (!filters.selectedPlace && filters.country.trim()) {
         chips.push({
             key: 'country',
             label: filters.country.trim(),
-            remove: (current) => ({ ...current, country: '', countryCode: null, region: '', regionCode: null, location: '' }),
+            remove: (current) => ({ ...current, selectedPlace: null, country: '', countryCode: null, region: '', regionCode: null, location: '' }),
+        });
+    }
+    if (filters.selectedPlace) {
+        chips.push({
+            key: 'selectedPlace',
+            label: `Location: ${filters.selectedPlace.label}`,
+            remove: (current) => ({ ...current, selectedPlace: null, country: '', countryCode: null, region: '', regionCode: null, location: '' }),
         });
     }
     if (filters.region.trim()) {

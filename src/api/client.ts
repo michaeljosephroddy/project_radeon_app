@@ -133,6 +133,7 @@ export interface User {
     outgoing_friend_request_count: number;
     current_city?: string | null;
     current_country?: string | null;
+    current_place_id?: string | null;
     location_updated_at?: string | null;
     distance_km?: number | null;
     has_active_reach_out?: boolean;
@@ -551,52 +552,18 @@ export interface RecoveryMeeting {
     updated_at: string;
 }
 
-export interface RecoveryMeetingLocationSuggestion {
+export interface PlaceSuggestion {
+    id: string;
     label: string;
-    location: string;
+    name: string;
+    country: string;
+    country_code: string;
     region?: string | null;
     region_code?: string | null;
-    country?: string | null;
-    country_code?: string | null;
-    meeting_count: number;
-}
-
-export interface RecoveryMeetingRegionSuggestion {
-    label: string;
-    region: string;
-    region_code?: string | null;
-    country: string;
-    country_code?: string | null;
-    meeting_count: number;
-}
-
-export interface RecoveryMeetingCountrySuggestion {
-    label: string;
-    country: string;
-    country_code?: string | null;
-    meeting_count: number;
-}
-
-export type RecoveryMeetingFilterOptionLevel = 'country' | 'region' | 'locality';
-
-export interface RecoveryMeetingFilterOption {
-    label: string;
-    level: RecoveryMeetingFilterOptionLevel;
-    country?: string | null;
-    country_code?: string | null;
-    region?: string | null;
-    region_code?: string | null;
-    locality?: string | null;
-    meeting_count: number;
-}
-
-export interface RecoveryMeetingFilterOptionParams {
-    level: RecoveryMeetingFilterOptionLevel;
-    q: string;
-    fellowship?: string | string[];
-    country?: string;
-    region?: string;
-    limit?: number;
+    latitude: number;
+    longitude: number;
+    population: number;
+    source: string;
 }
 
 export interface RecoveryMeetingFilters {
@@ -606,6 +573,7 @@ export interface RecoveryMeetingFilters {
     region?: string;
     city?: string;
     location?: string;
+    place_id?: string;
     meeting_type?: RecoveryMeetingType;
     day_of_week?: number;
 }
@@ -2225,6 +2193,7 @@ export async function getRecoveryMeetings(
     if (params?.region) search.set('region', params.region);
     if (params?.location) search.set('location', params.location);
     if (params?.city) search.set('city', params.city);
+    if (params?.place_id) search.set('place_id', params.place_id);
     if (params?.meeting_type) search.set('meeting_type', params.meeting_type);
     if (params?.day_of_week !== undefined) search.set('day_of_week', String(params.day_of_week));
     if (params?.cursor) search.set('cursor', params.cursor);
@@ -2241,63 +2210,15 @@ export async function getRecoveryMeeting(id: string): Promise<RecoveryMeeting> {
     return request<RecoveryMeeting>(`/recovery-meetings/${id}`);
 }
 
-function appendRecoveryMeetingFellowshipParams(search: URLSearchParams, fellowship?: string | string[]): void {
-    if (Array.isArray(fellowship)) {
-        for (const item of fellowship) {
-            if (item) search.append('fellowship', item);
-        }
-        return;
-    }
-    if (fellowship) search.set('fellowship', fellowship);
-}
-
-export async function getRecoveryMeetingFilterOptions(
-    params: RecoveryMeetingFilterOptionParams,
-): Promise<RecoveryMeetingFilterOption[]> {
-    const search = new URLSearchParams();
-    search.set('level', params.level);
-    search.set('q', params.q);
-    search.set('limit', String(params.limit ?? 10));
-    appendRecoveryMeetingFellowshipParams(search, params.fellowship);
-    if (params.country) search.set('country', params.country);
-    if (params.region) search.set('region', params.region);
-    return request<RecoveryMeetingFilterOption[]>(`/recovery-meetings/filter-options?${search.toString()}`);
-}
-
-export async function getRecoveryMeetingLocationSuggestions(
+export async function getPlaceAutocomplete(
     query: string,
-    params?: { country?: string; region?: string; fellowship?: string; limit?: number },
-): Promise<RecoveryMeetingLocationSuggestion[]> {
+    params?: { country_code?: string; limit?: number; signal?: AbortSignal },
+): Promise<PlaceSuggestion[]> {
     const search = new URLSearchParams();
     search.set('q', query);
-    search.set('limit', String(params?.limit ?? 8));
-    if (params?.country) search.set('country', params.country);
-    if (params?.region) search.set('region', params.region);
-    if (params?.fellowship) search.set('fellowship', params.fellowship);
-    return request<RecoveryMeetingLocationSuggestion[]>(`/recovery-meetings/locations?${search.toString()}`);
-}
-
-export async function getRecoveryMeetingRegionSuggestions(
-    query: string,
-    params?: { country?: string; fellowship?: string; limit?: number },
-): Promise<RecoveryMeetingRegionSuggestion[]> {
-    const search = new URLSearchParams();
-    search.set('q', query);
-    search.set('limit', String(params?.limit ?? 8));
-    if (params?.country) search.set('country', params.country);
-    if (params?.fellowship) search.set('fellowship', params.fellowship);
-    return request<RecoveryMeetingRegionSuggestion[]>(`/recovery-meetings/regions?${search.toString()}`);
-}
-
-export async function getRecoveryMeetingCountrySuggestions(
-    query: string,
-    params?: { fellowship?: string; limit?: number },
-): Promise<RecoveryMeetingCountrySuggestion[]> {
-    const search = new URLSearchParams();
-    search.set('q', query);
-    search.set('limit', String(params?.limit ?? 8));
-    if (params?.fellowship) search.set('fellowship', params.fellowship);
-    return request<RecoveryMeetingCountrySuggestion[]>(`/recovery-meetings/countries?${search.toString()}`);
+    if (params?.country_code) search.set('country_code', params.country_code);
+    if (params?.limit) search.set('limit', String(params.limit));
+    return request<PlaceSuggestion[]>(`/places/autocomplete?${search.toString()}`, { signal: params?.signal });
 }
 
 export async function createSupportRequest(data: CreateSupportRequestInput): Promise<SupportRequest> {
